@@ -144,3 +144,12 @@ flutter test
 
 The example app adds `file_picker` for user-selected file open/save flows. On
 macOS the example enables user-selected read/write sandbox entitlement.
+
+## CI
+
+GitHub Actions runs the same checks in `.github/workflows/ci.yml`:
+
+- Rust facade tests and Flutter analyze/unit tests.
+- FRB WASM bundle generation followed by `flutter build web`.
+- Desktop example builds for Linux, macOS, and Windows.
+- Mobile example builds for Android and iOS without code signing.

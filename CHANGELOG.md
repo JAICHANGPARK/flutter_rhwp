@@ -19,3 +19,5 @@
   example app toggle between the Flutter bridge editor and the upstream Web
   editor.
 * Added a Web COOP/COEP service worker bootstrap for local FRB WASM debugging.
+* Added GitHub Actions CI for Rust/Dart checks, Web WASM build, desktop builds,
+  and Android/iOS example builds.
