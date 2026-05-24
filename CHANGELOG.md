@@ -8,6 +8,8 @@
   open/save/export workflows.
 * Added facade tests against the vendored blank HWP sample, DOCX package
   output, and explicit unsupported exceptions for Web/WASM PDF export.
+* Added HWP/HWPX export reopen checks for both the vendored blank sample and
+  the bundled example asset.
 * Verified the FRB Web/WASM build path and patched vendored rhwp's standalone
   WASM startup and web-sys canvas style compatibility for FRB integration.
 * Updated package metadata links for `JAICHANGPARK/flutter_rhwp`.

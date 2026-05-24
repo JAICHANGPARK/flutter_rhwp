@@ -476,6 +476,7 @@ mod tests {
 
         let hwpx = session.export_hwpx().expect("HWPX export should succeed");
         assert!(!hwpx.is_empty());
+        open_bytes(hwpx, Some("roundtrip.hwpx".to_string())).expect("exported HWPX should reopen");
     }
 
     #[test]
@@ -539,5 +540,17 @@ mod tests {
             .expect("first page text extraction should succeed")
             .trim()
             .is_empty());
+
+        let hwp = session
+            .export_hwp()
+            .expect("example asset should export to HWP");
+        open_bytes(hwp, Some("example-roundtrip.hwp".to_string()))
+            .expect("example asset HWP export should reopen");
+
+        let hwpx = session
+            .export_hwpx()
+            .expect("example asset should export to HWPX");
+        open_bytes(hwpx, Some("example-roundtrip.hwpx".to_string()))
+            .expect("example asset HWPX export should reopen");
     }
 }
