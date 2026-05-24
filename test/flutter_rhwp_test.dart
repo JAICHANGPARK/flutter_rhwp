@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_rhwp/flutter_rhwp.dart';
 import 'package:flutter_rhwp/src/rust/api/rhwp.dart' as rust;
+import 'package:flutter_rhwp/src/rust/frb_generated.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -39,6 +40,15 @@ void main() {
       controller.exportHwp(),
       throwsA(isA<RhwpUnsupportedPlatformException>()),
     );
+  });
+
+  test('generated FRB bridge can call a mock Rust API', () async {
+    final api = _FakeRustLibApi();
+    RustLib.initMock(api: api);
+    addTearDown(RustLib.dispose);
+
+    expect(await rust.rhwpVersion(), 'mock-rhwp');
+    expect(api.versionCalls, 1);
   });
 
   test('document convenience edit methods use command envelopes', () async {
@@ -94,6 +104,22 @@ void main() {
     expect(session.extractedMarkdownPages, [3]);
     expect(session.renderedSvgPages, [4]);
   });
+}
+
+class _FakeRustLibApi implements RustLibApi {
+  int versionCalls = 0;
+
+  @override
+  Future<void> crateApiRhwpInitApp() async {}
+
+  @override
+  Future<String> crateApiRhwpRhwpVersion() async {
+    versionCalls += 1;
+    return 'mock-rhwp';
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _FakeRhwpSession implements rust.RhwpSession {

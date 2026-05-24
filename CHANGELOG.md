@@ -56,3 +56,4 @@
   verified before the FRB WASM build.
 * Added an iOS simulator CI helper and mobile workflow step for the example
   bundled asset open/render/export integration test.
+* Added a generated FRB bridge mock smoke test for the Dart Rust API entrypoint.
