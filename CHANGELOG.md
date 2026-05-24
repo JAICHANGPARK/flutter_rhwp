@@ -32,6 +32,8 @@
 * Added Linux desktop example integration tests for opening the bundled HWP
   asset, rendering SVG, extracting text/Markdown, and exporting supported
   formats.
+* Run Linux desktop integration tests under Xvfb in CI for headless GitHub
+  Actions runners.
 * Added GitHub Actions CI for Rust/Dart checks, Web WASM build, desktop builds,
   and Android/iOS example builds.
 * Added a custom `RhwpViewer` SVG builder hook and Flutter widget paint tests
