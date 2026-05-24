@@ -96,6 +96,10 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
+      - name: Example Web widget tests
+        working-directory: example
+        run: flutter test --platform chrome test/widget_test.dart
+
       - name: Build FRB WASM bundle
         run: |
           flutter_rust_bridge_codegen build-web \

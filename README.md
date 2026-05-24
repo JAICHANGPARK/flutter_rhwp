@@ -180,6 +180,8 @@ GitHub Actions runs the same checks in `.github/workflows/ci.yml`:
   open/render/export scenarios.
 - Example Android emulator integration tests for the bundled asset
   open/render/export workflow.
+- Example Web widget tests for the upstream Web editor default mode and browser
+  mode toggle.
 - FRB WASM bundle generation followed by `flutter build web`.
 - Desktop example builds for Linux, macOS, and Windows.
 - Mobile example builds for Android and iOS without code signing.

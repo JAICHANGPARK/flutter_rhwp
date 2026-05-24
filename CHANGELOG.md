@@ -52,3 +52,5 @@
   with widget coverage for collapsed and expanded selection states.
 * Changed the example Web app to default to upstream Web editor mode so HWP
   open/edit/export can run without eager FRB WASM initialization on startup.
+* Added example Web widget tests to CI so the browser editor mode shell is
+  verified before the FRB WASM build.
