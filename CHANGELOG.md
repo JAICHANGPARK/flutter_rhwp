@@ -59,3 +59,5 @@
 * Added a generated FRB bridge mock smoke test for the Dart Rust API entrypoint.
 * Improved DOCX export to use extracted Markdown and emit heading and simple
   table OOXML instead of only plain paragraph runs.
+* Added root third-party notices for the vendored rhwp core, Cargokit, direct
+  Dart/Rust dependencies, and generated FRB bridge files.

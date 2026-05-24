@@ -172,6 +172,14 @@ flutter test
 The example app adds `file_picker` for user-selected file open/save flows. On
 macOS the example enables user-selected read/write sandbox entitlement.
 
+## License
+
+`flutter_rhwp` is released under the MIT license. The vendored upstream
+[`edwardkim/rhwp`](https://github.com/edwardkim/rhwp) core is also MIT licensed
+and kept at `rust/vendor/rhwp` for reproducible builds. See
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for bundled source,
+generated bridge, and dependency notices.
+
 ## CI
 
 GitHub Actions runs the same checks in `.github/workflows/ci.yml`:
