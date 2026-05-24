@@ -5,8 +5,8 @@
 import FlutterMacOS
 import Foundation
 
-import flutter_rhwp
+import file_picker
 
 func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
-  FlutterRhwpPlugin.register(with: registry.registrar(forPlugin: "FlutterRhwpPlugin"))
+  FilePickerPlugin.register(with: registry.registrar(forPlugin: "FilePickerPlugin"))
 }

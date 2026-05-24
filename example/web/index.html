@@ -41,6 +41,43 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
-  <script src="flutter_bootstrap.js" async></script>
+  <script>
+    (function () {
+      function loadFlutter() {
+        const script = document.createElement('script');
+        script.src = 'flutter_bootstrap.js';
+        script.async = true;
+        document.body.appendChild(script);
+      }
+
+      if (!('serviceWorker' in navigator) || window.crossOriginIsolated) {
+        loadFlutter();
+        return;
+      }
+
+      navigator.serviceWorker
+        .register('coi-serviceworker.js')
+        .then((registration) => {
+          if (navigator.serviceWorker.controller) {
+            loadFlutter();
+            return;
+          }
+
+          navigator.serviceWorker.addEventListener(
+            'controllerchange',
+            () => window.location.reload(),
+            { once: true },
+          );
+
+          if (registration.active) {
+            window.location.reload();
+          }
+        })
+        .catch((error) => {
+          console.warn('Unable to enable cross-origin isolation.', error);
+          loadFlutter();
+        });
+    })();
+  </script>
 </body>
 </html>

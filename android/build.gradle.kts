@@ -75,3 +75,9 @@ dependencies {
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.mockito:mockito-core:5.0.0")
 }
+
+apply(from = "../cargokit/gradle/plugin.gradle")
+
+val cargokit = extensions.getByName("cargokit") as groovy.lang.GroovyObject
+cargokit.setProperty("manifestDir", "../rust")
+cargokit.setProperty("libname", "flutter_rhwp")

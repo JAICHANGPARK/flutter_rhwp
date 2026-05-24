@@ -1,7 +1,8 @@
 name: flutter_rhwp
 description: "Flutter bindings and widgets for rhwp."
-version: 0.0.1
-homepage:
+version: 2026.5.24
+homepage: https://github.com/JAICHANGPARK/flutter_rhwp
+repository: https://github.com/JAICHANGPARK/flutter_rhwp
 
 environment:
   sdk: ^3.12.0
@@ -12,9 +13,9 @@ dependencies:
     sdk: flutter
   flutter_web_plugins:
     sdk: flutter
-  web: ^1.0.0
-  plugin_platform_interface: ^2.0.2
+  flutter_svg: ^2.2.3
   flutter_rust_bridge: 2.11.1
+  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:
@@ -41,16 +42,15 @@ flutter:
   plugin:
     platforms:
       android:
-        package: com.rhwp.flutter_rhwp
-        pluginClass: FlutterRhwpPlugin
+        ffiPlugin: true
       ios:
-        pluginClass: FlutterRhwpPlugin
+        ffiPlugin: true
       linux:
-        pluginClass: FlutterRhwpPlugin
+        ffiPlugin: true
       macos:
-        pluginClass: FlutterRhwpPlugin
+        ffiPlugin: true
       windows:
-        pluginClass: FlutterRhwpPluginCApi
+        ffiPlugin: true
       web:
         pluginClass: FlutterRhwpWeb
         fileName: flutter_rhwp_web.dart

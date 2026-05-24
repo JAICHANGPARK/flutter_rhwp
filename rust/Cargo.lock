@@ -408,12 +408,13 @@ checksum = "98de4bbd547a563b716d8dfa9aad1cb19bfab00f4fa09a6a4ed21dbcf44ce9c4"
 
 [[package]]
 name = "flutter_rhwp"
-version = "0.1.0"
+version = "2026.5.24"
 dependencies = [
  "flutter_rust_bridge",
  "rhwp",
  "serde",
  "serde_json",
+ "zip",
 ]
 
 [[package]]

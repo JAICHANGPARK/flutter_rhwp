@@ -3,10 +3,10 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
-  flutter_rhwp
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST
+  flutter_rhwp
 )
 
 set(PLUGIN_BUNDLED_LIBRARIES)
