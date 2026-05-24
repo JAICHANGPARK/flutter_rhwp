@@ -230,3 +230,7 @@ jobs:
           profile: pixel_6
           working-directory: example
           script: flutter test integration_test/asset_workflow_test.dart -d emulator-5554
+
+      - name: Run example integration workflow on iOS simulator
+        if: matrix.platform == 'ios'
+        run: bash tool/ci_run_ios_integration.sh

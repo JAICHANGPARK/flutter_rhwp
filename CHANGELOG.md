@@ -54,3 +54,5 @@
   open/edit/export can run without eager FRB WASM initialization on startup.
 * Added example Web widget tests to CI so the browser editor mode shell is
   verified before the FRB WASM build.
+* Added an iOS simulator CI helper and mobile workflow step for the example
+  bundled asset open/render/export integration test.
