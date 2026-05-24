@@ -85,6 +85,44 @@ void main() {
     },
   );
 
+  testWidgets('RhwpViewer lazily renders pages as they enter the viewport', (
+    tester,
+  ) async {
+    final session = _FakeRhwpSession(pageCountValue: 25);
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 420,
+          height: 320,
+          child: RhwpViewer(
+            document: document,
+            padding: const EdgeInsets.all(8),
+            pageGap: 8,
+            svgBuilder: _tallSvgBuilder,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(session.renderedPages, [0, 1]);
+
+    final verticalScrollable = find.byType(Scrollable).last;
+    for (var i = 0; i < 3; i += 1) {
+      await tester.drag(verticalScrollable, const Offset(0, -900));
+      await _pumpDocumentFrame(tester);
+    }
+
+    expect(session.renderedPages.any((page) => page > 1), isTrue);
+    expect(session.renderedPages.length, lessThan(session.pageCountValue));
+    expect(
+      session.renderedPages.toSet(),
+      hasLength(session.renderedPages.length),
+    );
+  });
+
   testWidgets('RhwpEditor overlay applies insert and delete commands', (
     tester,
   ) async {
@@ -152,6 +190,10 @@ class _WidgetHarness extends StatelessWidget {
 
 Widget _testSvgBuilder(BuildContext context, String svg) {
   return _TestSvgCanvas(svg: svg);
+}
+
+Widget _tallSvgBuilder(BuildContext context, String svg) {
+  return SizedBox(width: 240, height: 800, child: _TestSvgCanvas(svg: svg));
 }
 
 class _TestSvgCanvas extends StatelessWidget {

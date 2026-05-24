@@ -38,3 +38,5 @@
   and Android/iOS example builds.
 * Added a custom `RhwpViewer` SVG builder hook and Flutter widget paint tests
   for viewer rendering, zoom, and editor overlay command flows.
+* Added a `RhwpViewer` page virtualization regression test for lazy SVG page
+  rendering during scroll.
