@@ -134,12 +134,20 @@ impl RhwpSession {
         let mut output = Vec::with_capacity(pages.len());
 
         for page in pages {
-            output.push(
-                inner
-                    .document
-                    .extract_page_text_native(page)
-                    .map_err(error_to_string)?,
-            );
+            let markdown = inner
+                .document
+                .extract_page_markdown_native(page)
+                .map_err(error_to_string)?;
+            if markdown.trim().is_empty() {
+                output.push(
+                    inner
+                        .document
+                        .extract_page_text_native(page)
+                        .map_err(error_to_string)?,
+                );
+            } else {
+                output.push(markdown);
+            }
         }
 
         build_docx(
@@ -273,6 +281,13 @@ fn error_to_string(error: impl std::fmt::Display) -> String {
     error.to_string()
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum DocxBlock {
+    Paragraph(String),
+    Heading { level: u8, text: String },
+    Table(Vec<Vec<String>>),
+}
+
 fn build_docx(text: &str, title: &str) -> Result<Vec<u8>, String> {
     let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
     let options = SimpleFileOptions::default()
@@ -317,22 +332,12 @@ fn write_zip_entry(
     writer.write_all(data.as_bytes()).map_err(error_to_string)
 }
 
-fn docx_document_xml(text: &str) -> String {
+fn docx_document_xml(markdown: &str) -> String {
+    let blocks = parse_markdown_blocks(markdown);
     let mut body = String::new();
-    let normalized = text.replace("\r\n", "\n").replace('\r', "\n");
 
-    if normalized.is_empty() {
-        body.push_str("<w:p/>");
-    } else {
-        for line in normalized.split('\n') {
-            body.push_str("<w:p>");
-            if !line.is_empty() {
-                body.push_str("<w:r><w:t xml:space=\"preserve\">");
-                body.push_str(&escape_xml_text(&line.replace('\t', "    ")));
-                body.push_str("</w:t></w:r>");
-            }
-            body.push_str("</w:p>");
-        }
+    for block in blocks {
+        body.push_str(&docx_block_xml(&block));
     }
 
     format!(
@@ -346,6 +351,156 @@ fn docx_document_xml(text: &str) -> String {
     </w:sectPr>
   </w:body>
 </w:document>"#
+    )
+}
+
+fn parse_markdown_blocks(markdown: &str) -> Vec<DocxBlock> {
+    let normalized = markdown.replace("\r\n", "\n").replace('\r', "\n");
+    if normalized.is_empty() {
+        return vec![DocxBlock::Paragraph(String::new())];
+    }
+
+    let lines: Vec<&str> = normalized.split('\n').collect();
+    let mut blocks = Vec::new();
+    let mut index = 0;
+
+    while index < lines.len() {
+        let line = lines[index];
+        let trimmed = line.trim();
+
+        if trimmed.is_empty() {
+            blocks.push(DocxBlock::Paragraph(String::new()));
+            index += 1;
+            continue;
+        }
+
+        if let Some((level, text)) = parse_markdown_heading(trimmed) {
+            blocks.push(DocxBlock::Heading { level, text });
+            index += 1;
+            continue;
+        }
+
+        if index + 1 < lines.len() && is_markdown_table_separator(lines[index + 1]) {
+            let header = split_markdown_table_row(line);
+            if header.len() > 1 {
+                let mut rows = vec![header];
+                index += 2;
+                while index < lines.len() {
+                    let cells = split_markdown_table_row(lines[index]);
+                    if cells.len() <= 1 {
+                        break;
+                    }
+                    rows.push(cells);
+                    index += 1;
+                }
+                blocks.push(DocxBlock::Table(rows));
+                continue;
+            }
+        }
+
+        blocks.push(DocxBlock::Paragraph(line.trim_end().to_string()));
+        index += 1;
+    }
+
+    blocks
+}
+
+fn parse_markdown_heading(line: &str) -> Option<(u8, String)> {
+    let hashes = line.chars().take_while(|ch| *ch == '#').count();
+    if hashes == 0 || hashes > 6 || !line.chars().nth(hashes).is_some_and(|ch| ch == ' ') {
+        return None;
+    }
+
+    Some((hashes as u8, line[hashes + 1..].trim().to_string()))
+}
+
+fn split_markdown_table_row(line: &str) -> Vec<String> {
+    let trimmed = line.trim().trim_matches('|');
+    if !trimmed.contains('|') {
+        return Vec::new();
+    }
+
+    trimmed
+        .split('|')
+        .map(|cell| cell.trim().to_string())
+        .collect()
+}
+
+fn is_markdown_table_separator(line: &str) -> bool {
+    let cells = split_markdown_table_row(line);
+    !cells.is_empty()
+        && cells.iter().all(|cell| {
+            let trimmed = cell.trim();
+            trimmed.contains('-')
+                && trimmed
+                    .chars()
+                    .all(|ch| ch == '-' || ch == ':' || ch.is_whitespace())
+        })
+}
+
+fn docx_block_xml(block: &DocxBlock) -> String {
+    match block {
+        DocxBlock::Paragraph(text) => docx_paragraph_xml(None, text),
+        DocxBlock::Heading { level, text } => {
+            docx_paragraph_xml(Some(&format!("Heading{}", (*level).clamp(1, 6))), text)
+        }
+        DocxBlock::Table(rows) => docx_table_xml(rows),
+    }
+}
+
+fn docx_paragraph_xml(style: Option<&str>, text: &str) -> String {
+    let paragraph_properties = style
+        .map(|style| format!(r#"<w:pPr><w:pStyle w:val="{style}"/></w:pPr>"#))
+        .unwrap_or_default();
+
+    if text.is_empty() {
+        return format!("<w:p>{paragraph_properties}</w:p>");
+    }
+
+    format!(
+        r#"<w:p>{paragraph_properties}<w:r><w:t xml:space="preserve">{}</w:t></w:r></w:p>"#,
+        escape_xml_text(&text.replace('\t', "    "))
+    )
+}
+
+fn docx_table_xml(rows: &[Vec<String>]) -> String {
+    if rows.is_empty() {
+        return String::new();
+    }
+
+    let column_count = rows.iter().map(Vec::len).max().unwrap_or(1).max(1);
+    let column_width = 8640 / column_count;
+    let mut xml = String::from(
+        r#"<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders><w:top w:val="single" w:sz="4" w:space="0" w:color="auto"/><w:left w:val="single" w:sz="4" w:space="0" w:color="auto"/><w:bottom w:val="single" w:sz="4" w:space="0" w:color="auto"/><w:right w:val="single" w:sz="4" w:space="0" w:color="auto"/><w:insideH w:val="single" w:sz="4" w:space="0" w:color="auto"/><w:insideV w:val="single" w:sz="4" w:space="0" w:color="auto"/></w:tblBorders></w:tblPr><w:tblGrid>"#,
+    );
+
+    for _ in 0..column_count {
+        xml.push_str(&format!(r#"<w:gridCol w:w="{column_width}"/>"#));
+    }
+    xml.push_str("</w:tblGrid>");
+
+    for (row_index, row) in rows.iter().enumerate() {
+        xml.push_str("<w:tr>");
+        for column_index in 0..column_count {
+            let cell = row.get(column_index).map(String::as_str).unwrap_or("");
+            xml.push_str(&docx_table_cell_xml(cell, row_index == 0, column_width));
+        }
+        xml.push_str("</w:tr>");
+    }
+
+    xml.push_str("</w:tbl>");
+    xml
+}
+
+fn docx_table_cell_xml(text: &str, is_header: bool, width: usize) -> String {
+    let run_properties = if is_header {
+        "<w:rPr><w:b/></w:rPr>"
+    } else {
+        ""
+    };
+    format!(
+        r#"<w:tc><w:tcPr><w:tcW w:w="{width}" w:type="dxa"/></w:tcPr><w:p><w:r>{run_properties}<w:t xml:space="preserve">{}</w:t></w:r></w:p></w:tc>"#,
+        escape_xml_text(&text.replace('\t', "    "))
     )
 }
 
@@ -406,6 +561,42 @@ const STYLES_XML: &str = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes
 <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:style w:type="paragraph" w:default="1" w:styleId="Normal">
     <w:name w:val="Normal"/>
+    <w:qFormat/>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Heading1">
+    <w:name w:val="heading 1"/>
+    <w:basedOn w:val="Normal"/>
+    <w:next w:val="Normal"/>
+    <w:qFormat/>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Heading2">
+    <w:name w:val="heading 2"/>
+    <w:basedOn w:val="Normal"/>
+    <w:next w:val="Normal"/>
+    <w:qFormat/>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Heading3">
+    <w:name w:val="heading 3"/>
+    <w:basedOn w:val="Normal"/>
+    <w:next w:val="Normal"/>
+    <w:qFormat/>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Heading4">
+    <w:name w:val="heading 4"/>
+    <w:basedOn w:val="Normal"/>
+    <w:next w:val="Normal"/>
+    <w:qFormat/>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Heading5">
+    <w:name w:val="heading 5"/>
+    <w:basedOn w:val="Normal"/>
+    <w:next w:val="Normal"/>
+    <w:qFormat/>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Heading6">
+    <w:name w:val="heading 6"/>
+    <w:basedOn w:val="Normal"/>
+    <w:next w:val="Normal"/>
     <w:qFormat/>
   </w:style>
 </w:styles>"#;
@@ -520,6 +711,21 @@ mod tests {
 
         assert!(document_xml.contains("<w:document"));
         assert!(document_xml.contains("rhwp docx"));
+    }
+
+    #[test]
+    fn docx_markdown_headings_and_tables_use_structured_ooxml() {
+        let document_xml = docx_document_xml(
+            "# Heading & One\n\n| Name | Value |\n| --- | --- |\n| A & B | <C> |\n\nAfter",
+        );
+
+        assert!(document_xml.contains(r#"<w:pStyle w:val="Heading1"/>"#));
+        assert!(document_xml.contains("<w:tbl>"));
+        assert!(document_xml.contains("<w:tblGrid>"));
+        assert!(document_xml.contains("<w:b/>"));
+        assert!(document_xml.contains("A &amp; B"));
+        assert!(document_xml.contains("&lt;C&gt;"));
+        assert!(document_xml.contains("After"));
     }
 
     #[test]

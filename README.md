@@ -35,8 +35,9 @@ Implemented:
 
 Not complete yet:
 
-- DOCX export currently maps extracted text into paragraph-oriented OOXML.
-  Table, image, and exact layout mapping are still pending.
+- DOCX export currently maps extracted Markdown into paragraph, heading, and
+  simple table OOXML. Image embedding and exact layout mapping are still
+  pending.
 - Flutter bridge PDF export on Web/WASM throws
   `RhwpUnsupportedPlatformException`. In Web editor mode, export support depends
   on the methods exposed by the loaded upstream `@rhwp/editor` build.
