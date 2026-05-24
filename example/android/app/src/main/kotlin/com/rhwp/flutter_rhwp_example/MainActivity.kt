@@ -1,0 +1,5 @@
+package com.rhwp.flutter_rhwp_example
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity : FlutterActivity()
