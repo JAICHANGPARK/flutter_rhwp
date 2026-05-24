@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import 'rhwp_document.dart';
@@ -14,6 +16,20 @@ class RhwpCursorPosition {
   final int paragraph;
   final int offset;
 
+  int compareTo(RhwpCursorPosition other) {
+    final sectionCompare = section.compareTo(other.section);
+    if (sectionCompare != 0) {
+      return sectionCompare;
+    }
+
+    final paragraphCompare = paragraph.compareTo(other.paragraph);
+    if (paragraphCompare != 0) {
+      return paragraphCompare;
+    }
+
+    return offset.compareTo(other.offset);
+  }
+
   RhwpCursorPosition copyWith({int? section, int? paragraph, int? offset}) {
     return RhwpCursorPosition(
       section: section ?? this.section,
@@ -21,23 +37,75 @@ class RhwpCursorPosition {
       offset: offset ?? this.offset,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    return other is RhwpCursorPosition &&
+        other.section == section &&
+        other.paragraph == paragraph &&
+        other.offset == offset;
+  }
+
+  @override
+  int get hashCode => Object.hash(section, paragraph, offset);
+}
+
+class RhwpSelectionRange {
+  const RhwpSelectionRange({required this.start, required this.end});
+
+  factory RhwpSelectionRange.collapsed(RhwpCursorPosition cursor) {
+    return RhwpSelectionRange(start: cursor, end: cursor);
+  }
+
+  final RhwpCursorPosition start;
+  final RhwpCursorPosition end;
+
+  bool get isCollapsed => start == end;
+
+  RhwpCursorPosition get normalizedStart =>
+      start.compareTo(end) <= 0 ? start : end;
+
+  RhwpCursorPosition get normalizedEnd =>
+      start.compareTo(end) <= 0 ? end : start;
+
+  @override
+  bool operator ==(Object other) {
+    return other is RhwpSelectionRange &&
+        other.start == start &&
+        other.end == end;
+  }
+
+  @override
+  int get hashCode => Object.hash(start, end);
 }
 
 class RhwpEditorController extends RhwpViewerController {
-  RhwpEditorController({super.zoom}) : _cursor = const RhwpCursorPosition();
+  RhwpEditorController({super.zoom})
+    : _cursor = const RhwpCursorPosition(),
+      _selection = RhwpSelectionRange.collapsed(const RhwpCursorPosition());
 
   RhwpCursorPosition _cursor;
+  RhwpSelectionRange _selection;
 
   RhwpCursorPosition get cursor => _cursor;
 
   set cursor(RhwpCursorPosition value) {
-    if (value.section == _cursor.section &&
-        value.paragraph == _cursor.paragraph &&
-        value.offset == _cursor.offset) {
+    selection = RhwpSelectionRange.collapsed(value);
+  }
+
+  RhwpSelectionRange get selection => _selection;
+
+  set selection(RhwpSelectionRange value) {
+    if (value == _selection && value.end == _cursor) {
       return;
     }
-    _cursor = value;
+    _selection = value;
+    _cursor = value.end;
     notifyListeners();
+  }
+
+  void clearSelection() {
+    selection = RhwpSelectionRange.collapsed(_cursor);
   }
 }
 
@@ -73,13 +141,13 @@ class _RhwpEditorState extends State<RhwpEditor> {
     super.initState();
     _ownsController = widget.controller == null;
     _controller = widget.controller ?? RhwpEditorController();
-    _controller.addListener(_syncCursorFields);
+    _controller.addListener(_handleControllerChanged);
     _syncCursorFields();
   }
 
   @override
   void dispose() {
-    _controller.removeListener(_syncCursorFields);
+    _controller.removeListener(_handleControllerChanged);
     if (_ownsController) {
       _controller.dispose();
     }
@@ -88,6 +156,13 @@ class _RhwpEditorState extends State<RhwpEditor> {
     _paragraphController.dispose();
     _offsetController.dispose();
     super.dispose();
+  }
+
+  void _handleControllerChanged() {
+    _syncCursorFields();
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _syncCursorFields() {
@@ -196,6 +271,14 @@ class _RhwpEditorState extends State<RhwpEditor> {
           document: widget.document,
           controller: _controller,
         ),
+        Positioned.fill(
+          child: IgnorePointer(
+            child: _EditorSelectionOverlay(
+              selection: _controller.selection,
+              zoom: _controller.zoom,
+            ),
+          ),
+        ),
         Positioned(
           left: 16,
           right: 16,
@@ -213,6 +296,89 @@ class _RhwpEditorState extends State<RhwpEditor> {
         ),
       ],
     );
+  }
+}
+
+class _EditorSelectionOverlay extends StatelessWidget {
+  const _EditorSelectionOverlay({required this.selection, required this.zoom});
+
+  final RhwpSelectionRange selection;
+  final double zoom;
+
+  static const _pageInset = 48.0;
+  static const _lineHeight = 24.0;
+  static const _characterWidth = 8.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.primary;
+    final effectiveZoom = zoom.clamp(0.25, 6.0).toDouble();
+    final start = selection.normalizedStart;
+    final end = selection.normalizedEnd;
+    final top = _pageInset + start.paragraph * _lineHeight * effectiveZoom;
+    final left = _pageInset + start.offset * _characterWidth * effectiveZoom;
+    final caretLeft =
+        _pageInset + selection.end.offset * _characterWidth * effectiveZoom;
+    final height = math.max(18.0, _lineHeight * effectiveZoom);
+    final selectionWidth = _selectionWidth(start, end, effectiveZoom);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final boundedTop = _bound(top, constraints.maxHeight, height);
+        final children = <Widget>[
+          if (!selection.isCollapsed)
+            Positioned(
+              key: const ValueKey('rhwp-editor-selection'),
+              left: _bound(left, constraints.maxWidth, selectionWidth),
+              top: boundedTop,
+              width: selectionWidth,
+              height: height,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            ),
+          Positioned(
+            key: const ValueKey('rhwp-editor-caret'),
+            left: _bound(caretLeft, constraints.maxWidth, 2),
+            top: boundedTop,
+            width: 2,
+            height: height,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+          ),
+        ];
+
+        return Stack(children: children);
+      },
+    );
+  }
+
+  double _selectionWidth(
+    RhwpCursorPosition start,
+    RhwpCursorPosition end,
+    double effectiveZoom,
+  ) {
+    if (start.section != end.section || start.paragraph != end.paragraph) {
+      return 160 * effectiveZoom;
+    }
+
+    final selectedCharacters = math.max(1, end.offset - start.offset);
+    return math.max(8.0, selectedCharacters * _characterWidth * effectiveZoom);
+  }
+
+  double _bound(double value, double viewport, double extent) {
+    if (!viewport.isFinite) {
+      return math.max(0, value);
+    }
+    final maxValue = math.max(0, viewport - extent);
+    return value.clamp(0.0, maxValue).toDouble();
   }
 }
 

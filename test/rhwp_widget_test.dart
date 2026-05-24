@@ -173,6 +173,38 @@ void main() {
       'count': 1,
     });
   });
+
+  testWidgets('RhwpEditor paints caret and selection target overlay', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(find.byKey(const ValueKey('rhwp-editor-caret')), findsOneWidget);
+    expect(find.byKey(const ValueKey('rhwp-editor-selection')), findsNothing);
+
+    controller.selection = const RhwpSelectionRange(
+      start: RhwpCursorPosition(offset: 1),
+      end: RhwpCursorPosition(offset: 5),
+    );
+    await tester.pump();
+
+    expect(controller.cursor.offset, 5);
+    expect(find.byKey(const ValueKey('rhwp-editor-caret')), findsOneWidget);
+    expect(find.byKey(const ValueKey('rhwp-editor-selection')), findsOneWidget);
+  });
 }
 
 class _WidgetHarness extends StatelessWidget {

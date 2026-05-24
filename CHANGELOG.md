@@ -48,3 +48,5 @@
   for viewer rendering, zoom, and editor overlay command flows.
 * Added a `RhwpViewer` page virtualization regression test for lazy SVG page
   rendering during scroll.
+* Added a Flutter-drawn `RhwpEditor` command-target caret and selection marker
+  with widget coverage for collapsed and expanded selection states.

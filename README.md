@@ -23,7 +23,8 @@ Implemented:
 - Export HWP, HWPX, native PDF, DOCX, text, Markdown, and page SVG.
 - Apply basic edit commands for body text insert/delete and file name updates.
 - Display pages with `RhwpViewer`.
-- Edit through an initial `RhwpEditor` command overlay.
+- Edit through an initial `RhwpEditor` command overlay with a Flutter-drawn
+  command-target caret and selection marker.
 - Embed upstream `@rhwp/editor` on Web with `RhwpWebEditor` and
   `RhwpWebEditorController`.
 - Example app workflows for opening the bundled asset sample or a picked
@@ -43,7 +44,8 @@ Not complete yet:
 - Apple builds currently use the CocoaPods podspec/cargokit path for Rust
   static library linkage. SwiftPM manifests are intentionally omitted until the
   Rust build/linkage path is implemented for Swift Package Manager.
-- The Flutter-native editor UI is not implemented beyond command application.
+- The Flutter-native editor UI still uses command-target coordinates. Exact
+  document layout-aware caret and selection mapping is pending.
 
 ## Usage
 
