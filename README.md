@@ -169,6 +169,8 @@ GitHub Actions runs the same checks in `.github/workflows/ci.yml`:
 - Rust facade tests and Flutter analyze/unit tests.
 - Example Linux, macOS, and Windows desktop integration tests for bundled asset
   open/render/export scenarios.
+- Example Android emulator integration tests for the bundled asset
+  open/render/export workflow.
 - FRB WASM bundle generation followed by `flutter build web`.
 - Desktop example builds for Linux, macOS, and Windows.
 - Mobile example builds for Android and iOS without code signing.
