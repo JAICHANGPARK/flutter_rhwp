@@ -17,10 +17,19 @@ const _webEditorModuleUrl = String.fromEnvironment(
   defaultValue: RhwpWebEditor.defaultModuleUrl,
 );
 
+typedef RhwpSampleBytesLoader = Future<Uint8List> Function();
+
 class RhwpExampleApp extends StatefulWidget {
-  const RhwpExampleApp({super.key, this.autoOpenSample = true});
+  const RhwpExampleApp({
+    super.key,
+    this.autoOpenSample = true,
+    this.webEditorModuleUrl = _webEditorModuleUrl,
+    this.sampleBytesLoader,
+  });
 
   final bool autoOpenSample;
+  final String webEditorModuleUrl;
+  final RhwpSampleBytesLoader? sampleBytesLoader;
 
   @override
   State<RhwpExampleApp> createState() => _RhwpExampleAppState();
@@ -76,11 +85,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
 
   Future<void> _openSampleDocument() async {
     await _run('Open sample asset', () async {
-      final data = await rootBundle.load(_sampleAssetPath);
-      final bytes = data.buffer.asUint8List(
-        data.offsetInBytes,
-        data.lengthInBytes,
-      );
+      final bytes = await _loadSampleBytes();
       if (_usesWebEditor) {
         await _replaceWebEditorSource(
           fileName: _sampleFileName,
@@ -97,6 +102,16 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
       );
       return 'Opened bundled sample';
     });
+  }
+
+  Future<Uint8List> _loadSampleBytes() async {
+    final loader = widget.sampleBytesLoader;
+    if (loader != null) {
+      return loader();
+    }
+
+    final data = await rootBundle.load(_sampleAssetPath);
+    return data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
   }
 
   Future<void> _openDocument() async {
@@ -404,7 +419,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
                         'web-editor-${_fileName ?? 'document'}-${_sourceBytes?.length ?? 0}-${_viewerKey.hashCode}',
                       ),
                       controller: _webEditorController,
-                      moduleUrl: _webEditorModuleUrl,
+                      moduleUrl: widget.webEditorModuleUrl,
                       initialBytes: _sourceBytes,
                       fileName: _fileName,
                     )

@@ -136,8 +136,34 @@ class _RhwpWebEditorState extends State<RhwpWebEditor> {
       ..style.setProperty('background', '#ffffff')
       ..style.setProperty('overflow', 'hidden');
 
-    _appendBootstrapScript(_hostId);
+    if (widget.moduleUrl.trim().isEmpty) {
+      _setHostMessage(
+        host,
+        'rhwp Web editor module URL is missing.',
+        'Pass RhwpWebEditor(moduleUrl: ...) or set RHWP_EDITOR_MODULE_URL in the example app.',
+      );
+    } else {
+      _appendBootstrapScript(_hostId);
+    }
     return host;
+  }
+
+  void _setHostMessage(web.HTMLElement host, String title, String detail) {
+    host
+      ..style.setProperty('box-sizing', 'border-box')
+      ..style.setProperty('padding', '24px')
+      ..style.setProperty('display', 'flex')
+      ..style.setProperty('flex-direction', 'column')
+      ..style.setProperty('justify-content', 'center')
+      ..style.setProperty('align-items', 'center')
+      ..style.setProperty('gap', '8px')
+      ..style.setProperty('color', '#101828')
+      ..style.setProperty(
+        'font',
+        '14px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+      )
+      ..style.setProperty('text-align', 'center')
+      ..textContent = '$title $detail';
   }
 
   void _appendBootstrapScript(String hostId) {

@@ -61,3 +61,7 @@
   table OOXML instead of only plain paragraph runs.
 * Added root third-party notices for the vendored rhwp core, Cargokit, direct
   Dart/Rust dependencies, and generated FRB bridge files.
+* Added a Web widget smoke test for bundled sample auto-open in upstream Web
+  editor mode without eager Flutter bridge WASM initialization, and made empty
+  Web editor module URLs render an inline message without injecting a bootstrap
+  script.
