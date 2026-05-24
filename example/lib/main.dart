@@ -37,8 +37,12 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
   Object? _error;
   String? _fileName;
   String? _status;
-  _EditorMode _editorMode = _EditorMode.flutterBridge;
+  _EditorMode _editorMode = kIsWeb
+      ? _EditorMode.upstreamWeb
+      : _EditorMode.flutterBridge;
   bool _busy = false;
+
+  bool get _usesWebEditor => kIsWeb && _editorMode == _EditorMode.upstreamWeb;
 
   @override
   void initState() {
@@ -58,6 +62,11 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
 
   Future<void> _createBlankDocument() async {
     await _run('New document', () async {
+      if (_usesWebEditor) {
+        await _replaceWebEditorSource(fileName: 'blank.hwp');
+        return 'Created blank.hwp in Web editor';
+      }
+
       final next = await Rhwp.createEmpty(fileName: 'blank.hwp');
       final bytes = await next.exportHwp();
       await _replaceDocument(next, fileName: 'blank.hwp', sourceBytes: bytes);
@@ -72,6 +81,14 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
         data.offsetInBytes,
         data.lengthInBytes,
       );
+      if (_usesWebEditor) {
+        await _replaceWebEditorSource(
+          fileName: _sampleFileName,
+          sourceBytes: bytes,
+        );
+        return 'Opened bundled sample in Web editor';
+      }
+
       final next = await Rhwp.open(bytes, fileName: _sampleFileName);
       await _replaceDocument(
         next,
@@ -96,6 +113,11 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
 
       final file = result.files.single;
       final bytes = await file.xFile.readAsBytes();
+      if (_usesWebEditor) {
+        await _replaceWebEditorSource(fileName: file.name, sourceBytes: bytes);
+        return 'Opened ${file.name} in Web editor';
+      }
+
       final next = await Rhwp.open(bytes, fileName: file.name);
       await _replaceDocument(next, fileName: file.name, sourceBytes: bytes);
       return 'Opened ${file.name}';
@@ -104,7 +126,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
 
   Future<void> _saveExport(_ExportKind kind) async {
     final document = _document;
-    if (document == null) {
+    if (document == null && !_usesWebEditor) {
       _showStatus('No document is open');
       return;
     }
@@ -129,7 +151,11 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
   Future<void> _insertDemoText() async {
     final document = _document;
     if (document == null) {
-      _showStatus('No document is open');
+      _showStatus(
+        _usesWebEditor
+            ? 'Use the upstream Web editor toolbar for direct edits'
+            : 'No document is open',
+      );
       return;
     }
 
@@ -149,10 +175,13 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
 
   Future<Uint8List> _bytesFor(
     _ExportKind kind, {
-    required RhwpDocument document,
+    required RhwpDocument? document,
   }) {
-    if (kIsWeb && _editorMode == _EditorMode.upstreamWeb) {
+    if (_usesWebEditor) {
       return _webEditorController.export(kind.format);
+    }
+    if (document == null) {
+      throw StateError('No document is open');
     }
     return document.export(kind.format);
   }
@@ -174,7 +203,22 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
     await previous?.close();
   }
 
-  void _setEditorMode(_EditorMode mode) {
+  Future<void> _replaceWebEditorSource({
+    required String fileName,
+    Uint8List? sourceBytes,
+  }) async {
+    final previous = _document;
+    setState(() {
+      _document = null;
+      _metadata = null;
+      _sourceBytes = sourceBytes;
+      _fileName = fileName;
+      _viewerKey = UniqueKey();
+    });
+    await previous?.close();
+  }
+
+  Future<void> _setEditorMode(_EditorMode mode) async {
     if (mode == _editorMode) {
       return;
     }
@@ -182,6 +226,34 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
       _showStatus('The upstream rhwp Web editor is only available on Web');
       return;
     }
+
+    final sourceBytes = _sourceBytes;
+    if (mode == _EditorMode.flutterBridge &&
+        _document == null &&
+        sourceBytes != null) {
+      await _run('Open Flutter bridge', () async {
+        final next = await Rhwp.open(
+          sourceBytes,
+          fileName: _fileName ?? 'document.hwp',
+        );
+        await _replaceDocument(
+          next,
+          fileName: _fileName ?? 'document.hwp',
+          sourceBytes: sourceBytes,
+        );
+        setState(() {
+          _editorMode = mode;
+        });
+        return 'Switched to Flutter bridge';
+      });
+      return;
+    }
+
+    if (mode == _EditorMode.flutterBridge && _document == null) {
+      _showStatus('Open a HWP/HWPX file before switching to Flutter bridge');
+      return;
+    }
+
     setState(() {
       _editorMode = mode;
     });
@@ -249,6 +321,9 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
   @override
   Widget build(BuildContext context) {
     final document = _document;
+    final canShowWebEditor =
+        _usesWebEditor && (_fileName != null || _sourceBytes != null);
+    final canExport = document != null || canShowWebEditor;
 
     return MaterialApp(
       scaffoldMessengerKey: _scaffoldMessengerKey,
@@ -279,7 +354,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
             ),
             PopupMenuButton<_ExportKind>(
               tooltip: 'Export',
-              enabled: !_busy && document != null,
+              enabled: !_busy && canExport,
               icon: const Icon(Icons.ios_share),
               onSelected: _saveExport,
               itemBuilder: (context) => const [
@@ -319,13 +394,11 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
               onEditorModeChanged: kIsWeb && !_busy ? _setEditorMode : null,
             ),
             Expanded(
-              child: _busy && document == null
+              child: _busy && !canExport
                   ? const Center(child: CircularProgressIndicator())
-                  : _error != null && document == null
+                  : _error != null && !canExport
                   ? Center(child: Text(_error.toString()))
-                  : document == null
-                  ? const SizedBox.shrink()
-                  : kIsWeb && _editorMode == _EditorMode.upstreamWeb
+                  : canShowWebEditor
                   ? RhwpWebEditor(
                       key: ValueKey(
                         'web-editor-${_fileName ?? 'document'}-${_sourceBytes?.length ?? 0}-${_viewerKey.hashCode}',
@@ -335,6 +408,8 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
                       initialBytes: _sourceBytes,
                       fileName: _fileName,
                     )
+                  : document == null
+                  ? const SizedBox.shrink()
                   : RhwpEditor(
                       key: _viewerKey,
                       document: document,
@@ -347,6 +422,17 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
                         setState(() {
                           _metadata = metadata;
                         });
+                        try {
+                          final bytes = await document.exportHwp();
+                          if (mounted) {
+                            setState(() {
+                              _sourceBytes = bytes;
+                            });
+                          }
+                        } catch (_) {
+                          // Keep editing responsive even if snapshot export is
+                          // unavailable for the current document state.
+                        }
                       },
                     ),
             ),

@@ -30,6 +30,8 @@ Implemented:
 - Example app workflows for opening the bundled asset sample or a picked
   HWP/HWPX file, toggling between the Flutter bridge viewer/editor and the
   upstream Web editor, then saving HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
+- On Web, the example opens files in upstream Web editor mode by default so the
+  browser editor can run even before the FRB WASM bridge is initialized.
 
 Not complete yet:
 
@@ -103,6 +105,11 @@ controller tries the upstream editor's exported methods such as `exportHwp`,
 `exportHwpx`, `exportPdf`, `exportDocx`, `exportText`, `exportMarkdown`, and
 `exportSvg`; if a method is missing, it throws `RhwpUnsupportedPlatformException`
 with the upstream error message.
+
+The example app starts in upstream Web editor mode on Web. Switching to
+`Flutter` mode opens the same bytes through the FRB bridge; if the browser is
+not cross-origin isolated or the WASM bundle is missing, the Web editor remains
+usable while the Flutter bridge reports the load error.
 
 Editing command:
 
