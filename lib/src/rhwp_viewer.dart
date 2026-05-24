@@ -3,6 +3,16 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import 'rhwp_document.dart';
 
+typedef RhwpSvgBuilder = Widget Function(BuildContext context, String svg);
+
+Widget _defaultRhwpSvgBuilder(BuildContext context, String svg) {
+  return SvgPicture.string(
+    svg,
+    fit: BoxFit.contain,
+    clipBehavior: Clip.antiAlias,
+  );
+}
+
 class RhwpViewerController extends ChangeNotifier {
   RhwpViewerController({double zoom = 1.0})
     : _zoom = zoom.clamp(0.25, 6.0).toDouble();
@@ -35,6 +45,7 @@ class RhwpViewer extends StatefulWidget {
     this.padding = const EdgeInsets.all(24),
     this.pageGap = 16,
     this.backgroundColor = const Color(0xfff2f4f7),
+    this.svgBuilder = _defaultRhwpSvgBuilder,
   });
 
   final RhwpDocument document;
@@ -42,6 +53,7 @@ class RhwpViewer extends StatefulWidget {
   final EdgeInsets padding;
   final double pageGap;
   final Color backgroundColor;
+  final RhwpSvgBuilder svgBuilder;
 
   @override
   State<RhwpViewer> createState() => _RhwpViewerState();
@@ -116,6 +128,7 @@ class _RhwpViewerState extends State<RhwpViewer> {
                       return _RhwpSvgPage(
                         document: widget.document,
                         page: index,
+                        svgBuilder: widget.svgBuilder,
                       );
                     },
                   ),
@@ -130,10 +143,15 @@ class _RhwpViewerState extends State<RhwpViewer> {
 }
 
 class _RhwpSvgPage extends StatefulWidget {
-  const _RhwpSvgPage({required this.document, required this.page});
+  const _RhwpSvgPage({
+    required this.document,
+    required this.page,
+    required this.svgBuilder,
+  });
 
   final RhwpDocument document;
   final int page;
+  final RhwpSvgBuilder svgBuilder;
 
   @override
   State<_RhwpSvgPage> createState() => _RhwpSvgPageState();
@@ -185,11 +203,7 @@ class _RhwpSvgPageState extends State<_RhwpSvgPage>
 
           return Padding(
             padding: const EdgeInsets.all(8),
-            child: SvgPicture.string(
-              snapshot.requireData,
-              fit: BoxFit.contain,
-              clipBehavior: Clip.antiAlias,
-            ),
+            child: widget.svgBuilder(context, snapshot.requireData),
           );
         },
       ),
