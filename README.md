@@ -167,8 +167,8 @@ macOS the example enables user-selected read/write sandbox entitlement.
 GitHub Actions runs the same checks in `.github/workflows/ci.yml`:
 
 - Rust facade tests and Flutter analyze/unit tests.
-- Example Linux desktop integration tests for bundled asset open/render/export
-  scenarios.
+- Example Linux, macOS, and Windows desktop integration tests for bundled asset
+  open/render/export scenarios.
 - FRB WASM bundle generation followed by `flutter build web`.
 - Desktop example builds for Linux, macOS, and Windows.
 - Mobile example builds for Android and iOS without code signing.

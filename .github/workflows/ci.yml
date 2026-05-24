@@ -161,6 +161,11 @@ jobs:
         working-directory: example
         run: flutter test integration_test/asset_workflow_test.dart -d macos
 
+      - name: Run example integration workflow on Windows
+        if: matrix.platform == 'windows'
+        working-directory: example
+        run: flutter test integration_test/asset_workflow_test.dart -d windows
+
   mobile:
     name: Mobile build (${{ matrix.platform }})
     runs-on: ${{ matrix.os }}
