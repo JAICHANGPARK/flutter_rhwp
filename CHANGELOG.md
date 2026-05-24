@@ -21,3 +21,5 @@
 * Added a Web COOP/COEP service worker bootstrap for local FRB WASM debugging.
 * Added GitHub Actions CI for Rust/Dart checks, Web WASM build, desktop builds,
   and Android/iOS example builds.
+* Added a custom `RhwpViewer` SVG builder hook and Flutter widget paint tests
+  for viewer rendering, zoom, and editor overlay command flows.
