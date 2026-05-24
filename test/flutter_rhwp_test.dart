@@ -30,6 +30,17 @@ void main() {
     );
   });
 
+  test('Web editor controller reports unsupported off Web', () {
+    final controller = RhwpWebEditorController();
+    addTearDown(controller.dispose);
+
+    expect(controller.isAttached, isFalse);
+    expect(
+      controller.exportHwp(),
+      throwsA(isA<RhwpUnsupportedPlatformException>()),
+    );
+  });
+
   test('document convenience edit methods use command envelopes', () async {
     final session = _FakeRhwpSession();
     final document = RhwpDocument.fromSession(session);

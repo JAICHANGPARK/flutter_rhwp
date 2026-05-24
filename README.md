@@ -24,16 +24,19 @@ Implemented:
 - Apply basic edit commands for body text insert/delete and file name updates.
 - Display pages with `RhwpViewer`.
 - Edit through an initial `RhwpEditor` command overlay.
-- Embed upstream `@rhwp/editor` on Web with `RhwpWebEditor`.
+- Embed upstream `@rhwp/editor` on Web with `RhwpWebEditor` and
+  `RhwpWebEditorController`.
 - Example app workflows for opening the bundled asset sample or a picked
   HWP/HWPX file, toggling between the Flutter bridge viewer/editor and the
-  upstream Web editor, then saving HWP/HWPX/PDF/DOCX/TXT/MD.
+  upstream Web editor, then saving HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
 
 Not complete yet:
 
 - DOCX export currently maps extracted text into paragraph-oriented OOXML.
   Table, image, and exact layout mapping are still pending.
-- PDF export on Web/WASM throws `RhwpUnsupportedPlatformException`.
+- Flutter bridge PDF export on Web/WASM throws
+  `RhwpUnsupportedPlatformException`. In Web editor mode, export support depends
+  on the methods exposed by the loaded upstream `@rhwp/editor` build.
 - Web requires the FRB WASM build step and generated `pkg/` output.
 - `RhwpWebEditor` loads `@rhwp/editor` from a configurable ESM URL. Production
   apps should host or bundle that module instead of relying on a public CDN.
@@ -77,10 +80,15 @@ RhwpEditor(document: document)
 Web editor:
 
 ```dart
+final webEditorController = RhwpWebEditorController();
+
 RhwpWebEditor(
+  controller: webEditorController,
   initialBytes: bytes,
   fileName: 'sample.hwp',
-)
+);
+
+final editedHwp = await webEditorController.exportHwp();
 ```
 
 `RhwpWebEditor` is a Web-only embed for upstream
@@ -88,7 +96,11 @@ RhwpWebEditor(
 the FRB bridge: use the Flutter bridge for a consistent cross-platform API, and
 switch to the upstream Web editor when a browser app needs the full iframe-based
 editing UI. The module URL defaults to `https://esm.sh/@rhwp/editor`; pass
-`moduleUrl` to point at a locally bundled or self-hosted ESM build.
+`moduleUrl` to point at a locally bundled or self-hosted ESM build. The
+controller tries the upstream editor's exported methods such as `exportHwp`,
+`exportHwpx`, `exportPdf`, `exportDocx`, `exportText`, `exportMarkdown`, and
+`exportSvg`; if a method is missing, it throws `RhwpUnsupportedPlatformException`
+with the upstream error message.
 
 Editing command:
 

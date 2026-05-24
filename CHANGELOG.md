@@ -24,6 +24,8 @@
 * Added a Web-only `RhwpWebEditor` embed for upstream `@rhwp/editor`, plus an
   example app toggle between the Flutter bridge editor and the upstream Web
   editor.
+* Added `RhwpWebEditorController` so Web editor mode can export bytes from the
+  upstream editor state instead of the stale Flutter bridge document.
 * Added a Web COOP/COEP service worker bootstrap for local FRB WASM debugging.
 * Use the FRB process loader on iOS/macOS so the statically linked Rust library
   can be resolved inside Flutter apps.

@@ -29,6 +29,7 @@ class RhwpExampleApp extends StatefulWidget {
 class _RhwpExampleAppState extends State<RhwpExampleApp> {
   final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
   final _editorController = RhwpEditorController();
+  final _webEditorController = RhwpWebEditorController();
   Key _viewerKey = UniqueKey();
   RhwpDocument? _document;
   RhwpDocumentMetadata? _metadata;
@@ -51,6 +52,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
   void dispose() {
     _document?.close();
     _editorController.dispose();
+    _webEditorController.dispose();
     super.dispose();
   }
 
@@ -108,7 +110,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
     }
 
     await _run('Export ${kind.extension.toUpperCase()}', () async {
-      final bytes = await _bytesFor(document, kind);
+      final bytes = await _bytesFor(kind, document: document);
       final path = await FilePicker.saveFile(
         dialogTitle: 'Save ${kind.label}',
         fileName: _defaultExportName(kind),
@@ -145,16 +147,14 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
     });
   }
 
-  Future<Uint8List> _bytesFor(RhwpDocument document, _ExportKind kind) async {
-    return switch (kind) {
-      _ExportKind.hwp => document.export(RhwpExportFormat.hwp),
-      _ExportKind.hwpx => document.export(RhwpExportFormat.hwpx),
-      _ExportKind.pdf => document.export(RhwpExportFormat.pdf),
-      _ExportKind.docx => document.export(RhwpExportFormat.docx),
-      _ExportKind.text => document.export(RhwpExportFormat.text),
-      _ExportKind.markdown => document.export(RhwpExportFormat.markdown),
-      _ExportKind.svg => document.export(RhwpExportFormat.svg),
-    };
+  Future<Uint8List> _bytesFor(
+    _ExportKind kind, {
+    required RhwpDocument document,
+  }) {
+    if (kIsWeb && _editorMode == _EditorMode.upstreamWeb) {
+      return _webEditorController.export(kind.format);
+    }
+    return document.export(kind.format);
   }
 
   Future<void> _replaceDocument(
@@ -330,6 +330,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
                       key: ValueKey(
                         'web-editor-${_fileName ?? 'document'}-${_sourceBytes?.length ?? 0}-${_viewerKey.hashCode}',
                       ),
+                      controller: _webEditorController,
                       moduleUrl: _webEditorModuleUrl,
                       initialBytes: _sourceBytes,
                       fileName: _fileName,
@@ -443,18 +444,19 @@ class _StatusBar extends StatelessWidget {
 }
 
 enum _ExportKind {
-  hwp('HWP', 'hwp'),
-  hwpx('HWPX', 'hwpx'),
-  pdf('PDF', 'pdf'),
-  docx('DOCX', 'docx'),
-  svg('SVG', 'svg'),
-  text('text', 'txt'),
-  markdown('Markdown', 'md');
+  hwp('HWP', 'hwp', RhwpExportFormat.hwp),
+  hwpx('HWPX', 'hwpx', RhwpExportFormat.hwpx),
+  pdf('PDF', 'pdf', RhwpExportFormat.pdf),
+  docx('DOCX', 'docx', RhwpExportFormat.docx),
+  svg('SVG', 'svg', RhwpExportFormat.svg),
+  text('text', 'txt', RhwpExportFormat.text),
+  markdown('Markdown', 'md', RhwpExportFormat.markdown);
 
-  const _ExportKind(this.label, this.extension);
+  const _ExportKind(this.label, this.extension, this.format);
 
   final String label;
   final String extension;
+  final RhwpExportFormat format;
 }
 
 enum _EditorMode { flutterBridge, upstreamWeb }
