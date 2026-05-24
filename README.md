@@ -37,9 +37,9 @@ Not complete yet:
 - Web requires the FRB WASM build step and generated `pkg/` output.
 - `RhwpWebEditor` loads `@rhwp/editor` from a configurable ESM URL. Production
   apps should host or bundle that module instead of relying on a public CDN.
-- Apple SwiftPM packaging still needs Rust build/linkage work. The podspec
-  path uses cargokit, and the Dart loader is prepared for static linkage, but
-  the generated SwiftPM package does not yet include the Rust archive.
+- Apple builds currently use the CocoaPods podspec/cargokit path for Rust
+  static library linkage. SwiftPM manifests are intentionally omitted until the
+  Rust build/linkage path is implemented for Swift Package Manager.
 - The Flutter-native editor UI is not implemented beyond command application.
 
 ## Usage

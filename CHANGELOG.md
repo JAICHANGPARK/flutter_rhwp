@@ -27,6 +27,8 @@
 * Added a Web COOP/COEP service worker bootstrap for local FRB WASM debugging.
 * Use the FRB process loader on iOS/macOS so the statically linked Rust library
   can be resolved inside Flutter apps.
+* Removed incomplete Apple SwiftPM manifests so iOS/macOS builds use the
+  CocoaPods podspec/cargokit path that links the Rust static library.
 * Added Linux desktop example integration tests for opening the bundled HWP
   asset, rendering SVG, extracting text/Markdown, and exporting supported
   formats.
