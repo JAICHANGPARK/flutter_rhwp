@@ -25,6 +25,11 @@
   example app toggle between the Flutter bridge editor and the upstream Web
   editor.
 * Added a Web COOP/COEP service worker bootstrap for local FRB WASM debugging.
+* Use the FRB process loader on iOS/macOS so the statically linked Rust library
+  can be resolved inside Flutter apps.
+* Added Linux desktop example integration tests for opening the bundled HWP
+  asset, rendering SVG, extracting text/Markdown, and exporting supported
+  formats.
 * Added GitHub Actions CI for Rust/Dart checks, Web WASM build, desktop builds,
   and Android/iOS example builds.
 * Added a custom `RhwpViewer` SVG builder hook and Flutter widget paint tests

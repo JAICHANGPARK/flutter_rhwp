@@ -4,6 +4,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart'
     show ExternalLibrary;
 
 import 'rhwp_document.dart';
+import 'rhwp_external_library.dart';
 import 'rust/api/rhwp.dart' as rust;
 import 'rust/frb_generated.dart';
 
@@ -13,7 +14,8 @@ class Rhwp {
   static Future<void>? _initFuture;
 
   static Future<void> ensureInitialized({ExternalLibrary? externalLibrary}) {
-    return _initFuture ??= RustLib.init(externalLibrary: externalLibrary);
+    final library = externalLibrary ?? defaultRhwpExternalLibrary();
+    return _initFuture ??= RustLib.init(externalLibrary: library);
   }
 
   static Future<String> version() async {

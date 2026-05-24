@@ -37,6 +37,9 @@ Not complete yet:
 - Web requires the FRB WASM build step and generated `pkg/` output.
 - `RhwpWebEditor` loads `@rhwp/editor` from a configurable ESM URL. Production
   apps should host or bundle that module instead of relying on a public CDN.
+- Apple SwiftPM packaging still needs Rust build/linkage work. The podspec
+  path uses cargokit, and the Dart loader is prepared for static linkage, but
+  the generated SwiftPM package does not yet include the Rust archive.
 - The Flutter-native editor UI is not implemented beyond command application.
 
 ## Usage
@@ -152,6 +155,8 @@ macOS the example enables user-selected read/write sandbox entitlement.
 GitHub Actions runs the same checks in `.github/workflows/ci.yml`:
 
 - Rust facade tests and Flutter analyze/unit tests.
+- Example Linux desktop integration tests for bundled asset open/render/export
+  scenarios.
 - FRB WASM bundle generation followed by `flutter build web`.
 - Desktop example builds for Linux, macOS, and Windows.
 - Mobile example builds for Android and iOS without code signing.
