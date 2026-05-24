@@ -486,7 +486,7 @@ mod tests {
             open_bytes(BLANK_2010_HWP.to_vec(), None).expect("vendored sample should open");
 
         let pdf = session.export_pdf().expect("PDF export should succeed");
-        assert!(pdf.starts_with(b"%PDF"));
+        assert_pdf_structure(&pdf, session.page_count().expect("page count should load"));
     }
 
     #[test]
@@ -523,6 +523,16 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(target_arch = "wasm32"))]
+    fn exports_multipage_pdf_structure_from_svg_pages() {
+        let svg_pages = vec![test_svg_page("#dc2626"), test_svg_page("#2563eb")];
+        let pdf = rhwp_core::renderer::pdf::svgs_to_pdf(&svg_pages)
+            .expect("multi-page SVG PDF export should succeed");
+
+        assert_pdf_structure(&pdf, svg_pages.len() as u32);
+    }
+
+    #[test]
     fn opens_and_renders_example_asset() {
         let session = open_bytes(
             EXAMPLE_ASSET_HWP.to_vec(),
@@ -552,5 +562,51 @@ mod tests {
             .expect("example asset should export to HWPX");
         open_bytes(hwpx, Some("example-roundtrip.hwpx".to_string()))
             .expect("example asset HWPX export should reopen");
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn assert_pdf_structure(pdf: &[u8], expected_page_count: u32) {
+        assert!(
+            pdf.starts_with(b"%PDF-"),
+            "PDF should start with a version header"
+        );
+        assert!(
+            pdf.windows(b"%%EOF".len()).any(|window| window == b"%%EOF"),
+            "PDF should include an EOF marker"
+        );
+
+        let text = String::from_utf8_lossy(pdf);
+        assert!(text.contains("startxref"), "PDF should include xref data");
+        assert!(
+            text.contains("/Type /Catalog") || text.contains("/Type/Catalog"),
+            "PDF should include a catalog object"
+        );
+
+        let page_objects = count_pdf_page_objects(&text);
+        assert_eq!(
+            page_objects, expected_page_count as usize,
+            "PDF page object count should match the source document"
+        );
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn count_pdf_page_objects(text: &str) -> usize {
+        text.match_indices("/Type /Page")
+            .filter(|(index, _)| !text[*index + "/Type /Page".len()..].starts_with('s'))
+            .count()
+            + text
+                .match_indices("/Type/Page")
+                .filter(|(index, _)| !text[*index + "/Type/Page".len()..].starts_with('s'))
+                .count()
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn test_svg_page(fill: &str) -> String {
+        format!(
+            r##"<svg xmlns="http://www.w3.org/2000/svg" width="240" height="180" viewBox="0 0 240 180">
+  <rect width="240" height="180" fill="#ffffff"/>
+  <rect x="24" y="24" width="192" height="132" fill="{fill}"/>
+</svg>"##
+        )
     }
 }

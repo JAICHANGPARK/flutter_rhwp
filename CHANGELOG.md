@@ -10,6 +10,8 @@
   output, and explicit unsupported exceptions for Web/WASM PDF export.
 * Added HWP/HWPX export reopen checks for both the vendored blank sample and
   the bundled example asset.
+* Strengthened native PDF export tests with structural PDF checks and a fast
+  multi-page SVG-to-PDF regression case.
 * Verified the FRB Web/WASM build path and patched vendored rhwp's standalone
   WASM startup and web-sys canvas style compatibility for FRB integration.
 * Updated package metadata links for `JAICHANGPARK/flutter_rhwp`.
