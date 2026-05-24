@@ -13,6 +13,8 @@
 * Updated package metadata links for `JAICHANGPARK/flutter_rhwp`.
 * Added a bundled example HWP asset and wired the example app to open it by
   default while keeping file picker and export/save workflows.
+* Added text, Markdown, and SVG to the public Dart export surface and example
+  export menu.
 * Implemented initial DOCX export as a valid Word OOXML package generated from
   extracted document text, and exposed it in the example export menu.
 * Added a Web-only `RhwpWebEditor` embed for upstream `@rhwp/editor`, plus an

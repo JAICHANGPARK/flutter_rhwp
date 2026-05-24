@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
@@ -152,12 +151,9 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
       _ExportKind.hwpx => document.export(RhwpExportFormat.hwpx),
       _ExportKind.pdf => document.export(RhwpExportFormat.pdf),
       _ExportKind.docx => document.export(RhwpExportFormat.docx),
-      _ExportKind.text => Uint8List.fromList(
-        utf8.encode(await document.extractText()),
-      ),
-      _ExportKind.markdown => Uint8List.fromList(
-        utf8.encode(await document.extractMarkdown()),
-      ),
+      _ExportKind.text => document.export(RhwpExportFormat.text),
+      _ExportKind.markdown => document.export(RhwpExportFormat.markdown),
+      _ExportKind.svg => document.export(RhwpExportFormat.svg),
     };
   }
 
@@ -291,6 +287,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
                 PopupMenuItem(value: _ExportKind.hwpx, child: Text('HWPX')),
                 PopupMenuItem(value: _ExportKind.pdf, child: Text('PDF')),
                 PopupMenuItem(value: _ExportKind.docx, child: Text('DOCX')),
+                PopupMenuItem(value: _ExportKind.svg, child: Text('SVG')),
                 PopupMenuItem(value: _ExportKind.text, child: Text('Text')),
                 PopupMenuItem(
                   value: _ExportKind.markdown,
@@ -450,6 +447,7 @@ enum _ExportKind {
   hwpx('HWPX', 'hwpx'),
   pdf('PDF', 'pdf'),
   docx('DOCX', 'docx'),
+  svg('SVG', 'svg'),
   text('text', 'txt'),
   markdown('Markdown', 'md');
 

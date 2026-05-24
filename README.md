@@ -20,7 +20,7 @@ Implemented:
 - Render pages as SVG.
 - Read page layer tree JSON.
 - Extract text and Markdown.
-- Export HWP, HWPX, native PDF, and DOCX.
+- Export HWP, HWPX, native PDF, DOCX, text, Markdown, and page SVG.
 - Apply basic edit commands for body text insert/delete and file name updates.
 - Display pages with `RhwpViewer`.
 - Edit through an initial `RhwpEditor` command overlay.
@@ -53,6 +53,8 @@ final pageCount = await document.pageCount;
 final firstPageSvg = await document.renderPageSvg(0);
 final text = await document.extractText();
 final hwpBytes = await document.export(RhwpExportFormat.hwp);
+final svgBytes = await document.exportPageSvg(page: 0);
+final markdownBytes = await document.exportMarkdown();
 
 await document.close();
 ```

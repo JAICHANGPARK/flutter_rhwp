@@ -66,11 +66,22 @@ void main() {
 
     expect(await document.exportHwp(), [0x48, 0x57, 0x50]);
     expect(await document.exportHwpx(), [0x48, 0x57, 0x50, 0x58]);
+    expect(await document.exportPdf(), [0x50, 0x44, 0x46]);
     expect(await document.exportDocx(), [0x44, 0x4f, 0x43, 0x58]);
+    expect(utf8.decode(await document.exportText(page: 2)), 'text page 2');
+    expect(utf8.decode(await document.exportMarkdown(page: 3)), '# page 3');
+    expect(
+      utf8.decode(await document.exportPageSvg(page: 4)),
+      '<svg data-page="4"/>',
+    );
 
     expect(session.exportHwpCalls, 1);
     expect(session.exportHwpxCalls, 1);
+    expect(session.exportPdfCalls, 1);
     expect(session.exportDocxCalls, 1);
+    expect(session.extractedTextPages, [2]);
+    expect(session.extractedMarkdownPages, [3]);
+    expect(session.renderedSvgPages, [4]);
   });
 }
 
@@ -78,7 +89,11 @@ class _FakeRhwpSession implements rust.RhwpSession {
   String? lastCommandJson;
   int exportHwpCalls = 0;
   int exportHwpxCalls = 0;
+  int exportPdfCalls = 0;
   int exportDocxCalls = 0;
+  final extractedTextPages = <int?>[];
+  final extractedMarkdownPages = <int?>[];
+  final renderedSvgPages = <int>[];
   bool _disposed = false;
 
   @override
@@ -103,6 +118,30 @@ class _FakeRhwpSession implements rust.RhwpSession {
   Future<Uint8List> exportHwpx() async {
     exportHwpxCalls += 1;
     return Uint8List.fromList([0x48, 0x57, 0x50, 0x58]);
+  }
+
+  @override
+  Future<Uint8List> exportPdf() async {
+    exportPdfCalls += 1;
+    return Uint8List.fromList([0x50, 0x44, 0x46]);
+  }
+
+  @override
+  Future<String> extractText({int? page}) async {
+    extractedTextPages.add(page);
+    return 'text page ${page ?? 'all'}';
+  }
+
+  @override
+  Future<String> extractMarkdown({int? page}) async {
+    extractedMarkdownPages.add(page);
+    return '# page ${page ?? 'all'}';
+  }
+
+  @override
+  Future<String> renderPageSvg({required int page}) async {
+    renderedSvgPages.add(page);
+    return '<svg data-page="$page"/>';
   }
 
   @override

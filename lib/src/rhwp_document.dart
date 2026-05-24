@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'rhwp_exception.dart';
 import 'rust/api/rhwp.dart' as rust;
 
-enum RhwpExportFormat { hwp, hwpx, pdf, docx }
+enum RhwpExportFormat { hwp, hwpx, pdf, docx, text, markdown, svg }
 
 class RhwpDocumentMetadata {
   const RhwpDocumentMetadata({
@@ -150,13 +150,22 @@ class RhwpDocument {
     return _session.extractMarkdown(page: page);
   }
 
-  Future<Uint8List> export(RhwpExportFormat format) async {
+  Future<Uint8List> export(RhwpExportFormat format, {int? page}) async {
     _ensureOpen();
     return switch (format) {
       RhwpExportFormat.hwp => await _session.exportHwp(),
       RhwpExportFormat.hwpx => await _session.exportHwpx(),
       RhwpExportFormat.pdf => await _exportPdf(),
       RhwpExportFormat.docx => await _session.exportDocx(),
+      RhwpExportFormat.text => Uint8List.fromList(
+        utf8.encode(await extractText(page: page)),
+      ),
+      RhwpExportFormat.markdown => Uint8List.fromList(
+        utf8.encode(await extractMarkdown(page: page)),
+      ),
+      RhwpExportFormat.svg => Uint8List.fromList(
+        utf8.encode(await renderPageSvg(page ?? 0)),
+      ),
     };
   }
 
@@ -167,6 +176,18 @@ class RhwpDocument {
   Future<Uint8List> exportPdf() => export(RhwpExportFormat.pdf);
 
   Future<Uint8List> exportDocx() => export(RhwpExportFormat.docx);
+
+  Future<Uint8List> exportText({int? page}) {
+    return export(RhwpExportFormat.text, page: page);
+  }
+
+  Future<Uint8List> exportMarkdown({int? page}) {
+    return export(RhwpExportFormat.markdown, page: page);
+  }
+
+  Future<Uint8List> exportPageSvg({int page = 0}) {
+    return export(RhwpExportFormat.svg, page: page);
+  }
 
   Future<String> apply(RhwpCommand command) {
     _ensureOpen();
