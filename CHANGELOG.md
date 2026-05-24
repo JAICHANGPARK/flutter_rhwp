@@ -34,6 +34,8 @@
   formats.
 * Run Linux desktop integration tests under Xvfb in CI for headless GitHub
   Actions runners.
+* Added macOS desktop example integration tests to CI for the bundled asset
+  open/render/export workflow.
 * Added GitHub Actions CI for Rust/Dart checks, Web WASM build, desktop builds,
   and Android/iOS example builds.
 * Added a custom `RhwpViewer` SVG builder hook and Flutter widget paint tests
