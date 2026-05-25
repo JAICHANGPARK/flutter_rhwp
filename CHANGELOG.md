@@ -236,6 +236,9 @@
 * Changed Flutter-native text input previews to update through a scoped
   notifier and suppressed root editor rebuilds for pending typing cursor moves,
   reducing visible page refresh while entering spaces or text.
+* Added a Flutter-native paragraph mark view toggle that paints paragraph-end
+  markers from page layer tree text runs without changing rendered document
+  output.
 * Added Flutter-native double-click word selection based on page-layer text run
   hit testing.
 * Added Flutter-native triple-click paragraph selection using the same

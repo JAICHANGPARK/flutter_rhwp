@@ -966,6 +966,57 @@ void main() {
     expect(session.commands, isEmpty);
   });
 
+  testWidgets('RhwpNativeEditor view ribbon toggles paragraph marks', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-paragraph-mark')),
+      findsNothing,
+    );
+
+    await tester.tap(find.text('보기'));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-toggle-paragraph-marks')),
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-toggle-paragraph-marks')),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-paragraph-mark')),
+      findsOneWidget,
+    );
+    expect(find.text('¶'), findsWidgets);
+
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-toggle-paragraph-marks')),
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-paragraph-mark')),
+      findsNothing,
+    );
+  });
+
   testWidgets('RhwpNativeEditor page ribbon creates header and footer', (
     tester,
   ) async {

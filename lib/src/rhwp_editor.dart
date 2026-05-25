@@ -1106,6 +1106,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   bool _hasDeferredEditRefresh = false;
   bool _deferredEditRefreshAwaitsTextInput = false;
   bool _suppressControllerChangedSetState = false;
+  bool _showParagraphMarks = false;
   Object? _error;
 
   static const _maxUndoSnapshots = 100;
@@ -1238,6 +1239,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       text: text,
       selection: TextSelection.collapsed(offset: text.length),
     );
+  }
+
+  void _toggleParagraphMarks() {
+    setState(() {
+      _showParagraphMarks = !_showParagraphMarks;
+    });
+    _focusEditor();
   }
 
   void _handleFocusChanged() {
@@ -6059,6 +6067,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           currentPage: _controller.currentPage,
           pageCount: _pageCountValue,
           zoom: _controller.zoom,
+          showParagraphMarks: _showParagraphMarks,
           canOpen: widget.onOpenRequested != null,
           canInsertPicture: widget.onImageRequested != null,
           canExport: widget.onExported != null,
@@ -6140,6 +6149,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onZoomOut: _controller.zoomOut,
           onZoomIn: _controller.zoomIn,
           onResetZoom: _controller.resetZoom,
+          onToggleParagraphMarks: _toggleParagraphMarks,
         ),
         Expanded(
           child: Listener(
@@ -6161,6 +6171,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
                     selection: _controller.selection,
                     tableCellSelection: _controller.tableCellSelection,
                     objectSelection: _controller.objectSelection,
+                    showParagraphMarks: _showParagraphMarks,
                     composingText: _composingText,
                     pendingTextOverlaysListenable:
                         _pendingTextOverlaysListenable,
@@ -6253,6 +6264,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
     required this.selection,
     required this.tableCellSelection,
     required this.objectSelection,
+    required this.showParagraphMarks,
     required this.composingText,
     required this.pendingTextOverlaysListenable,
     required this.pendingDeletionOverlays,
@@ -6275,6 +6287,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
   final RhwpSelectionRange selection;
   final RhwpTableCellSelection? tableCellSelection;
   final RhwpObjectSelection? objectSelection;
+  final bool showParagraphMarks;
   final String? composingText;
   final ValueListenable<List<_PendingTextOverlay>>
   pendingTextOverlaysListenable;
@@ -7157,6 +7170,9 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     final pendingDeletionRects = _pendingDeletionRects(tree, overlaySize);
     final pendingTextRects = _pendingTextRects(tree, overlaySize);
     final pendingTextCaretRect = _pendingTextCaretRect(tree, overlaySize);
+    final paragraphMarkRects = widget.showParagraphMarks
+        ? _paragraphMarkRects(tree, overlaySize)
+        : const <Rect>[];
     final caretRect = tree.caretRectFor(
       section: widget.selection.end.section,
       paragraph: widget.selection.end.paragraph,
@@ -7167,7 +7183,8 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
         objectSelectionRects.isEmpty &&
         searchRects.isEmpty &&
         pendingDeletionRects.isEmpty &&
-        pendingTextRects.isEmpty) {
+        pendingTextRects.isEmpty &&
+        paragraphMarkRects.isEmpty) {
       return null;
     }
 
@@ -7271,6 +7288,15 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
               text: pending.text,
               height: pending.rect.height,
             ),
+          ),
+        for (final (index, rect) in paragraphMarkRects.indexed)
+          _positionedRect(
+            key: index == 0
+                ? const ValueKey('rhwp-editor-paragraph-mark')
+                : ValueKey('rhwp-editor-paragraph-mark-$index'),
+            rect: rect,
+            constraints: constraints,
+            child: _ParagraphMarkGlyph(height: rect.height),
           ),
         if (displayedCaretRect != null)
           _positionedRect(
@@ -7384,6 +7410,15 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
             height: 32,
             child: _ComposingPreview(text: widget.composingText!),
           ),
+        if (widget.showParagraphMarks)
+          Positioned(
+            key: const ValueKey('rhwp-editor-paragraph-mark'),
+            left: _bound(caretLeft + 6, constraints.maxWidth, 18),
+            top: boundedTop,
+            width: 18,
+            height: height,
+            child: _ParagraphMarkGlyph(height: height),
+          ),
       ],
     );
   }
@@ -7491,6 +7526,50 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
       ));
     }
     return rects;
+  }
+
+  List<Rect> _paragraphMarkRects(RhwpLayerTree tree, Size overlaySize) {
+    final lastRunByParagraph = <String, RhwpTextRunLayout>{};
+    for (final run in tree.textRuns) {
+      final section = run.section;
+      final paragraph = run.paragraph;
+      if (section == null || paragraph == null) {
+        continue;
+      }
+
+      final key = _paragraphMarkKey(run);
+      final previous = lastRunByParagraph[key];
+      if (previous == null ||
+          run.charEnd > previous.charEnd ||
+          (run.charEnd == previous.charEnd &&
+              run.bounds.bottom > previous.bounds.bottom)) {
+        lastRunByParagraph[key] = run;
+      }
+    }
+
+    final rects = <Rect>[];
+    for (final run in lastRunByParagraph.values) {
+      final endPoint = run.pagePointForOffset(run.charEnd);
+      final height = math.max(12.0, run.bounds.height);
+      final width = math.max(10.0, height * 0.75);
+      rects.add(
+        _scalePageRect(
+          Rect.fromLTWH(endPoint.dx + 3, run.bounds.top, width, height),
+          tree,
+          overlaySize,
+        ),
+      );
+    }
+    return rects;
+  }
+
+  String _paragraphMarkKey(RhwpTextRunLayout run) {
+    final cell = run.cellContext;
+    if (cell == null) {
+      return '${run.section}:${run.paragraph}';
+    }
+    return '${run.section}:${run.paragraph}:cell:${cell.parentParagraph}:'
+        '${cell.controlIndex}:${cell.cellIndex}:${cell.cellParagraph}';
   }
 
   Rect? _pendingTextCaretRect(RhwpLayerTree tree, Size overlaySize) {
@@ -7757,6 +7836,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.currentPage,
     required this.pageCount,
     required this.zoom,
+    required this.showParagraphMarks,
     required this.canOpen,
     required this.canInsertPicture,
     required this.canExport,
@@ -7827,6 +7907,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onZoomOut,
     required this.onZoomIn,
     required this.onResetZoom,
+    required this.onToggleParagraphMarks,
   });
 
   final bool busy;
@@ -7852,6 +7933,7 @@ class _EditorToolbar extends StatefulWidget {
   final int currentPage;
   final int? pageCount;
   final double zoom;
+  final bool showParagraphMarks;
   final bool canOpen;
   final bool canInsertPicture;
   final bool canExport;
@@ -7922,6 +8004,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onZoomOut;
   final VoidCallback onZoomIn;
   final VoidCallback onResetZoom;
+  final VoidCallback onToggleParagraphMarks;
 
   @override
   State<_EditorToolbar> createState() => _EditorToolbarState();
@@ -8273,6 +8356,20 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               buttonKey: const ValueKey('rhwp-editor-toolbar-zoom-in'),
               icon: Icons.zoom_in,
               onPressed: widget.zoom >= 6.0 ? null : widget.onZoomIn,
+            ),
+          ],
+        ),
+      ),
+      _RibbonGroup(
+        label: '표시',
+        child: Row(
+          children: [
+            _ToolbarIconButton(
+              tooltip: 'Paragraph marks',
+              buttonKey: const ValueKey('rhwp-editor-toggle-paragraph-marks'),
+              icon: Icons.keyboard_return,
+              selected: widget.showParagraphMarks,
+              onPressed: widget.onToggleParagraphMarks,
             ),
           ],
         ),
@@ -10126,6 +10223,31 @@ class _PendingTextPreview extends StatelessWidget {
             fontSize: math.max(10, height * 0.78),
             height: 1,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ParagraphMarkGlyph extends StatelessWidget {
+  const _ParagraphMarkGlyph({required this.height});
+
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Align(
+      alignment: Alignment.topLeft,
+      child: Text(
+        '¶',
+        overflow: TextOverflow.visible,
+        softWrap: false,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: colors.primary.withValues(alpha: 0.72),
+          fontSize: math.max(10, height * 0.82),
+          fontWeight: FontWeight.w600,
+          height: 1,
         ),
       ),
     );
