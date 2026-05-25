@@ -300,6 +300,80 @@ void main() {
     expect(session.exportPdfCalls, 1);
   });
 
+  testWidgets('RhwpNativeEditor view controls synchronize zoom state', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('rhwp-editor-status-zoom')))
+          .data,
+      '100%',
+    );
+
+    await tester.tap(find.text('보기'));
+    await tester.pump();
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-toolbar-zoom-in')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-toolbar-zoom-in')));
+    await tester.pump();
+
+    expect(controller.zoom, 1.25);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('rhwp-editor-toolbar-zoom')))
+          .data,
+      '125%',
+    );
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('rhwp-editor-status-zoom')))
+          .data,
+      '125%',
+    );
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-status-zoom-out')));
+    await tester.pump();
+
+    expect(controller.zoom, 1.0);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('rhwp-editor-status-zoom')))
+          .data,
+      '100%',
+    );
+
+    controller.zoom = 1.5;
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-reset-zoom')));
+    await tester.pump();
+
+    expect(controller.zoom, 1.0);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('rhwp-editor-toolbar-zoom')))
+          .data,
+      '100%',
+    );
+  });
+
   testWidgets('RhwpNativeEditor toolbar inserts a table', (tester) async {
     final controller = RhwpEditorController();
     final session = _FakeRhwpSession(pageCountValue: 0);

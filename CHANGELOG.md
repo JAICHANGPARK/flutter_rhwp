@@ -183,3 +183,5 @@
 * Added file-ribbon export actions to `RhwpNativeEditor` so HWP, HWPX, and PDF
   save artifacts can be emitted through a Flutter callback without using the
   upstream Web editor.
+* Added synchronized zoom controls to the Flutter-native editor view ribbon and
+  status bar, backed by the shared `RhwpEditorController` zoom state.

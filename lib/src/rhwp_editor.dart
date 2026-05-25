@@ -1973,6 +1973,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           tableCellSelection: _controller.tableCellSelection,
           currentPage: _controller.currentPage,
           pageCount: _pageCountValue,
+          zoom: _controller.zoom,
           canExport: widget.onExported != null,
           searchMatchCount: _searchMatches.length,
           activeSearchMatch: _activeSearchMatch,
@@ -2009,6 +2010,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onNextPage: () => unawaited(_controller.nextPage()),
           onZoomOut: _controller.zoomOut,
           onZoomIn: _controller.zoomIn,
+          onResetZoom: _controller.resetZoom,
         ),
         Expanded(
           child: Focus(
@@ -2043,7 +2045,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
             ),
           ),
         ),
-        _EditorStatusBar(selection: _controller.selection, busy: _busy),
+        _EditorStatusBar(
+          selection: _controller.selection,
+          busy: _busy,
+          zoom: _controller.zoom,
+          onZoomOut: _controller.zoomOut,
+          onZoomIn: _controller.zoomIn,
+        ),
       ],
     );
   }
@@ -2688,6 +2696,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.tableCellSelection,
     required this.currentPage,
     required this.pageCount,
+    required this.zoom,
     required this.canExport,
     required this.searchMatchCount,
     required this.activeSearchMatch,
@@ -2724,6 +2733,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onNextPage,
     required this.onZoomOut,
     required this.onZoomIn,
+    required this.onResetZoom,
   });
 
   final bool busy;
@@ -2744,6 +2754,7 @@ class _EditorToolbar extends StatefulWidget {
   final RhwpTableCellSelection? tableCellSelection;
   final int currentPage;
   final int? pageCount;
+  final double zoom;
   final bool canExport;
   final int searchMatchCount;
   final int activeSearchMatch;
@@ -2780,6 +2791,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onNextPage;
   final VoidCallback onZoomOut;
   final VoidCallback onZoomIn;
+  final VoidCallback onResetZoom;
 
   @override
   State<_EditorToolbar> createState() => _EditorToolbarState();
@@ -2992,13 +3004,31 @@ class _EditorToolbarState extends State<_EditorToolbar> {
           children: [
             _ToolbarIconButton(
               tooltip: 'Zoom out',
+              buttonKey: const ValueKey('rhwp-editor-toolbar-zoom-out'),
               icon: Icons.zoom_out,
-              onPressed: widget.onZoomOut,
+              onPressed: widget.zoom <= 0.25 ? null : widget.onZoomOut,
+            ),
+            SizedBox(
+              width: 52,
+              child: Center(
+                child: Text(
+                  _formatEditorZoom(widget.zoom),
+                  key: const ValueKey('rhwp-editor-toolbar-zoom'),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Reset zoom',
+              buttonKey: const ValueKey('rhwp-editor-reset-zoom'),
+              icon: Icons.center_focus_strong,
+              onPressed: widget.zoom == 1.0 ? null : widget.onResetZoom,
             ),
             _ToolbarIconButton(
               tooltip: 'Zoom in',
+              buttonKey: const ValueKey('rhwp-editor-toolbar-zoom-in'),
               icon: Icons.zoom_in,
-              onPressed: widget.onZoomIn,
+              onPressed: widget.zoom >= 6.0 ? null : widget.onZoomIn,
             ),
           ],
         ),
@@ -3999,10 +4029,19 @@ class _ToolbarDivider extends StatelessWidget {
 }
 
 class _EditorStatusBar extends StatelessWidget {
-  const _EditorStatusBar({required this.selection, required this.busy});
+  const _EditorStatusBar({
+    required this.selection,
+    required this.busy,
+    required this.zoom,
+    required this.onZoomOut,
+    required this.onZoomIn,
+  });
 
   final RhwpSelectionRange selection;
   final bool busy;
+  final double zoom;
+  final VoidCallback onZoomOut;
+  final VoidCallback onZoomIn;
 
   @override
   Widget build(BuildContext context) {
@@ -4039,8 +4078,30 @@ class _EditorStatusBar extends StatelessWidget {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
                 ),
-              const Text('100%'),
-              const SizedBox(width: 12),
+              _StatusBarIconButton(
+                tooltip: 'Zoom out',
+                buttonKey: const ValueKey('rhwp-editor-status-zoom-out'),
+                icon: Icons.zoom_out,
+                onPressed: zoom <= 0.25 ? null : onZoomOut,
+              ),
+              SizedBox(
+                width: 48,
+                child: Center(
+                  child: Text(
+                    _formatEditorZoom(zoom),
+                    key: const ValueKey('rhwp-editor-status-zoom'),
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+              ),
+              _StatusBarIconButton(
+                tooltip: 'Zoom in',
+                buttonKey: const ValueKey('rhwp-editor-status-zoom-in'),
+                icon: Icons.zoom_in,
+                onPressed: zoom >= 6.0 ? null : onZoomIn,
+              ),
+              const SizedBox(width: 8),
             ],
           ),
         ),
@@ -4048,6 +4109,38 @@ class _EditorStatusBar extends StatelessWidget {
     );
   }
 }
+
+class _StatusBarIconButton extends StatelessWidget {
+  const _StatusBarIconButton({
+    required this.tooltip,
+    required this.buttonKey,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final Key buttonKey;
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      key: buttonKey,
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: Icon(icon, size: 18),
+      style: IconButton.styleFrom(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        minimumSize: const Size.square(26),
+        fixedSize: const Size.square(26),
+        padding: EdgeInsets.zero,
+      ),
+    );
+  }
+}
+
+String _formatEditorZoom(double zoom) => '${(zoom * 100).round()}%';
 
 class _NumberField extends StatelessWidget {
   const _NumberField({required this.label, required this.controller});
