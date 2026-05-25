@@ -177,6 +177,8 @@
   text sets the active cell edit offset.
 * Added Arrow and Tab keyboard navigation for selected table cells in the
   Flutter-native editor, including Shift+Arrow range extension.
+* Added Escape handling in the Flutter-native editor to clear composing input,
+  selected table cells, selected text, and active search highlights.
 * Split the Flutter-native editor toolbar into HWP-style ribbon tabs for file,
   edit, view, input, format, page, table, and tools, with table cell selection
   opening the table ribbon context.

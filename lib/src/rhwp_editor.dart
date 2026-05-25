@@ -2594,6 +2594,44 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     return composingText.isEmpty ? null : composingText;
   }
 
+  bool _handleEscapeKey() {
+    var handled = false;
+
+    if (_inputValue != TextEditingValue.empty) {
+      _resetTextInputValue();
+      handled = true;
+    }
+
+    if (_controller.tableCellSelection != null) {
+      _controller.clearTableCellSelection();
+      handled = true;
+    }
+
+    if (!_controller.selection.isCollapsed) {
+      _controller.clearSelection();
+      handled = true;
+    }
+
+    if (_searchController.text.isNotEmpty ||
+        _searchMatches.isNotEmpty ||
+        _activeSearchMatch >= 0) {
+      _clearSearch();
+      handled = true;
+    }
+
+    if (_error != null) {
+      setState(() {
+        _error = null;
+      });
+      handled = true;
+    }
+
+    if (handled) {
+      _focusEditor();
+    }
+    return handled;
+  }
+
   @override
   void updateEditingValue(TextEditingValue value) {
     if (value == _inputValue) {
@@ -2722,6 +2760,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     switch (event.logicalKey) {
+      case LogicalKeyboardKey.escape:
+        return _handleEscapeKey()
+            ? KeyEventResult.handled
+            : KeyEventResult.ignored;
       case LogicalKeyboardKey.f3:
         if (HardwareKeyboard.instance.isShiftPressed) {
           _searchPrevious();
