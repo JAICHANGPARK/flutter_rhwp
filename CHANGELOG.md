@@ -65,3 +65,6 @@
   editor mode without eager Flutter bridge WASM initialization, and made empty
   Web editor module URLs render an inline message without injecting a bootstrap
   script.
+* Added a typed Dart page layer tree model on top of rhwp's raw page layer tree
+  JSON so editor/viewer code can inspect text nodes and bounds without ad hoc
+  JSON traversal.

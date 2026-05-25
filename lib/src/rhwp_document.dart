@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 import 'rhwp_exception.dart';
+import 'rhwp_layer_tree.dart';
 import 'rust/api/rhwp.dart' as rust;
 
 enum RhwpExportFormat { hwp, hwpx, pdf, docx, text, markdown, svg }
@@ -136,6 +137,12 @@ class RhwpDocument {
     _ensureOpen();
     _checkPageIndex(page);
     return _session.pageLayerTree(page: page);
+  }
+
+  /// Reads and parses the rhwp page layer tree for [page].
+  Future<RhwpLayerTree> pageLayerTreeModel(int page) async {
+    final json = await pageLayerTree(page);
+    return RhwpLayerTree.fromJsonString(page, json);
   }
 
   Future<String> extractText({int? page}) {

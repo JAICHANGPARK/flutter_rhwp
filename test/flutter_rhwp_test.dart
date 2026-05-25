@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui' show Rect;
 
 import 'package:flutter_rhwp/flutter_rhwp.dart';
 import 'package:flutter_rhwp/src/rust/api/rhwp.dart' as rust;
@@ -104,6 +105,68 @@ void main() {
     expect(session.extractedMarkdownPages, [3]);
     expect(session.renderedSvgPages, [4]);
   });
+
+  test('page layer tree model flattens tolerant layer JSON', () {
+    final tree = RhwpLayerTree.fromJsonString(
+      0,
+      jsonEncode({
+        'type': 'page',
+        'children': [
+          {
+            'kind': 'paragraph',
+            'runs': [
+              {
+                'type': 'span',
+                'text': 'Hello',
+                'bounds': {'x': 12, 'y': 34, 'width': 56, 'height': 78},
+              },
+            ],
+          },
+          {
+            'type': 'shape',
+            'rect': {'left': 1, 'top': 2, 'right': 11, 'bottom': 22},
+          },
+        ],
+      }),
+    );
+
+    expect(tree.page, 0);
+    expect(tree.root.type, 'page');
+    expect(tree.nodes.map((node) => node.type), [
+      'page',
+      'paragraph',
+      'span',
+      'shape',
+    ]);
+    expect(tree.textNodes.single.text, 'Hello');
+    expect(tree.textNodes.single.bounds, const Rect.fromLTWH(12, 34, 56, 78));
+    expect(
+      tree.findByType('shape').single.bounds,
+      const Rect.fromLTRB(1, 2, 11, 22),
+    );
+    expect(tree.boundedNodes.length, 2);
+  });
+
+  test('document page layer tree helper decodes session JSON', () async {
+    final session = _FakeRhwpSession();
+    session.pageLayerTreeJson = jsonEncode({
+      'type': 'page',
+      'nodes': [
+        {
+          'type': 'text',
+          'content': 'from session',
+          'bbox': [1, 2, 3, 4],
+        },
+      ],
+    });
+    final document = RhwpDocument.fromSession(session);
+
+    final tree = await document.pageLayerTreeModel(5);
+
+    expect(session.pageLayerTreePages, [5]);
+    expect(tree.textNodes.single.text, 'from session');
+    expect(tree.textNodes.single.bounds, const Rect.fromLTWH(1, 2, 3, 4));
+  });
 }
 
 class _FakeRustLibApi implements RustLibApi {
@@ -131,6 +194,8 @@ class _FakeRhwpSession implements rust.RhwpSession {
   final extractedTextPages = <int?>[];
   final extractedMarkdownPages = <int?>[];
   final renderedSvgPages = <int>[];
+  final pageLayerTreePages = <int>[];
+  String pageLayerTreeJson = '{"type":"page"}';
   bool _disposed = false;
 
   @override
@@ -179,6 +244,12 @@ class _FakeRhwpSession implements rust.RhwpSession {
   Future<String> renderPageSvg({required int page}) async {
     renderedSvgPages.add(page);
     return '<svg data-page="$page"/>';
+  }
+
+  @override
+  Future<String> pageLayerTree({required int page}) async {
+    pageLayerTreePages.add(page);
+    return pageLayerTreeJson;
   }
 
   @override

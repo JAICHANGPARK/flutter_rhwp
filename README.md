@@ -18,7 +18,7 @@ Implemented:
 - Open HWP/HWPX bytes.
 - Read page count and document metadata.
 - Render pages as SVG.
-- Read page layer tree JSON.
+- Read raw page layer tree JSON and a typed Dart page layer tree model.
 - Extract text and Markdown.
 - Export HWP, HWPX, native PDF, DOCX, text, Markdown, and page SVG.
 - Apply basic edit commands for body text insert/delete and file name updates.
@@ -62,6 +62,7 @@ final document = await Rhwp.open(bytes, fileName: 'sample.hwp');
 
 final pageCount = await document.pageCount;
 final firstPageSvg = await document.renderPageSvg(0);
+final firstPageLayers = await document.pageLayerTreeModel(0);
 final text = await document.extractText();
 final hwpBytes = await document.export(RhwpExportFormat.hwp);
 final svgBytes = await document.exportPageSvg(page: 0);
