@@ -1,5 +1,6 @@
-## 2026.5.24
+## 2026.5.25
 
+* Updated plugin release metadata for the `2026.5.25` release.
 * Initial flutter_rhwp plugin scaffold.
 * Added flutter_rust_bridge v2 Rust bridge with vendored rhwp v0.7.12.
 * Added Dart APIs for opening bytes, rendering SVG, extracting text/Markdown,

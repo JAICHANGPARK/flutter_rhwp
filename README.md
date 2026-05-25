@@ -7,7 +7,7 @@ documents.
 - Rust core: [edwardkim/rhwp](https://github.com/edwardkim/rhwp), vendored at
   `rust/vendor/rhwp`
 - Bridge: `flutter_rust_bridge` v2
-- Version: `2026.5.24`
+- Version: `2026.5.25`
 
 ## Features
 

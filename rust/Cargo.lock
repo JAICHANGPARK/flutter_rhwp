@@ -408,7 +408,7 @@ checksum = "98de4bbd547a563b716d8dfa9aad1cb19bfab00f4fa09a6a4ed21dbcf44ce9c4"
 
 [[package]]
 name = "flutter_rhwp"
-version = "2026.5.24"
+version = "2026.5.25"
 dependencies = [
  "flutter_rust_bridge",
  "rhwp",

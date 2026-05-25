@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'flutter_rhwp'
-  s.version          = '2026.5.24'
+  s.version          = '2026.5.25'
   s.summary          = 'Flutter bindings and widgets for rhwp.'
   s.description      = <<-DESC
 Flutter bindings and widgets for rhwp.
