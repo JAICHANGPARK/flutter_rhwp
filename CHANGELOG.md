@@ -245,6 +245,9 @@
   reducing visible page refresh while entering spaces or text.
 * Added a short desktop text-input focus grace window so transient IME/focus
   churn while typing does not release the deferred page refresh immediately.
+* Extended desktop native-editor input hold handling so delayed text input
+  actions and longer focus churn after a space or character do not trigger a
+  page SVG refresh while typing is still in progress.
 * Added Flutter-native Insert/Overwrite input mode toggling with the Insert key,
   including overwrite text replacement through the Rust `deleteText` command.
 * Extended Flutter-native overwrite typing to active table cell text through

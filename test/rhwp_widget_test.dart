@@ -6254,7 +6254,7 @@ void main() {
         );
 
         FocusManager.instance.primaryFocus?.unfocus();
-        await _pumpDocumentFrame(tester);
+        await _pumpDesktopTextInputRelease(tester);
 
         expect(changedCalls, 1);
         expect(session.renderedPages, [0]);
@@ -6321,7 +6321,7 @@ void main() {
         );
 
         FocusManager.instance.primaryFocus?.unfocus();
-        await _pumpDocumentFrame(tester);
+        await _pumpDesktopTextInputRelease(tester);
 
         expect(changedCalls, 1);
         expect(session.renderedPages, [0]);
@@ -6376,7 +6376,7 @@ void main() {
         await tester.pump();
 
         FocusManager.instance.primaryFocus?.unfocus();
-        await tester.pump(const Duration(milliseconds: 80));
+        await tester.pump(const Duration(milliseconds: 700));
         await tester.testTextInput.receiveAction(TextInputAction.done);
         await tester.pump();
 
@@ -6395,7 +6395,7 @@ void main() {
         );
 
         FocusManager.instance.primaryFocus?.unfocus();
-        await _pumpDocumentFrame(tester);
+        await _pumpDesktopTextInputRelease(tester);
 
         expect(changedCalls, 1);
         expect(session.renderedPages, [0]);
@@ -7554,6 +7554,12 @@ Future<void> _pumpDocumentFrame(WidgetTester tester) async {
   for (var i = 0; i < 8; i += 1) {
     await tester.pump(const Duration(milliseconds: 50));
   }
+}
+
+Future<void> _pumpDesktopTextInputRelease(WidgetTester tester) async {
+  await tester.pump(const Duration(milliseconds: 950));
+  await tester.pump(const Duration(milliseconds: 150));
+  await _pumpDocumentFrame(tester);
 }
 
 Future<void> _releaseTextInputAction(WidgetTester tester) async {
