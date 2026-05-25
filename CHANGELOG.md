@@ -93,3 +93,5 @@
   recorded the current `flutter pub publish --dry-run` warnings.
 * Added `.pubignore` so repository work logs remain in `docs/` without being
   published in the runtime package archive.
+* Added bundled asset integration coverage for native PDF export metadata and
+  PDF byte structure, while keeping Web/WASM on the explicit unsupported path.
