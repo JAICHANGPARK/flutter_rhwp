@@ -1330,6 +1330,39 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     );
   }
 
+  Future<void> _applyPendingCharFormatToInsertedTableCellText({
+    required RhwpTableCellSelection tableSelection,
+    required int startOffset,
+    required int endOffset,
+    required String text,
+  }) async {
+    final pending = _pendingCharFormat;
+    final cellIndex = tableSelection.activeCellIndex;
+    if (pending.isEmpty ||
+        cellIndex == null ||
+        text.isEmpty ||
+        text.contains('\n') ||
+        startOffset >= endOffset) {
+      return;
+    }
+
+    await widget.document.applyCharFormatInTableCell(
+      section: tableSelection.section,
+      paragraph: tableSelection.paragraph,
+      controlIndex: tableSelection.controlIndex,
+      cellIndex: cellIndex,
+      cellParagraph: tableSelection.activeCellParagraph,
+      startOffset: startOffset,
+      endOffset: endOffset,
+      bold: pending.bold,
+      italic: pending.italic,
+      underline: pending.underline,
+      strikethrough: pending.strikethrough,
+      fontSize: pending.fontSize,
+      textColor: pending.textColor,
+    );
+  }
+
   void _queueCommittedText(String text) {
     if (text.isEmpty) {
       return;
@@ -1380,6 +1413,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         );
         final nextOffset =
             _readIntResult(result, 'charOffset') ?? offset + text.length;
+        await _applyPendingCharFormatToInsertedTableCellText(
+          tableSelection: tableSelection,
+          startOffset: offset,
+          endOffset: nextOffset,
+          text: text,
+        );
         _setTextIfChanged(_offsetController, nextOffset.toString());
         _controller.tableCellSelection = RhwpTableCellSelection(
           section: tableSelection.section,
@@ -1986,10 +2025,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
-    final selection = _controller.selection;
-    if (selection.isCollapsed) {
-      setState(() {
-        _pendingCharFormat = _pendingCharFormat.merge(
+    final tableSelection = _controller.tableCellSelection;
+    if (tableSelection != null) {
+      if (tableSelection.isTextEditing) {
+        _mergePendingCharFormat(
           bold: bold,
           italic: italic,
           underline: underline,
@@ -1997,7 +2036,62 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           fontSize: fontSize,
           textColor: textColor,
         );
+        return;
+      }
+
+      final segments = await _tableCellTextSegments(tableSelection);
+      if (!mounted) {
+        return;
+      }
+      final nonEmptySegments = [
+        for (final segment in segments)
+          if (segment.startOffset < segment.endOffset) segment,
+      ];
+      if (nonEmptySegments.isEmpty) {
+        _mergePendingCharFormat(
+          bold: bold,
+          italic: italic,
+          underline: underline,
+          strikethrough: strikethrough,
+          fontSize: fontSize,
+          textColor: textColor,
+        );
+        return;
+      }
+
+      await _runEdit(() async {
+        for (final segment in nonEmptySegments) {
+          await widget.document.applyCharFormatInTableCell(
+            section: segment.section,
+            paragraph: segment.paragraph,
+            controlIndex: segment.controlIndex,
+            cellIndex: segment.cellIndex,
+            cellParagraph: segment.cellParagraph,
+            startOffset: segment.startOffset,
+            endOffset: segment.endOffset,
+            bold: bold,
+            italic: italic,
+            underline: underline,
+            strikethrough: strikethrough,
+            fontSize: fontSize,
+            textColor: textColor,
+          );
+        }
+        _controller.tableCellSelection = tableSelection;
       });
+      return;
+    }
+
+    final selection = _controller.selection;
+    if (selection.isCollapsed) {
+      _mergePendingCharFormat(
+        bold: bold,
+        italic: italic,
+        underline: underline,
+        strikethrough: strikethrough,
+        fontSize: fontSize,
+        textColor: textColor,
+      );
       return;
     }
 
@@ -2025,8 +2119,30 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
   }
 
+  void _mergePendingCharFormat({
+    bool? bold,
+    bool? italic,
+    bool? underline,
+    bool? strikethrough,
+    int? fontSize,
+    String? textColor,
+  }) {
+    setState(() {
+      _pendingCharFormat = _pendingCharFormat.merge(
+        bold: bold,
+        italic: italic,
+        underline: underline,
+        strikethrough: strikethrough,
+        fontSize: fontSize,
+        textColor: textColor,
+      );
+    });
+  }
+
   Future<void> _showCharShapeDialog() async {
-    if (_busy || _controller.selection.isCollapsed) {
+    if (_busy ||
+        (_controller.selection.isCollapsed &&
+            _controller.tableCellSelection == null)) {
       return;
     }
 

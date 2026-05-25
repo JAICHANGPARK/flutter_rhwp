@@ -495,6 +495,31 @@ impl RhwpSession {
                     )
                     .map_err(error_to_string)
             }
+            RhwpCommand::ApplyCharFormatInTableCell {
+                section,
+                paragraph,
+                control_index,
+                cell_index,
+                cell_paragraph,
+                start_offset,
+                end_offset,
+                properties,
+            } => {
+                let properties_json = properties.to_string();
+                inner
+                    .document
+                    .apply_char_format_in_cell_native(
+                        section as usize,
+                        paragraph as usize,
+                        control_index as usize,
+                        cell_index as usize,
+                        cell_paragraph as usize,
+                        start_offset as usize,
+                        end_offset as usize,
+                        &properties_json,
+                    )
+                    .map_err(error_to_string)
+            }
             RhwpCommand::ApplyParaFormat {
                 section,
                 paragraph,
@@ -769,6 +794,21 @@ enum RhwpCommand {
         start_offset: u32,
         #[serde(rename = "endParagraph")]
         end_paragraph: u32,
+        #[serde(rename = "endOffset")]
+        end_offset: u32,
+        properties: serde_json::Value,
+    },
+    ApplyCharFormatInTableCell {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "cellIndex")]
+        cell_index: u32,
+        #[serde(rename = "cellParagraph")]
+        cell_paragraph: u32,
+        #[serde(rename = "startOffset")]
+        start_offset: u32,
         #[serde(rename = "endOffset")]
         end_offset: u32,
         properties: serde_json::Value,
@@ -1621,6 +1661,14 @@ mod tests {
                 ),
             )
             .expect("insert text in table cell command should be accepted");
+        session
+            .apply_command(
+                format!(
+                    r##"{{"type":"applyCharFormatInTableCell","section":0,"paragraph":{},"controlIndex":0,"cellIndex":0,"cellParagraph":0,"startOffset":0,"endOffset":4,"properties":{{"bold":true,"fontSize":1100,"textColor":"#2563eb"}}}}"##,
+                    table_paragraph
+                ),
+            )
+            .expect("apply char format in table cell command should be accepted");
         session
             .apply_command(
                 format!(

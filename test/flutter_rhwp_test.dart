@@ -196,6 +196,35 @@ void main() {
     expect(
       jsonDecode(
         jsonEncode(
+          RhwpCommand.applyCharFormatInTableCell(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            cellIndex: 3,
+            cellParagraph: 0,
+            startOffset: 1,
+            endOffset: 4,
+            bold: true,
+            fontSize: 1100,
+            textColor: '#2563eb',
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'applyCharFormatInTableCell',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'cellIndex': 3,
+        'cellParagraph': 0,
+        'startOffset': 1,
+        'endOffset': 4,
+        'properties': {'bold': true, 'fontSize': 1100, 'textColor': '#2563eb'},
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
           RhwpCommand.mergeTableCells(
             section: 0,
             paragraph: 1,
@@ -773,6 +802,31 @@ void main() {
       'cellParagraph': 0,
       'offset': 2,
       'count': 1,
+    });
+
+    await document.applyCharFormatInTableCell(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      cellIndex: 2,
+      cellParagraph: 0,
+      startOffset: 0,
+      endOffset: 4,
+      bold: true,
+      fontSize: 1100,
+      textColor: '#2563eb',
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'applyCharFormatInTableCell',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'cellIndex': 2,
+      'cellParagraph': 0,
+      'startOffset': 0,
+      'endOffset': 4,
+      'properties': {'bold': true, 'fontSize': 1100, 'textColor': '#2563eb'},
     });
 
     await document.insertTableRow(

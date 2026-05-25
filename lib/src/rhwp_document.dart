@@ -228,6 +228,22 @@ abstract class RhwpCommand {
     required int count,
   }) = RhwpDeleteTextInTableCellCommand;
 
+  factory RhwpCommand.applyCharFormatInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int startOffset,
+    required int endOffset,
+    bool? bold,
+    bool? italic,
+    bool? underline,
+    bool? strikethrough,
+    int? fontSize,
+    String? textColor,
+  }) = RhwpApplyCharFormatInTableCellCommand;
+
   factory RhwpCommand.deleteRange({
     required int section,
     required int startParagraph,
@@ -509,6 +525,58 @@ class RhwpDeleteTextInTableCellCommand extends RhwpCommand {
     'cellParagraph': cellParagraph,
     'offset': offset,
     'count': count,
+  };
+}
+
+class RhwpApplyCharFormatInTableCellCommand extends RhwpCommand {
+  const RhwpApplyCharFormatInTableCellCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+    required this.cellParagraph,
+    required this.startOffset,
+    required this.endOffset,
+    this.bold,
+    this.italic,
+    this.underline,
+    this.strikethrough,
+    this.fontSize,
+    this.textColor,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+  final int cellParagraph;
+  final int startOffset;
+  final int endOffset;
+  final bool? bold;
+  final bool? italic;
+  final bool? underline;
+  final bool? strikethrough;
+  final int? fontSize;
+  final String? textColor;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'applyCharFormatInTableCell',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'cellIndex': cellIndex,
+    'cellParagraph': cellParagraph,
+    'startOffset': startOffset,
+    'endOffset': endOffset,
+    'properties': {
+      if (bold != null) 'bold': bold,
+      if (italic != null) 'italic': italic,
+      if (underline != null) 'underline': underline,
+      if (strikethrough != null) 'strikethrough': strikethrough,
+      if (fontSize != null) 'fontSize': fontSize,
+      if (textColor != null) 'textColor': textColor,
+    },
   };
 }
 
@@ -1308,6 +1376,40 @@ class RhwpDocument {
         cellParagraph: cellParagraph,
         offset: offset,
         count: count,
+      ),
+    );
+  }
+
+  Future<String> applyCharFormatInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int startOffset,
+    required int endOffset,
+    bool? bold,
+    bool? italic,
+    bool? underline,
+    bool? strikethrough,
+    int? fontSize,
+    String? textColor,
+  }) {
+    return apply(
+      RhwpCommand.applyCharFormatInTableCell(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        cellIndex: cellIndex,
+        cellParagraph: cellParagraph,
+        startOffset: startOffset,
+        endOffset: endOffset,
+        bold: bold,
+        italic: italic,
+        underline: underline,
+        strikethrough: strikethrough,
+        fontSize: fontSize,
+        textColor: textColor,
       ),
     );
   }

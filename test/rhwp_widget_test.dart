@@ -3945,6 +3945,162 @@ void main() {
     });
   });
 
+  testWidgets(
+    'RhwpNativeEditor applies character format to selected table cells',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      final pageFinder = find.byType(SvgPicture);
+      final pageTopLeft = tester.getTopLeft(pageFinder);
+      final pageSize = tester.getSize(pageFinder);
+      await tester.tapAt(
+        pageTopLeft +
+            Offset(pageSize.width * 100 / 240, pageSize.height * 60 / 180),
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('서식'));
+      await tester.pump();
+      await tester.tap(find.byTooltip('Bold'));
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+      expect(jsonDecode(session.commands.single), {
+        'type': 'applyCharFormatInTableCell',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'cellIndex': 7,
+        'cellParagraph': 0,
+        'startOffset': 0,
+        'endOffset': 4,
+        'properties': {'bold': true},
+      });
+      expect(controller.tableCellSelection?.activeCellIndex, 7);
+    },
+  );
+
+  testWidgets(
+    'RhwpNativeEditor applies pending character format to table input',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      final pageFinder = find.byType(SvgPicture);
+      final pageTopLeft = tester.getTopLeft(pageFinder);
+      final pageSize = tester.getSize(pageFinder);
+      await tester.tapAt(
+        pageTopLeft +
+            Offset(pageSize.width * 118 / 240, pageSize.height * 76 / 180),
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('서식'));
+      await tester.pump();
+      await tester.tap(find.byTooltip('Bold'));
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-editor-font-size-field')),
+        '14.5',
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('rhwp-editor-apply-font-size')),
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('rhwp-editor-text-color-#2563eb')),
+      );
+      await tester.pump();
+
+      expect(changedCalls, 0);
+      expect(session.commands, isEmpty);
+
+      await tester.tapAt(
+        pageTopLeft +
+            Offset(pageSize.width * 118 / 240, pageSize.height * 76 / 180),
+      );
+      await tester.pump();
+
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: 'Z',
+          selection: TextSelection.collapsed(offset: 1),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(changedCalls, 0);
+      expect(session.commands.map(jsonDecode), [
+        {
+          'type': 'insertTextInTableCell',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 0,
+          'offset': 2,
+          'text': 'Z',
+        },
+        {
+          'type': 'applyCharFormatInTableCell',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 0,
+          'startOffset': 2,
+          'endOffset': 3,
+          'properties': {
+            'bold': true,
+            'fontSize': 1450,
+            'textColor': '#2563eb',
+          },
+        },
+      ]);
+
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+    },
+  );
+
   testWidgets('RhwpNativeEditor applies pending character format to input', (
     tester,
   ) async {
