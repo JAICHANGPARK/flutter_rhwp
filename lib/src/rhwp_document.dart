@@ -321,6 +321,12 @@ abstract class RhwpCommand {
     required int endOffset,
   }) = RhwpDeleteRangeCommand;
 
+  factory RhwpCommand.insertFootnote({
+    required int section,
+    required int paragraph,
+    required int offset,
+  }) = RhwpInsertFootnoteCommand;
+
   factory RhwpCommand.splitParagraph({
     required int section,
     required int paragraph,
@@ -719,6 +725,26 @@ class RhwpDeleteRangeCommand extends RhwpCommand {
     'startOffset': startOffset,
     'endParagraph': endParagraph,
     'endOffset': endOffset,
+  };
+}
+
+class RhwpInsertFootnoteCommand extends RhwpCommand {
+  const RhwpInsertFootnoteCommand({
+    required this.section,
+    required this.paragraph,
+    required this.offset,
+  });
+
+  final int section;
+  final int paragraph;
+  final int offset;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'insertFootnote',
+    'section': section,
+    'paragraph': paragraph,
+    'offset': offset,
   };
 }
 
@@ -1756,6 +1782,20 @@ class RhwpDocument {
         startOffset: startOffset,
         endParagraph: endParagraph,
         endOffset: endOffset,
+      ),
+    );
+  }
+
+  Future<String> insertFootnote({
+    required int section,
+    required int paragraph,
+    required int offset,
+  }) {
+    return apply(
+      RhwpCommand.insertFootnote(
+        section: section,
+        paragraph: paragraph,
+        offset: offset,
       ),
     );
   }

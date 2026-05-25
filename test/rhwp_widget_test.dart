@@ -361,6 +361,18 @@ void main() {
       'offset': 2,
       'count': 1,
     });
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-insert-footnote')));
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.cursor.offset, 3);
+    expect(changedCalls, 3);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'insertFootnote',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 2,
+    });
   });
 
   testWidgets('RhwpNativeEditor preserves viewport while editing', (

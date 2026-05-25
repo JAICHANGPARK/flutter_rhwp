@@ -242,6 +242,14 @@ impl RhwpSession {
                     None,
                 )
                 .map_err(error_to_string),
+            RhwpCommand::InsertFootnote {
+                section,
+                paragraph,
+                offset,
+            } => inner
+                .document
+                .insert_footnote_native(section as usize, paragraph as usize, offset as usize)
+                .map_err(error_to_string),
             RhwpCommand::SplitParagraph {
                 section,
                 paragraph,
@@ -729,6 +737,11 @@ enum RhwpCommand {
         end_paragraph: u32,
         #[serde(rename = "endOffset")]
         end_offset: u32,
+    },
+    InsertFootnote {
+        section: u32,
+        paragraph: u32,
+        offset: u32,
     },
     SplitParagraph {
         section: u32,
@@ -1671,6 +1684,11 @@ mod tests {
                 r#"{"type":"splitParagraph","section":0,"paragraph":0,"offset":4}"#.to_string(),
             )
             .expect("split paragraph command should be accepted");
+        session
+            .apply_command(
+                r#"{"type":"insertFootnote","section":0,"paragraph":0,"offset":4}"#.to_string(),
+            )
+            .expect("insert footnote command should be accepted");
         session
             .apply_command(
                 r#"{"type":"insertText","section":0,"paragraph":1,"offset":0,"text":"next"}"#

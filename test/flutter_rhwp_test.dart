@@ -40,6 +40,21 @@ void main() {
     });
   });
 
+  test('insert footnote command serializes to the Rust command envelope', () {
+    final command = RhwpCommand.insertFootnote(
+      section: 0,
+      paragraph: 1,
+      offset: 2,
+    );
+
+    expect(jsonDecode(jsonEncode(command.toJson())), {
+      'type': 'insertFootnote',
+      'section': 0,
+      'paragraph': 1,
+      'offset': 2,
+    });
+  });
+
   test('insert table command serializes to the Rust command envelope', () {
     final command = RhwpCommand.insertTable(
       section: 0,
@@ -890,6 +905,15 @@ void main() {
 
     expect(jsonDecode(session.lastCommandJson!), {
       'type': 'splitParagraph',
+      'section': 0,
+      'paragraph': 1,
+      'offset': 2,
+    });
+
+    await document.insertFootnote(section: 0, paragraph: 1, offset: 2);
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'insertFootnote',
       'section': 0,
       'paragraph': 1,
       'offset': 2,

@@ -1949,6 +1949,28 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
   }
 
+  Future<void> _insertFootnote() async {
+    if (_busy || _controller.tableCellSelection != null) {
+      return;
+    }
+
+    final selection = _controller.selection;
+    final cursor = selection.isCollapsed
+        ? _controller.cursor
+        : selection.normalizedStart;
+    await _runEdit(() async {
+      if (!selection.isCollapsed) {
+        await _deleteSelectedText(selection);
+      }
+      await widget.document.insertFootnote(
+        section: cursor.section,
+        paragraph: cursor.paragraph,
+        offset: cursor.offset,
+      );
+      _controller.cursor = cursor.copyWith(offset: cursor.offset + 1);
+    });
+  }
+
   Future<void> _insertTableRow() async {
     if (_busy) {
       return;
@@ -5725,6 +5747,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onExportPdf: () => _exportFromEditor(RhwpExportFormat.pdf),
           onDeleteBackward: _deleteBackward,
           onInsertTable: _insertTable,
+          onInsertFootnote: _insertFootnote,
           onInsertTableRow: _insertTableRow,
           onInsertTableColumn: _insertTableColumn,
           onDeleteTableRow: _deleteTableRow,
@@ -7381,6 +7404,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onExportPdf,
     required this.onDeleteBackward,
     required this.onInsertTable,
+    required this.onInsertFootnote,
     required this.onInsertTableRow,
     required this.onInsertTableColumn,
     required this.onDeleteTableRow,
@@ -7469,6 +7493,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onExportPdf;
   final VoidCallback onDeleteBackward;
   final VoidCallback onInsertTable;
+  final VoidCallback onInsertFootnote;
   final VoidCallback onInsertTableRow;
   final VoidCallback onInsertTableColumn;
   final VoidCallback onDeleteTableRow;
@@ -7912,6 +7937,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               tooltip: 'Delete backward',
               icon: Icons.backspace_outlined,
               onPressed: widget.busy ? null : widget.onDeleteBackward,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Insert footnote',
+              buttonKey: const ValueKey('rhwp-editor-insert-footnote'),
+              icon: Icons.notes_outlined,
+              onPressed: widget.busy ? null : widget.onInsertFootnote,
             ),
           ],
         ),
