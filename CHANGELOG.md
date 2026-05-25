@@ -202,7 +202,7 @@
   every keystroke.
 * Added an optimistic Flutter text overlay for committed native-editor input so
   newly typed text remains visible until the refreshed page SVG finishes
-  rendering.
+  rendering, including a temporary caret at the end of the pending text.
 * Added Flutter-native double-click word selection based on page-layer text run
   hit testing.
 * Added Flutter-native triple-click paragraph selection using the same

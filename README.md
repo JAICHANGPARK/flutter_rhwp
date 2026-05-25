@@ -210,7 +210,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   preserving object resize. Text input, paste, tab input, and keyboard delete
   defer page SVG refresh briefly so normal typing does not reload the rendered
   page after every keystroke, and committed text is shown through a temporary
-  Flutter overlay until the refreshed page render completes.
+  Flutter overlay with a pending caret until the refreshed page render
+  completes.
 - `rust/vendor/rhwp` should be committed. `rust/target` should stay ignored.
 
 ## License

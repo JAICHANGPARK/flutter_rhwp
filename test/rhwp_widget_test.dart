@@ -4284,7 +4284,11 @@ void main() {
       );
       await tester.pump();
 
-      controller.cursor = const RhwpCursorPosition(offset: 2);
+      controller.cursor = const RhwpCursorPosition(offset: 4);
+      await tester.pump();
+      final previousCaretLeft = tester
+          .getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret')))
+          .dx;
       session.renderedPages.clear();
       final pendingSvg = Completer<String>();
       session.pendingRenderedSvgs.add(pendingSvg);
@@ -4303,6 +4307,10 @@ void main() {
       expect(
         find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
         findsOneWidget,
+      );
+      expect(
+        tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))).dx,
+        greaterThan(previousCaretLeft),
       );
       expect(find.text('Z'), findsOneWidget);
 

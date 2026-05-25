@@ -5354,6 +5354,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     final objectSelectionRects = _objectSelectionRects(tree, overlaySize);
     final searchRects = _searchRects(tree, overlaySize);
     final pendingTextRects = _pendingTextRects(tree, overlaySize);
+    final pendingTextCaretRect = _pendingTextCaretRect(tree, overlaySize);
     final caretRect = tree.caretRectFor(
       section: widget.selection.end.section,
       paragraph: widget.selection.end.paragraph,
@@ -5370,6 +5371,11 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     final color = Theme.of(context).colorScheme.primary;
     final searchColor = Colors.amber.shade600;
     final selectionRects = _layerSelectionRects(tree, overlaySize);
+    final displayedCaretRect =
+        pendingTextCaretRect ??
+        (caretRect == null
+            ? null
+            : _scalePageRect(caretRect, tree, overlaySize, caret: true));
     final scaledCaretRect = caretRect == null
         ? null
         : _scalePageRect(caretRect, tree, overlaySize);
@@ -5452,10 +5458,10 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
               height: pending.rect.height,
             ),
           ),
-        if (caretRect != null)
+        if (displayedCaretRect != null)
           _positionedRect(
             key: const ValueKey('rhwp-editor-caret'),
-            rect: _scalePageRect(caretRect, tree, overlaySize, caret: true),
+            rect: displayedCaretRect,
             constraints: constraints,
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -5629,16 +5635,45 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
       }
 
       final scaled = _scalePageRect(caretRect, tree, overlaySize);
-      final textWidth = math.max(
-        12.0,
-        overlay.text.length.toDouble() * math.max(8.0, scaled.height * 0.55),
-      );
+      final textWidth = _pendingTextWidth(overlay.text, scaled.height);
       rects.add((
         text: overlay.text,
         rect: Rect.fromLTWH(scaled.left, scaled.top, textWidth, scaled.height),
       ));
     }
     return rects;
+  }
+
+  Rect? _pendingTextCaretRect(RhwpLayerTree tree, Size overlaySize) {
+    if (widget.pendingTextOverlays.isEmpty) {
+      return null;
+    }
+
+    final overlay = widget.pendingTextOverlays.last;
+    final caretRect = tree.caretRectFor(
+      section: overlay.cursor.section,
+      paragraph: overlay.cursor.paragraph,
+      offset: overlay.cursor.offset,
+    );
+    if (caretRect == null) {
+      return null;
+    }
+
+    final scaled = _scalePageRect(caretRect, tree, overlaySize, caret: true);
+    final textWidth = _pendingTextWidth(overlay.text, scaled.height);
+    return Rect.fromLTWH(
+      scaled.left + textWidth,
+      scaled.top,
+      scaled.width,
+      scaled.height,
+    );
+  }
+
+  double _pendingTextWidth(String text, double height) {
+    return math.max(
+      12.0,
+      text.length.toDouble() * math.max(8.0, height * 0.55),
+    );
   }
 
   List<({Rect rect, bool active})> _searchRects(
