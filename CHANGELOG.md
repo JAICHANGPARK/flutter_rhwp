@@ -126,6 +126,8 @@
   run geometry before falling back to paragraph order.
 * Changed Flutter-native Home/End movement to use page-layer line geometry
   before falling back to paragraph boundaries.
+* Added Ctrl/Option+Arrow word navigation with Shift selection extension in the
+  Flutter-native editor.
 * Added `RhwpNativeEditor` as the 100% Flutter widget editor track while
   keeping `RhwpFullEditor` as the WebView/upstream editor fallback.
 * Reworked the Flutter-native editor surface with a Flutter toolbar, menu tabs,

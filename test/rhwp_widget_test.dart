@@ -1480,6 +1480,66 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor moves by word with keyboard modifiers', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(
+      _editorLayerTreeJson(firstText: 'hello world', secondText: 'tail'),
+    );
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    controller.cursor = const RhwpCursorPosition(offset: 2);
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+    await _pumpDocumentFrame(tester);
+    expect(controller.cursor, const RhwpCursorPosition(offset: 5));
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await _pumpDocumentFrame(tester);
+    expect(controller.cursor, const RhwpCursorPosition(offset: 6));
+
+    controller.cursor = const RhwpCursorPosition(offset: 8);
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(
+      controller.selection,
+      const RhwpSelectionRange(
+        start: RhwpCursorPosition(offset: 8),
+        end: RhwpCursorPosition(offset: 6),
+      ),
+    );
+    expect(session.commands, isEmpty);
+  });
+
   testWidgets('RhwpNativeEditor moves vertically by page geometry', (
     tester,
   ) async {
@@ -3083,7 +3143,7 @@ Map<String, Object?> _editorLayerTreeJson({
               'text': firstText,
               'source': {
                 'id': 0,
-                'utf16Range': {'start': 0, 'end': 4},
+                'utf16Range': {'start': 0, 'end': firstText.length},
                 'stableSourceKey':
                     'section:0/para:$firstParagraph/char:$firstCharStart',
               },
@@ -3091,12 +3151,7 @@ Map<String, Object?> _editorLayerTreeJson({
                 'runToPage': {'a': 1, 'b': 0, 'c': 0, 'd': 1, 'e': 80, 'f': 52},
                 'baselineY': 0,
               },
-              'clusters': [
-                _editorTextCluster(0, 1, 0),
-                _editorTextCluster(1, 2, 10),
-                _editorTextCluster(2, 3, 20),
-                _editorTextCluster(3, 4, 30),
-              ],
+              'clusters': _editorTextClusters(firstText.length),
             },
           ],
         },
@@ -3110,7 +3165,7 @@ Map<String, Object?> _editorLayerTreeJson({
               'text': secondText,
               'source': {
                 'id': 1,
-                'utf16Range': {'start': 0, 'end': 4},
+                'utf16Range': {'start': 0, 'end': secondText.length},
                 'stableSourceKey':
                     'section:0/para:$secondParagraph/char:$secondCharStart',
               },
@@ -3118,12 +3173,7 @@ Map<String, Object?> _editorLayerTreeJson({
                 'runToPage': {'a': 1, 'b': 0, 'c': 0, 'd': 1, 'e': 80, 'f': 92},
                 'baselineY': 0,
               },
-              'clusters': [
-                _editorTextCluster(0, 1, 0),
-                _editorTextCluster(1, 2, 10),
-                _editorTextCluster(2, 3, 20),
-                _editorTextCluster(3, 4, 30),
-              ],
+              'clusters': _editorTextClusters(secondText.length),
             },
           ],
         },
@@ -3252,6 +3302,13 @@ Map<String, Object?> _editorTextCluster(int start, int end, double x) {
     'origin': {'x': x, 'y': 0},
     'advance': {'dx': 10, 'dy': 0},
   };
+}
+
+List<Map<String, Object?>> _editorTextClusters(int length) {
+  return [
+    for (var index = 0; index < length; index += 1)
+      _editorTextCluster(index, index + 1, index * 10),
+  ];
 }
 
 Future<void> _pumpDocumentFrame(WidgetTester tester) async {

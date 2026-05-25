@@ -2270,6 +2270,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     final extendSelection = HardwareKeyboard.instance.isShiftPressed;
+    final wordNavigationPressed =
+        HardwareKeyboard.instance.isAltPressed ||
+        (HardwareKeyboard.instance.isControlPressed &&
+            !HardwareKeyboard.instance.isMetaPressed);
     final shortcutPressed =
         HardwareKeyboard.instance.isControlPressed ||
         HardwareKeyboard.instance.isMetaPressed;
@@ -2343,10 +2347,18 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         }
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowLeft:
-        _moveCursorHorizontally(-1, extendSelection: extendSelection);
+        if (wordNavigationPressed) {
+          unawaited(_moveCursorByWord(-1, extendSelection: extendSelection));
+        } else {
+          _moveCursorHorizontally(-1, extendSelection: extendSelection);
+        }
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowRight:
-        _moveCursorHorizontally(1, extendSelection: extendSelection);
+        if (wordNavigationPressed) {
+          unawaited(_moveCursorByWord(1, extendSelection: extendSelection));
+        } else {
+          _moveCursorHorizontally(1, extendSelection: extendSelection);
+        }
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowUp:
         unawaited(_moveCursorVertically(-1, extendSelection: extendSelection));
@@ -2395,6 +2407,43 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     final nextOffset = math.max(0, current.end.offset + delta);
     final next = current.end.copyWith(offset: nextOffset);
     _setCursorOrSelection(current, next, extendSelection: extendSelection);
+  }
+
+  Future<void> _moveCursorByWord(
+    int delta, {
+    required bool extendSelection,
+  }) async {
+    if (delta == 0) {
+      return;
+    }
+
+    final current = _controller.selection;
+    final cursor = current.end;
+    try {
+      final paragraphText = await _paragraphTextFor(cursor);
+      if (!mounted) {
+        return;
+      }
+
+      final nextOffset = paragraphText == null
+          ? math.max(0, cursor.offset + delta)
+          : _wordBoundaryOffset(paragraphText.text, cursor.offset, delta);
+      _setCursorOrSelection(
+        current,
+        cursor.copyWith(offset: nextOffset),
+        extendSelection: extendSelection,
+      );
+      if (paragraphText != null) {
+        unawaited(_controller.goToPage(paragraphText.page));
+      }
+      _focusEditor();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    }
   }
 
   Future<void> _moveCursorToLineStart({required bool extendSelection}) async {
@@ -2654,6 +2703,82 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       }
     }
     return startHit ?? insideHit ?? fallbackHit;
+  }
+
+  Future<({String text, int page})?> _paragraphTextFor(
+    RhwpCursorPosition cursor,
+  ) async {
+    final pageCount = await widget.document.pageCount;
+    final runs = <({RhwpTextRunLayout run, int page})>[];
+    for (var page = 0; page < pageCount; page += 1) {
+      final tree = await widget.document.pageLayerTreeModel(page);
+      for (final run in _bodyTextRuns(tree)) {
+        if (run.section == cursor.section &&
+            run.paragraph == cursor.paragraph) {
+          runs.add((run: run, page: page));
+        }
+      }
+    }
+    if (runs.isEmpty) {
+      return null;
+    }
+
+    runs.sort((left, right) {
+      final start = left.run.charStart.compareTo(right.run.charStart);
+      if (start != 0) {
+        return start;
+      }
+      return left.run.charEnd.compareTo(right.run.charEnd);
+    });
+
+    final buffer = StringBuffer();
+    var offset = 0;
+    for (final entry in runs) {
+      final run = entry.run;
+      if (run.charStart > offset) {
+        buffer.write(List.filled(run.charStart - offset, ' ').join());
+        offset = run.charStart;
+      }
+      final text = run.textForOffsets(run.charStart, run.charEnd);
+      buffer.write(text);
+      offset = math.max(offset, run.charEnd);
+    }
+
+    return (text: buffer.toString(), page: runs.first.page);
+  }
+
+  int _wordBoundaryOffset(String text, int offset, int delta) {
+    final length = text.length;
+    var cursor = offset.clamp(0, length).toInt();
+    if (delta < 0) {
+      while (cursor > 0 && _isWordSeparator(text.codeUnitAt(cursor - 1))) {
+        cursor -= 1;
+      }
+      while (cursor > 0 && !_isWordSeparator(text.codeUnitAt(cursor - 1))) {
+        cursor -= 1;
+      }
+      return cursor;
+    }
+
+    if (cursor < length && !_isWordSeparator(text.codeUnitAt(cursor))) {
+      while (cursor < length && !_isWordSeparator(text.codeUnitAt(cursor))) {
+        cursor += 1;
+      }
+      return cursor;
+    }
+
+    while (cursor < length && _isWordSeparator(text.codeUnitAt(cursor))) {
+      cursor += 1;
+    }
+    return cursor;
+  }
+
+  bool _isWordSeparator(int codeUnit) {
+    if (codeUnit <= 0x20) {
+      return true;
+    }
+    const separators = '.,;:!?()[]{}<>/"\'`~@#\$%^&*-+=|\\';
+    return separators.codeUnits.contains(codeUnit);
   }
 
   Future<void> _moveCursorToDocumentBoundary({
