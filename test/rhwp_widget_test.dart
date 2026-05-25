@@ -539,10 +539,11 @@ void main() {
 
     expect(changedCalls, 1);
     expect(jsonDecode(session.commands.single), {
-      'type': 'applyCharFormat',
+      'type': 'applyCharFormatRange',
       'section': 0,
-      'paragraph': 0,
+      'startParagraph': 0,
       'startOffset': 1,
+      'endParagraph': 0,
       'endOffset': 3,
       'properties': {'bold': true},
     });
@@ -559,20 +560,44 @@ void main() {
 
     expect(changedCalls, 3);
     expect(jsonDecode(session.commands[1]), {
-      'type': 'applyCharFormat',
+      'type': 'applyCharFormatRange',
       'section': 0,
-      'paragraph': 0,
+      'startParagraph': 0,
       'startOffset': 1,
+      'endParagraph': 0,
       'endOffset': 3,
       'properties': {'italic': true},
     });
     expect(jsonDecode(session.commands[2]), {
-      'type': 'applyCharFormat',
+      'type': 'applyCharFormatRange',
       'section': 0,
-      'paragraph': 0,
+      'startParagraph': 0,
       'startOffset': 1,
+      'endParagraph': 0,
       'endOffset': 3,
       'properties': {'underline': true},
+    });
+
+    controller.selection = const RhwpSelectionRange(
+      start: RhwpCursorPosition(paragraph: 0, offset: 2),
+      end: RhwpCursorPosition(paragraph: 1, offset: 2),
+    );
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 4);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'applyCharFormatRange',
+      'section': 0,
+      'startParagraph': 0,
+      'startOffset': 2,
+      'endParagraph': 1,
+      'endOffset': 2,
+      'properties': {'bold': true},
     });
   });
 

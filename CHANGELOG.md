@@ -141,3 +141,5 @@
   Flutter-native multi-paragraph selection replacement.
 * Added `applyCharFormat` to the Rust bridge command surface and wired
   Flutter-native bold, italic, and underline toolbar/shortcut actions.
+* Added `applyCharFormatRange` for same-section multi-paragraph character
+  formatting in the Flutter-native editor.

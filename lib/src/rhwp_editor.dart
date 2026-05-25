@@ -408,15 +408,16 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
     final start = selection.normalizedStart;
     final end = selection.normalizedEnd;
-    if (start.section != end.section || start.paragraph != end.paragraph) {
+    if (start.section != end.section) {
       return;
     }
 
     await _runEdit(() async {
-      await widget.document.applyCharFormat(
+      await widget.document.applyCharFormatRange(
         section: start.section,
-        paragraph: start.paragraph,
+        startParagraph: start.paragraph,
         startOffset: start.offset,
+        endParagraph: end.paragraph,
         endOffset: end.offset,
         bold: bold,
         italic: italic,

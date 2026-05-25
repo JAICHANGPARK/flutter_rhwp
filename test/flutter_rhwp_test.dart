@@ -80,6 +80,30 @@ void main() {
     });
   });
 
+  test(
+    'apply char format range command serializes to the Rust command envelope',
+    () {
+      final command = RhwpCommand.applyCharFormatRange(
+        section: 0,
+        startParagraph: 1,
+        startOffset: 2,
+        endParagraph: 3,
+        endOffset: 4,
+        bold: true,
+      );
+
+      expect(jsonDecode(jsonEncode(command.toJson())), {
+        'type': 'applyCharFormatRange',
+        'section': 0,
+        'startParagraph': 1,
+        'startOffset': 2,
+        'endParagraph': 3,
+        'endOffset': 4,
+        'properties': {'bold': true},
+      });
+    },
+  );
+
   test('closed exception has a stable message', () {
     expect(
       const RhwpClosedException().toString(),
@@ -172,6 +196,25 @@ void main() {
       'startOffset': 2,
       'endOffset': 4,
       'properties': {'bold': true},
+    });
+
+    await document.applyCharFormatRange(
+      section: 0,
+      startParagraph: 1,
+      startOffset: 2,
+      endParagraph: 3,
+      endOffset: 4,
+      italic: true,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'applyCharFormatRange',
+      'section': 0,
+      'startParagraph': 1,
+      'startOffset': 2,
+      'endParagraph': 3,
+      'endOffset': 4,
+      'properties': {'italic': true},
     });
 
     await document.splitParagraph(section: 0, paragraph: 1, offset: 2);

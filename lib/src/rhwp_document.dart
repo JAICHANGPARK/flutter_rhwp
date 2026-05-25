@@ -175,6 +175,17 @@ abstract class RhwpCommand {
     bool? underline,
   }) = RhwpApplyCharFormatCommand;
 
+  factory RhwpCommand.applyCharFormatRange({
+    required int section,
+    required int startParagraph,
+    required int startOffset,
+    required int endParagraph,
+    required int endOffset,
+    bool? bold,
+    bool? italic,
+    bool? underline,
+  }) = RhwpApplyCharFormatRangeCommand;
+
   factory RhwpCommand.setFileName(String name) = RhwpSetFileNameCommand;
 }
 
@@ -295,6 +306,43 @@ class RhwpApplyCharFormatCommand extends RhwpCommand {
     'section': section,
     'paragraph': paragraph,
     'startOffset': startOffset,
+    'endOffset': endOffset,
+    'properties': {
+      if (bold != null) 'bold': bold,
+      if (italic != null) 'italic': italic,
+      if (underline != null) 'underline': underline,
+    },
+  };
+}
+
+class RhwpApplyCharFormatRangeCommand extends RhwpCommand {
+  const RhwpApplyCharFormatRangeCommand({
+    required this.section,
+    required this.startParagraph,
+    required this.startOffset,
+    required this.endParagraph,
+    required this.endOffset,
+    this.bold,
+    this.italic,
+    this.underline,
+  });
+
+  final int section;
+  final int startParagraph;
+  final int startOffset;
+  final int endParagraph;
+  final int endOffset;
+  final bool? bold;
+  final bool? italic;
+  final bool? underline;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'applyCharFormatRange',
+    'section': section,
+    'startParagraph': startParagraph,
+    'startOffset': startOffset,
+    'endParagraph': endParagraph,
     'endOffset': endOffset,
     'properties': {
       if (bold != null) 'bold': bold,
@@ -514,6 +562,30 @@ class RhwpDocument {
         section: section,
         paragraph: paragraph,
         startOffset: startOffset,
+        endOffset: endOffset,
+        bold: bold,
+        italic: italic,
+        underline: underline,
+      ),
+    );
+  }
+
+  Future<String> applyCharFormatRange({
+    required int section,
+    required int startParagraph,
+    required int startOffset,
+    required int endParagraph,
+    required int endOffset,
+    bool? bold,
+    bool? italic,
+    bool? underline,
+  }) {
+    return apply(
+      RhwpCommand.applyCharFormatRange(
+        section: section,
+        startParagraph: startParagraph,
+        startOffset: startOffset,
+        endParagraph: endParagraph,
         endOffset: endOffset,
         bold: bold,
         italic: italic,

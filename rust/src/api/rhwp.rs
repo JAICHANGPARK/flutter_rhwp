@@ -229,6 +229,27 @@ impl RhwpSession {
                     )
                     .map_err(error_to_string)
             }
+            RhwpCommand::ApplyCharFormatRange {
+                section,
+                start_paragraph,
+                start_offset,
+                end_paragraph,
+                end_offset,
+                properties,
+            } => {
+                let properties_json = properties.to_string();
+                inner
+                    .document
+                    .apply_char_format_range_native(
+                        section as usize,
+                        start_paragraph as usize,
+                        start_offset as usize,
+                        end_paragraph as usize,
+                        end_offset as usize,
+                        &properties_json,
+                    )
+                    .map_err(error_to_string)
+            }
             RhwpCommand::SetFileName { name } => {
                 inner.document.set_file_name(&name);
                 inner.file_name = Some(name);
@@ -322,6 +343,18 @@ enum RhwpCommand {
         paragraph: u32,
         #[serde(rename = "startOffset")]
         start_offset: u32,
+        #[serde(rename = "endOffset")]
+        end_offset: u32,
+        properties: serde_json::Value,
+    },
+    ApplyCharFormatRange {
+        section: u32,
+        #[serde(rename = "startParagraph")]
+        start_paragraph: u32,
+        #[serde(rename = "startOffset")]
+        start_offset: u32,
+        #[serde(rename = "endParagraph")]
+        end_paragraph: u32,
         #[serde(rename = "endOffset")]
         end_offset: u32,
         properties: serde_json::Value,
@@ -792,6 +825,12 @@ mod tests {
                     .to_string(),
             )
             .expect("second paragraph insert should be accepted");
+        session
+            .apply_command(
+                r#"{"type":"applyCharFormatRange","section":0,"startParagraph":0,"startOffset":1,"endParagraph":1,"endOffset":2,"properties":{"bold":true}}"#
+                    .to_string(),
+            )
+            .expect("apply char format range command should be accepted");
         session
             .apply_command(
                 r#"{"type":"deleteRange","section":0,"startParagraph":0,"startOffset":2,"endParagraph":1,"endOffset":2}"#

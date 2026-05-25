@@ -701,6 +701,62 @@ impl DocumentCore {
         Ok("{\"ok\":true}".to_string())
     }
 
+    /// 글자 서식 적용 (네이티브) — 본문 여러 문단 선택 영역.
+    pub fn apply_char_format_range_native(
+        &mut self,
+        sec_idx: usize,
+        start_para: usize,
+        start_offset: usize,
+        end_para: usize,
+        end_offset: usize,
+        props_json: &str,
+    ) -> Result<String, HwpError> {
+        if sec_idx >= self.document.sections.len() {
+            return Err(HwpError::RenderError(format!("구역 {} 범위 초과", sec_idx)));
+        }
+
+        let section = &self.document.sections[sec_idx];
+        if start_para >= section.paragraphs.len() {
+            return Err(HwpError::RenderError(format!("문단 {} 범위 초과", start_para)));
+        }
+        if end_para >= section.paragraphs.len() {
+            return Err(HwpError::RenderError(format!("문단 {} 범위 초과", end_para)));
+        }
+        if start_para > end_para {
+            return Err(HwpError::RenderError("선택 시작 문단이 끝 문단보다 큼".to_string()));
+        }
+
+        if start_para == end_para {
+            return self.apply_char_format_native(
+                sec_idx,
+                start_para,
+                start_offset,
+                end_offset,
+                props_json,
+            );
+        }
+
+        for para_idx in start_para..=end_para {
+            let para_len = self.document.sections[sec_idx].paragraphs[para_idx]
+                .text
+                .chars()
+                .count();
+            let range_start = if para_idx == start_para { start_offset } else { 0 };
+            let range_end = if para_idx == end_para { end_offset } else { para_len };
+            if range_start < range_end {
+                self.apply_char_format_native(
+                    sec_idx,
+                    para_idx,
+                    range_start,
+                    range_end,
+                    props_json,
+                )?;
+            }
+        }
+
+        Ok("{\"ok\":true}".to_string())
+    }
+
     /// 글자 서식 적용 (네이티브) — 셀 내 문단
     pub fn apply_char_format_in_cell_native(
         &mut self,
