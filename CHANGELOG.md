@@ -196,3 +196,5 @@
   using undo-aware delete/insert commands through the Rust bridge.
 * Added replace-all to the Flutter-native editor tools ribbon, applying all
   current search matches in one undo-aware edit transaction.
+* Added Flutter-native select-all through the edit ribbon, context menu, and
+  Ctrl/Cmd+A shortcut using page layer tree source positions.

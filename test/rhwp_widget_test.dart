@@ -1126,6 +1126,89 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor edit ribbon selects all body text', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(
+      _editorLayerTreeJson(firstText: 'abcd', secondText: 'efgh'),
+    );
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('편집'));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-select-all')));
+    await _pumpDocumentFrame(tester);
+
+    expect(
+      controller.selection,
+      const RhwpSelectionRange(
+        start: RhwpCursorPosition(paragraph: 0),
+        end: RhwpCursorPosition(paragraph: 1, offset: 4),
+      ),
+    );
+    expect(controller.currentPage, 0);
+    expect(session.commands, isEmpty);
+    expect(session.historyCommands, isEmpty);
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-selection')),
+      findsAtLeastNWidgets(1),
+    );
+  });
+
+  testWidgets('RhwpNativeEditor handles select all shortcut', (tester) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(
+      _editorLayerTreeJson(firstText: 'abcd', secondText: 'efgh'),
+    );
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(
+      controller.selection,
+      const RhwpSelectionRange(
+        start: RhwpCursorPosition(paragraph: 0),
+        end: RhwpCursorPosition(paragraph: 1, offset: 4),
+      ),
+    );
+    expect(session.commands, isEmpty);
+    expect(session.historyCommands, isEmpty);
+  });
+
   testWidgets('RhwpCommandEditor paints caret and selection target overlay', (
     tester,
   ) async {

@@ -272,6 +272,7 @@ class _TableReference {
 }
 
 enum _EditorContextMenuAction {
+  selectAll,
   cut,
   copy,
   paste,
@@ -860,6 +861,79 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
     await _insertCommittedText(text);
+  }
+
+  Future<void> _selectAllText() async {
+    if (_busy || _searching) {
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+
+    try {
+      final pageCount = await widget.document.pageCount;
+      RhwpCursorPosition? start;
+      RhwpCursorPosition? end;
+      var startPage = 0;
+
+      for (var page = 0; page < pageCount; page += 1) {
+        final tree = await widget.document.pageLayerTreeModel(page);
+        for (final run in tree.textRuns) {
+          final section = run.section;
+          final paragraph = run.paragraph;
+          if (section == null ||
+              paragraph == null ||
+              run.cellContext != null ||
+              run.text.isEmpty) {
+            continue;
+          }
+
+          final runStart = RhwpCursorPosition(
+            section: section,
+            paragraph: paragraph,
+            offset: run.charStart,
+          );
+          final runEnd = RhwpCursorPosition(
+            section: section,
+            paragraph: paragraph,
+            offset: run.charEnd,
+          );
+          if (start == null || runStart.compareTo(start) < 0) {
+            start = runStart;
+            startPage = page;
+          }
+          if (end == null || runEnd.compareTo(end) > 0) {
+            end = runEnd;
+          }
+        }
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      if (start != null && end != null && start != end) {
+        _controller.clearTableCellSelection();
+        _controller.selection = RhwpSelectionRange(start: start, end: end);
+        unawaited(_controller.goToPage(startPage));
+        _focusEditor();
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+        });
+      }
+    }
   }
 
   Future<void> _insertLineBreak() async {
@@ -1855,6 +1929,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     switch (action) {
+      case _EditorContextMenuAction.selectAll:
+        await _selectAllText();
       case _EditorContextMenuAction.cut:
         await _cutSelection();
       case _EditorContextMenuAction.copy:
@@ -1900,6 +1976,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
     if (hasTableSelection) {
       return [
+        _contextMenuItem(
+          action: _EditorContextMenuAction.selectAll,
+          icon: Icons.select_all,
+          label: '모두 선택',
+          enabled: !_busy,
+        ),
+        const PopupMenuDivider(),
         _contextMenuItem(
           action: _EditorContextMenuAction.cut,
           icon: Icons.content_cut,
@@ -1947,6 +2030,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     return [
+      _contextMenuItem(
+        action: _EditorContextMenuAction.selectAll,
+        icon: Icons.select_all,
+        label: '모두 선택',
+        enabled: !_busy,
+      ),
+      const PopupMenuDivider(),
       _contextMenuItem(
         action: _EditorContextMenuAction.cut,
         icon: Icons.content_cut,
@@ -2181,6 +2271,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         case LogicalKeyboardKey.keyV:
           _pasteClipboard();
           return KeyEventResult.handled;
+        case LogicalKeyboardKey.keyA:
+          _selectAllText();
+          return KeyEventResult.handled;
         case LogicalKeyboardKey.keyZ:
           if (HardwareKeyboard.instance.isShiftPressed) {
             _redoEdit();
@@ -2317,6 +2410,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onCut: _cutSelection,
           onCopy: _copySelection,
           onPaste: _pasteClipboard,
+          onSelectAll: _selectAllText,
           canUndo: _undoSnapshots.isNotEmpty,
           canRedo: _redoSnapshots.isNotEmpty,
           onUndo: _undoEdit,
@@ -3051,6 +3145,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onCut,
     required this.onCopy,
     required this.onPaste,
+    required this.onSelectAll,
     required this.canUndo,
     required this.canRedo,
     required this.onUndo,
@@ -3120,6 +3215,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onCut;
   final VoidCallback onCopy;
   final VoidCallback onPaste;
+  final VoidCallback onSelectAll;
   final bool canUndo;
   final bool canRedo;
   final VoidCallback onUndo;
@@ -3314,6 +3410,19 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               tooltip: 'Paste',
               icon: Icons.content_paste,
               onPressed: widget.busy ? null : widget.onPaste,
+            ),
+          ],
+        ),
+      ),
+      _RibbonGroup(
+        label: '선택',
+        child: Row(
+          children: [
+            _ToolbarIconButton(
+              tooltip: 'Select all',
+              buttonKey: const ValueKey('rhwp-editor-select-all'),
+              icon: Icons.select_all,
+              onPressed: widget.busy ? null : widget.onSelectAll,
             ),
           ],
         ),

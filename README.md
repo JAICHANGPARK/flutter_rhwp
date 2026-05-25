@@ -179,8 +179,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   hit testing, caret/drag-selection overlay, keyboard caret movement, IME
   composing preview, context menus, HWP/HWPX/PDF export callbacks from the file
   ribbon, app-level file open callbacks from the file ribbon, page navigation
-  controls, synchronized view/status zoom controls, text commit, copy/cut/paste,
-  Enter
+  controls, synchronized view/status zoom controls, text commit, select-all,
+  copy/cut/paste, Enter
   paragraph splitting, Shift+Enter soft line breaks, multi-paragraph selection
   replacement, multi-paragraph selected-text bold/italic/underline/strike
   formatting, a character shape dialog for font size and text color, paragraph
