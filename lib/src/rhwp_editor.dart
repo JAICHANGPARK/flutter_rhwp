@@ -331,6 +331,73 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
   }
 
+  Future<void> _copySelection() async {
+    final text = await _selectedText();
+    if (text == null || text.isEmpty) {
+      return;
+    }
+    await Clipboard.setData(ClipboardData(text: text));
+  }
+
+  Future<void> _cutSelection() async {
+    final text = await _selectedText();
+    if (text == null || text.isEmpty || _busy) {
+      return;
+    }
+
+    await Clipboard.setData(ClipboardData(text: text));
+    await _runEdit(() async {
+      await _deleteSelectedText(_controller.selection);
+    });
+  }
+
+  Future<void> _pasteClipboard() async {
+    if (_busy) {
+      return;
+    }
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text;
+    if (text == null || text.isEmpty) {
+      return;
+    }
+    await _insertCommittedText(text);
+  }
+
+  Future<String?> _selectedText() async {
+    final selection = _controller.selection;
+    if (selection.isCollapsed) {
+      return null;
+    }
+
+    final start = selection.normalizedStart;
+    final end = selection.normalizedEnd;
+    final pageCount = await widget.document.pageCount;
+    final parts = <String>[];
+    for (var page = 0; page < pageCount; page += 1) {
+      try {
+        final tree = await widget.document.pageLayerTreeModel(page);
+        final text = tree.textForRange(
+          startSection: start.section,
+          startParagraph: start.paragraph,
+          startOffset: start.offset,
+          endSection: end.section,
+          endParagraph: end.paragraph,
+          endOffset: end.offset,
+        );
+        if (text.isNotEmpty) {
+          parts.add(text);
+        }
+      } catch (_) {
+        // Some rhwp builds may not expose layer-tree text for every page yet.
+      }
+    }
+
+    if (parts.isEmpty) {
+      return null;
+    }
+    return parts.join('\n');
+  }
+
   Future<void> _deleteBackward() async {
     await _runEdit(() async {
       if (await _deleteSelectedText(_controller.selection)) {
@@ -560,6 +627,23 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     final extendSelection = HardwareKeyboard.instance.isShiftPressed;
+    final shortcutPressed =
+        HardwareKeyboard.instance.isControlPressed ||
+        HardwareKeyboard.instance.isMetaPressed;
+    if (shortcutPressed && event is KeyDownEvent) {
+      switch (event.logicalKey) {
+        case LogicalKeyboardKey.keyC:
+          _copySelection();
+          return KeyEventResult.handled;
+        case LogicalKeyboardKey.keyX:
+          _cutSelection();
+          return KeyEventResult.handled;
+        case LogicalKeyboardKey.keyV:
+          _pasteClipboard();
+          return KeyEventResult.handled;
+      }
+    }
+
     switch (event.logicalKey) {
       case LogicalKeyboardKey.arrowLeft:
         _moveCursorHorizontally(-1, extendSelection: extendSelection);
@@ -626,6 +710,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           offsetController: _offsetController,
           onInsert: _insertText,
           onDeleteBackward: _deleteBackward,
+          onCut: _cutSelection,
+          onCopy: _copySelection,
+          onPaste: _pasteClipboard,
           onZoomOut: _controller.zoomOut,
           onZoomIn: _controller.zoomIn,
         ),
@@ -1071,6 +1158,9 @@ class _EditorToolbar extends StatefulWidget {
     required this.offsetController,
     required this.onInsert,
     required this.onDeleteBackward,
+    required this.onCut,
+    required this.onCopy,
+    required this.onPaste,
     required this.onZoomOut,
     required this.onZoomIn,
   });
@@ -1083,6 +1173,9 @@ class _EditorToolbar extends StatefulWidget {
   final TextEditingController offsetController;
   final VoidCallback onInsert;
   final VoidCallback onDeleteBackward;
+  final VoidCallback onCut;
+  final VoidCallback onCopy;
+  final VoidCallback onPaste;
   final VoidCallback onZoomOut;
   final VoidCallback onZoomIn;
 
@@ -1191,17 +1284,17 @@ class _EditorToolbarState extends State<_EditorToolbar> {
                   _ToolbarIconButton(
                     tooltip: 'Cut',
                     icon: Icons.content_cut,
-                    onPressed: null,
+                    onPressed: widget.busy ? null : widget.onCut,
                   ),
                   _ToolbarIconButton(
                     tooltip: 'Copy',
                     icon: Icons.copy,
-                    onPressed: null,
+                    onPressed: widget.busy ? null : widget.onCopy,
                   ),
                   _ToolbarIconButton(
                     tooltip: 'Paste',
                     icon: Icons.content_paste,
-                    onPressed: null,
+                    onPressed: widget.busy ? null : widget.onPaste,
                   ),
                   const _ToolbarDivider(),
                   _ToolbarIconButton(

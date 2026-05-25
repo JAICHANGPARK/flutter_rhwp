@@ -287,6 +287,16 @@ void main() {
       const Rect.fromLTRB(40, 30, 60, 42),
       const Rect.fromLTRB(20, 60, 40, 72),
     ]);
+
+    final text = tree.textForRange(
+      startSection: 0,
+      startParagraph: 0,
+      startOffset: 2,
+      endSection: 0,
+      endParagraph: 1,
+      endOffset: 2,
+    );
+    expect(text, 'cd\nab');
   });
 }
 

@@ -512,6 +512,96 @@ void main() {
     );
   });
 
+  testWidgets('RhwpNativeEditor copies cuts and pastes selected text', (
+    tester,
+  ) async {
+    final clipboard = _MockClipboard();
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      clipboard.handleMethodCall,
+    );
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+    });
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    controller.selection = const RhwpSelectionRange(
+      start: RhwpCursorPosition(offset: 1),
+      end: RhwpCursorPosition(offset: 3),
+    );
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+
+    var clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
+    expect(clipboardData?.text, 'bc');
+    expect(session.commands, isEmpty);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyX);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await _pumpDocumentFrame(tester);
+
+    clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
+    expect(clipboardData?.text, 'bc');
+    expect(changedCalls, 1);
+    expect(controller.cursor, const RhwpCursorPosition(offset: 1));
+    expect(jsonDecode(session.commands.single), {
+      'type': 'deleteText',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 1,
+      'count': 2,
+    });
+
+    await Clipboard.setData(const ClipboardData(text: 'ZZ'));
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 2);
+    expect(controller.cursor, const RhwpCursorPosition(offset: 3));
+    expect(jsonDecode(session.commands.last), {
+      'type': 'insertText',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 1,
+      'text': 'ZZ',
+    });
+  });
+
   testWidgets(
     'RhwpCommandEditor paints page-local selection across paragraphs',
     (tester) async {
@@ -691,6 +781,24 @@ class _FakeRhwpSession implements rust.RhwpSession {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _MockClipboard {
+  Map<String, dynamic>? _data = <String, dynamic>{'text': null};
+
+  Future<Object?> handleMethodCall(MethodCall methodCall) async {
+    switch (methodCall.method) {
+      case 'Clipboard.getData':
+        return _data;
+      case 'Clipboard.setData':
+        _data = Map<String, dynamic>.from(methodCall.arguments as Map);
+        return null;
+      case 'Clipboard.hasStrings':
+        final text = _data?['text'] as String?;
+        return <String, bool>{'value': text != null && text.isNotEmpty};
+    }
+    return null;
+  }
 }
 
 Map<String, Object?> _editorLayerTreeJson() {

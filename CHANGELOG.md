@@ -133,3 +133,5 @@
   text composition and commit finalized text through the Rust insert command.
 * Added a Flutter-native composing preview overlay so active IME composition is
   visible near the caret before it is committed to the document.
+* Added page-layer selection text extraction plus Flutter-native editor
+  copy/cut/paste shortcuts and toolbar actions.

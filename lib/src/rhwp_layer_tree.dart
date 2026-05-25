@@ -190,6 +190,97 @@ class RhwpLayerTree {
     return rects;
   }
 
+  /// Returns text covered by a document range on this page.
+  ///
+  /// The result is page-local and inserts `\n` when text spans paragraphs.
+  String textForRange({
+    required int startSection,
+    required int startParagraph,
+    required int startOffset,
+    required int endSection,
+    required int endParagraph,
+    required int endOffset,
+  }) {
+    final start = _TextPosition(
+      section: startSection,
+      paragraph: startParagraph,
+      offset: startOffset,
+    );
+    final end = _TextPosition(
+      section: endSection,
+      paragraph: endParagraph,
+      offset: endOffset,
+    );
+    if (start == end) {
+      return '';
+    }
+
+    final rangeStart = start.compareTo(end) <= 0 ? start : end;
+    final rangeEnd = start.compareTo(end) <= 0 ? end : start;
+    final runs = <RhwpTextRunLayout>[];
+
+    for (final run in textRuns) {
+      final section = run.section;
+      final paragraph = run.paragraph;
+      if (section == null || paragraph == null) {
+        continue;
+      }
+
+      final runStart = _TextPosition(
+        section: section,
+        paragraph: paragraph,
+        offset: run.charStart,
+      );
+      final runEnd = _TextPosition(
+        section: section,
+        paragraph: paragraph,
+        offset: run.charEnd,
+      );
+      if (runEnd.compareTo(rangeStart) <= 0 ||
+          runStart.compareTo(rangeEnd) >= 0) {
+        continue;
+      }
+      runs.add(run);
+    }
+
+    runs.sort((a, b) {
+      final sectionCompare = (a.section ?? 0).compareTo(b.section ?? 0);
+      if (sectionCompare != 0) {
+        return sectionCompare;
+      }
+      final paragraphCompare = (a.paragraph ?? 0).compareTo(b.paragraph ?? 0);
+      if (paragraphCompare != 0) {
+        return paragraphCompare;
+      }
+      return a.charStart.compareTo(b.charStart);
+    });
+
+    final buffer = StringBuffer();
+    int? previousSection;
+    int? previousParagraph;
+
+    for (final run in runs) {
+      final text = run.textForOffsets(
+        _selectionStartForRun(run, rangeStart),
+        _selectionEndForRun(run, rangeEnd),
+      );
+      if (text.isEmpty) {
+        continue;
+      }
+
+      if (previousSection != null &&
+          (run.section != previousSection ||
+              run.paragraph != previousParagraph)) {
+        buffer.write('\n');
+      }
+      buffer.write(text);
+      previousSection = run.section;
+      previousParagraph = run.paragraph;
+    }
+
+    return buffer.toString();
+  }
+
   /// Maps a page-coordinate point to the nearest text source position.
   ///
   /// This is used by Flutter-native editor hit testing. The returned offset is
@@ -417,6 +508,22 @@ class RhwpTextRunLayout {
       math.max(left + 2, right),
       bounds.bottom,
     );
+  }
+
+  /// Returns the text covered by [startOffset] and [endOffset].
+  String textForOffsets(int startOffset, int endOffset) {
+    final start = math.max(math.min(startOffset, endOffset), charStart);
+    final end = math.min(math.max(startOffset, endOffset), charEnd);
+    if (start >= end) {
+      return '';
+    }
+
+    final localStart = (start - charStart).clamp(0, text.length).toInt();
+    final localEnd = (end - charStart).clamp(0, text.length).toInt();
+    if (localStart >= localEnd) {
+      return '';
+    }
+    return text.substring(localStart, localEnd);
   }
 
   double _localXForOffset(int offset) {
