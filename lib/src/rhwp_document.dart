@@ -401,6 +401,22 @@ abstract class RhwpCommand {
     int? spacingAfter,
   }) = RhwpApplyParaFormatRangeCommand;
 
+  factory RhwpCommand.applyParaFormatInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    String? alignment,
+    int? lineSpacing,
+    String? lineSpacingType,
+    int? indent,
+    int? marginLeft,
+    int? marginRight,
+    int? spacingBefore,
+    int? spacingAfter,
+  }) = RhwpApplyParaFormatInTableCellCommand;
+
   factory RhwpCommand.createHeaderFooter({
     required int section,
     required bool isHeader,
@@ -1095,6 +1111,58 @@ class RhwpApplyParaFormatRangeCommand extends RhwpCommand {
   };
 }
 
+class RhwpApplyParaFormatInTableCellCommand extends RhwpCommand {
+  const RhwpApplyParaFormatInTableCellCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+    required this.cellParagraph,
+    this.alignment,
+    this.lineSpacing,
+    this.lineSpacingType,
+    this.indent,
+    this.marginLeft,
+    this.marginRight,
+    this.spacingBefore,
+    this.spacingAfter,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+  final int cellParagraph;
+  final String? alignment;
+  final int? lineSpacing;
+  final String? lineSpacingType;
+  final int? indent;
+  final int? marginLeft;
+  final int? marginRight;
+  final int? spacingBefore;
+  final int? spacingAfter;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'applyParaFormatInTableCell',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'cellIndex': cellIndex,
+    'cellParagraph': cellParagraph,
+    'properties': _paraFormatProperties(
+      alignment: alignment,
+      lineSpacing: lineSpacing,
+      lineSpacingType: lineSpacingType,
+      indent: indent,
+      marginLeft: marginLeft,
+      marginRight: marginRight,
+      spacingBefore: spacingBefore,
+      spacingAfter: spacingAfter,
+    ),
+  };
+}
+
 Map<String, Object?> _paraFormatProperties({
   String? alignment,
   int? lineSpacing,
@@ -1751,6 +1819,40 @@ class RhwpDocument {
         section: section,
         startParagraph: startParagraph,
         endParagraph: endParagraph,
+        alignment: alignment,
+        lineSpacing: lineSpacing,
+        lineSpacingType: lineSpacingType,
+        indent: indent,
+        marginLeft: marginLeft,
+        marginRight: marginRight,
+        spacingBefore: spacingBefore,
+        spacingAfter: spacingAfter,
+      ),
+    );
+  }
+
+  Future<String> applyParaFormatInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    String? alignment,
+    int? lineSpacing,
+    String? lineSpacingType,
+    int? indent,
+    int? marginLeft,
+    int? marginRight,
+    int? spacingBefore,
+    int? spacingAfter,
+  }) {
+    return apply(
+      RhwpCommand.applyParaFormatInTableCell(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        cellIndex: cellIndex,
+        cellParagraph: cellParagraph,
         alignment: alignment,
         lineSpacing: lineSpacing,
         lineSpacingType: lineSpacingType,

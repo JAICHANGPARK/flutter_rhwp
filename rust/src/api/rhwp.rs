@@ -552,6 +552,27 @@ impl RhwpSession {
                     )
                     .map_err(error_to_string)
             }
+            RhwpCommand::ApplyParaFormatInTableCell {
+                section,
+                paragraph,
+                control_index,
+                cell_index,
+                cell_paragraph,
+                properties,
+            } => {
+                let properties_json = properties.to_string();
+                inner
+                    .document
+                    .apply_para_format_in_cell_native(
+                        section as usize,
+                        paragraph as usize,
+                        control_index as usize,
+                        cell_index as usize,
+                        cell_paragraph as usize,
+                        &properties_json,
+                    )
+                    .map_err(error_to_string)
+            }
             RhwpCommand::CreateHeaderFooter {
                 section,
                 is_header,
@@ -824,6 +845,17 @@ enum RhwpCommand {
         start_paragraph: u32,
         #[serde(rename = "endParagraph")]
         end_paragraph: u32,
+        properties: serde_json::Value,
+    },
+    ApplyParaFormatInTableCell {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "cellIndex")]
+        cell_index: u32,
+        #[serde(rename = "cellParagraph")]
+        cell_paragraph: u32,
         properties: serde_json::Value,
     },
     CreateHeaderFooter {
@@ -1619,6 +1651,12 @@ mod tests {
             .expect("apply para format range command should be accepted");
         session
             .apply_command(
+                r#"{"type":"applyParaFormatInTableCell","section":0,"paragraph":0,"controlIndex":0,"cellIndex":0,"cellParagraph":0,"properties":{"alignment":"center"}}"#
+                    .to_string(),
+            )
+            .expect_err("apply para format in missing table cell should fail before table exists");
+        session
+            .apply_command(
                 r#"{"type":"deleteRange","section":0,"startParagraph":0,"startOffset":2,"endParagraph":1,"endOffset":2}"#
                     .to_string(),
             )
@@ -1669,6 +1707,14 @@ mod tests {
                 ),
             )
             .expect("apply char format in table cell command should be accepted");
+        session
+            .apply_command(
+                format!(
+                    r#"{{"type":"applyParaFormatInTableCell","section":0,"paragraph":{},"controlIndex":0,"cellIndex":0,"cellParagraph":0,"properties":{{"alignment":"center","lineSpacing":180,"lineSpacingType":"Percent"}}}}"#,
+                    table_paragraph
+                ),
+            )
+            .expect("apply para format in table cell command should be accepted");
         session
             .apply_command(
                 format!(

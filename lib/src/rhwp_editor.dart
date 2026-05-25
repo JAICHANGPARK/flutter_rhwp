@@ -942,6 +942,22 @@ class _TableCellDeleteRange {
   }
 }
 
+class _TableCellParagraphTarget {
+  const _TableCellParagraphTarget({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+    required this.cellParagraph,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+  final int cellParagraph;
+}
+
 class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   late final RhwpEditorController _controller;
   late final bool _ownsController;
@@ -2610,6 +2626,36 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
+    final tableSelection = _controller.tableCellSelection;
+    if (tableSelection != null) {
+      final targets = await _tableCellParagraphTargets(tableSelection);
+      if (!mounted || targets.isEmpty) {
+        return;
+      }
+
+      await _runEdit(() async {
+        for (final target in targets) {
+          await widget.document.applyParaFormatInTableCell(
+            section: target.section,
+            paragraph: target.paragraph,
+            controlIndex: target.controlIndex,
+            cellIndex: target.cellIndex,
+            cellParagraph: target.cellParagraph,
+            alignment: alignment,
+            lineSpacing: lineSpacing,
+            lineSpacingType: lineSpacingType,
+            indent: indent,
+            marginLeft: marginLeft,
+            marginRight: marginRight,
+            spacingBefore: spacingBefore,
+            spacingAfter: spacingAfter,
+          );
+        }
+        _controller.tableCellSelection = tableSelection;
+      });
+      return;
+    }
+
     final selection = _controller.selection;
     final start = selection.normalizedStart;
     final end = selection.normalizedEnd;
@@ -2635,6 +2681,69 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           ? RhwpSelectionRange.collapsed(start)
           : RhwpSelectionRange(start: start, end: end);
     });
+  }
+
+  Future<List<_TableCellParagraphTarget>> _tableCellParagraphTargets(
+    RhwpTableCellSelection selection,
+  ) async {
+    final activeCellIndex = selection.activeCellIndex;
+    if (selection.isTextEditing && activeCellIndex != null) {
+      return [
+        _TableCellParagraphTarget(
+          section: selection.section,
+          paragraph: selection.paragraph,
+          controlIndex: selection.controlIndex,
+          cellIndex: activeCellIndex,
+          cellParagraph: selection.activeCellParagraph,
+        ),
+      ];
+    }
+
+    final allCells = await _tableCellsForSelection(selection);
+    final cells = [
+      for (final entry in allCells)
+        if (selection.containsCell(entry.cell)) entry.cell,
+    ];
+    final segments = await _tableCellTextSegments(selection);
+    final targets = <String, _TableCellParagraphTarget>{};
+
+    for (final cell in cells) {
+      final cellIndex = cell.modelCellIndex;
+      if (cellIndex == null) {
+        continue;
+      }
+
+      var hasSegment = false;
+      for (final segment in segments) {
+        if (segment.cellIndex != cellIndex) {
+          continue;
+        }
+        hasSegment = true;
+        final key =
+            '${segment.section}/${segment.paragraph}/${segment.controlIndex}/${segment.cellIndex}/${segment.cellParagraph}';
+        targets[key] = _TableCellParagraphTarget(
+          section: segment.section,
+          paragraph: segment.paragraph,
+          controlIndex: segment.controlIndex,
+          cellIndex: segment.cellIndex,
+          cellParagraph: segment.cellParagraph,
+        );
+      }
+
+      if (!hasSegment) {
+        final key =
+            '${cell.section}/${cell.paragraph}/${cell.controlIndex}/$cellIndex/0';
+        targets[key] = _TableCellParagraphTarget(
+          section: cell.section,
+          paragraph: cell.paragraph,
+          controlIndex: cell.controlIndex,
+          cellIndex: cellIndex,
+          cellParagraph: 0,
+        );
+      }
+    }
+
+    return targets.values.toList(growable: false);
   }
 
   Future<String?> _selectedText() async {

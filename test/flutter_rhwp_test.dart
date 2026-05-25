@@ -513,6 +513,46 @@ void main() {
     },
   );
 
+  test(
+    'apply para format in table cell command serializes to the Rust command envelope',
+    () {
+      final command = RhwpCommand.applyParaFormatInTableCell(
+        section: 0,
+        paragraph: 1,
+        controlIndex: 2,
+        cellIndex: 3,
+        cellParagraph: 0,
+        alignment: 'center',
+        lineSpacing: 180,
+        lineSpacingType: 'Percent',
+        indent: 120,
+        marginLeft: 300,
+        marginRight: 400,
+        spacingBefore: 50,
+        spacingAfter: 60,
+      );
+
+      expect(jsonDecode(jsonEncode(command.toJson())), {
+        'type': 'applyParaFormatInTableCell',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'cellIndex': 3,
+        'cellParagraph': 0,
+        'properties': {
+          'alignment': 'center',
+          'lineSpacing': 180,
+          'lineSpacingType': 'Percent',
+          'indent': 120,
+          'marginLeft': 300,
+          'marginRight': 400,
+          'spacingBefore': 50,
+          'spacingAfter': 60,
+        },
+      });
+    },
+  );
+
   test('create header and footer commands serialize to the Rust envelope', () {
     expect(
       jsonDecode(
@@ -733,6 +773,41 @@ void main() {
         'marginRight': 200,
         'spacingBefore': 10,
         'spacingAfter': 20,
+      },
+    });
+
+    await document.applyParaFormatInTableCell(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      cellIndex: 2,
+      cellParagraph: 0,
+      alignment: 'center',
+      lineSpacing: 180,
+      lineSpacingType: 'Percent',
+      indent: 120,
+      marginLeft: 300,
+      marginRight: 400,
+      spacingBefore: 50,
+      spacingAfter: 60,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'applyParaFormatInTableCell',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'cellIndex': 2,
+      'cellParagraph': 0,
+      'properties': {
+        'alignment': 'center',
+        'lineSpacing': 180,
+        'lineSpacingType': 'Percent',
+        'indent': 120,
+        'marginLeft': 300,
+        'marginRight': 400,
+        'spacingBefore': 50,
+        'spacingAfter': 60,
       },
     });
 

@@ -296,3 +296,6 @@
 * Added `applyCharFormatInTableCell` to the Dart/Rust command surface and wired
   Flutter-native character formatting to selected table cell text and pending
   table-cell input.
+* Added `applyParaFormatInTableCell` to the Dart/Rust command surface and wired
+  Flutter-native paragraph alignment/shape actions to selected table cell
+  paragraphs.
