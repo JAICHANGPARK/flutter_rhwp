@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart'
     show TargetPlatform, debugDefaultTargetPlatformOverride, kIsWeb;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_rhwp/flutter_rhwp.dart';
@@ -705,6 +706,110 @@ void main() {
       'cellParagraph': 0,
       'offset': 2,
       'text': 'X',
+    });
+  });
+
+  testWidgets('RhwpNativeEditor context menu copies selected text', (
+    tester,
+  ) async {
+    final clipboard = _MockClipboard();
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      clipboard.handleMethodCall,
+    );
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+    });
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.selection = const RhwpSelectionRange(
+      start: RhwpCursorPosition(offset: 1),
+      end: RhwpCursorPosition(offset: 3),
+    );
+    await tester.pump();
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    await tester.tapAt(
+      pageTopLeft +
+          Offset(pageSize.width * 105 / 240, pageSize.height * 48 / 180),
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('복사'), findsOneWidget);
+    await tester.tap(find.text('복사'));
+    await tester.pumpAndSettle();
+
+    final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
+    expect(clipboardData?.text, 'bc');
+    expect(session.commands, isEmpty);
+  });
+
+  testWidgets('RhwpNativeEditor context menu runs table cell actions', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    final tablePoint =
+        pageTopLeft +
+        Offset(pageSize.width * 100 / 240, pageSize.height * 60 / 180);
+
+    await tester.tapAt(tablePoint, buttons: kSecondaryMouseButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('셀 나누기'), findsOneWidget);
+    await tester.tap(find.text('셀 나누기'));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.single), {
+      'type': 'splitTableCell',
+      'section': 0,
+      'paragraph': 5,
+      'controlIndex': 2,
+      'row': 1,
+      'column': 3,
     });
   });
 

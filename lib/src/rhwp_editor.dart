@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -267,6 +268,24 @@ class _TableReference {
   final int column;
   final int endRow;
   final int endColumn;
+}
+
+enum _EditorContextMenuAction {
+  cut,
+  copy,
+  paste,
+  bold,
+  italic,
+  underline,
+  alignLeft,
+  alignCenter,
+  alignRight,
+  alignJustify,
+  insertTable,
+  insertTableRow,
+  insertTableColumn,
+  mergeCells,
+  splitCell,
 }
 
 /// Controller for the Flutter-native command editor overlay.
@@ -1174,6 +1193,204 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _openTextInput();
   }
 
+  Future<void> _showContextMenu(Offset globalPosition) async {
+    _focusEditor();
+
+    final overlay = Overlay.maybeOf(context)?.context.findRenderObject();
+    final overlaySize = overlay is RenderBox ? overlay.size : Size.zero;
+    final action = await showMenu<_EditorContextMenuAction>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        globalPosition.dx,
+        globalPosition.dy,
+        math.max(0, overlaySize.width - globalPosition.dx),
+        math.max(0, overlaySize.height - globalPosition.dy),
+      ),
+      items: _contextMenuItems(),
+    );
+    if (!mounted || action == null) {
+      return;
+    }
+
+    switch (action) {
+      case _EditorContextMenuAction.cut:
+        await _cutSelection();
+      case _EditorContextMenuAction.copy:
+        await _copySelection();
+      case _EditorContextMenuAction.paste:
+        await _pasteClipboard();
+      case _EditorContextMenuAction.bold:
+        await _applyCharFormat(bold: true);
+      case _EditorContextMenuAction.italic:
+        await _applyCharFormat(italic: true);
+      case _EditorContextMenuAction.underline:
+        await _applyCharFormat(underline: true);
+      case _EditorContextMenuAction.alignLeft:
+        await _applyParagraphAlignment('left');
+      case _EditorContextMenuAction.alignCenter:
+        await _applyParagraphAlignment('center');
+      case _EditorContextMenuAction.alignRight:
+        await _applyParagraphAlignment('right');
+      case _EditorContextMenuAction.alignJustify:
+        await _applyParagraphAlignment('justify');
+      case _EditorContextMenuAction.insertTable:
+        await _insertTable();
+      case _EditorContextMenuAction.insertTableRow:
+        await _insertTableRow();
+      case _EditorContextMenuAction.insertTableColumn:
+        await _insertTableColumn();
+      case _EditorContextMenuAction.mergeCells:
+        await _mergeTableCells();
+      case _EditorContextMenuAction.splitCell:
+        await _splitTableCell();
+    }
+  }
+
+  List<PopupMenuEntry<_EditorContextMenuAction>> _contextMenuItems() {
+    final hasSelection = !_controller.selection.isCollapsed;
+    final hasTableSelection = _controller.tableCellSelection != null;
+
+    if (hasTableSelection) {
+      return [
+        _contextMenuItem(
+          action: _EditorContextMenuAction.cut,
+          icon: Icons.content_cut,
+          label: '잘라내기',
+          enabled: hasSelection && !_busy,
+        ),
+        _contextMenuItem(
+          action: _EditorContextMenuAction.copy,
+          icon: Icons.copy,
+          label: '복사',
+          enabled: hasSelection,
+        ),
+        _contextMenuItem(
+          action: _EditorContextMenuAction.paste,
+          icon: Icons.content_paste,
+          label: '붙여넣기',
+          enabled: !_busy,
+        ),
+        const PopupMenuDivider(),
+        _contextMenuItem(
+          action: _EditorContextMenuAction.insertTableRow,
+          icon: Icons.table_rows_outlined,
+          label: '줄 삽입',
+          enabled: !_busy,
+        ),
+        _contextMenuItem(
+          action: _EditorContextMenuAction.insertTableColumn,
+          icon: Icons.view_column_outlined,
+          label: '칸 삽입',
+          enabled: !_busy,
+        ),
+        _contextMenuItem(
+          action: _EditorContextMenuAction.mergeCells,
+          icon: Icons.call_merge_outlined,
+          label: '셀 합치기',
+          enabled: !_busy,
+        ),
+        _contextMenuItem(
+          action: _EditorContextMenuAction.splitCell,
+          icon: Icons.call_split_outlined,
+          label: '셀 나누기',
+          enabled: !_busy,
+        ),
+      ];
+    }
+
+    return [
+      _contextMenuItem(
+        action: _EditorContextMenuAction.cut,
+        icon: Icons.content_cut,
+        label: '잘라내기',
+        enabled: hasSelection && !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.copy,
+        icon: Icons.copy,
+        label: '복사',
+        enabled: hasSelection,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.paste,
+        icon: Icons.content_paste,
+        label: '붙여넣기',
+        enabled: !_busy,
+      ),
+      const PopupMenuDivider(),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.bold,
+        icon: Icons.format_bold,
+        label: '굵게',
+        enabled: hasSelection && !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.italic,
+        icon: Icons.format_italic,
+        label: '기울임',
+        enabled: hasSelection && !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.underline,
+        icon: Icons.format_underlined,
+        label: '밑줄',
+        enabled: hasSelection && !_busy,
+      ),
+      const PopupMenuDivider(),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.alignLeft,
+        icon: Icons.format_align_left,
+        label: '왼쪽 정렬',
+        enabled: !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.alignCenter,
+        icon: Icons.format_align_center,
+        label: '가운데 정렬',
+        enabled: !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.alignRight,
+        icon: Icons.format_align_right,
+        label: '오른쪽 정렬',
+        enabled: !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.alignJustify,
+        icon: Icons.format_align_justify,
+        label: '양쪽 정렬',
+        enabled: !_busy,
+      ),
+      const PopupMenuDivider(),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.insertTable,
+        icon: Icons.table_chart_outlined,
+        label: '표 만들기',
+        enabled: !_busy,
+      ),
+    ];
+  }
+
+  PopupMenuItem<_EditorContextMenuAction> _contextMenuItem({
+    required _EditorContextMenuAction action,
+    required IconData icon,
+    required String label,
+    required bool enabled,
+  }) {
+    return PopupMenuItem<_EditorContextMenuAction>(
+      value: action,
+      enabled: enabled,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18),
+          const SizedBox(width: 10),
+          Text(label),
+        ],
+      ),
+    );
+  }
+
   void _openTextInput() {
     final connection = _textInputConnection;
     if (connection != null && connection.attached) {
@@ -1436,6 +1653,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
                   onSelectionRange: _setSelectionFromPage,
                   onTableCellSelection: _setTableSelectionFromPage,
                   onFocusRequested: _focusEditor,
+                  onContextMenuRequested: _showContextMenu,
                 );
               },
             ),
@@ -1459,6 +1677,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
     required this.onSelectionRange,
     required this.onTableCellSelection,
     required this.onFocusRequested,
+    required this.onContextMenuRequested,
   });
 
   final RhwpDocument document;
@@ -1471,6 +1690,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
   final ValueChanged<RhwpSelectionRange> onSelectionRange;
   final ValueChanged<RhwpTableCellSelection?> onTableCellSelection;
   final VoidCallback onFocusRequested;
+  final ValueChanged<Offset> onContextMenuRequested;
 
   @override
   State<_EditorSelectionOverlay> createState() =>
@@ -1540,6 +1760,15 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
             return Listener(
               behavior: HitTestBehavior.translucent,
               onPointerDown: (event) {
+                if (event.buttons == kSecondaryMouseButton) {
+                  _handleSecondaryPointerDown(
+                    event.localPosition,
+                    constraints,
+                    tree,
+                  );
+                  widget.onContextMenuRequested(event.position);
+                  return;
+                }
                 _handlePointerDown(event.localPosition, constraints, tree);
               },
               onPointerMove: (event) {
@@ -1590,6 +1819,43 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
       _dragAnchor = cursor;
       widget.onCursorPosition(cursor);
     }
+  }
+
+  void _handleSecondaryPointerDown(
+    Offset localPosition,
+    BoxConstraints constraints,
+    RhwpLayerTree? tree,
+  ) {
+    final tableCell = _tableCellForPoint(localPosition, constraints, tree);
+    if (tableCell != null) {
+      final textHit = _textHitForPoint(localPosition, constraints, tree);
+      final tableTextHit = textHit?.cellContext == null ? null : textHit;
+      _tableDragAnchor = null;
+      _dragAnchor = null;
+      widget.onTableCellSelection(
+        tableTextHit == null
+            ? RhwpTableCellSelection.fromCell(tableCell)
+            : RhwpTableCellSelection.fromCellTextHit(tableCell, tableTextHit),
+      );
+      widget.onFocusRequested();
+      return;
+    }
+
+    _tableDragAnchor = null;
+    final textHit = _textHitForPoint(localPosition, constraints, tree);
+    if (textHit != null && _selectionContainsTextHit(textHit)) {
+      widget.onTableCellSelection(null);
+      widget.onFocusRequested();
+      return;
+    }
+
+    widget.onTableCellSelection(null);
+    final cursor = _cursorForPoint(localPosition, constraints, tree);
+    if (cursor != null) {
+      _dragAnchor = null;
+      widget.onCursorPosition(cursor);
+    }
+    widget.onFocusRequested();
   }
 
   void _handlePointerMove(
@@ -1668,6 +1934,21 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
       tree,
     );
     return tree.textPositionForPoint(pagePoint, verticalTolerance: 12);
+  }
+
+  bool _selectionContainsTextHit(RhwpTextHitResult hit) {
+    final selection = widget.selection;
+    if (selection.isCollapsed) {
+      return false;
+    }
+
+    final position = RhwpCursorPosition(
+      section: hit.section,
+      paragraph: hit.paragraph,
+      offset: hit.offset,
+    );
+    return selection.normalizedStart.compareTo(position) <= 0 &&
+        position.compareTo(selection.normalizedEnd) <= 0;
   }
 
   RhwpCursorPosition _fallbackCursorFor(Offset localPosition) {

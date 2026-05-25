@@ -167,13 +167,13 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
 - `RhwpNativeEditor` is the 100% Flutter widget editor path and currently
   includes an HWP-style Flutter ribbon toolbar, page viewport, page-layer caret
   hit testing, caret/drag-selection overlay, keyboard caret movement, IME
-  composing preview, text commit, copy/cut/paste, Enter paragraph splitting,
-  Shift+Enter soft line breaks, multi-paragraph selection replacement,
-  multi-paragraph selected-text bold/italic/underline formatting, paragraph
-  alignment commands, and basic text/table insert/delete plus table row/column
-  and cell merge/split command flow with table-cell hit testing, selected-cell
-  highlighting, and drag range selection for rendered table cells, plus
-  selected-cell text insert/delete and cell text offset hit testing.
+  composing preview, context menus, text commit, copy/cut/paste, Enter
+  paragraph splitting, Shift+Enter soft line breaks, multi-paragraph selection
+  replacement, multi-paragraph selected-text bold/italic/underline formatting,
+  paragraph alignment commands, and basic text/table insert/delete plus table
+  row/column and cell merge/split command flow with table-cell hit testing,
+  selected-cell highlighting, and drag range selection for rendered table cells,
+  plus selected-cell text insert/delete and cell text offset hit testing.
 - `rust/vendor/rhwp` should be committed. `rust/target` should stay ignored.
 
 ## License

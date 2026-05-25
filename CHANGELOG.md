@@ -164,3 +164,6 @@
 * Split the Flutter-native editor toolbar into HWP-style ribbon tabs for file,
   edit, view, input, format, page, table, and tools, with table cell selection
   opening the table ribbon context.
+* Added a Flutter-native secondary-click context menu for text selection,
+  clipboard, formatting, paragraph alignment, table insertion, and selected
+  table cell actions.
