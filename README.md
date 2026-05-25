@@ -91,6 +91,7 @@ Flutter-native editor:
 ```dart
 RhwpNativeEditor(
   document: document,
+  editRefreshDelay: const Duration(milliseconds: 1200),
   onOpenRequested: pickAndOpenDocument,
   onExported: saveExportedDocument,
 )
@@ -209,11 +210,12 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   cell text offset hit testing, Arrow/Tab/Enter keyboard handling for selected
   table cells, Arrow/Shift+Arrow object nudging, and Shift+drag aspect-ratio
   preserving object resize. Text input, paste, tab input, and keyboard delete
-  defer page SVG refresh briefly so normal typing does not reload the rendered
-  page after every keystroke, and committed text is shown through a temporary
-  Flutter overlay with a pending caret until the refreshed page render
-  completes, including table cell text input. Deleted body text is temporarily
-  masked until the refreshed page render completes.
+  defer page SVG refresh through `editRefreshDelay` so normal typing does not
+  reload the rendered page after every keystroke. Committed text is shown
+  through a temporary Flutter overlay with a pending caret until the refreshed
+  page render completes, including table cell text input. Deleted body text is
+  temporarily masked until the refreshed page render completes. The example app
+  uses a 1200 ms refresh delay for a steadier typing feel.
 - `rust/vendor/rhwp` should be committed. `rust/target` should stay ignored.
 
 ## License

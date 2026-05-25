@@ -617,6 +617,7 @@ class RhwpEditor extends StatefulWidget {
     this.onChanged,
     this.onOpenRequested,
     this.onExported,
+    this.editRefreshDelay = _defaultEditRefreshDelay,
   });
 
   final RhwpDocument document;
@@ -624,6 +625,12 @@ class RhwpEditor extends StatefulWidget {
   final ValueChanged<RhwpDocument>? onChanged;
   final FutureOr<void> Function()? onOpenRequested;
   final FutureOr<void> Function(RhwpExportedDocument document)? onExported;
+
+  /// How long text-like edits wait before refreshing rendered page SVG.
+  ///
+  /// The document command is applied immediately. This delay only controls the
+  /// heavier page render synchronization so typing can stay visually stable.
+  final Duration editRefreshDelay;
 
   @override
   State<RhwpEditor> createState() => _RhwpEditorState();
@@ -638,6 +645,7 @@ class RhwpNativeEditor extends StatelessWidget {
     this.onChanged,
     this.onOpenRequested,
     this.onExported,
+    this.editRefreshDelay = _defaultEditRefreshDelay,
   });
 
   final RhwpDocument document;
@@ -645,6 +653,7 @@ class RhwpNativeEditor extends StatelessWidget {
   final ValueChanged<RhwpDocument>? onChanged;
   final FutureOr<void> Function()? onOpenRequested;
   final FutureOr<void> Function(RhwpExportedDocument document)? onExported;
+  final Duration editRefreshDelay;
 
   @override
   Widget build(BuildContext context) {
@@ -654,6 +663,7 @@ class RhwpNativeEditor extends StatelessWidget {
       onChanged: onChanged,
       onOpenRequested: onOpenRequested,
       onExported: onExported,
+      editRefreshDelay: editRefreshDelay,
     );
   }
 }
@@ -670,6 +680,7 @@ class RhwpCommandEditor extends StatelessWidget {
     this.onChanged,
     this.onOpenRequested,
     this.onExported,
+    this.editRefreshDelay = _defaultEditRefreshDelay,
   });
 
   final RhwpDocument document;
@@ -677,6 +688,7 @@ class RhwpCommandEditor extends StatelessWidget {
   final ValueChanged<RhwpDocument>? onChanged;
   final FutureOr<void> Function()? onOpenRequested;
   final FutureOr<void> Function(RhwpExportedDocument document)? onExported;
+  final Duration editRefreshDelay;
 
   @override
   Widget build(BuildContext context) {
@@ -686,9 +698,12 @@ class RhwpCommandEditor extends StatelessWidget {
       onChanged: onChanged,
       onOpenRequested: onOpenRequested,
       onExported: onExported,
+      editRefreshDelay: editRefreshDelay,
     );
   }
 }
+
+const _defaultEditRefreshDelay = Duration(milliseconds: 350);
 
 class _PendingTextOverlay {
   const _PendingTextOverlay({
@@ -814,8 +829,6 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   Object? _error;
 
   static const _maxUndoSnapshots = 100;
-  static const _deferredTextRenderDelay = Duration(milliseconds: 350);
-
   @override
   void initState() {
     super.initState();
@@ -2969,10 +2982,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   void _scheduleDeferredEditRefresh() {
     _hasDeferredEditRefresh = true;
     _deferredEditRefreshTimer?.cancel();
-    _deferredEditRefreshTimer = Timer(
-      _deferredTextRenderDelay,
-      _flushDeferredEditRefresh,
-    );
+    final delay = widget.editRefreshDelay;
+    if (delay <= Duration.zero) {
+      scheduleMicrotask(_flushDeferredEditRefresh);
+      return;
+    }
+    _deferredEditRefreshTimer = Timer(delay, _flushDeferredEditRefresh);
   }
 
   void _cancelDeferredEditRefresh() {

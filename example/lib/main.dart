@@ -454,6 +454,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
                       key: _viewerKey,
                       document: document,
                       controller: _editorController,
+                      editRefreshDelay: const Duration(milliseconds: 1200),
                       onOpenRequested: _busy ? null : _openDocument,
                       onExported: _busy ? null : _saveEditorExport,
                       onChanged: (_) async {

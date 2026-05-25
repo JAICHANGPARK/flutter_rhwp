@@ -202,6 +202,9 @@
 * Changed Flutter-native text input, tab input, paste, and keyboard text delete
   edits to debounce page SVG refreshes so typing does not reload the page on
   every keystroke.
+* Added a configurable `editRefreshDelay` for `RhwpNativeEditor` and set the
+  example app to a 1200 ms delay so slower typing does not trigger a page SVG
+  refresh after every space or character.
 * Added an optimistic Flutter text overlay for committed native-editor input so
   newly typed text remains visible until the refreshed page SVG finishes
   rendering, including table cell input and a temporary caret at the end of the

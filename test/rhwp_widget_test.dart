@@ -4563,6 +4563,58 @@ void main() {
     expect(session.renderedPages, [0]);
   });
 
+  testWidgets('RhwpNativeEditor honors custom edit refresh delay', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            editRefreshDelay: const Duration(seconds: 1),
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    controller.cursor = const RhwpCursorPosition(offset: 2);
+    session.renderedPages.clear();
+
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'A',
+        selection: TextSelection.collapsed(offset: 1),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+
+    expect(changedCalls, 0);
+    expect(session.renderedPages, isEmpty);
+
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump();
+
+    expect(changedCalls, 1);
+    expect(session.renderedPages, [0]);
+  });
+
   testWidgets(
     'RhwpNativeEditor keeps committed text visible until refresh completes',
     (tester) async {
