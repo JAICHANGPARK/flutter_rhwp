@@ -251,6 +251,55 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor file ribbon exports save artifacts', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    final exported = <RhwpExportedDocument>[];
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onExported: (document) => exported.add(document),
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('파일'));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-save-hwp')));
+    await _pumpDocumentFrame(tester);
+
+    expect(exported.single.fileName, 'sample.hwp');
+    expect(exported.single.bytes, [0x48, 0x57, 0x50]);
+    expect(session.exportHwpCalls, 1);
+    expect(session.commands, isEmpty);
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-save-hwpx')));
+    await _pumpDocumentFrame(tester);
+
+    expect(exported.last.fileName, 'sample.hwpx');
+    expect(exported.last.bytes, [0x48, 0x57, 0x50, 0x58]);
+    expect(session.exportHwpxCalls, 1);
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-export-pdf')));
+    await _pumpDocumentFrame(tester);
+
+    expect(exported.last.fileName, 'sample.pdf');
+    expect(exported.last.bytes, [0x50, 0x44, 0x46]);
+    expect(session.exportPdfCalls, 1);
+  });
+
   testWidgets('RhwpNativeEditor toolbar inserts a table', (tester) async {
     final controller = RhwpEditorController();
     final session = _FakeRhwpSession(pageCountValue: 0);
@@ -1895,6 +1944,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
   final commands = <String>[];
   final renderedPages = <int>[];
   final layerTreePages = <int>[];
+  int exportHwpCalls = 0;
+  int exportHwpxCalls = 0;
+  int exportPdfCalls = 0;
   String pageLayerTreeJson = jsonEncode(_editorLayerTreeJson());
   final pageLayerTreeJsonByPage = <int, String>{};
   bool _disposed = false;
@@ -1916,6 +1968,34 @@ class _FakeRhwpSession implements rust.RhwpSession {
 
   @override
   Future<int> pageCount() async => pageCountValue;
+
+  @override
+  Future<rust.RhwpDocumentInfo> documentInfo() async {
+    return rust.RhwpDocumentInfo(
+      pageCount: pageCountValue,
+      sourceFormat: 'hwp',
+      fileName: 'sample.hwp',
+      rawJson: '{"pageCount":1}',
+    );
+  }
+
+  @override
+  Future<Uint8List> exportHwp() async {
+    exportHwpCalls += 1;
+    return Uint8List.fromList([0x48, 0x57, 0x50]);
+  }
+
+  @override
+  Future<Uint8List> exportHwpx() async {
+    exportHwpxCalls += 1;
+    return Uint8List.fromList([0x48, 0x57, 0x50, 0x58]);
+  }
+
+  @override
+  Future<Uint8List> exportPdf() async {
+    exportPdfCalls += 1;
+    return Uint8List.fromList([0x50, 0x44, 0x46]);
+  }
 
   @override
   Future<String> renderPageSvg({required int page}) async {

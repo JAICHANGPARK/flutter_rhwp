@@ -440,11 +440,13 @@ class RhwpEditor extends StatefulWidget {
     required this.document,
     this.controller,
     this.onChanged,
+    this.onExported,
   });
 
   final RhwpDocument document;
   final RhwpEditorController? controller;
   final ValueChanged<RhwpDocument>? onChanged;
+  final FutureOr<void> Function(RhwpExportedDocument document)? onExported;
 
   @override
   State<RhwpEditor> createState() => _RhwpEditorState();
@@ -457,11 +459,13 @@ class RhwpNativeEditor extends StatelessWidget {
     required this.document,
     this.controller,
     this.onChanged,
+    this.onExported,
   });
 
   final RhwpDocument document;
   final RhwpEditorController? controller;
   final ValueChanged<RhwpDocument>? onChanged;
+  final FutureOr<void> Function(RhwpExportedDocument document)? onExported;
 
   @override
   Widget build(BuildContext context) {
@@ -469,6 +473,7 @@ class RhwpNativeEditor extends StatelessWidget {
       document: document,
       controller: controller,
       onChanged: onChanged,
+      onExported: onExported,
     );
   }
 }
@@ -483,11 +488,13 @@ class RhwpCommandEditor extends StatelessWidget {
     required this.document,
     this.controller,
     this.onChanged,
+    this.onExported,
   });
 
   final RhwpDocument document;
   final RhwpEditorController? controller;
   final ValueChanged<RhwpDocument>? onChanged;
+  final FutureOr<void> Function(RhwpExportedDocument document)? onExported;
 
   @override
   Widget build(BuildContext context) {
@@ -495,6 +502,7 @@ class RhwpCommandEditor extends StatelessWidget {
       document: document,
       controller: controller,
       onChanged: onChanged,
+      onExported: onExported,
     );
   }
 }
@@ -682,6 +690,34 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       _controller.cursor = cursor.copyWith(offset: cursor.offset + text.length);
       _textController.clear();
     });
+  }
+
+  Future<void> _exportFromEditor(RhwpExportFormat format) async {
+    final onExported = widget.onExported;
+    if (_busy || onExported == null) {
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final exported = await widget.document.exportDocument(format);
+      await onExported(exported);
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+        });
+      }
+    }
   }
 
   Future<void> _insertCommittedText(String text) async {
@@ -1836,6 +1872,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         case LogicalKeyboardKey.keyV:
           _pasteClipboard();
           return KeyEventResult.handled;
+        case LogicalKeyboardKey.keyS:
+          _exportFromEditor(RhwpExportFormat.hwp);
+          return KeyEventResult.handled;
         case LogicalKeyboardKey.keyB:
           _applyCharFormat(bold: true);
           return KeyEventResult.handled;
@@ -1934,9 +1973,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           tableCellSelection: _controller.tableCellSelection,
           currentPage: _controller.currentPage,
           pageCount: _pageCountValue,
+          canExport: widget.onExported != null,
           searchMatchCount: _searchMatches.length,
           activeSearchMatch: _activeSearchMatch,
           onInsert: _insertText,
+          onSaveHwp: () => _exportFromEditor(RhwpExportFormat.hwp),
+          onSaveHwpx: () => _exportFromEditor(RhwpExportFormat.hwpx),
+          onExportPdf: () => _exportFromEditor(RhwpExportFormat.pdf),
           onDeleteBackward: _deleteBackward,
           onInsertTable: _insertTable,
           onInsertTableRow: _insertTableRow,
@@ -2645,9 +2688,13 @@ class _EditorToolbar extends StatefulWidget {
     required this.tableCellSelection,
     required this.currentPage,
     required this.pageCount,
+    required this.canExport,
     required this.searchMatchCount,
     required this.activeSearchMatch,
     required this.onInsert,
+    required this.onSaveHwp,
+    required this.onSaveHwpx,
+    required this.onExportPdf,
     required this.onDeleteBackward,
     required this.onInsertTable,
     required this.onInsertTableRow,
@@ -2697,9 +2744,13 @@ class _EditorToolbar extends StatefulWidget {
   final RhwpTableCellSelection? tableCellSelection;
   final int currentPage;
   final int? pageCount;
+  final bool canExport;
   final int searchMatchCount;
   final int activeSearchMatch;
   final VoidCallback onInsert;
+  final VoidCallback onSaveHwp;
+  final VoidCallback onSaveHwpx;
+  final VoidCallback onExportPdf;
   final VoidCallback onDeleteBackward;
   final VoidCallback onInsertTable;
   final VoidCallback onInsertTableRow;
@@ -2827,9 +2878,28 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               onPressed: null,
             ),
             _ToolbarIconButton(
-              tooltip: 'Save',
+              tooltip: 'Save HWP',
+              buttonKey: const ValueKey('rhwp-editor-save-hwp'),
               icon: Icons.save_outlined,
-              onPressed: null,
+              onPressed: widget.busy || !widget.canExport
+                  ? null
+                  : widget.onSaveHwp,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Save HWPX',
+              buttonKey: const ValueKey('rhwp-editor-save-hwpx'),
+              icon: Icons.save_as_outlined,
+              onPressed: widget.busy || !widget.canExport
+                  ? null
+                  : widget.onSaveHwpx,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Export PDF',
+              buttonKey: const ValueKey('rhwp-editor-export-pdf'),
+              icon: Icons.picture_as_pdf_outlined,
+              onPressed: widget.busy || !widget.canExport
+                  ? null
+                  : widget.onExportPdf,
             ),
           ],
         ),
