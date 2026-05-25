@@ -1400,6 +1400,29 @@ void main() {
       ),
     );
 
+    controller.cursor = const RhwpCursorPosition(offset: 2);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await _pumpDocumentFrame(tester);
+    expect(
+      controller.cursor,
+      const RhwpCursorPosition(paragraph: 1, offset: 2),
+    );
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 1, offset: 3);
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await _pumpDocumentFrame(tester);
+    expect(
+      controller.selection,
+      const RhwpSelectionRange(
+        start: RhwpCursorPosition(paragraph: 1, offset: 3),
+        end: RhwpCursorPosition(paragraph: 0, offset: 3),
+      ),
+    );
+
     controller.cursor = const RhwpCursorPosition(offset: 1);
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.end);

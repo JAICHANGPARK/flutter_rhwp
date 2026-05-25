@@ -118,6 +118,8 @@
   method for full-editor mode.
 * Simplified README around package purpose, installation, quick start, usage,
   example, notes, and license.
+* Added ArrowUp/ArrowDown paragraph navigation with Shift selection extension
+  in the Flutter-native editor.
 * Added `RhwpNativeEditor` as the 100% Flutter widget editor track while
   keeping `RhwpFullEditor` as the WebView/upstream editor fallback.
 * Reworked the Flutter-native editor surface with a Flutter toolbar, menu tabs,

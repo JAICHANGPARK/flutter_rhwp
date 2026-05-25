@@ -2348,6 +2348,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       case LogicalKeyboardKey.arrowRight:
         _moveCursorHorizontally(1, extendSelection: extendSelection);
         return KeyEventResult.handled;
+      case LogicalKeyboardKey.arrowUp:
+        unawaited(_moveCursorByParagraph(-1, extendSelection: extendSelection));
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.arrowDown:
+        unawaited(_moveCursorByParagraph(1, extendSelection: extendSelection));
+        return KeyEventResult.handled;
       case LogicalKeyboardKey.home:
         _moveCursorToLineStart(extendSelection: extendSelection);
         return KeyEventResult.handled;
@@ -2390,6 +2396,40 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     final current = _controller.selection;
     final next = current.end.copyWith(offset: 0);
     _setCursorOrSelection(current, next, extendSelection: extendSelection);
+  }
+
+  Future<void> _moveCursorByParagraph(
+    int delta, {
+    required bool extendSelection,
+  }) async {
+    if (delta == 0) {
+      return;
+    }
+
+    final current = _controller.selection;
+    final cursor = current.end;
+    try {
+      final paragraphs = await _bodyParagraphs();
+      final target = _paragraphRelativeTo(paragraphs, cursor, delta);
+      if (!mounted || target == null) {
+        return;
+      }
+
+      final next = RhwpCursorPosition(
+        section: target.section,
+        paragraph: target.paragraph,
+        offset: math.min(cursor.offset, target.endOffset),
+      );
+      _setCursorOrSelection(current, next, extendSelection: extendSelection);
+      unawaited(_controller.goToPage(target.page));
+      _focusEditor();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    }
   }
 
   Future<void> _moveCursorToParagraphEnd({
@@ -2439,6 +2479,56 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
   }
 
+  ({int section, int paragraph, int endOffset, int page})? _paragraphRelativeTo(
+    List<({int section, int paragraph, int endOffset, int page})> paragraphs,
+    RhwpCursorPosition cursor,
+    int delta,
+  ) {
+    if (paragraphs.isEmpty) {
+      return null;
+    }
+
+    final exactIndex = paragraphs.indexWhere(
+      (paragraph) =>
+          paragraph.section == cursor.section &&
+          paragraph.paragraph == cursor.paragraph,
+    );
+    if (exactIndex >= 0) {
+      final targetIndex = exactIndex + delta;
+      if (targetIndex < 0 || targetIndex >= paragraphs.length) {
+        return null;
+      }
+      return paragraphs[targetIndex];
+    }
+
+    if (delta > 0) {
+      for (final paragraph in paragraphs) {
+        if (_compareParagraphToCursor(paragraph, cursor) > 0) {
+          return paragraph;
+        }
+      }
+      return null;
+    }
+
+    for (final paragraph in paragraphs.reversed) {
+      if (_compareParagraphToCursor(paragraph, cursor) < 0) {
+        return paragraph;
+      }
+    }
+    return null;
+  }
+
+  int _compareParagraphToCursor(
+    ({int section, int paragraph, int endOffset, int page}) paragraph,
+    RhwpCursorPosition cursor,
+  ) {
+    final section = paragraph.section.compareTo(cursor.section);
+    if (section != 0) {
+      return section;
+    }
+    return paragraph.paragraph.compareTo(cursor.paragraph);
+  }
+
   Future<({RhwpCursorPosition position, int page})?> _documentTextBoundary({
     required bool end,
   }) async {
@@ -2479,6 +2569,48 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return null;
     }
     return (position: boundary, page: boundaryPage);
+  }
+
+  Future<List<({int section, int paragraph, int endOffset, int page})>>
+  _bodyParagraphs() async {
+    final pageCount = await widget.document.pageCount;
+    final paragraphs =
+        <String, ({int section, int paragraph, int endOffset, int page})>{};
+
+    for (var page = 0; page < pageCount; page += 1) {
+      final tree = await widget.document.pageLayerTreeModel(page);
+      for (final run in tree.textRuns) {
+        final section = run.section;
+        final paragraph = run.paragraph;
+        if (section == null ||
+            paragraph == null ||
+            run.cellContext != null ||
+            run.text.isEmpty) {
+          continue;
+        }
+
+        final key = '$section/$paragraph';
+        final existing = paragraphs[key];
+        if (existing == null || run.charEnd > existing.endOffset) {
+          paragraphs[key] = (
+            section: section,
+            paragraph: paragraph,
+            endOffset: run.charEnd,
+            page: page,
+          );
+        }
+      }
+    }
+
+    final result = paragraphs.values.toList(growable: false);
+    result.sort((left, right) {
+      final section = left.section.compareTo(right.section);
+      if (section != 0) {
+        return section;
+      }
+      return left.paragraph.compareTo(right.paragraph);
+    });
+    return result;
   }
 
   Future<RhwpCursorPosition?> _paragraphEndFor(
