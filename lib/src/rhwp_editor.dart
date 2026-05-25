@@ -1045,7 +1045,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     final offset = _parseNonNegative(_offsetController.text);
-    await _runEdit(() async {
+    final edited = await _runEdit(() async {
       final result = await widget.document.insertTextInTableCell(
         section: tableSelection.section,
         paragraph: tableSelection.paragraph,
@@ -1074,6 +1074,16 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         _textController.clear();
       }
     }, deferRefresh: deferRefresh);
+    if (edited && deferRefresh) {
+      _recordPendingTextOverlay(
+        RhwpCursorPosition(
+          section: tableSelection.section,
+          paragraph: tableSelection.paragraph,
+          offset: offset,
+        ),
+        text,
+      );
+    }
   }
 
   Future<void> _copySelection() async {

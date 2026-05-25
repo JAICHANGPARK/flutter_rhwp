@@ -211,7 +211,7 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   defer page SVG refresh briefly so normal typing does not reload the rendered
   page after every keystroke, and committed text is shown through a temporary
   Flutter overlay with a pending caret until the refreshed page render
-  completes.
+  completes, including table cell text input.
 - `rust/vendor/rhwp` should be committed. `rust/target` should stay ignored.
 
 ## License
