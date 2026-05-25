@@ -193,10 +193,8 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
     required RhwpDocument? document,
   }) async {
     if (_usesWebEditor) {
-      final bytes = await _webEditorController.export(kind.format);
-      return RhwpExportedDocument.fromBytes(
-        format: kind.format,
-        bytes: bytes,
+      return _webEditorController.exportDocument(
+        kind.format,
         sourceFileName: _fileName,
         page: kind.defaultPage,
       );

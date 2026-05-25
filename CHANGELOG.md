@@ -81,3 +81,5 @@
 * Added `RhwpExportedDocument` and `RhwpDocument.exportDocument()` so save and
   download flows can use the same bytes, file name, extension, and MIME
   metadata contract across the Flutter bridge and example app.
+* Added `RhwpWebEditorController.exportDocument()` so upstream Web editor mode
+  can use the same export artifact metadata contract as the Flutter bridge.

@@ -41,6 +41,10 @@ void main() {
       controller.exportHwp(),
       throwsA(isA<RhwpUnsupportedPlatformException>()),
     );
+    expect(
+      controller.exportDocument(RhwpExportFormat.hwp),
+      throwsA(isA<RhwpUnsupportedPlatformException>()),
+    );
   });
 
   test('generated FRB bridge can call a mock Rust API', () async {

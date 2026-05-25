@@ -105,6 +105,10 @@ RhwpWebEditor(
 );
 
 final editedHwp = await webEditorController.exportHwp();
+final exportedWebPdf = await webEditorController.exportDocument(
+  RhwpExportFormat.pdf,
+  sourceFileName: 'sample.hwp',
+);
 ```
 
 `RhwpWebEditor` is a Web-only embed for upstream
@@ -115,8 +119,9 @@ editing UI. The module URL defaults to `https://esm.sh/@rhwp/editor`; pass
 `moduleUrl` to point at a locally bundled or self-hosted ESM build. The
 controller tries the upstream editor's exported methods such as `exportHwp`,
 `exportHwpx`, `exportPdf`, `exportDocx`, `exportText`, `exportMarkdown`, and
-`exportSvg`; if a method is missing, it throws `RhwpUnsupportedPlatformException`
-with the upstream error message.
+`exportSvg`; `exportDocument()` wraps those bytes with the same file name and
+MIME metadata used by the Flutter bridge. If a method is missing, it throws
+`RhwpUnsupportedPlatformException` with the upstream error message.
 
 The example app starts in upstream Web editor mode on Web. Switching to
 `Flutter` mode opens the same bytes through the FRB bridge; if the browser is

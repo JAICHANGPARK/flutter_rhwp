@@ -14,6 +14,20 @@ class RhwpWebEditorController extends ChangeNotifier {
     );
   }
 
+  Future<RhwpExportedDocument> exportDocument(
+    RhwpExportFormat format, {
+    String? sourceFileName,
+    int? page,
+  }) async {
+    final bytes = await export(format);
+    return RhwpExportedDocument.fromBytes(
+      format: format,
+      bytes: bytes,
+      sourceFileName: sourceFileName,
+      page: page,
+    );
+  }
+
   Future<Uint8List> exportHwp() => export(RhwpExportFormat.hwp);
 
   Future<Uint8List> exportHwpx() => export(RhwpExportFormat.hwpx);
