@@ -682,6 +682,26 @@ class RhwpCommandEditor extends StatelessWidget {
   }
 }
 
+class _PendingTextOverlay {
+  const _PendingTextOverlay({
+    required this.page,
+    required this.cursor,
+    required this.text,
+  });
+
+  final int page;
+  final RhwpCursorPosition cursor;
+  final String text;
+
+  _PendingTextOverlay copyWith({String? text}) {
+    return _PendingTextOverlay(
+      page: page,
+      cursor: cursor,
+      text: text ?? this.text,
+    );
+  }
+}
+
 class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   late final RhwpEditorController _controller;
   late final bool _ownsController;
@@ -705,6 +725,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   TextInputConnection? _textInputConnection;
   TextEditingValue _inputValue = TextEditingValue.empty;
   Timer? _deferredEditRefreshTimer;
+  List<_PendingTextOverlay> _pendingTextOverlays = const [];
+  int? _pendingTextRefreshRevision;
   int _renderRevision = 0;
   List<_EditorSearchMatch> _searchMatches = const [];
   int _activeSearchMatch = -1;
@@ -989,11 +1011,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
-    await _runEdit(() async {
+    late RhwpCursorPosition insertCursor;
+    final edited = await _runEdit(() async {
       final selection = _controller.selection;
       final cursor = selection.isCollapsed
           ? _controller.cursor
           : selection.normalizedStart;
+      insertCursor = cursor;
       if (!selection.isCollapsed) {
         await _deleteSelectedText(selection);
       }
@@ -1005,6 +1029,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       );
       _controller.cursor = cursor.copyWith(offset: cursor.offset + text.length);
     }, deferRefresh: true);
+    if (edited) {
+      _recordPendingTextOverlay(insertCursor, text);
+    }
   }
 
   Future<void> _insertTextInSelectedTableCell(
@@ -2597,6 +2624,61 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _deferredEditRefreshTimer?.cancel();
     _deferredEditRefreshTimer = null;
     _hasDeferredEditRefresh = false;
+    _pendingTextOverlays = const [];
+    _pendingTextRefreshRevision = null;
+  }
+
+  void _recordPendingTextOverlay(RhwpCursorPosition cursor, String text) {
+    if (!mounted || text.isEmpty || text.contains('\n')) {
+      return;
+    }
+
+    final page = _controller.currentPage;
+    final overlays = List<_PendingTextOverlay>.of(_pendingTextOverlays);
+    if (overlays.isNotEmpty) {
+      final last = overlays.last;
+      final nextOffset = last.cursor.offset + last.text.length;
+      if (last.page == page &&
+          last.cursor.section == cursor.section &&
+          last.cursor.paragraph == cursor.paragraph &&
+          nextOffset == cursor.offset) {
+        overlays[overlays.length - 1] = last.copyWith(text: last.text + text);
+        setState(() {
+          _pendingTextOverlays = List.unmodifiable(overlays);
+          _pendingTextRefreshRevision = null;
+        });
+        return;
+      }
+    }
+
+    overlays.add(_PendingTextOverlay(page: page, cursor: cursor, text: text));
+    setState(() {
+      _pendingTextOverlays = List.unmodifiable(overlays);
+      _pendingTextRefreshRevision = null;
+    });
+  }
+
+  void _handlePageRendered(int page, int renderRevision) {
+    final pendingRevision = _pendingTextRefreshRevision;
+    if (pendingRevision == null ||
+        renderRevision != pendingRevision ||
+        _pendingTextOverlays.isEmpty) {
+      return;
+    }
+
+    final next = _pendingTextOverlays
+        .where((overlay) => overlay.page != page)
+        .toList(growable: false);
+    if (next.length == _pendingTextOverlays.length) {
+      return;
+    }
+
+    setState(() {
+      _pendingTextOverlays = next;
+      if (next.isEmpty) {
+        _pendingTextRefreshRevision = null;
+      }
+    });
   }
 
   void _flushDeferredEditRefresh() {
@@ -2616,6 +2698,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
     setState(() {
       _renderRevision += 1;
+      _pendingTextRefreshRevision = _renderRevision;
     });
     widget.onChanged?.call(widget.document);
   }
@@ -4306,6 +4389,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
                 document: widget.document,
                 controller: _controller,
                 renderRevision: _renderRevision,
+                onPageRendered: _handlePageRendered,
                 ignorePageOverlayPointer: false,
                 pageOverlayBuilder: (context, page, _) {
                   return _EditorSelectionOverlay(
@@ -4315,6 +4399,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
                     tableCellSelection: _controller.tableCellSelection,
                     objectSelection: _controller.objectSelection,
                     composingText: _composingText,
+                    pendingTextOverlays: _pendingTextOverlays
+                        .where((overlay) => overlay.page == page)
+                        .toList(growable: false),
                     searchMatches: _searchMatches
                         .where((match) => match.page == page)
                         .toList(growable: false),
@@ -4402,6 +4489,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
     required this.tableCellSelection,
     required this.objectSelection,
     required this.composingText,
+    required this.pendingTextOverlays,
     required this.searchMatches,
     required this.layerRevision,
     required this.activeSearchMatch,
@@ -4422,6 +4510,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
   final RhwpTableCellSelection? tableCellSelection;
   final RhwpObjectSelection? objectSelection;
   final String? composingText;
+  final List<_PendingTextOverlay> pendingTextOverlays;
   final List<_EditorSearchMatch> searchMatches;
   final int layerRevision;
   final _EditorSearchMatch? activeSearchMatch;
@@ -5264,6 +5353,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     final tableSelectionRects = _tableSelectionRects(tree, overlaySize);
     final objectSelectionRects = _objectSelectionRects(tree, overlaySize);
     final searchRects = _searchRects(tree, overlaySize);
+    final pendingTextRects = _pendingTextRects(tree, overlaySize);
     final caretRect = tree.caretRectFor(
       section: widget.selection.end.section,
       paragraph: widget.selection.end.paragraph,
@@ -5272,7 +5362,8 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     if (caretRect == null &&
         tableSelectionRects.isEmpty &&
         objectSelectionRects.isEmpty &&
-        searchRects.isEmpty) {
+        searchRects.isEmpty &&
+        pendingTextRects.isEmpty) {
       return null;
     }
 
@@ -5349,6 +5440,18 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
                 ),
               ),
             ),
+        for (final (index, pending) in pendingTextRects.indexed)
+          _positionedRect(
+            key: index == 0
+                ? const ValueKey('rhwp-editor-pending-text-preview')
+                : ValueKey('rhwp-editor-pending-text-preview-$index'),
+            rect: pending.rect,
+            constraints: constraints,
+            child: _PendingTextPreview(
+              text: pending.text,
+              height: pending.rect.height,
+            ),
+          ),
         if (caretRect != null)
           _positionedRect(
             key: const ValueKey('rhwp-editor-caret'),
@@ -5422,6 +5525,25 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
             ),
           ),
         ),
+        for (final (index, overlay) in widget.pendingTextOverlays.indexed)
+          Positioned(
+            key: index == 0
+                ? const ValueKey('rhwp-editor-pending-text-preview')
+                : ValueKey('rhwp-editor-pending-text-preview-$index'),
+            left: _bound(
+              _pageInset + overlay.cursor.offset * _characterWidth,
+              constraints.maxWidth,
+              math.max(12, overlay.text.length * _characterWidth),
+            ),
+            top: _bound(
+              _pageInset + overlay.cursor.paragraph * _lineHeight,
+              constraints.maxHeight,
+              height,
+            ),
+            width: math.max(12, overlay.text.length * _characterWidth),
+            height: height,
+            child: _PendingTextPreview(text: overlay.text, height: height),
+          ),
         if (widget.composingText != null)
           Positioned(
             key: const ValueKey('rhwp-editor-composing-preview'),
@@ -5485,6 +5607,38 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     }
 
     return [_scalePageRect(objectSelection.bounds, tree, overlaySize)];
+  }
+
+  List<({String text, Rect rect})> _pendingTextRects(
+    RhwpLayerTree tree,
+    Size overlaySize,
+  ) {
+    if (widget.pendingTextOverlays.isEmpty) {
+      return const [];
+    }
+
+    final rects = <({String text, Rect rect})>[];
+    for (final overlay in widget.pendingTextOverlays) {
+      final caretRect = tree.caretRectFor(
+        section: overlay.cursor.section,
+        paragraph: overlay.cursor.paragraph,
+        offset: overlay.cursor.offset,
+      );
+      if (caretRect == null) {
+        continue;
+      }
+
+      final scaled = _scalePageRect(caretRect, tree, overlaySize);
+      final textWidth = math.max(
+        12.0,
+        overlay.text.length.toDouble() * math.max(8.0, scaled.height * 0.55),
+      );
+      rects.add((
+        text: overlay.text,
+        rect: Rect.fromLTWH(scaled.left, scaled.top, textWidth, scaled.height),
+      ));
+    }
+    return rects;
   }
 
   List<({Rect rect, bool active})> _searchRects(
@@ -7211,6 +7365,37 @@ class _ComposingPreview extends StatelessWidget {
             text,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PendingTextPreview extends StatelessWidget {
+  const _PendingTextPreview({required this.text, required this.height});
+
+  final String text;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Align(
+      alignment: Alignment.topLeft,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.surface.withValues(alpha: 0.86),
+          border: Border(bottom: BorderSide(color: colors.primary, width: 1)),
+        ),
+        child: Text(
+          text.replaceAll('\t', '    '),
+          overflow: TextOverflow.visible,
+          softWrap: false,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: colors.onSurface,
+            fontSize: math.max(10, height * 0.78),
+            height: 1,
           ),
         ),
       ),

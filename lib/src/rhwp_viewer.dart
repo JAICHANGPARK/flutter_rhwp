@@ -9,6 +9,9 @@ typedef RhwpSvgBuilder = Widget Function(BuildContext context, String svg);
 typedef RhwpPageOverlayBuilder =
     Widget? Function(BuildContext context, int page, String svg);
 
+/// Called after a page render future completes and paints.
+typedef RhwpPageRenderedCallback = void Function(int page, int renderRevision);
+
 typedef _RhwpPageScroller = Future<void> Function(int page);
 
 Widget _defaultRhwpSvgBuilder(BuildContext context, String svg) {
@@ -101,6 +104,7 @@ class RhwpViewer extends StatefulWidget {
     this.pageOverlayBuilder,
     this.ignorePageOverlayPointer = true,
     this.renderRevision = 0,
+    this.onPageRendered,
   });
 
   final RhwpDocument document;
@@ -111,6 +115,7 @@ class RhwpViewer extends StatefulWidget {
   final RhwpSvgBuilder svgBuilder;
   final RhwpPageOverlayBuilder? pageOverlayBuilder;
   final int renderRevision;
+  final RhwpPageRenderedCallback? onPageRendered;
 
   /// Whether page overlays should ignore pointer events.
   ///
@@ -206,6 +211,7 @@ class _RhwpViewerState extends State<RhwpViewer> {
                         renderRevision: widget.renderRevision,
                         svgBuilder: widget.svgBuilder,
                         pageOverlayBuilder: widget.pageOverlayBuilder,
+                        onPageRendered: widget.onPageRendered,
                         ignorePageOverlayPointer:
                             widget.ignorePageOverlayPointer,
                       );
@@ -288,6 +294,7 @@ class _RhwpSvgPage extends StatefulWidget {
     required this.renderRevision,
     required this.svgBuilder,
     required this.pageOverlayBuilder,
+    required this.onPageRendered,
     required this.ignorePageOverlayPointer,
   });
 
@@ -296,6 +303,7 @@ class _RhwpSvgPage extends StatefulWidget {
   final int renderRevision;
   final RhwpSvgBuilder svgBuilder;
   final RhwpPageOverlayBuilder? pageOverlayBuilder;
+  final RhwpPageRenderedCallback? onPageRendered;
   final bool ignorePageOverlayPointer;
 
   @override
@@ -306,6 +314,7 @@ class _RhwpSvgPageState extends State<_RhwpSvgPage>
     with AutomaticKeepAliveClientMixin {
   late Future<String> _svg;
   String? _lastSvg;
+  int? _reportedRenderRevision;
 
   @override
   void initState() {
@@ -320,6 +329,7 @@ class _RhwpSvgPageState extends State<_RhwpSvgPage>
         oldWidget.page != widget.page ||
         oldWidget.renderRevision != widget.renderRevision) {
       _svg = widget.document.renderPageSvg(widget.page);
+      _reportedRenderRevision = null;
     }
   }
 
@@ -357,6 +367,7 @@ class _RhwpSvgPageState extends State<_RhwpSvgPage>
 
           final svg = snapshot.requireData;
           _lastSvg = svg;
+          _reportRendered();
           return Padding(
             padding: const EdgeInsets.all(8),
             child: _buildPageContent(context, svg),
@@ -384,6 +395,21 @@ class _RhwpSvgPageState extends State<_RhwpSvgPage>
         ),
       ],
     );
+  }
+
+  void _reportRendered() {
+    final callback = widget.onPageRendered;
+    final renderRevision = widget.renderRevision;
+    if (callback == null || _reportedRenderRevision == renderRevision) {
+      return;
+    }
+
+    _reportedRenderRevision = renderRevision;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        callback(widget.page, renderRevision);
+      }
+    });
   }
 
   @override
