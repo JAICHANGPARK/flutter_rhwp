@@ -452,6 +452,23 @@ void main() {
     );
     await tester.pump();
 
+    expect(
+      controller.tableCellSelection,
+      const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+      ),
+    );
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-table-cell-selection')),
+      findsOneWidget,
+    );
+
     await tester.ensureVisible(
       find.byKey(const ValueKey('rhwp-editor-split-cell')),
     );

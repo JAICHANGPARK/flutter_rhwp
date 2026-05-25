@@ -153,3 +153,5 @@
   Flutter-native toolbar actions.
 * Added page-layer table cell hit testing so `RhwpNativeEditor` can fill table
   edit context from tapped rendered cells.
+* Added Flutter-native table cell selection state and page overlay highlighting
+  for tapped rendered cells.
