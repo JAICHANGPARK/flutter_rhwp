@@ -151,6 +151,12 @@ abstract class RhwpCommand {
     required int count,
   }) = RhwpDeleteTextCommand;
 
+  factory RhwpCommand.splitParagraph({
+    required int section,
+    required int paragraph,
+    required int offset,
+  }) = RhwpSplitParagraphCommand;
+
   factory RhwpCommand.setFileName(String name) = RhwpSetFileNameCommand;
 }
 
@@ -197,6 +203,26 @@ class RhwpDeleteTextCommand extends RhwpCommand {
     'paragraph': paragraph,
     'offset': offset,
     'count': count,
+  };
+}
+
+class RhwpSplitParagraphCommand extends RhwpCommand {
+  const RhwpSplitParagraphCommand({
+    required this.section,
+    required this.paragraph,
+    required this.offset,
+  });
+
+  final int section;
+  final int paragraph;
+  final int offset;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'splitParagraph',
+    'section': section,
+    'paragraph': paragraph,
+    'offset': offset,
   };
 }
 
@@ -360,6 +386,20 @@ class RhwpDocument {
         paragraph: paragraph,
         offset: offset,
         count: count,
+      ),
+    );
+  }
+
+  Future<String> splitParagraph({
+    required int section,
+    required int paragraph,
+    required int offset,
+  }) {
+    return apply(
+      RhwpCommand.splitParagraph(
+        section: section,
+        paragraph: paragraph,
+        offset: offset,
       ),
     );
   }

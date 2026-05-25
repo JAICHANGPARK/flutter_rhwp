@@ -25,6 +25,21 @@ void main() {
     });
   });
 
+  test('split paragraph command serializes to the Rust command envelope', () {
+    final command = RhwpCommand.splitParagraph(
+      section: 0,
+      paragraph: 1,
+      offset: 2,
+    );
+
+    expect(jsonDecode(jsonEncode(command.toJson())), {
+      'type': 'splitParagraph',
+      'section': 0,
+      'paragraph': 1,
+      'offset': 2,
+    });
+  });
+
   test('closed exception has a stable message', () {
     expect(
       const RhwpClosedException().toString(),
@@ -83,6 +98,15 @@ void main() {
       'paragraph': 1,
       'offset': 2,
       'count': 3,
+    });
+
+    await document.splitParagraph(section: 0, paragraph: 1, offset: 2);
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'splitParagraph',
+      'section': 0,
+      'paragraph': 1,
+      'offset': 2,
     });
   });
 

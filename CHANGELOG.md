@@ -135,3 +135,5 @@
   visible near the caret before it is committed to the document.
 * Added page-layer selection text extraction plus Flutter-native editor
   copy/cut/paste shortcuts and toolbar actions.
+* Added `splitParagraph` to the Rust bridge command surface and wired
+  Flutter-native Enter/Shift+Enter handling.

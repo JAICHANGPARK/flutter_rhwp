@@ -185,6 +185,14 @@ impl RhwpSession {
                     count as usize,
                 )
                 .map_err(error_to_string),
+            RhwpCommand::SplitParagraph {
+                section,
+                paragraph,
+                offset,
+            } => inner
+                .document
+                .split_paragraph_native(section as usize, paragraph as usize, offset as usize)
+                .map_err(error_to_string),
             RhwpCommand::SetFileName { name } => {
                 inner.document.set_file_name(&name);
                 inner.file_name = Some(name);
@@ -256,6 +264,11 @@ enum RhwpCommand {
         paragraph: u32,
         offset: u32,
         count: u32,
+    },
+    SplitParagraph {
+        section: u32,
+        paragraph: u32,
+        offset: u32,
     },
     SetFileName {
         name: String,
@@ -706,6 +719,11 @@ mod tests {
                     .to_string(),
             )
             .expect("insert text command should be accepted");
+        session
+            .apply_command(
+                r#"{"type":"splitParagraph","section":0,"paragraph":0,"offset":4}"#.to_string(),
+            )
+            .expect("split paragraph command should be accepted");
 
         let hwp = session.export_hwp().expect("HWP export should succeed");
         assert!(!hwp.is_empty());

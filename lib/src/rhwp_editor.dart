@@ -363,6 +363,35 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     await _insertCommittedText(text);
   }
 
+  Future<void> _insertLineBreak() async {
+    await _insertCommittedText('\n');
+  }
+
+  Future<void> _splitParagraph() async {
+    if (_busy) {
+      return;
+    }
+
+    await _runEdit(() async {
+      final selection = _controller.selection;
+      final cursor = selection.isCollapsed
+          ? _controller.cursor
+          : selection.normalizedStart;
+      if (!selection.isCollapsed) {
+        await _deleteSelectedText(selection);
+      }
+      await widget.document.splitParagraph(
+        section: cursor.section,
+        paragraph: cursor.paragraph,
+        offset: cursor.offset,
+      );
+      _controller.cursor = cursor.copyWith(
+        paragraph: cursor.paragraph + 1,
+        offset: 0,
+      );
+    });
+  }
+
   Future<String?> _selectedText() async {
     final selection = _controller.selection;
     if (selection.isCollapsed) {
@@ -653,6 +682,16 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         return KeyEventResult.handled;
       case LogicalKeyboardKey.home:
         _moveCursorToLineStart(extendSelection: extendSelection);
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.enter:
+      case LogicalKeyboardKey.numpadEnter:
+        if (!_busy) {
+          if (extendSelection) {
+            _insertLineBreak();
+          } else {
+            _splitParagraph();
+          }
+        }
         return KeyEventResult.handled;
       case LogicalKeyboardKey.backspace:
         if (!_busy) {
