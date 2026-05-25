@@ -918,6 +918,10 @@ void main() {
       tree.findByType('shape').single.bounds,
       const Rect.fromLTRB(1, 2, 11, 22),
     );
+    expect(tree.objects, hasLength(1));
+    expect(tree.objects.single.type, 'shape');
+    expect(tree.objectForPoint(const Offset(5, 10)), same(tree.objects.single));
+    expect(tree.objectForPoint(const Offset(20, 20)), isNull);
     expect(tree.boundedNodes.length, 2);
   });
 

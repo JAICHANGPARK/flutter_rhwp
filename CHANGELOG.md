@@ -175,6 +175,8 @@
   and wired `RhwpNativeEditor` text input to the active cell.
 * Added table cell text source parsing and hit testing so tapping rendered cell
   text sets the active cell edit offset.
+* Added page-layer object/control hit testing and Flutter overlay highlighting
+  for selected bounded objects in `RhwpNativeEditor`.
 * Added Arrow and Tab keyboard navigation for selected table cells in the
   Flutter-native editor, including Shift+Arrow range extension.
 * Added Escape handling in the Flutter-native editor to clear composing input,

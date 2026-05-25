@@ -1405,6 +1405,63 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor selects objects from page layer tree', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_objectEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    await tester.tapAt(
+      pageTopLeft +
+          Offset(pageSize.width * 150 / 240, pageSize.height * 85 / 180),
+    );
+    await tester.pump();
+
+    expect(
+      controller.objectSelection,
+      const RhwpObjectSelection(
+        page: 0,
+        bounds: Rect.fromLTRB(120, 60, 180, 110),
+        type: 'shape',
+        section: 0,
+        paragraph: 2,
+        controlIndex: 1,
+        objectIndex: 9,
+      ),
+    );
+    expect(controller.tableCellSelection, isNull);
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-object-selection')),
+      findsOneWidget,
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+
+    expect(controller.objectSelection, isNull);
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-object-selection')),
+      findsNothing,
+    );
+    expect(session.commands, isEmpty);
+  });
+
   testWidgets('RhwpNativeEditor context menu copies selected text', (
     tester,
   ) async {
@@ -3772,6 +3829,28 @@ Map<String, Object?> _tableCellEditorLayerTreeJson() {
               },
             },
           ],
+        },
+      ],
+    },
+  };
+}
+
+Map<String, Object?> _objectEditorLayerTreeJson() {
+  return {
+    'pageWidth': 240,
+    'pageHeight': 180,
+    'root': {
+      'kind': 'group',
+      'bounds': {'x': 0, 'y': 0, 'width': 240, 'height': 180},
+      'children': [
+        _editorTextRunLayerNode(paragraph: 0, y: 40),
+        {
+          'type': 'shape',
+          'rect': {'left': 120, 'top': 60, 'right': 180, 'bottom': 110},
+          'sectionIndex': 0,
+          'paraIndex': 2,
+          'controlIndex': 1,
+          'objectIndex': 9,
         },
       ],
     },

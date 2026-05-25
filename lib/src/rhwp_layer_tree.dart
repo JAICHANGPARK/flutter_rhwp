@@ -86,6 +86,11 @@ class RhwpLayerTree {
     _parseTableCells(raw),
   );
 
+  /// Object/control layouts decoded from bounded shape/image/control nodes.
+  late final List<RhwpObjectLayout> objects = List.unmodifiable(
+    _parseObjectLayouts(raw),
+  );
+
   /// Maps a page-coordinate point to the smallest table cell containing it.
   RhwpTableCellLayout? tableCellForPoint(Offset point) {
     RhwpTableCellLayout? bestHit;
@@ -100,6 +105,26 @@ class RhwpLayerTree {
       if (area < bestArea) {
         bestArea = area;
         bestHit = cell;
+      }
+    }
+
+    return bestHit;
+  }
+
+  /// Maps a page-coordinate point to the smallest object containing it.
+  RhwpObjectLayout? objectForPoint(Offset point) {
+    RhwpObjectLayout? bestHit;
+    var bestArea = double.infinity;
+
+    for (final object in objects) {
+      if (!object.bounds.contains(point)) {
+        continue;
+      }
+
+      final area = object.bounds.width * object.bounds.height;
+      if (area < bestArea) {
+        bestArea = area;
+        bestHit = object;
       }
     }
 
@@ -457,6 +482,41 @@ class RhwpTableCellLayout {
   int get endColumn => column + _positiveSpan(columnSpan) - 1;
 }
 
+/// A bounded object/control decoded from a rhwp page layer tree.
+class RhwpObjectLayout {
+  /// Creates a decoded object/control layout.
+  const RhwpObjectLayout({
+    required this.bounds,
+    required this.type,
+    required this.raw,
+    this.section,
+    this.paragraph,
+    this.controlIndex,
+    this.objectIndex,
+  });
+
+  /// The object bounds in page coordinates.
+  final Rect bounds;
+
+  /// The decoded object type, for example `shape`, `image`, or `control`.
+  final String type;
+
+  /// The document section index when emitted by rhwp.
+  final int? section;
+
+  /// The parent paragraph index when emitted by rhwp.
+  final int? paragraph;
+
+  /// The control index inside [paragraph] when emitted by rhwp.
+  final int? controlIndex;
+
+  /// A best-effort object/model index when emitted by rhwp.
+  final int? objectIndex;
+
+  /// The original layer JSON object.
+  final Map<String, Object?> raw;
+}
+
 /// A single node in a parsed rhwp page layer tree.
 class RhwpLayerNode {
   /// Creates a parsed layer tree node.
@@ -741,6 +801,24 @@ const _childKeys = [
 
 const _boundsKeys = ['bounds', 'bbox', 'rect', 'frame'];
 
+const _objectLayoutTypes = {
+  'object',
+  'control',
+  'shape',
+  'image',
+  'picture',
+  'drawing',
+  'rect',
+  'rectangle',
+  'ellipse',
+  'line',
+  'polygon',
+  'path',
+  'textBox',
+  'textbox',
+  'ole',
+};
+
 Map<String, Object?>? _asStringMap(Object? value) {
   if (value is Map<String, Object?>) {
     return value;
@@ -891,6 +969,82 @@ List<RhwpTableCellLayout> _parseTableCells(Map<String, Object?> raw) {
   final cells = <RhwpTableCellLayout>[];
   _collectTableCells(root, null, cells);
   return cells;
+}
+
+List<RhwpObjectLayout> _parseObjectLayouts(Map<String, Object?> raw) {
+  final root = _asStringMap(raw['root']) ?? raw;
+  final objects = <RhwpObjectLayout>[];
+  _collectObjectLayouts(root, objects);
+  return objects;
+}
+
+void _collectObjectLayouts(
+  Map<String, Object?> node,
+  List<RhwpObjectLayout> objects,
+) {
+  final object = _parseObjectLayout(node);
+  if (object != null) {
+    objects.add(object);
+  }
+
+  for (final child in _childMaps(node)) {
+    _collectObjectLayouts(child, objects);
+  }
+}
+
+RhwpObjectLayout? _parseObjectLayout(Map<String, Object?> node) {
+  final groupKind = _asStringMap(node['groupKind']);
+  final nodeType = _firstString(node, const ['type', 'kind', 'name']);
+  final groupType = groupKind == null
+      ? null
+      : _firstString(groupKind, const ['kind', 'type', 'name']);
+  final type = groupType ?? nodeType;
+  if (type == null || !_objectLayoutTypes.contains(type)) {
+    return null;
+  }
+
+  final bounds = _parseBounds(node);
+  if (bounds == null) {
+    return null;
+  }
+
+  return RhwpObjectLayout(
+    bounds: bounds,
+    type: type,
+    raw: Map.unmodifiable(node),
+    section:
+        _firstInteger(node, const ['section', 'sectionIndex', 'secIndex']) ??
+        _firstInteger(groupKind ?? const {}, const [
+          'section',
+          'sectionIndex',
+          'secIndex',
+        ]),
+    paragraph:
+        _firstInteger(node, const [
+          'paragraph',
+          'paraIndex',
+          'paragraphIndex',
+        ]) ??
+        _firstInteger(groupKind ?? const {}, const [
+          'paragraph',
+          'paraIndex',
+          'paragraphIndex',
+        ]),
+    controlIndex:
+        _firstInteger(node, const ['controlIndex', 'ctrlIndex', 'control']) ??
+        _firstInteger(groupKind ?? const {}, const [
+          'controlIndex',
+          'ctrlIndex',
+          'control',
+        ]),
+    objectIndex:
+        _firstInteger(node, const ['objectIndex', 'modelIndex', 'id']) ??
+        _firstInteger(groupKind ?? const {}, const [
+          'objectIndex',
+          'modelIndex',
+          'id',
+        ]),
+  );
 }
 
 void _collectTableCells(

@@ -251,6 +251,82 @@ class RhwpTableCellSelection {
   }
 }
 
+/// A selected object/control in the native editor.
+class RhwpObjectSelection {
+  /// Creates a selected object/control range.
+  const RhwpObjectSelection({
+    required this.page,
+    required this.bounds,
+    required this.type,
+    this.section,
+    this.paragraph,
+    this.controlIndex,
+    this.objectIndex,
+  });
+
+  /// Creates a selection from a decoded page layer tree object/control.
+  factory RhwpObjectSelection.fromLayout(int page, RhwpObjectLayout object) {
+    return RhwpObjectSelection(
+      page: page,
+      bounds: object.bounds,
+      type: object.type,
+      section: object.section,
+      paragraph: object.paragraph,
+      controlIndex: object.controlIndex,
+      objectIndex: object.objectIndex,
+    );
+  }
+
+  /// The rendered page that contains this object.
+  final int page;
+
+  /// The object bounds in page coordinates.
+  final Rect bounds;
+
+  /// The object/control type from the page layer tree.
+  final String type;
+
+  /// The document section index when available.
+  final int? section;
+
+  /// The parent paragraph index when available.
+  final int? paragraph;
+
+  /// The paragraph control index when available.
+  final int? controlIndex;
+
+  /// The object/model index when available.
+  final int? objectIndex;
+
+  @override
+  bool operator ==(Object other) {
+    return other is RhwpObjectSelection &&
+        other.page == page &&
+        other.bounds == bounds &&
+        other.type == type &&
+        other.section == section &&
+        other.paragraph == paragraph &&
+        other.controlIndex == controlIndex &&
+        other.objectIndex == objectIndex;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    page,
+    bounds,
+    type,
+    section,
+    paragraph,
+    controlIndex,
+    objectIndex,
+  );
+
+  @override
+  String toString() {
+    return 'RhwpObjectSelection(page: $page, bounds: $bounds, type: $type, section: $section, paragraph: $paragraph, controlIndex: $controlIndex, objectIndex: $objectIndex)';
+  }
+}
+
 class _TableReference {
   const _TableReference({
     required this.section,
@@ -375,6 +451,7 @@ class RhwpEditorController extends RhwpViewerController {
   RhwpCursorPosition _cursor;
   RhwpSelectionRange _selection;
   RhwpTableCellSelection? _tableCellSelection;
+  RhwpObjectSelection? _objectSelection;
 
   RhwpCursorPosition get cursor => _cursor;
 
@@ -390,6 +467,7 @@ class RhwpEditorController extends RhwpViewerController {
     }
     _selection = value;
     _cursor = value.end;
+    _objectSelection = null;
     notifyListeners();
   }
 
@@ -405,6 +483,9 @@ class RhwpEditorController extends RhwpViewerController {
       return;
     }
     _tableCellSelection = value;
+    if (value != null) {
+      _objectSelection = null;
+    }
     notifyListeners();
   }
 
@@ -424,6 +505,25 @@ class RhwpEditorController extends RhwpViewerController {
   /// Clears the active table cell selection.
   void clearTableCellSelection() {
     tableCellSelection = null;
+  }
+
+  /// The active object/control selection for page overlay.
+  RhwpObjectSelection? get objectSelection => _objectSelection;
+
+  set objectSelection(RhwpObjectSelection? value) {
+    if (value == _objectSelection) {
+      return;
+    }
+    _objectSelection = value;
+    if (value != null) {
+      _tableCellSelection = null;
+    }
+    notifyListeners();
+  }
+
+  /// Clears the active object/control selection.
+  void clearObjectSelection() {
+    objectSelection = null;
   }
 }
 
@@ -2335,6 +2435,16 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _controller.tableCellSelection = selection;
   }
 
+  void _setObjectSelectionFromPage(RhwpObjectSelection? selection) {
+    if (selection == null) {
+      _controller.clearObjectSelection();
+      return;
+    }
+
+    _controller.clearSelection();
+    _controller.objectSelection = selection;
+  }
+
   void _setSelectionFromPage(RhwpSelectionRange selection) {
     _controller.selection = selection;
   }
@@ -2656,6 +2766,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
     if (_controller.tableCellSelection != null) {
       _controller.clearTableCellSelection();
+      handled = true;
+    }
+
+    if (_controller.objectSelection != null) {
+      _controller.clearObjectSelection();
       handled = true;
     }
 
@@ -3694,6 +3809,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
                     page: page,
                     selection: _controller.selection,
                     tableCellSelection: _controller.tableCellSelection,
+                    objectSelection: _controller.objectSelection,
                     composingText: _composingText,
                     searchMatches: _searchMatches
                         .where((match) => match.page == page)
@@ -3705,6 +3821,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
                     onCursorPosition: _setCursorFromPage,
                     onSelectionRange: _setSelectionFromPage,
                     onTableCellSelection: _setTableSelectionFromPage,
+                    onObjectSelection: _setObjectSelectionFromPage,
                     onFocusRequested: _focusEditor,
                     onContextMenuRequested: _showContextMenu,
                   );
@@ -3731,6 +3848,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
     required this.page,
     required this.selection,
     required this.tableCellSelection,
+    required this.objectSelection,
     required this.composingText,
     required this.searchMatches,
     required this.activeSearchMatch,
@@ -3738,6 +3856,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
     required this.onCursorPosition,
     required this.onSelectionRange,
     required this.onTableCellSelection,
+    required this.onObjectSelection,
     required this.onFocusRequested,
     required this.onContextMenuRequested,
   });
@@ -3746,6 +3865,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
   final int page;
   final RhwpSelectionRange selection;
   final RhwpTableCellSelection? tableCellSelection;
+  final RhwpObjectSelection? objectSelection;
   final String? composingText;
   final List<_EditorSearchMatch> searchMatches;
   final _EditorSearchMatch? activeSearchMatch;
@@ -3753,6 +3873,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
   final ValueChanged<RhwpCursorPosition> onCursorPosition;
   final ValueChanged<RhwpSelectionRange> onSelectionRange;
   final ValueChanged<RhwpTableCellSelection?> onTableCellSelection;
+  final ValueChanged<RhwpObjectSelection?> onObjectSelection;
   final VoidCallback onFocusRequested;
   final ValueChanged<Offset> onContextMenuRequested;
 
@@ -3874,8 +3995,21 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
       return;
     }
 
+    final object = _objectForPoint(localPosition, constraints, tree);
+    if (object != null) {
+      _tableDragAnchor = null;
+      _dragAnchor = null;
+      widget.onTableCellSelection(null);
+      widget.onObjectSelection(
+        RhwpObjectSelection.fromLayout(widget.page, object),
+      );
+      widget.onFocusRequested();
+      return;
+    }
+
     _tableDragAnchor = null;
     widget.onTableCellSelection(null);
+    widget.onObjectSelection(null);
 
     final cursor = _cursorForPoint(localPosition, constraints, tree);
     if (cursor != null) {
@@ -3905,15 +4039,29 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
       return;
     }
 
+    final object = _objectForPoint(localPosition, constraints, tree);
+    if (object != null) {
+      _tableDragAnchor = null;
+      _dragAnchor = null;
+      widget.onTableCellSelection(null);
+      widget.onObjectSelection(
+        RhwpObjectSelection.fromLayout(widget.page, object),
+      );
+      widget.onFocusRequested();
+      return;
+    }
+
     _tableDragAnchor = null;
     final textHit = _textHitForPoint(localPosition, constraints, tree);
     if (textHit != null && _selectionContainsTextHit(textHit)) {
       widget.onTableCellSelection(null);
+      widget.onObjectSelection(null);
       widget.onFocusRequested();
       return;
     }
 
     widget.onTableCellSelection(null);
+    widget.onObjectSelection(null);
     final cursor = _cursorForPoint(localPosition, constraints, tree);
     if (cursor != null) {
       _dragAnchor = null;
@@ -3960,6 +4108,23 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
       tree,
     );
     return tree.tableCellForPoint(pagePoint);
+  }
+
+  RhwpObjectLayout? _objectForPoint(
+    Offset localPosition,
+    BoxConstraints constraints,
+    RhwpLayerTree? tree,
+  ) {
+    if (tree == null) {
+      return null;
+    }
+
+    final pagePoint = _pagePointFromOverlayPoint(
+      localPosition,
+      constraints,
+      tree,
+    );
+    return tree.objectForPoint(pagePoint);
   }
 
   RhwpCursorPosition? _cursorForPoint(
@@ -4034,6 +4199,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
   ) {
     final overlaySize = _overlaySize(constraints, tree);
     final tableSelectionRects = _tableSelectionRects(tree, overlaySize);
+    final objectSelectionRects = _objectSelectionRects(tree, overlaySize);
     final searchRects = _searchRects(tree, overlaySize);
     final caretRect = tree.caretRectFor(
       section: widget.selection.end.section,
@@ -4042,6 +4208,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     );
     if (caretRect == null &&
         tableSelectionRects.isEmpty &&
+        objectSelectionRects.isEmpty &&
         searchRects.isEmpty) {
       return null;
     }
@@ -4055,6 +4222,23 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
 
     return Stack(
       children: [
+        for (final (index, rect) in objectSelectionRects.indexed)
+          _positionedRect(
+            key: index == 0
+                ? const ValueKey('rhwp-editor-object-selection')
+                : ValueKey('rhwp-editor-object-selection-$index'),
+            rect: rect,
+            constraints: constraints,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.08),
+                border: Border.all(
+                  color: color.withValues(alpha: 0.88),
+                  width: 2,
+                ),
+              ),
+            ),
+          ),
         for (final (index, rect) in tableSelectionRects.indexed)
           _positionedRect(
             key: index == 0
@@ -4236,6 +4420,15 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
         if (tableSelection.containsCell(cell))
           _scalePageRect(cell.bounds, tree, overlaySize),
     ];
+  }
+
+  List<Rect> _objectSelectionRects(RhwpLayerTree tree, Size overlaySize) {
+    final objectSelection = widget.objectSelection;
+    if (objectSelection == null || objectSelection.page != widget.page) {
+      return const [];
+    }
+
+    return [_scalePageRect(objectSelection.bounds, tree, overlaySize)];
   }
 
   List<({Rect rect, bool active})> _searchRects(
