@@ -1424,6 +1424,63 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor finds and highlights text from layer tree', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('도구'));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-search-field')),
+      'bc',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-find')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 0);
+    expect(session.commands, isEmpty);
+    expect(find.text('1 / 1'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-search-active')),
+      findsOneWidget,
+    );
+    expect(
+      controller.selection,
+      const RhwpSelectionRange(
+        start: RhwpCursorPosition(paragraph: 0, offset: 1),
+        end: RhwpCursorPosition(paragraph: 0, offset: 3),
+      ),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-search-clear')));
+    await tester.pump();
+
+    expect(find.text('0 / 0'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-search-active')),
+      findsNothing,
+    );
+  });
+
   testWidgets('RhwpNativeEditor commits text input after IME composition', (
     tester,
   ) async {

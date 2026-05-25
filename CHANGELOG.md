@@ -174,3 +174,6 @@
   properties in the Dart paragraph-format command surface, and added a
   Flutter-native paragraph shape dialog that applies those values through the
   Rust bridge.
+* Added Flutter-native text search in `RhwpNativeEditor`, using page layer tree
+  text runs to select and highlight matches without calling the upstream Web
+  editor.

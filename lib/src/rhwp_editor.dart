@@ -331,6 +331,37 @@ class _ParaShapeDialogResult {
   final int spacingAfter;
 }
 
+class _EditorSearchMatch {
+  const _EditorSearchMatch({
+    required this.page,
+    required this.section,
+    required this.paragraph,
+    required this.startOffset,
+    required this.endOffset,
+  });
+
+  final int page;
+  final int section;
+  final int paragraph;
+  final int startOffset;
+  final int endOffset;
+
+  RhwpSelectionRange get selection {
+    return RhwpSelectionRange(
+      start: RhwpCursorPosition(
+        section: section,
+        paragraph: paragraph,
+        offset: startOffset,
+      ),
+      end: RhwpCursorPosition(
+        section: section,
+        paragraph: paragraph,
+        offset: endOffset,
+      ),
+    );
+  }
+}
+
 /// Controller for the Flutter-native command editor overlay.
 class RhwpEditorController extends RhwpViewerController {
   RhwpEditorController({super.zoom})
@@ -483,10 +514,14 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   final _tableColumnController = TextEditingController(text: '0');
   final _tableEndRowController = TextEditingController(text: '1');
   final _tableEndColumnController = TextEditingController(text: '1');
+  final _searchController = TextEditingController();
   TextInputConnection? _textInputConnection;
   TextEditingValue _inputValue = TextEditingValue.empty;
   Key _viewerKey = UniqueKey();
+  List<_EditorSearchMatch> _searchMatches = const [];
+  int _activeSearchMatch = -1;
   bool _busy = false;
+  bool _searching = false;
   Object? _error;
 
   @override
@@ -528,6 +563,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _tableColumnController.dispose();
     _tableEndRowController.dispose();
     _tableEndColumnController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -985,6 +1021,124 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       spacingBefore: result.spacingBefore,
       spacingAfter: result.spacingAfter,
     );
+  }
+
+  Future<void> _runSearch() async {
+    final query = _searchController.text.trim();
+    if (query.isEmpty) {
+      _clearSearch();
+      return;
+    }
+    if (_searching) {
+      return;
+    }
+
+    setState(() {
+      _searching = true;
+      _error = null;
+    });
+
+    try {
+      final pageCount = await widget.document.pageCount;
+      final matches = <_EditorSearchMatch>[];
+      for (var page = 0; page < pageCount; page += 1) {
+        final tree = await widget.document.pageLayerTreeModel(page);
+        matches.addAll(_searchTree(tree, query));
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _searchMatches = List.unmodifiable(matches);
+        _activeSearchMatch = matches.isEmpty ? -1 : 0;
+      });
+      _selectActiveSearchMatch();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _error = error;
+        _searchMatches = const [];
+        _activeSearchMatch = -1;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _searching = false;
+        });
+      }
+    }
+  }
+
+  List<_EditorSearchMatch> _searchTree(RhwpLayerTree tree, String query) {
+    final foldedQuery = query.toLowerCase();
+    final matches = <_EditorSearchMatch>[];
+    for (final run in tree.textRuns) {
+      final section = run.section;
+      final paragraph = run.paragraph;
+      if (section == null || paragraph == null || run.cellContext != null) {
+        continue;
+      }
+
+      final foldedText = run.text.toLowerCase();
+      var index = foldedText.indexOf(foldedQuery);
+      while (index >= 0) {
+        matches.add(
+          _EditorSearchMatch(
+            page: tree.page,
+            section: section,
+            paragraph: paragraph,
+            startOffset: run.charStart + index,
+            endOffset: run.charStart + index + query.length,
+          ),
+        );
+        index = foldedText.indexOf(foldedQuery, index + foldedQuery.length);
+      }
+    }
+    return matches;
+  }
+
+  void _searchNext() {
+    if (_searchMatches.isEmpty) {
+      return;
+    }
+    setState(() {
+      _activeSearchMatch = (_activeSearchMatch + 1) % _searchMatches.length;
+    });
+    _selectActiveSearchMatch();
+  }
+
+  void _searchPrevious() {
+    if (_searchMatches.isEmpty) {
+      return;
+    }
+    setState(() {
+      _activeSearchMatch =
+          (_activeSearchMatch - 1 + _searchMatches.length) %
+          _searchMatches.length;
+    });
+    _selectActiveSearchMatch();
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() {
+      _searchMatches = const [];
+      _activeSearchMatch = -1;
+    });
+  }
+
+  void _selectActiveSearchMatch() {
+    if (_activeSearchMatch < 0 || _activeSearchMatch >= _searchMatches.length) {
+      return;
+    }
+
+    _controller.clearTableCellSelection();
+    _controller.selection = _searchMatches[_activeSearchMatch].selection;
+    _focusEditor();
   }
 
   Future<void> _applyParagraphFormat({
@@ -1736,7 +1890,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     return Column(
       children: [
         _EditorToolbar(
-          busy: _busy,
+          busy: _busy || _searching,
           error: _error,
           textController: _textController,
           sectionController: _sectionController,
@@ -1750,7 +1904,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           tableColumnController: _tableColumnController,
           tableEndRowController: _tableEndRowController,
           tableEndColumnController: _tableEndColumnController,
+          searchController: _searchController,
           tableCellSelection: _controller.tableCellSelection,
+          searchMatchCount: _searchMatches.length,
+          activeSearchMatch: _activeSearchMatch,
           onInsert: _insertText,
           onDeleteBackward: _deleteBackward,
           onInsertTable: _insertTable,
@@ -1773,6 +1930,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onAlignCenter: () => _applyParagraphAlignment('center'),
           onAlignRight: () => _applyParagraphAlignment('right'),
           onAlignJustify: () => _applyParagraphAlignment('justify'),
+          onFind: _runSearch,
+          onSearchPrevious: _searchPrevious,
+          onSearchNext: _searchNext,
+          onClearSearch: _clearSearch,
           onZoomOut: _controller.zoomOut,
           onZoomIn: _controller.zoomIn,
         ),
@@ -1792,6 +1953,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
                   selection: _controller.selection,
                   tableCellSelection: _controller.tableCellSelection,
                   composingText: _composingText,
+                  searchMatches: _searchMatches
+                      .where((match) => match.page == page)
+                      .toList(growable: false),
+                  activeSearchMatch: _activeSearchMatch < 0
+                      ? null
+                      : _searchMatches[_activeSearchMatch],
                   fallbackEnabled: page == 0,
                   onCursorPosition: _setCursorFromPage,
                   onSelectionRange: _setSelectionFromPage,
@@ -1816,6 +1983,8 @@ class _EditorSelectionOverlay extends StatefulWidget {
     required this.selection,
     required this.tableCellSelection,
     required this.composingText,
+    required this.searchMatches,
+    required this.activeSearchMatch,
     required this.fallbackEnabled,
     required this.onCursorPosition,
     required this.onSelectionRange,
@@ -1829,6 +1998,8 @@ class _EditorSelectionOverlay extends StatefulWidget {
   final RhwpSelectionRange selection;
   final RhwpTableCellSelection? tableCellSelection;
   final String? composingText;
+  final List<_EditorSearchMatch> searchMatches;
+  final _EditorSearchMatch? activeSearchMatch;
   final bool fallbackEnabled;
   final ValueChanged<RhwpCursorPosition> onCursorPosition;
   final ValueChanged<RhwpSelectionRange> onSelectionRange;
@@ -2114,16 +2285,20 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
   ) {
     final overlaySize = _overlaySize(constraints, tree);
     final tableSelectionRects = _tableSelectionRects(tree, overlaySize);
+    final searchRects = _searchRects(tree, overlaySize);
     final caretRect = tree.caretRectFor(
       section: widget.selection.end.section,
       paragraph: widget.selection.end.paragraph,
       offset: widget.selection.end.offset,
     );
-    if (caretRect == null && tableSelectionRects.isEmpty) {
+    if (caretRect == null &&
+        tableSelectionRects.isEmpty &&
+        searchRects.isEmpty) {
       return null;
     }
 
     final color = Theme.of(context).colorScheme.primary;
+    final searchColor = Colors.amber.shade600;
     final selectionRects = _layerSelectionRects(tree, overlaySize);
     final scaledCaretRect = caretRect == null
         ? null
@@ -2145,6 +2320,28 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
                   color: color.withValues(alpha: 0.82),
                   width: 2,
                 ),
+              ),
+            ),
+          ),
+        for (final (index, result) in searchRects.indexed)
+          _positionedRect(
+            key: result.active
+                ? const ValueKey('rhwp-editor-search-active')
+                : ValueKey('rhwp-editor-search-highlight-$index'),
+            rect: result.rect,
+            constraints: constraints,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: result.active
+                    ? searchColor.withValues(alpha: 0.45)
+                    : searchColor.withValues(alpha: 0.25),
+                border: result.active
+                    ? Border.all(
+                        color: searchColor.withValues(alpha: 0.95),
+                        width: 1.5,
+                      )
+                    : null,
+                borderRadius: BorderRadius.circular(3),
               ),
             ),
           ),
@@ -2292,6 +2489,33 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     ];
   }
 
+  List<({Rect rect, bool active})> _searchRects(
+    RhwpLayerTree tree,
+    Size overlaySize,
+  ) {
+    if (widget.searchMatches.isEmpty) {
+      return const [];
+    }
+
+    final rects = <({Rect rect, bool active})>[];
+    for (final match in widget.searchMatches) {
+      for (final rect in tree.selectionRectsForRange(
+        startSection: match.section,
+        startParagraph: match.paragraph,
+        startOffset: match.startOffset,
+        endSection: match.section,
+        endParagraph: match.paragraph,
+        endOffset: match.endOffset,
+      )) {
+        rects.add((
+          rect: _scalePageRect(rect, tree, overlaySize),
+          active: identical(match, widget.activeSearchMatch),
+        ));
+      }
+    }
+    return rects;
+  }
+
   Size _overlaySize(BoxConstraints constraints, RhwpLayerTree tree) {
     final fallbackSize = tree.pageSize ?? Size.zero;
     return Size(
@@ -2387,7 +2611,10 @@ class _EditorToolbar extends StatefulWidget {
     required this.tableColumnController,
     required this.tableEndRowController,
     required this.tableEndColumnController,
+    required this.searchController,
     required this.tableCellSelection,
+    required this.searchMatchCount,
+    required this.activeSearchMatch,
     required this.onInsert,
     required this.onDeleteBackward,
     required this.onInsertTable,
@@ -2410,6 +2637,10 @@ class _EditorToolbar extends StatefulWidget {
     required this.onAlignCenter,
     required this.onAlignRight,
     required this.onAlignJustify,
+    required this.onFind,
+    required this.onSearchPrevious,
+    required this.onSearchNext,
+    required this.onClearSearch,
     required this.onZoomOut,
     required this.onZoomIn,
   });
@@ -2428,7 +2659,10 @@ class _EditorToolbar extends StatefulWidget {
   final TextEditingController tableColumnController;
   final TextEditingController tableEndRowController;
   final TextEditingController tableEndColumnController;
+  final TextEditingController searchController;
   final RhwpTableCellSelection? tableCellSelection;
+  final int searchMatchCount;
+  final int activeSearchMatch;
   final VoidCallback onInsert;
   final VoidCallback onDeleteBackward;
   final VoidCallback onInsertTable;
@@ -2451,6 +2685,10 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onAlignCenter;
   final VoidCallback onAlignRight;
   final VoidCallback onAlignJustify;
+  final VoidCallback onFind;
+  final VoidCallback onSearchPrevious;
+  final VoidCallback onSearchNext;
+  final VoidCallback onClearSearch;
   final VoidCallback onZoomOut;
   final VoidCallback onZoomIn;
 
@@ -2928,14 +3166,75 @@ class _EditorToolbarState extends State<_EditorToolbar> {
   List<Widget> _toolsGroups() {
     return [
       _RibbonGroup(
+        label: '찾기',
+        child: Row(
+          children: [
+            SizedBox(
+              width: 180,
+              child: TextField(
+                key: const ValueKey('rhwp-editor-search-field'),
+                controller: widget.searchController,
+                minLines: 1,
+                maxLines: 1,
+                decoration: const InputDecoration(
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                  labelText: 'Find',
+                ),
+                onSubmitted: (_) {
+                  if (!widget.busy) {
+                    widget.onFind();
+                  }
+                },
+              ),
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Find',
+              buttonKey: const ValueKey('rhwp-editor-find'),
+              icon: Icons.search,
+              filled: true,
+              onPressed: widget.busy ? null : widget.onFind,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Previous match',
+              buttonKey: const ValueKey('rhwp-editor-search-previous'),
+              icon: Icons.keyboard_arrow_up,
+              onPressed: widget.searchMatchCount == 0
+                  ? null
+                  : widget.onSearchPrevious,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Next match',
+              buttonKey: const ValueKey('rhwp-editor-search-next'),
+              icon: Icons.keyboard_arrow_down,
+              onPressed: widget.searchMatchCount == 0
+                  ? null
+                  : widget.onSearchNext,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Clear search',
+              buttonKey: const ValueKey('rhwp-editor-search-clear'),
+              icon: Icons.close,
+              onPressed: widget.busy ? null : widget.onClearSearch,
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Center(
+                child: Text(
+                  widget.searchMatchCount == 0
+                      ? '0 / 0'
+                      : '${widget.activeSearchMatch + 1} / ${widget.searchMatchCount}',
+                  key: const ValueKey('rhwp-editor-search-count'),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      _RibbonGroup(
         label: '검토',
         child: Row(
           children: [
-            _ToolbarIconButton(
-              tooltip: 'Find',
-              icon: Icons.search,
-              onPressed: null,
-            ),
             _ToolbarIconButton(
               tooltip: 'Compare',
               icon: Icons.difference_outlined,
