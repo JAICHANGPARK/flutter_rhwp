@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
@@ -520,6 +521,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   Key _viewerKey = UniqueKey();
   List<_EditorSearchMatch> _searchMatches = const [];
   int _activeSearchMatch = -1;
+  int? _pageCountValue;
   bool _busy = false;
   bool _searching = false;
   Object? _error;
@@ -532,6 +534,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _controller.addListener(_handleControllerChanged);
     _focusNode.addListener(_handleFocusChanged);
     _syncCursorFields();
+    _loadPageCount();
   }
 
   @override
@@ -539,6 +542,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.document != widget.document) {
       _viewerKey = UniqueKey();
+      _pageCountValue = null;
+      _loadPageCount();
     }
   }
 
@@ -627,6 +632,25 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       _openTextInput();
     } else {
       _closeTextInput();
+    }
+  }
+
+  Future<void> _loadPageCount() async {
+    try {
+      final pageCount = await widget.document.pageCount;
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _pageCountValue = pageCount;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _error = error;
+      });
     }
   }
 
@@ -1137,7 +1161,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     _controller.clearTableCellSelection();
-    _controller.selection = _searchMatches[_activeSearchMatch].selection;
+    final match = _searchMatches[_activeSearchMatch];
+    _controller.selection = match.selection;
+    unawaited(_controller.goToPage(match.page));
     _focusEditor();
   }
 
@@ -1906,6 +1932,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           tableEndColumnController: _tableEndColumnController,
           searchController: _searchController,
           tableCellSelection: _controller.tableCellSelection,
+          currentPage: _controller.currentPage,
+          pageCount: _pageCountValue,
           searchMatchCount: _searchMatches.length,
           activeSearchMatch: _activeSearchMatch,
           onInsert: _insertText,
@@ -1934,6 +1962,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onSearchPrevious: _searchPrevious,
           onSearchNext: _searchNext,
           onClearSearch: _clearSearch,
+          onPreviousPage: () => unawaited(_controller.previousPage()),
+          onNextPage: () => unawaited(_controller.nextPage()),
           onZoomOut: _controller.zoomOut,
           onZoomIn: _controller.zoomIn,
         ),
@@ -2613,6 +2643,8 @@ class _EditorToolbar extends StatefulWidget {
     required this.tableEndColumnController,
     required this.searchController,
     required this.tableCellSelection,
+    required this.currentPage,
+    required this.pageCount,
     required this.searchMatchCount,
     required this.activeSearchMatch,
     required this.onInsert,
@@ -2641,6 +2673,8 @@ class _EditorToolbar extends StatefulWidget {
     required this.onSearchPrevious,
     required this.onSearchNext,
     required this.onClearSearch,
+    required this.onPreviousPage,
+    required this.onNextPage,
     required this.onZoomOut,
     required this.onZoomIn,
   });
@@ -2661,6 +2695,8 @@ class _EditorToolbar extends StatefulWidget {
   final TextEditingController tableEndColumnController;
   final TextEditingController searchController;
   final RhwpTableCellSelection? tableCellSelection;
+  final int currentPage;
+  final int? pageCount;
   final int searchMatchCount;
   final int activeSearchMatch;
   final VoidCallback onInsert;
@@ -2689,6 +2725,8 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onSearchPrevious;
   final VoidCallback onSearchNext;
   final VoidCallback onClearSearch;
+  final VoidCallback onPreviousPage;
+  final VoidCallback onNextPage;
   final VoidCallback onZoomOut;
   final VoidCallback onZoomIn;
 
@@ -2843,6 +2881,40 @@ class _EditorToolbarState extends State<_EditorToolbar> {
       _RibbonGroup(
         label: '위치',
         child: Row(children: _cursorFields()),
+      ),
+      _RibbonGroup(
+        label: '쪽 이동',
+        child: Row(
+          children: [
+            _ToolbarIconButton(
+              tooltip: 'Previous page',
+              buttonKey: const ValueKey('rhwp-editor-previous-page'),
+              icon: Icons.keyboard_arrow_up,
+              onPressed: widget.currentPage <= 0 ? null : widget.onPreviousPage,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Next page',
+              buttonKey: const ValueKey('rhwp-editor-next-page'),
+              icon: Icons.keyboard_arrow_down,
+              onPressed:
+                  widget.pageCount != null &&
+                      widget.currentPage >= widget.pageCount! - 1
+                  ? null
+                  : widget.onNextPage,
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Center(
+                child: Text(
+                  widget.pageCount == null
+                      ? '${widget.currentPage + 1} / ?'
+                      : '${widget.currentPage + 1} / ${widget.pageCount}',
+                  key: const ValueKey('rhwp-editor-page-count'),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
       _RibbonGroup(
         label: '확대',

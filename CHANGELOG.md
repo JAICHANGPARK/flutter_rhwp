@@ -177,3 +177,6 @@
 * Added Flutter-native text search in `RhwpNativeEditor`, using page layer tree
   text runs to select and highlight matches without calling the upstream Web
   editor.
+* Added viewer page navigation to `RhwpViewerController`, wired the
+  Flutter-native editor view ribbon to previous/next page controls, and made
+  search result selection request the matching page.

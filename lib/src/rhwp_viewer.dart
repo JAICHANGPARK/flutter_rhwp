@@ -9,6 +9,8 @@ typedef RhwpSvgBuilder = Widget Function(BuildContext context, String svg);
 typedef RhwpPageOverlayBuilder =
     Widget? Function(BuildContext context, int page, String svg);
 
+typedef _RhwpPageScroller = Future<void> Function(int page);
+
 Widget _defaultRhwpSvgBuilder(BuildContext context, String svg) {
   return SvgPicture.string(
     svg,
@@ -22,6 +24,9 @@ class RhwpViewerController extends ChangeNotifier {
     : _zoom = zoom.clamp(0.25, 6.0).toDouble();
 
   double _zoom;
+  int _currentPage = 0;
+  int? _pageCount;
+  _RhwpPageScroller? _pageScroller;
 
   double get zoom => _zoom;
 
@@ -39,6 +44,49 @@ class RhwpViewerController extends ChangeNotifier {
   void zoomOut() => zoom = _zoom - 0.25;
 
   void resetZoom() => zoom = 1.0;
+
+  /// The page index most recently requested through this controller.
+  int get currentPage => _currentPage;
+
+  /// Scrolls the attached viewer to [page] when a viewer is mounted.
+  Future<void> goToPage(int page) async {
+    final next = _clampPage(page);
+    if (next != _currentPage) {
+      _currentPage = next;
+      notifyListeners();
+    }
+    await _pageScroller?.call(next);
+  }
+
+  /// Scrolls to the previous page when possible.
+  Future<void> previousPage() => goToPage(_currentPage - 1);
+
+  /// Scrolls to the next page when possible.
+  Future<void> nextPage() => goToPage(_currentPage + 1);
+
+  int _clampPage(int page) {
+    final pageCount = _pageCount;
+    if (pageCount == null || pageCount <= 0) {
+      return page.clamp(0, 1 << 30).toInt();
+    }
+    return page.clamp(0, pageCount - 1).toInt();
+  }
+
+  void _attachPageScroller({
+    required int pageCount,
+    required _RhwpPageScroller pageScroller,
+  }) {
+    _pageCount = pageCount;
+    _pageScroller = pageScroller;
+    if (pageCount > 0 && _currentPage >= pageCount) {
+      _currentPage = pageCount - 1;
+    }
+  }
+
+  void _detachPageScroller() {
+    _pageScroller = null;
+    _pageCount = null;
+  }
 }
 
 class RhwpViewer extends StatefulWidget {
@@ -76,6 +124,9 @@ class _RhwpViewerState extends State<RhwpViewer> {
   late final RhwpViewerController _controller;
   late final bool _ownsController;
   late Future<int> _pageCount;
+  final _verticalScrollController = ScrollController();
+  final _pageKeys = <GlobalKey>[];
+  int _resolvedPageCount = 0;
 
   @override
   void initState() {
@@ -97,6 +148,8 @@ class _RhwpViewerState extends State<RhwpViewer> {
   @override
   void dispose() {
     _controller.removeListener(_handleZoomChanged);
+    _controller._detachPageScroller();
+    _verticalScrollController.dispose();
     if (_ownsController) {
       _controller.dispose();
     }
@@ -122,6 +175,11 @@ class _RhwpViewerState extends State<RhwpViewer> {
           }
 
           final pageCount = snapshot.requireData;
+          _syncPageKeys(pageCount);
+          _controller._attachPageScroller(
+            pageCount: pageCount,
+            pageScroller: _scrollToPage,
+          );
           return LayoutBuilder(
             builder: (context, constraints) {
               final width = constraints.maxWidth.isFinite
@@ -133,12 +191,14 @@ class _RhwpViewerState extends State<RhwpViewer> {
                 child: SizedBox(
                   width: width.clamp(320.0, double.infinity).toDouble(),
                   child: ListView.separated(
+                    controller: _verticalScrollController,
                     padding: widget.padding,
                     itemCount: pageCount,
                     separatorBuilder: (context, index) =>
                         SizedBox(height: widget.pageGap),
                     itemBuilder: (context, index) {
                       return _RhwpSvgPage(
+                        key: _pageKeys[index],
                         document: widget.document,
                         page: index,
                         svgBuilder: widget.svgBuilder,
@@ -156,10 +216,70 @@ class _RhwpViewerState extends State<RhwpViewer> {
       ),
     );
   }
+
+  void _syncPageKeys(int pageCount) {
+    _resolvedPageCount = pageCount;
+    if (_pageKeys.length == pageCount) {
+      return;
+    }
+    if (_pageKeys.length < pageCount) {
+      _pageKeys.addAll(
+        List<GlobalKey>.generate(
+          pageCount - _pageKeys.length,
+          (_) => GlobalKey(),
+        ),
+      );
+      return;
+    }
+    _pageKeys.removeRange(pageCount, _pageKeys.length);
+  }
+
+  Future<void> _scrollToPage(int page) async {
+    if (!mounted || _resolvedPageCount <= 0) {
+      return;
+    }
+
+    final pageIndex = page.clamp(0, _resolvedPageCount - 1).toInt();
+    final context = _pageKeys[pageIndex].currentContext;
+    if (context != null) {
+      await Scrollable.ensureVisible(
+        context,
+        alignment: 0.05,
+        duration: const Duration(milliseconds: 220),
+      );
+      return;
+    }
+
+    if (!_verticalScrollController.hasClients) {
+      return;
+    }
+
+    final position = _verticalScrollController.position;
+    final denominator = (_resolvedPageCount - 1).clamp(1, 1 << 30);
+    final estimatedOffset = position.maxScrollExtent * pageIndex / denominator;
+    await _verticalScrollController.animateTo(
+      estimatedOffset.clamp(position.minScrollExtent, position.maxScrollExtent),
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+    );
+
+    if (!mounted) {
+      return;
+    }
+    final revealedContext = _pageKeys[pageIndex].currentContext;
+    if (revealedContext != null && revealedContext.mounted) {
+      await Scrollable.ensureVisible(
+        revealedContext,
+        alignment: 0.05,
+        duration: const Duration(milliseconds: 120),
+      );
+    }
+  }
 }
 
 class _RhwpSvgPage extends StatefulWidget {
   const _RhwpSvgPage({
+    super.key,
     required this.document,
     required this.page,
     required this.svgBuilder,

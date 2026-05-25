@@ -128,6 +128,38 @@ void main() {
     );
   });
 
+  testWidgets('RhwpViewer controller scrolls to requested page', (
+    tester,
+  ) async {
+    final controller = RhwpViewerController();
+    final session = _FakeRhwpSession(pageCountValue: 8);
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 420,
+          height: 320,
+          child: RhwpViewer(
+            document: document,
+            controller: controller,
+            padding: const EdgeInsets.all(8),
+            pageGap: 8,
+            svgBuilder: _tallSvgBuilder,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final scroll = controller.goToPage(5);
+    await tester.pumpAndSettle();
+    await scroll;
+
+    expect(controller.currentPage, 5);
+    expect(session.renderedPages, contains(5));
+  });
+
   testWidgets('RhwpViewer composes page overlay over rendered SVG', (
     tester,
   ) async {
@@ -1428,7 +1460,10 @@ void main() {
     tester,
   ) async {
     final controller = RhwpEditorController();
-    final session = _FakeRhwpSession(pageCountValue: 1);
+    final session = _FakeRhwpSession(pageCountValue: 3);
+    session.pageLayerTreeJsonByPage[2] = jsonEncode(
+      _editorLayerTreeJson(firstText: 'wxyz', secondText: 'mnop'),
+    );
     final document = RhwpDocument.fromSession(session);
     var changedCalls = 0;
 
@@ -1451,7 +1486,7 @@ void main() {
     await tester.pump();
     await tester.enterText(
       find.byKey(const ValueKey('rhwp-editor-search-field')),
-      'bc',
+      'xy',
     );
     await tester.tap(find.byKey(const ValueKey('rhwp-editor-find')));
     await _pumpDocumentFrame(tester);
@@ -1470,6 +1505,8 @@ void main() {
         end: RhwpCursorPosition(paragraph: 0, offset: 3),
       ),
     );
+    expect(controller.currentPage, 2);
+    expect(session.renderedPages, contains(2));
 
     await tester.tap(find.byKey(const ValueKey('rhwp-editor-search-clear')));
     await tester.pump();
@@ -1859,6 +1896,7 @@ class _FakeRhwpSession implements rust.RhwpSession {
   final renderedPages = <int>[];
   final layerTreePages = <int>[];
   String pageLayerTreeJson = jsonEncode(_editorLayerTreeJson());
+  final pageLayerTreeJsonByPage = <int, String>{};
   bool _disposed = false;
 
   @override
@@ -1888,7 +1926,7 @@ class _FakeRhwpSession implements rust.RhwpSession {
   @override
   Future<String> pageLayerTree({required int page}) async {
     layerTreePages.add(page);
-    return pageLayerTreeJson;
+    return pageLayerTreeJsonByPage[page] ?? pageLayerTreeJson;
   }
 
   @override
@@ -1921,7 +1959,10 @@ class _MockClipboard {
   }
 }
 
-Map<String, Object?> _editorLayerTreeJson() {
+Map<String, Object?> _editorLayerTreeJson({
+  String firstText = 'abcd',
+  String secondText = 'efgh',
+}) {
   return {
     'pageWidth': 240,
     'pageHeight': 180,
@@ -1936,7 +1977,7 @@ Map<String, Object?> _editorLayerTreeJson() {
             {
               'type': 'textRun',
               'bbox': {'x': 80, 'y': 40, 'width': 80, 'height': 16},
-              'text': 'abcd',
+              'text': firstText,
               'source': {
                 'id': 0,
                 'utf16Range': {'start': 0, 'end': 4},
@@ -1962,7 +2003,7 @@ Map<String, Object?> _editorLayerTreeJson() {
             {
               'type': 'textRun',
               'bbox': {'x': 80, 'y': 80, 'width': 80, 'height': 16},
-              'text': 'efgh',
+              'text': secondText,
               'source': {
                 'id': 1,
                 'utf16Range': {'start': 0, 'end': 4},
