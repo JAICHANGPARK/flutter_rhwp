@@ -246,6 +246,8 @@
 * Exposed strikethrough, font size, and text color character-format properties
   in the Dart command surface, and added a Flutter-native character shape dialog
   that applies those values through the Rust bridge.
+* Added inline Flutter-native font size and text color controls to the format
+  ribbon so common character shape edits no longer require opening the dialog.
 * Exposed line spacing, line spacing type, indent, and paragraph margin
   properties in the Dart paragraph-format command surface, and added a
   Flutter-native paragraph shape dialog that applies those values through the

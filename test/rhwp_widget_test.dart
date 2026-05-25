@@ -3874,6 +3874,77 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor applies inline character toolbar values', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.selection = const RhwpSelectionRange(
+      start: RhwpCursorPosition(offset: 1),
+      end: RhwpCursorPosition(offset: 3),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('서식'));
+    await tester.pump();
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-font-size-field')),
+    );
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-font-size-field')),
+      '14.5',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-apply-font-size')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.single), {
+      'type': 'applyCharFormatRange',
+      'section': 0,
+      'startParagraph': 0,
+      'startOffset': 1,
+      'endParagraph': 0,
+      'endOffset': 3,
+      'properties': {'fontSize': 1450},
+    });
+
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-text-color-#2563eb')),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 2);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'applyCharFormatRange',
+      'section': 0,
+      'startParagraph': 0,
+      'startOffset': 1,
+      'endParagraph': 0,
+      'endOffset': 3,
+      'properties': {'textColor': '#2563eb'},
+    });
+  });
+
   testWidgets('RhwpNativeEditor applies character shape dialog values', (
     tester,
   ) async {

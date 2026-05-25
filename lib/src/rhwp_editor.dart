@@ -787,6 +787,19 @@ class RhwpCommandEditor extends StatelessWidget {
 
 const _defaultEditRefreshDelay = Duration(milliseconds: 350);
 
+const _charColorSwatches = [
+  (label: '검정', color: Color(0xff000000), value: '#000000'),
+  (label: '빨강', color: Color(0xffdc2626), value: '#dc2626'),
+  (label: '파랑', color: Color(0xff2563eb), value: '#2563eb'),
+  (label: '초록', color: Color(0xff16a34a), value: '#16a34a'),
+];
+
+int _hwpFontSizeFromPointText(String text) {
+  final points = double.tryParse(text.trim()) ?? 10.0;
+  final clampedPoints = points.clamp(1.0, 200.0);
+  return (clampedPoints * 100).round();
+}
+
 class _PendingTextOverlay {
   const _PendingTextOverlay({
     required this.page,
@@ -5235,6 +5248,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onItalic: () => _applyCharFormat(italic: true),
           onUnderline: () => _applyCharFormat(underline: true),
           onStrikethrough: () => _applyCharFormat(strikethrough: true),
+          onFontSize: (fontSize) => _applyCharFormat(fontSize: fontSize),
+          onTextColor: (textColor) => _applyCharFormat(textColor: textColor),
           onCharShape: _showCharShapeDialog,
           onParaShape: _showParaShapeDialog,
           onAlignLeft: () => _applyParagraphAlignment('left'),
@@ -6870,6 +6885,8 @@ class _EditorToolbar extends StatefulWidget {
     required this.onItalic,
     required this.onUnderline,
     required this.onStrikethrough,
+    required this.onFontSize,
+    required this.onTextColor,
     required this.onCharShape,
     required this.onParaShape,
     required this.onAlignLeft,
@@ -6948,6 +6965,8 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onItalic;
   final VoidCallback onUnderline;
   final VoidCallback onStrikethrough;
+  final ValueChanged<int> onFontSize;
+  final ValueChanged<String> onTextColor;
   final VoidCallback onCharShape;
   final VoidCallback onParaShape;
   final VoidCallback onAlignLeft;
@@ -6974,6 +6993,8 @@ class _EditorToolbar extends StatefulWidget {
 
 class _EditorToolbarState extends State<_EditorToolbar> {
   var _activeTab = _EditorTab.insert;
+  final _toolbarFontSizeController = TextEditingController(text: '10.0');
+  var _toolbarTextColor = '#000000';
 
   void activateTab(_EditorTab tab) {
     if (_activeTab == tab) {
@@ -6982,6 +7003,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
     setState(() {
       _activeTab = tab;
     });
+  }
+
+  @override
+  void dispose() {
+    _toolbarFontSizeController.dispose();
+    super.dispose();
   }
 
   @override
@@ -7403,6 +7430,44 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               icon: Icons.format_strikethrough,
               onPressed: widget.busy ? null : widget.onStrikethrough,
             ),
+            const SizedBox(width: 6),
+            SizedBox(
+              width: 86,
+              child: TextField(
+                key: const ValueKey('rhwp-editor-font-size-field'),
+                controller: _toolbarFontSizeController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                  suffixText: 'pt',
+                ),
+                onSubmitted: (_) {
+                  if (!widget.busy) {
+                    _applyToolbarFontSize();
+                  }
+                },
+              ),
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Apply font size',
+              buttonKey: const ValueKey('rhwp-editor-apply-font-size'),
+              icon: Icons.format_size,
+              onPressed: widget.busy ? null : _applyToolbarFontSize,
+            ),
+            const SizedBox(width: 4),
+            for (final swatch in _charColorSwatches)
+              _ColorSwatchButton(
+                key: ValueKey('rhwp-editor-text-color-${swatch.value}'),
+                tooltip: 'Text color ${swatch.label}',
+                color: swatch.color,
+                selected: _toolbarTextColor == swatch.value,
+                onPressed: widget.busy
+                    ? null
+                    : () => _applyToolbarTextColor(swatch.value),
+              ),
             _ToolbarIconButton(
               tooltip: 'Character shape',
               buttonKey: const ValueKey('rhwp-editor-character-shape'),
@@ -7446,6 +7511,19 @@ class _EditorToolbarState extends State<_EditorToolbar> {
         ),
       ),
     ];
+  }
+
+  void _applyToolbarFontSize() {
+    widget.onFontSize(
+      _hwpFontSizeFromPointText(_toolbarFontSizeController.text),
+    );
+  }
+
+  void _applyToolbarTextColor(String value) {
+    setState(() {
+      _toolbarTextColor = value;
+    });
+    widget.onTextColor(value);
   }
 
   List<Widget> _pageGroups() {
@@ -7797,13 +7875,6 @@ class _CharShapeDialogState extends State<_CharShapeDialog> {
   var _strikethrough = false;
   var _textColor = '#000000';
 
-  static const _swatches = [
-    (label: '검정', color: Color(0xff000000), value: '#000000'),
-    (label: '빨강', color: Color(0xffdc2626), value: '#dc2626'),
-    (label: '파랑', color: Color(0xff2563eb), value: '#2563eb'),
-    (label: '초록', color: Color(0xff16a34a), value: '#16a34a'),
-  ];
-
   @override
   void dispose() {
     _fontSizeController.dispose();
@@ -7874,7 +7945,7 @@ class _CharShapeDialogState extends State<_CharShapeDialog> {
             Wrap(
               spacing: 8,
               children: [
-                for (final swatch in _swatches)
+                for (final swatch in _charColorSwatches)
                   Tooltip(
                     message: swatch.label,
                     child: InkWell(
@@ -7925,15 +7996,13 @@ class _CharShapeDialogState extends State<_CharShapeDialog> {
   }
 
   void _apply() {
-    final points = double.tryParse(_fontSizeController.text.trim()) ?? 10.0;
-    final clampedPoints = points.clamp(1.0, 200.0);
     Navigator.of(context).pop(
       _CharShapeDialogResult(
         bold: _bold,
         italic: _italic,
         underline: _underline,
         strikethrough: _strikethrough,
-        fontSize: (clampedPoints * 100).round(),
+        fontSize: _hwpFontSizeFromPointText(_fontSizeController.text),
         textColor: _textColor,
       ),
     );
@@ -8528,6 +8597,64 @@ class _ToolbarIconButton extends StatelessWidget {
         minimumSize: const Size.square(36),
         fixedSize: const Size.square(36),
         padding: EdgeInsets.zero,
+      ),
+    );
+  }
+}
+
+class _ColorSwatchButton extends StatelessWidget {
+  const _ColorSwatchButton({
+    super.key,
+    required this.tooltip,
+    required this.color,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final Color color;
+  final bool selected;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = selected
+        ? Theme.of(context).colorScheme.primary
+        : Theme.of(context).dividerColor;
+    return Tooltip(
+      message: tooltip,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(6),
+          onTap: onPressed,
+          child: SizedBox.square(
+            dimension: 34,
+            child: Center(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: borderColor,
+                    width: selected ? 3 : 1,
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: onPressed == null
+                          ? color.withValues(alpha: 0.35)
+                          : color,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const SizedBox.square(dimension: 18),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
