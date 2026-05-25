@@ -2406,6 +2406,58 @@ void main() {
     );
   });
 
+  testWidgets('RhwpNativeEditor extends selection with shift click', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1)
+      ..pageLayerTreeJson = jsonEncode(
+        _editorLayerTreeJson(firstText: 'hello world'),
+      );
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.cursor = const RhwpCursorPosition(offset: 1);
+    await tester.pump();
+    final firstCaretTopLeft = tester.getTopLeft(
+      find.byKey(const ValueKey('rhwp-editor-caret')),
+    );
+    controller.cursor = const RhwpCursorPosition(offset: 6);
+    await tester.pump();
+    final targetPoint =
+        tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+        const Offset(1, 6);
+    controller.cursor = const RhwpCursorPosition(offset: 1);
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.tapAt(targetPoint);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pump();
+
+    expect(
+      controller.selection,
+      const RhwpSelectionRange(
+        start: RhwpCursorPosition(offset: 1),
+        end: RhwpCursorPosition(offset: 6),
+      ),
+    );
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))).dx,
+      greaterThan(firstCaretTopLeft.dx),
+    );
+  });
+
   testWidgets('RhwpNativeEditor handles keyboard navigation and delete', (
     tester,
   ) async {

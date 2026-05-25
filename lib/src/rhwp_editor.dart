@@ -4483,6 +4483,24 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     widget.onObjectSelection(null);
 
     final textHit = _textHitForPoint(localPosition, constraints, tree);
+    final cursor = _cursorForTextHitOrPoint(
+      textHit,
+      localPosition,
+      constraints,
+      tree,
+    );
+    if (HardwareKeyboard.instance.isShiftPressed && cursor != null) {
+      _primaryClickCount = 0;
+      _lastPrimaryClickTime = null;
+      _lastPrimaryClickPosition = null;
+      widget.onFocusRequested();
+      _dragAnchor = widget.selection.start;
+      widget.onSelectionRange(
+        RhwpSelectionRange(start: widget.selection.start, end: cursor),
+      );
+      return;
+    }
+
     final clickCount = _recordPrimaryClick(event, textHit);
     if (clickCount >= 3) {
       _primaryClickCount = 0;
@@ -4514,12 +4532,6 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
       }
     }
 
-    final cursor = _cursorForTextHitOrPoint(
-      textHit,
-      localPosition,
-      constraints,
-      tree,
-    );
     if (cursor != null) {
       widget.onFocusRequested();
       _dragAnchor = cursor;

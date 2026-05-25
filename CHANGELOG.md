@@ -195,6 +195,7 @@
   hit testing.
 * Added Flutter-native triple-click paragraph selection using the same
   page-layer text source model.
+* Added Flutter-native Shift+click selection extension for rendered text.
 * Added Arrow and Tab keyboard navigation for selected table cells in the
   Flutter-native editor, including Shift+Arrow range extension.
 * Added Escape handling in the Flutter-native editor to clear composing input,
