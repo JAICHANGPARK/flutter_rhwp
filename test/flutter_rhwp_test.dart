@@ -617,6 +617,50 @@ void main() {
     );
   });
 
+  test('page setup commands serialize to the Rust envelope', () {
+    expect(
+      jsonDecode(jsonEncode(RhwpCommand.getPageSetup(section: 1).toJson())),
+      {'type': 'getPageSetup', 'section': 1},
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.setPageSetup(
+            section: 1,
+            width: 59528,
+            height: 84189,
+            marginLeft: 8504,
+            marginRight: 8504,
+            marginTop: 5669,
+            marginBottom: 4252,
+            marginHeader: 4252,
+            marginFooter: 4252,
+            marginGutter: 0,
+            landscape: true,
+            binding: 1,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'setPageSetup',
+        'section': 1,
+        'properties': {
+          'width': 59528,
+          'height': 84189,
+          'marginLeft': 8504,
+          'marginRight': 8504,
+          'marginTop': 5669,
+          'marginBottom': 4252,
+          'marginHeader': 4252,
+          'marginFooter': 4252,
+          'marginGutter': 0,
+          'landscape': true,
+          'binding': 1,
+        },
+      },
+    );
+  });
+
   test('snapshot commands serialize to the Rust command envelope', () {
     expect(jsonDecode(jsonEncode(RhwpCommand.saveSnapshot().toJson())), {
       'type': 'saveSnapshot',
@@ -1138,6 +1182,50 @@ void main() {
       },
     });
 
+    final pageSetup = await document.pageSetup(section: 0);
+    expect(pageSetup.width, 59528);
+    expect(pageSetup.height, 84189);
+    expect(pageSetup.marginLeft, 8504);
+    expect(pageSetup.landscape, isFalse);
+    expect(pageSetup.binding, 0);
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'getPageSetup',
+      'section': 0,
+    });
+
+    await document.setPageSetup(
+      section: 0,
+      width: 56693,
+      height: 85040,
+      marginLeft: 2835,
+      marginRight: 2835,
+      marginTop: 4252,
+      marginBottom: 4252,
+      marginHeader: 2835,
+      marginFooter: 2835,
+      marginGutter: 0,
+      landscape: true,
+      binding: 1,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'setPageSetup',
+      'section': 0,
+      'properties': {
+        'width': 56693,
+        'height': 85040,
+        'marginLeft': 2835,
+        'marginRight': 2835,
+        'marginTop': 4252,
+        'marginBottom': 4252,
+        'marginHeader': 2835,
+        'marginFooter': 2835,
+        'marginGutter': 0,
+        'landscape': true,
+        'binding': 1,
+      },
+    });
+
     expect(await document.saveSnapshot(), 1);
     expect(jsonDecode(session.lastCommandJson!), {'type': 'saveSnapshot'});
 
@@ -1636,6 +1724,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'getObjectProperties') {
       return '{"width":1000,"height":2000,"horzOffset":30,"vertOffset":40}';
+    }
+    if (command is Map && command['type'] == 'getPageSetup') {
+      return '{"width":59528,"height":84189,"marginLeft":8504,"marginRight":8504,"marginTop":5669,"marginBottom":4252,"marginHeader":4252,"marginFooter":4252,"marginGutter":0,"landscape":false,"binding":0}';
     }
     return '{"ok":true}';
   }

@@ -540,6 +540,34 @@ class _ParaShapeDialogResult {
   final int spacingAfter;
 }
 
+class _PageSetupDialogResult {
+  const _PageSetupDialogResult({
+    required this.width,
+    required this.height,
+    required this.marginLeft,
+    required this.marginRight,
+    required this.marginTop,
+    required this.marginBottom,
+    required this.marginHeader,
+    required this.marginFooter,
+    required this.marginGutter,
+    required this.landscape,
+    required this.binding,
+  });
+
+  final int width;
+  final int height;
+  final int marginLeft;
+  final int marginRight;
+  final int marginTop;
+  final int marginBottom;
+  final int marginHeader;
+  final int marginFooter;
+  final int marginGutter;
+  final bool landscape;
+  final int binding;
+}
+
 class _EditorSearchMatch {
   const _EditorSearchMatch({
     required this.page,
@@ -2072,6 +2100,55 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       await widget.document.createHeaderFooter(
         section: section,
         isHeader: isHeader,
+      );
+      _controller.cursor = _controller.cursor.copyWith(section: section);
+    });
+  }
+
+  Future<void> _showPageSetupDialog() async {
+    if (_busy) {
+      return;
+    }
+
+    final section = _parseNonNegative(_sectionController.text);
+    late final RhwpPageSetup current;
+    try {
+      current = await widget.document.pageSetup(section: section);
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    final result = await showDialog<_PageSetupDialogResult>(
+      context: context,
+      builder: (context) => _PageSetupDialog(initial: current),
+    );
+    if (result == null) {
+      return;
+    }
+
+    await _runEdit(() async {
+      await widget.document.setPageSetup(
+        section: section,
+        width: result.width,
+        height: result.height,
+        marginLeft: result.marginLeft,
+        marginRight: result.marginRight,
+        marginTop: result.marginTop,
+        marginBottom: result.marginBottom,
+        marginHeader: result.marginHeader,
+        marginFooter: result.marginFooter,
+        marginGutter: result.marginGutter,
+        landscape: result.landscape,
+        binding: result.binding,
       );
       _controller.cursor = _controller.cursor.copyWith(section: section);
     });
@@ -5703,6 +5780,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onClearSearch: _clearSearch,
           onReplace: _replaceActiveSearchMatch,
           onReplaceAll: _replaceAllSearchMatches,
+          onPageSetup: _showPageSetupDialog,
           onCreateHeader: () => _createHeaderFooter(isHeader: true),
           onCreateFooter: () => _createHeaderFooter(isHeader: false),
           onPreviousPage: () => unawaited(_controller.previousPage()),
@@ -7347,6 +7425,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onClearSearch,
     required this.onReplace,
     required this.onReplaceAll,
+    required this.onPageSetup,
     required this.onCreateHeader,
     required this.onCreateFooter,
     required this.onPreviousPage,
@@ -7434,6 +7513,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onClearSearch;
   final VoidCallback onReplace;
   final VoidCallback onReplaceAll;
+  final VoidCallback onPageSetup;
   final VoidCallback onCreateHeader;
   final VoidCallback onCreateFooter;
   final VoidCallback onPreviousPage;
@@ -7995,8 +8075,9 @@ class _EditorToolbarState extends State<_EditorToolbar> {
           children: [
             _ToolbarIconButton(
               tooltip: 'Page setup',
+              buttonKey: const ValueKey('rhwp-editor-page-setup'),
               icon: Icons.description_outlined,
-              onPressed: null,
+              onPressed: widget.busy ? null : widget.onPageSetup,
             ),
             _ToolbarIconButton(
               tooltip: 'Header',
@@ -8522,6 +8603,334 @@ class _CharShapeDialogState extends State<_CharShapeDialog> {
         strikethrough: _strikethrough,
         fontSize: _hwpFontSizeFromPointText(_fontSizeController.text),
         textColor: _textColor,
+      ),
+    );
+  }
+}
+
+class _PageSetupDialog extends StatefulWidget {
+  const _PageSetupDialog({required this.initial});
+
+  final RhwpPageSetup initial;
+
+  @override
+  State<_PageSetupDialog> createState() => _PageSetupDialogState();
+}
+
+class _PageSetupDialogState extends State<_PageSetupDialog> {
+  late final TextEditingController _widthController;
+  late final TextEditingController _heightController;
+  late final TextEditingController _marginLeftController;
+  late final TextEditingController _marginRightController;
+  late final TextEditingController _marginTopController;
+  late final TextEditingController _marginBottomController;
+  late final TextEditingController _marginHeaderController;
+  late final TextEditingController _marginFooterController;
+  late final TextEditingController _marginGutterController;
+  late bool _landscape;
+  late int _binding;
+
+  static const _bindingTypes = [
+    (label: 'Single sided', value: 0),
+    (label: 'Duplex sided', value: 1),
+    (label: 'Top flip', value: 2),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    _widthController = TextEditingController(
+      text: _formatHwpUnitMillimeters(initial.width),
+    );
+    _heightController = TextEditingController(
+      text: _formatHwpUnitMillimeters(initial.height),
+    );
+    _marginLeftController = TextEditingController(
+      text: _formatHwpUnitMillimeters(initial.marginLeft),
+    );
+    _marginRightController = TextEditingController(
+      text: _formatHwpUnitMillimeters(initial.marginRight),
+    );
+    _marginTopController = TextEditingController(
+      text: _formatHwpUnitMillimeters(initial.marginTop),
+    );
+    _marginBottomController = TextEditingController(
+      text: _formatHwpUnitMillimeters(initial.marginBottom),
+    );
+    _marginHeaderController = TextEditingController(
+      text: _formatHwpUnitMillimeters(initial.marginHeader),
+    );
+    _marginFooterController = TextEditingController(
+      text: _formatHwpUnitMillimeters(initial.marginFooter),
+    );
+    _marginGutterController = TextEditingController(
+      text: _formatHwpUnitMillimeters(initial.marginGutter),
+    );
+    _landscape = initial.landscape;
+    _binding = initial.binding.clamp(0, 2).toInt();
+  }
+
+  @override
+  void dispose() {
+    _widthController.dispose();
+    _heightController.dispose();
+    _marginLeftController.dispose();
+    _marginRightController.dispose();
+    _marginTopController.dispose();
+    _marginBottomController.dispose();
+    _marginHeaderController.dispose();
+    _marginFooterController.dispose();
+    _marginGutterController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('쪽 설정'),
+      content: SizedBox(
+        width: 460,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _PageSetupNumberField(
+                      fieldKey: const ValueKey('rhwp-page-setup-width-field'),
+                      label: 'Width',
+                      controller: _widthController,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _PageSetupNumberField(
+                      fieldKey: const ValueKey('rhwp-page-setup-height-field'),
+                      label: 'Height',
+                      controller: _heightController,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _PageSetupNumberField(
+                      fieldKey: const ValueKey(
+                        'rhwp-page-setup-margin-left-field',
+                      ),
+                      label: 'Left',
+                      controller: _marginLeftController,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _PageSetupNumberField(
+                      fieldKey: const ValueKey(
+                        'rhwp-page-setup-margin-right-field',
+                      ),
+                      label: 'Right',
+                      controller: _marginRightController,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _PageSetupNumberField(
+                      fieldKey: const ValueKey(
+                        'rhwp-page-setup-margin-top-field',
+                      ),
+                      label: 'Top',
+                      controller: _marginTopController,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _PageSetupNumberField(
+                      fieldKey: const ValueKey(
+                        'rhwp-page-setup-margin-bottom-field',
+                      ),
+                      label: 'Bottom',
+                      controller: _marginBottomController,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _PageSetupNumberField(
+                      fieldKey: const ValueKey(
+                        'rhwp-page-setup-margin-header-field',
+                      ),
+                      label: 'Header',
+                      controller: _marginHeaderController,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _PageSetupNumberField(
+                      fieldKey: const ValueKey(
+                        'rhwp-page-setup-margin-footer-field',
+                      ),
+                      label: 'Footer',
+                      controller: _marginFooterController,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _PageSetupNumberField(
+                      fieldKey: const ValueKey(
+                        'rhwp-page-setup-margin-gutter-field',
+                      ),
+                      label: 'Gutter',
+                      controller: _marginGutterController,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SwitchListTile(
+                key: const ValueKey('rhwp-page-setup-landscape'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Landscape'),
+                value: _landscape,
+                onChanged: (value) => setState(() => _landscape = value),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int>(
+                key: const ValueKey('rhwp-page-setup-binding-field'),
+                initialValue: _binding,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Binding',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                items: [
+                  for (final binding in _bindingTypes)
+                    DropdownMenuItem<int>(
+                      value: binding.value,
+                      child: Text(binding.label),
+                    ),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _binding = value);
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const ValueKey('rhwp-page-setup-apply'),
+          onPressed: _apply,
+          child: const Text('Apply'),
+        ),
+      ],
+    );
+  }
+
+  void _apply() {
+    final initial = widget.initial;
+    Navigator.of(context).pop(
+      _PageSetupDialogResult(
+        width: _hwpUnitFromMillimeters(
+          _widthController.text,
+          fallback: initial.width,
+        ),
+        height: _hwpUnitFromMillimeters(
+          _heightController.text,
+          fallback: initial.height,
+        ),
+        marginLeft: _hwpUnitFromMillimeters(
+          _marginLeftController.text,
+          fallback: initial.marginLeft,
+        ),
+        marginRight: _hwpUnitFromMillimeters(
+          _marginRightController.text,
+          fallback: initial.marginRight,
+        ),
+        marginTop: _hwpUnitFromMillimeters(
+          _marginTopController.text,
+          fallback: initial.marginTop,
+        ),
+        marginBottom: _hwpUnitFromMillimeters(
+          _marginBottomController.text,
+          fallback: initial.marginBottom,
+        ),
+        marginHeader: _hwpUnitFromMillimeters(
+          _marginHeaderController.text,
+          fallback: initial.marginHeader,
+        ),
+        marginFooter: _hwpUnitFromMillimeters(
+          _marginFooterController.text,
+          fallback: initial.marginFooter,
+        ),
+        marginGutter: _hwpUnitFromMillimeters(
+          _marginGutterController.text,
+          fallback: initial.marginGutter,
+        ),
+        landscape: _landscape,
+        binding: _binding,
+      ),
+    );
+  }
+}
+
+const _hwpUnitsPerMillimeter = 283.465;
+
+String _formatHwpUnitMillimeters(int value) {
+  return (value / _hwpUnitsPerMillimeter).toStringAsFixed(1);
+}
+
+int _hwpUnitFromMillimeters(String source, {required int fallback}) {
+  final parsed = double.tryParse(source.trim().replaceAll(',', '.'));
+  if (parsed == null) {
+    return fallback;
+  }
+  if (parsed <= 0) {
+    return 0;
+  }
+  return (parsed * _hwpUnitsPerMillimeter).round();
+}
+
+class _PageSetupNumberField extends StatelessWidget {
+  const _PageSetupNumberField({
+    required this.fieldKey,
+    required this.label,
+    required this.controller,
+  });
+
+  final Key fieldKey;
+  final String label;
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      key: fieldKey,
+      controller: controller,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      decoration: InputDecoration(
+        labelText: label,
+        suffixText: 'mm',
+        border: const OutlineInputBorder(),
+        isDense: true,
       ),
     );
   }

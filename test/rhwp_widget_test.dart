@@ -762,6 +762,72 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor page ribbon applies page setup', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('쪽'));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-page-setup')));
+    await tester.pumpAndSettle();
+
+    expect(jsonDecode(session.commands.single), {
+      'type': 'getPageSetup',
+      'section': 0,
+    });
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-page-setup-width-field')),
+      '200',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-page-setup-height-field')),
+      '300',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-page-setup-landscape')));
+    await tester.tap(find.byKey(const ValueKey('rhwp-page-setup-apply')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'setPageSetup',
+      'section': 0,
+      'properties': {
+        'width': 56693,
+        'height': 85039,
+        'marginLeft': 8504,
+        'marginRight': 8504,
+        'marginTop': 5669,
+        'marginBottom': 4252,
+        'marginHeader': 4252,
+        'marginFooter': 4252,
+        'marginGutter': 0,
+        'landscape': true,
+        'binding': 0,
+      },
+    });
+  });
+
   testWidgets('RhwpNativeEditor toolbar inserts a table', (tester) async {
     final controller = RhwpEditorController();
     final session = _FakeRhwpSession(pageCountValue: 0);
@@ -6046,6 +6112,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'getObjectProperties') {
       return '{"width":60,"height":50,"horzOffset":120,"vertOffset":60}';
+    }
+    if (command is Map && command['type'] == 'getPageSetup') {
+      return '{"width":59528,"height":84189,"marginLeft":8504,"marginRight":8504,"marginTop":5669,"marginBottom":4252,"marginHeader":4252,"marginFooter":4252,"marginGutter":0,"landscape":false,"binding":0}';
     }
     return '{"ok":true}';
   }

@@ -600,6 +600,17 @@ impl RhwpSession {
                 .document
                 .create_header_footer_native(section as usize, is_header, apply_to as u8)
                 .map_err(error_to_string),
+            RhwpCommand::GetPageSetup { section } => inner
+                .document
+                .get_page_def_native(section as usize)
+                .map_err(error_to_string),
+            RhwpCommand::SetPageSetup {
+                section,
+                properties,
+            } => inner
+                .document
+                .set_page_def_native(section as usize, &properties.to_string())
+                .map_err(error_to_string),
             RhwpCommand::SaveSnapshot => {
                 let snapshot_id = inner.document.save_snapshot_native();
                 Ok(format!("{{\"ok\":true,\"snapshotId\":{snapshot_id}}}"))
@@ -892,6 +903,13 @@ enum RhwpCommand {
         is_header: bool,
         #[serde(rename = "applyTo")]
         apply_to: u32,
+    },
+    GetPageSetup {
+        section: u32,
+    },
+    SetPageSetup {
+        section: u32,
+        properties: serde_json::Value,
     },
     SaveSnapshot,
     RestoreSnapshot {
@@ -1701,6 +1719,19 @@ mod tests {
                     .to_string(),
             )
             .expect("create footer command should be accepted");
+        let page_setup = session
+            .apply_command(r#"{"type":"getPageSetup","section":0}"#.to_string())
+            .expect("page setup query should be accepted");
+        let page_setup: Value =
+            serde_json::from_str(&page_setup).expect("page setup result should be JSON");
+        assert!(page_setup["width"].as_u64().unwrap_or_default() > 0);
+        assert!(page_setup["height"].as_u64().unwrap_or_default() > 0);
+        session
+            .apply_command(
+                r#"{"type":"setPageSetup","section":0,"properties":{"width":56693,"height":85040,"marginLeft":2835,"marginRight":2835,"marginTop":4252,"marginBottom":4252,"marginHeader":2835,"marginFooter":2835,"marginGutter":0,"landscape":true,"binding":1}}"#
+                    .to_string(),
+            )
+            .expect("page setup update should be accepted");
         let table_result = session
             .apply_command(
                 r#"{"type":"insertTable","section":0,"paragraph":0,"offset":0,"rows":2,"columns":3}"#

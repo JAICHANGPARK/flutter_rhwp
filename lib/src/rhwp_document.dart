@@ -176,6 +176,59 @@ class RhwpObjectProperties {
   final Map<String, Object?>? raw;
 }
 
+class RhwpPageSetup {
+  const RhwpPageSetup({
+    required this.width,
+    required this.height,
+    required this.marginLeft,
+    required this.marginRight,
+    required this.marginTop,
+    required this.marginBottom,
+    required this.marginHeader,
+    required this.marginFooter,
+    required this.marginGutter,
+    required this.landscape,
+    required this.binding,
+    required this.rawJson,
+    this.raw,
+  });
+
+  factory RhwpPageSetup.fromJsonString(String source) {
+    final decoded = RhwpDocument._tryDecodeObject(source);
+    return RhwpPageSetup(
+      width: _intFromJson(decoded?['width']) ?? 0,
+      height: _intFromJson(decoded?['height']) ?? 0,
+      marginLeft: _intFromJson(decoded?['marginLeft']) ?? 0,
+      marginRight: _intFromJson(decoded?['marginRight']) ?? 0,
+      marginTop: _intFromJson(decoded?['marginTop']) ?? 0,
+      marginBottom: _intFromJson(decoded?['marginBottom']) ?? 0,
+      marginHeader: _intFromJson(decoded?['marginHeader']) ?? 0,
+      marginFooter: _intFromJson(decoded?['marginFooter']) ?? 0,
+      marginGutter: _intFromJson(decoded?['marginGutter']) ?? 0,
+      landscape: _boolFromJson(decoded?['landscape']) ?? false,
+      binding: _intFromJson(decoded?['binding']) ?? 0,
+      rawJson: source,
+      raw: decoded,
+    );
+  }
+
+  final int width;
+  final int height;
+  final int marginLeft;
+  final int marginRight;
+  final int marginTop;
+  final int marginBottom;
+  final int marginHeader;
+  final int marginFooter;
+  final int marginGutter;
+  final bool landscape;
+
+  /// 0 is single-sided, 1 is duplex, and 2 is top-flip binding.
+  final int binding;
+  final String rawJson;
+  final Map<String, Object?>? raw;
+}
+
 int? _intFromJson(Object? value) {
   if (value is int) {
     return value;
@@ -185,6 +238,22 @@ int? _intFromJson(Object? value) {
   }
   if (value is String) {
     return int.tryParse(value.trim());
+  }
+  return null;
+}
+
+bool? _boolFromJson(Object? value) {
+  if (value is bool) {
+    return value;
+  }
+  if (value is String) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized == 'true') {
+      return true;
+    }
+    if (normalized == 'false') {
+      return false;
+    }
   }
   return null;
 }
@@ -435,6 +504,24 @@ abstract class RhwpCommand {
     required bool isHeader,
     int applyTo,
   }) = RhwpCreateHeaderFooterCommand;
+
+  factory RhwpCommand.getPageSetup({required int section}) =
+      RhwpGetPageSetupCommand;
+
+  factory RhwpCommand.setPageSetup({
+    required int section,
+    int? width,
+    int? height,
+    int? marginLeft,
+    int? marginRight,
+    int? marginTop,
+    int? marginBottom,
+    int? marginHeader,
+    int? marginFooter,
+    int? marginGutter,
+    bool? landscape,
+    int? binding,
+  }) = RhwpSetPageSetupCommand;
 
   factory RhwpCommand.saveSnapshot() = RhwpSaveSnapshotCommand;
 
@@ -1305,6 +1392,92 @@ class RhwpCreateHeaderFooterCommand extends RhwpCommand {
   };
 }
 
+class RhwpGetPageSetupCommand extends RhwpCommand {
+  const RhwpGetPageSetupCommand({required this.section});
+
+  final int section;
+
+  @override
+  Map<String, Object?> toJson() => {'type': 'getPageSetup', 'section': section};
+}
+
+class RhwpSetPageSetupCommand extends RhwpCommand {
+  const RhwpSetPageSetupCommand({
+    required this.section,
+    this.width,
+    this.height,
+    this.marginLeft,
+    this.marginRight,
+    this.marginTop,
+    this.marginBottom,
+    this.marginHeader,
+    this.marginFooter,
+    this.marginGutter,
+    this.landscape,
+    this.binding,
+  });
+
+  final int section;
+  final int? width;
+  final int? height;
+  final int? marginLeft;
+  final int? marginRight;
+  final int? marginTop;
+  final int? marginBottom;
+  final int? marginHeader;
+  final int? marginFooter;
+  final int? marginGutter;
+  final bool? landscape;
+  final int? binding;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'setPageSetup',
+    'section': section,
+    'properties': _pageSetupProperties(
+      width: width,
+      height: height,
+      marginLeft: marginLeft,
+      marginRight: marginRight,
+      marginTop: marginTop,
+      marginBottom: marginBottom,
+      marginHeader: marginHeader,
+      marginFooter: marginFooter,
+      marginGutter: marginGutter,
+      landscape: landscape,
+      binding: binding,
+    ),
+  };
+}
+
+Map<String, Object?> _pageSetupProperties({
+  int? width,
+  int? height,
+  int? marginLeft,
+  int? marginRight,
+  int? marginTop,
+  int? marginBottom,
+  int? marginHeader,
+  int? marginFooter,
+  int? marginGutter,
+  bool? landscape,
+  int? binding,
+}) {
+  final properties = <String, Object?>{};
+  if (width != null) properties['width'] = width;
+  if (height != null) properties['height'] = height;
+  if (marginLeft != null) properties['marginLeft'] = marginLeft;
+  if (marginRight != null) properties['marginRight'] = marginRight;
+  if (marginTop != null) properties['marginTop'] = marginTop;
+  if (marginBottom != null) properties['marginBottom'] = marginBottom;
+  if (marginHeader != null) properties['marginHeader'] = marginHeader;
+  if (marginFooter != null) properties['marginFooter'] = marginFooter;
+  if (marginGutter != null) properties['marginGutter'] = marginGutter;
+  if (landscape != null) properties['landscape'] = landscape;
+  if (binding != null) properties['binding'] = binding;
+  return properties;
+}
+
 class RhwpSaveSnapshotCommand extends RhwpCommand {
   const RhwpSaveSnapshotCommand();
 
@@ -2007,6 +2180,43 @@ class RhwpDocument {
       section: section,
       isHeader: false,
       applyTo: applyTo,
+    );
+  }
+
+  Future<RhwpPageSetup> pageSetup({int section = 0}) async {
+    final result = await apply(RhwpCommand.getPageSetup(section: section));
+    return RhwpPageSetup.fromJsonString(result);
+  }
+
+  Future<String> setPageSetup({
+    required int section,
+    int? width,
+    int? height,
+    int? marginLeft,
+    int? marginRight,
+    int? marginTop,
+    int? marginBottom,
+    int? marginHeader,
+    int? marginFooter,
+    int? marginGutter,
+    bool? landscape,
+    int? binding,
+  }) {
+    return apply(
+      RhwpCommand.setPageSetup(
+        section: section,
+        width: width,
+        height: height,
+        marginLeft: marginLeft,
+        marginRight: marginRight,
+        marginTop: marginTop,
+        marginBottom: marginBottom,
+        marginHeader: marginHeader,
+        marginFooter: marginFooter,
+        marginGutter: marginGutter,
+        landscape: landscape,
+        binding: binding,
+      ),
     );
   }
 
