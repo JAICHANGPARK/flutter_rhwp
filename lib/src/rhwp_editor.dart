@@ -504,6 +504,8 @@ enum _EditorContextMenuAction {
   objectProperties,
 }
 
+enum _EditorClipboardDomain { text, objectControl }
+
 enum _TableCellNavigationDirection { left, right, up, down }
 
 class _ObjectPropertiesDialogResult {
@@ -1146,6 +1148,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   int _activeSearchMatch = -1;
   int? _pageCountValue;
   _PendingCharFormat _pendingCharFormat = const _PendingCharFormat();
+  _EditorClipboardDomain? _clipboardDomain;
   final _undoSnapshots = <int>[];
   final _redoSnapshots = <int>[];
   bool _busy = false;
@@ -1841,9 +1844,15 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   }
 
   Future<void> _copySelection() async {
+    if (_controller.objectSelection != null) {
+      await _copySelectedObject();
+      return;
+    }
+
     final tableText = await _selectedTableCellText();
     if (tableText != null && tableText.isNotEmpty) {
       await Clipboard.setData(ClipboardData(text: tableText));
+      _clipboardDomain = _EditorClipboardDomain.text;
       return;
     }
 
@@ -1852,9 +1861,15 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
     await Clipboard.setData(ClipboardData(text: text));
+    _clipboardDomain = _EditorClipboardDomain.text;
   }
 
   Future<void> _cutSelection() async {
+    if (_controller.objectSelection != null) {
+      await _cutSelectedObject();
+      return;
+    }
+
     final tableSelection = _controller.tableCellSelection;
     final tableText = await _selectedTableCellText();
     if (tableSelection != null && tableText != null && tableText.isNotEmpty) {
@@ -1862,6 +1877,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         return;
       }
       await Clipboard.setData(ClipboardData(text: tableText));
+      _clipboardDomain = _EditorClipboardDomain.text;
       await _deleteSelectedTableCellText(tableSelection);
       return;
     }
@@ -1872,6 +1888,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     await Clipboard.setData(ClipboardData(text: text));
+    _clipboardDomain = _EditorClipboardDomain.text;
     await _runEdit(() async {
       await _deleteSelectedText(_controller.selection);
     });
@@ -1881,6 +1898,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     if (_busy) {
       return;
     }
+    if (_clipboardDomain == _EditorClipboardDomain.objectControl &&
+        await _pasteObjectClipboard()) {
+      return;
+    }
+
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     final text = data?.text;
     if (text == null || text.isEmpty) {
@@ -1895,6 +1917,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       await _pasteMultiParagraphText(text);
       return;
     }
+    _clipboardDomain = _EditorClipboardDomain.text;
     await _insertCommittedText(text);
   }
 
@@ -2034,8 +2057,94 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     await _insertCommittedText('\n');
   }
 
+  Future<void> _copySelectedObject() async {
+    if (_busy) {
+      return;
+    }
+
+    final target = _selectedObjectTarget();
+    if (target == null) {
+      return;
+    }
+
+    try {
+      await widget.document.copyObjectControl(
+        section: target.section,
+        paragraph: target.paragraph,
+        controlIndex: target.controlIndex,
+      );
+      _clipboardDomain = _EditorClipboardDomain.objectControl;
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    }
+  }
+
+  Future<void> _cutSelectedObject() async {
+    if (_busy) {
+      return;
+    }
+
+    await _copySelectedObject();
+    if (_clipboardDomain != _EditorClipboardDomain.objectControl) {
+      return;
+    }
+    await _deleteSelectedObject();
+  }
+
+  Future<bool> _pasteObjectClipboard() async {
+    if (_busy) {
+      return false;
+    }
+
+    final bool hasControl;
+    try {
+      hasControl = await widget.document.clipboardHasObjectControl();
+    } catch (_) {
+      _clipboardDomain = null;
+      return false;
+    }
+    if (!hasControl) {
+      _clipboardDomain = null;
+      return false;
+    }
+
+    final objectTarget = _selectedObjectTarget(silent: true);
+    final cursor = _controller.cursor;
+    final section = objectTarget?.section ?? cursor.section;
+    final paragraph = objectTarget?.paragraph ?? cursor.paragraph;
+    final offset = objectTarget == null ? cursor.offset : 0;
+    var pasted = false;
+
+    await _runEdit(() async {
+      final result = await widget.document.pasteObjectControl(
+        section: section,
+        paragraph: paragraph,
+        offset: offset,
+      );
+      final decoded = jsonDecode(result);
+      if (decoded is Map<String, Object?> && decoded['ok'] == false) {
+        return;
+      }
+      pasted = true;
+      final nextParagraph =
+          _readIntResult(result, 'paraIdx') ?? paragraph + (offset > 0 ? 1 : 0);
+      _controller.clearObjectSelection();
+      _controller.cursor = RhwpCursorPosition(
+        section: section,
+        paragraph: nextParagraph,
+        offset: 0,
+      );
+    });
+
+    return pasted;
+  }
+
   ({int section, int paragraph, int controlIndex, String objectType})?
-  _selectedObjectTarget() {
+  _selectedObjectTarget({bool silent = false}) {
     final selection = _controller.objectSelection;
     if (selection == null) {
       return null;
@@ -2045,10 +2154,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     final paragraph = selection.paragraph;
     final controlIndex = selection.controlIndex;
     if (section == null || paragraph == null || controlIndex == null) {
-      setState(() {
-        _error =
-            'Selected object is missing section, paragraph, or control index.';
-      });
+      if (!silent) {
+        setState(() {
+          _error =
+              'Selected object is missing section, paragraph, or control index.';
+        });
+      }
       return null;
     }
 
@@ -5189,6 +5300,25 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           action: _EditorContextMenuAction.selectAll,
           icon: Icons.select_all,
           label: '모두 선택',
+          enabled: !_busy,
+        ),
+        const PopupMenuDivider(),
+        _contextMenuItem(
+          action: _EditorContextMenuAction.cut,
+          icon: Icons.content_cut,
+          label: '잘라내기',
+          enabled: !_busy,
+        ),
+        _contextMenuItem(
+          action: _EditorContextMenuAction.copy,
+          icon: Icons.content_copy,
+          label: '복사',
+          enabled: !_busy,
+        ),
+        _contextMenuItem(
+          action: _EditorContextMenuAction.paste,
+          icon: Icons.content_paste,
+          label: '붙여넣기',
           enabled: !_busy,
         ),
         const PopupMenuDivider(),

@@ -2752,6 +2752,139 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor copies and pastes selected object controls', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_objectEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    await tester.tapAt(
+      pageTopLeft +
+          Offset(pageSize.width * 150 / 240, pageSize.height * 85 / 180),
+    );
+    await tester.pump();
+    expect(controller.objectSelection, isNotNull);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+
+    expect(session.commands.map(jsonDecode).toList(), [
+      {
+        'type': 'copyObjectControl',
+        'section': 0,
+        'paragraph': 2,
+        'controlIndex': 1,
+      },
+    ]);
+    expect(session.historyCommands, isEmpty);
+
+    session.commands.clear();
+    controller.clearObjectSelection();
+    controller.cursor = const RhwpCursorPosition(paragraph: 3, offset: 2);
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(controller.objectSelection, isNull);
+    expect(
+      controller.cursor,
+      const RhwpCursorPosition(paragraph: 4, offset: 0),
+    );
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+    ]);
+    expect(session.commands.map(jsonDecode).toList(), [
+      {'type': 'clipboardHasObjectControl'},
+      {'type': 'pasteObjectControl', 'section': 0, 'paragraph': 3, 'offset': 2},
+    ]);
+  });
+
+  testWidgets('RhwpNativeEditor cuts selected object controls', (tester) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_objectEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    await tester.tapAt(
+      pageTopLeft +
+          Offset(pageSize.width * 150 / 240, pageSize.height * 85 / 180),
+    );
+    await tester.pump();
+    expect(controller.objectSelection, isNotNull);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyX);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(controller.objectSelection, isNull);
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+    ]);
+    expect(session.commands.map(jsonDecode).toList(), [
+      {
+        'type': 'copyObjectControl',
+        'section': 0,
+        'paragraph': 2,
+        'controlIndex': 1,
+      },
+      {
+        'type': 'deleteObjectControl',
+        'section': 0,
+        'paragraph': 2,
+        'controlIndex': 1,
+        'objectType': 'shape',
+      },
+    ]);
+  });
+
   testWidgets('RhwpNativeEditor edit ribbon changes selected object z order', (
     tester,
   ) async {
@@ -7266,6 +7399,7 @@ class _FakeRhwpSession implements rust.RhwpSession {
   int exportHwpxCalls = 0;
   int exportPdfCalls = 0;
   int nextSnapshotId = 1;
+  bool hasObjectControlClipboard = false;
   String extractedText = 'alpha\nbeta';
   String pageLayerTreeJson = jsonEncode(_editorLayerTreeJson());
   final pageLayerTreeJsonByPage = <int, String>{};
@@ -7304,6 +7438,21 @@ class _FakeRhwpSession implements rust.RhwpSession {
       if (paragraph is int && offset is int) {
         final pictureParagraph = offset > 0 ? paragraph + 1 : paragraph;
         return '{"ok":true,"paraIdx":$pictureParagraph,"controlIdx":0}';
+      }
+    }
+    if (command is Map && command['type'] == 'copyObjectControl') {
+      hasObjectControlClipboard = true;
+      return '{"ok":true}';
+    }
+    if (command is Map && command['type'] == 'clipboardHasObjectControl') {
+      return '{"ok":true,"hasControl":$hasObjectControlClipboard}';
+    }
+    if (command is Map && command['type'] == 'pasteObjectControl') {
+      final paragraph = command['paragraph'];
+      final offset = command['offset'];
+      if (paragraph is int && offset is int) {
+        final pastedParagraph = offset > 0 ? paragraph + 1 : paragraph;
+        return '{"ok":true,"paraIdx":$pastedParagraph,"controlIdx":0}';
       }
     }
     if (command is Map && command['type'] == 'getObjectProperties') {

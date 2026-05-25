@@ -445,6 +445,42 @@ void main() {
     expect(
       jsonDecode(
         jsonEncode(
+          RhwpCommand.copyObjectControl(
+            section: 0,
+            paragraph: 2,
+            controlIndex: 4,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'copyObjectControl',
+        'section': 0,
+        'paragraph': 2,
+        'controlIndex': 4,
+      },
+    );
+
+    expect(
+      jsonDecode(jsonEncode(RhwpCommand.clipboardHasObjectControl().toJson())),
+      {'type': 'clipboardHasObjectControl'},
+    );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.pasteObjectControl(
+            section: 0,
+            paragraph: 2,
+            offset: 1,
+          ).toJson(),
+        ),
+      ),
+      {'type': 'pasteObjectControl', 'section': 0, 'paragraph': 2, 'offset': 1},
+    );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
           RhwpCommand.getObjectProperties(
             section: 0,
             paragraph: 2,
@@ -1374,6 +1410,30 @@ void main() {
       'objectType': 'shape',
     });
 
+    await document.copyObjectControl(section: 0, paragraph: 2, controlIndex: 1);
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'copyObjectControl',
+      'section': 0,
+      'paragraph': 2,
+      'controlIndex': 1,
+    });
+
+    final hasObjectControl = await document.clipboardHasObjectControl();
+    expect(hasObjectControl, isTrue);
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'clipboardHasObjectControl',
+    });
+
+    await document.pasteObjectControl(section: 0, paragraph: 2, offset: 1);
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'pasteObjectControl',
+      'section': 0,
+      'paragraph': 2,
+      'offset': 1,
+    });
+
     await document.changeObjectZOrder(
       section: 0,
       paragraph: 2,
@@ -1998,6 +2058,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'getObjectProperties') {
       return '{"width":1000,"height":2000,"horzOffset":30,"vertOffset":40}';
+    }
+    if (command is Map && command['type'] == 'clipboardHasObjectControl') {
+      return '{"ok":true,"hasControl":true}';
     }
     if (command is Map && command['type'] == 'getPageSetup') {
       return '{"width":59528,"height":84189,"marginLeft":8504,"marginRight":8504,"marginTop":5669,"marginBottom":4252,"marginHeader":4252,"marginFooter":4252,"marginGutter":0,"landscape":false,"binding":0}';

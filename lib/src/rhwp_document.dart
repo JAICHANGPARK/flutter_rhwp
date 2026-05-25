@@ -445,6 +445,21 @@ abstract class RhwpCommand {
     required String objectType,
   }) = RhwpDeleteObjectControlCommand;
 
+  factory RhwpCommand.copyObjectControl({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+  }) = RhwpCopyObjectControlCommand;
+
+  factory RhwpCommand.clipboardHasObjectControl() =
+      RhwpClipboardHasObjectControlCommand;
+
+  factory RhwpCommand.pasteObjectControl({
+    required int section,
+    required int paragraph,
+    required int offset,
+  }) = RhwpPasteObjectControlCommand;
+
   factory RhwpCommand.changeObjectZOrder({
     required int section,
     required int paragraph,
@@ -1186,6 +1201,53 @@ class RhwpDeleteObjectControlCommand extends RhwpCommand {
     'paragraph': paragraph,
     'controlIndex': controlIndex,
     'objectType': objectType,
+  };
+}
+
+class RhwpCopyObjectControlCommand extends RhwpCommand {
+  const RhwpCopyObjectControlCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'copyObjectControl',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+  };
+}
+
+class RhwpClipboardHasObjectControlCommand extends RhwpCommand {
+  const RhwpClipboardHasObjectControlCommand();
+
+  @override
+  Map<String, Object?> toJson() => {'type': 'clipboardHasObjectControl'};
+}
+
+class RhwpPasteObjectControlCommand extends RhwpCommand {
+  const RhwpPasteObjectControlCommand({
+    required this.section,
+    required this.paragraph,
+    required this.offset,
+  });
+
+  final int section;
+  final int paragraph;
+  final int offset;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'pasteObjectControl',
+    'section': section,
+    'paragraph': paragraph,
+    'offset': offset,
   };
 }
 
@@ -2308,6 +2370,43 @@ class RhwpDocument {
         paragraph: paragraph,
         controlIndex: controlIndex,
         objectType: objectType,
+      ),
+    );
+  }
+
+  Future<String> copyObjectControl({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+  }) {
+    return apply(
+      RhwpCommand.copyObjectControl(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+      ),
+    );
+  }
+
+  Future<bool> clipboardHasObjectControl() async {
+    final result = await apply(RhwpCommand.clipboardHasObjectControl());
+    final decoded = jsonDecode(result);
+    if (decoded is Map<String, Object?>) {
+      return decoded['hasControl'] == true;
+    }
+    return false;
+  }
+
+  Future<String> pasteObjectControl({
+    required int section,
+    required int paragraph,
+    required int offset,
+  }) {
+    return apply(
+      RhwpCommand.pasteObjectControl(
+        section: section,
+        paragraph: paragraph,
+        offset: offset,
       ),
     );
   }

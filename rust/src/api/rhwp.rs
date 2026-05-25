@@ -511,6 +511,26 @@ impl RhwpSession {
                 control_index as usize,
                 &object_type,
             ),
+            RhwpCommand::CopyObjectControl {
+                section,
+                paragraph,
+                control_index,
+            } => inner
+                .document
+                .copy_control_native(section as usize, paragraph as usize, control_index as usize)
+                .map_err(error_to_string),
+            RhwpCommand::ClipboardHasObjectControl => Ok(format!(
+                r#"{{"ok":true,"hasControl":{}}}"#,
+                inner.document.clipboard_has_control_native()
+            )),
+            RhwpCommand::PasteObjectControl {
+                section,
+                paragraph,
+                offset,
+            } => inner
+                .document
+                .paste_control_native(section as usize, paragraph as usize, offset as usize)
+                .map_err(error_to_string),
             RhwpCommand::ChangeObjectZOrder {
                 section,
                 paragraph,
@@ -981,6 +1001,18 @@ enum RhwpCommand {
         control_index: u32,
         #[serde(rename = "objectType")]
         object_type: String,
+    },
+    CopyObjectControl {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+    },
+    ClipboardHasObjectControl,
+    PasteObjectControl {
+        section: u32,
+        paragraph: u32,
+        offset: u32,
     },
     ChangeObjectZOrder {
         section: u32,
@@ -2155,6 +2187,51 @@ mod tests {
         assert!(!hwp.is_empty());
         open_bytes(hwp, Some("line-endpoint-roundtrip.hwp".to_string()))
             .expect("line endpoint document should reopen");
+    }
+
+    #[test]
+    fn applies_object_clipboard_commands() {
+        let session =
+            open_bytes(BLANK_2010_HWP.to_vec(), None).expect("vendored sample should open");
+
+        let result = session
+            .apply_command(
+                r#"{"type":"insertShape","section":0,"paragraph":0,"offset":0,"width":9000,"height":6750,"horzOffset":0,"vertOffset":0,"shapeType":"rectangle","treatAsChar":false,"textWrap":"InFrontOfText","lineFlipX":false,"lineFlipY":false}"#
+                    .to_string(),
+            )
+            .expect("shape insert should be accepted");
+        let result: Value = serde_json::from_str(&result).expect("shape result should be JSON");
+        let control_idx = result["controlIdx"]
+            .as_u64()
+            .expect("shape insert should expose controlIdx");
+
+        session
+            .apply_command(format!(
+                r#"{{"type":"copyObjectControl","section":0,"paragraph":0,"controlIndex":{}}}"#,
+                control_idx
+            ))
+            .expect("object copy should be accepted");
+        let has_control = session
+            .apply_command(r#"{"type":"clipboardHasObjectControl"}"#.to_string())
+            .expect("object clipboard query should be accepted");
+        let has_control: Value =
+            serde_json::from_str(&has_control).expect("clipboard result should be JSON");
+        assert_eq!(has_control["hasControl"], true);
+
+        let paste_result = session
+            .apply_command(
+                r#"{"type":"pasteObjectControl","section":0,"paragraph":0,"offset":0}"#.to_string(),
+            )
+            .expect("object paste should be accepted");
+        let paste_result: Value =
+            serde_json::from_str(&paste_result).expect("paste result should be JSON");
+        assert_eq!(paste_result["ok"], true);
+        assert!(paste_result["paraIdx"].as_u64().is_some());
+
+        let hwp = session.export_hwp().expect("HWP export should succeed");
+        assert!(!hwp.is_empty());
+        open_bytes(hwp, Some("object-clipboard-roundtrip.hwp".to_string()))
+            .expect("object clipboard document should reopen");
     }
 
     #[test]
