@@ -4668,7 +4668,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     if (!_hasDeferredEditRefresh || !_deferredEditRefreshAwaitsTextInput) {
       return;
     }
-    if (_desktopTextInputCommitHoldActive) {
+    if (_isDesktopTextInputPlatform && _shouldHoldDeferredRefreshForTextInput) {
       return;
     }
 
@@ -5430,13 +5430,22 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   void _closeTextInput() {
     _textInputFocusReleaseTimer?.cancel();
     _textInputFocusReleaseTimer = null;
-    _clearDesktopTextInputCommitHoldWindow();
+    final keepDesktopCommitHoldForDeferredRefresh =
+        _isDesktopTextInputPlatform &&
+        _hasDeferredEditRefresh &&
+        _deferredEditRefreshAwaitsTextInput &&
+        _desktopTextInputCommitHoldActive;
+    if (!keepDesktopCommitHoldForDeferredRefresh) {
+      _clearDesktopTextInputCommitHoldWindow();
+    }
     final connection = _textInputConnection;
     if (connection != null && connection.attached) {
       connection.close();
     }
     _textInputConnection = null;
-    _releaseDeferredEditRefreshFromTextInput();
+    if (!keepDesktopCommitHoldForDeferredRefresh) {
+      _releaseDeferredEditRefreshFromTextInput();
+    }
   }
 
   void _resetTextInputValue({bool notify = true}) {
