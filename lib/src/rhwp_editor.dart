@@ -1726,7 +1726,68 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         await _pasteTableClipboardText(tableSelection, text)) {
       return;
     }
+    if (_isMultiParagraphClipboardText(text)) {
+      await _pasteMultiParagraphText(text);
+      return;
+    }
     await _insertCommittedText(text);
+  }
+
+  bool _isMultiParagraphClipboardText(String text) {
+    return text.contains('\n') || text.contains('\r');
+  }
+
+  List<String> _parseMultiParagraphClipboardText(String text) {
+    return text.replaceAll('\r\n', '\n').replaceAll('\r', '\n').split('\n');
+  }
+
+  Future<void> _pasteMultiParagraphText(String text) async {
+    if (_busy || _controller.tableCellSelection != null) {
+      return;
+    }
+
+    final lines = _parseMultiParagraphClipboardText(text);
+    if (lines.isEmpty) {
+      return;
+    }
+
+    await _runEdit(() async {
+      final selection = _controller.selection;
+      var cursor = selection.isCollapsed
+          ? _controller.cursor
+          : selection.normalizedStart;
+      if (!selection.isCollapsed) {
+        await _deleteSelectedText(selection);
+      }
+
+      for (var index = 0; index < lines.length; index += 1) {
+        final line = lines[index];
+        if (line.isNotEmpty) {
+          await widget.document.insertText(
+            section: cursor.section,
+            paragraph: cursor.paragraph,
+            offset: cursor.offset,
+            text: line,
+          );
+          await _applyPendingCharFormatToInsertedText(
+            cursor: cursor,
+            text: line,
+          );
+          cursor = cursor.copyWith(offset: cursor.offset + line.length);
+        }
+
+        if (index < lines.length - 1) {
+          await widget.document.splitParagraph(
+            section: cursor.section,
+            paragraph: cursor.paragraph,
+            offset: cursor.offset,
+          );
+          cursor = cursor.copyWith(paragraph: cursor.paragraph + 1, offset: 0);
+        }
+      }
+
+      _controller.cursor = cursor;
+    });
   }
 
   Future<void> _selectAllText() async {

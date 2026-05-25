@@ -242,6 +242,8 @@
 * Added a Flutter-native compare dialog in the tools ribbon that uses
   `extractText` and shows same/changed/added/removed line counts without
   editing the document.
+* Changed Flutter-native body paste to convert multiline clipboard text into
+  paragraph split and insert commands instead of inserting raw newline text.
 * Added Flutter-native double-click word selection based on page-layer text run
   hit testing.
 * Added Flutter-native triple-click paragraph selection using the same
