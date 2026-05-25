@@ -5,6 +5,8 @@
   internal control clipboard.
 * Kept Flutter-native editor text refresh blocked when desktop focus/action
   churn arrives before a slow input command finishes.
+* Added Flutter-native style list/apply commands and a format toolbar style
+  picker for body paragraphs and selected table-cell paragraphs.
 * Kept Flutter-native editor deferred page refresh blocked when desktop text
   input focus briefly drops and returns during typing.
 * Initial flutter_rhwp plugin scaffold.

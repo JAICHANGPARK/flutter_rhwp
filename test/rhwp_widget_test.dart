@@ -5236,6 +5236,124 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor applies document styles to paragraphs', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.selection = const RhwpSelectionRange(
+      start: RhwpCursorPosition(paragraph: 0, offset: 1),
+      end: RhwpCursorPosition(paragraph: 1, offset: 2),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('서식'));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-style-picker')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-style-picker')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('제목 1'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('rhwp-style-3')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+    ]);
+    expect(session.commands.map(jsonDecode), [
+      {'type': 'getStyleList'},
+      {'type': 'applyStyle', 'section': 0, 'paragraph': 0, 'styleId': 3},
+      {'type': 'applyStyle', 'section': 0, 'paragraph': 1, 'styleId': 3},
+    ]);
+  });
+
+  testWidgets('RhwpNativeEditor applies document styles to table cells', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.tableCellSelection = const RhwpTableCellSelection(
+      section: 0,
+      paragraph: 5,
+      controlIndex: 2,
+      startRow: 1,
+      startColumn: 3,
+      endRow: 1,
+      endColumn: 3,
+      activeCellIndex: 7,
+      activeCellParagraph: 0,
+      activeOffset: 2,
+      isTextEditing: true,
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('서식'));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-style-picker')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-style-picker')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-style-3')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.commands.map(jsonDecode), [
+      {'type': 'getStyleList'},
+      {
+        'type': 'applyCellStyle',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'cellIndex': 7,
+        'cellParagraph': 0,
+        'styleId': 3,
+      },
+    ]);
+  });
+
   testWidgets('RhwpNativeEditor applies paragraph alignment', (tester) async {
     final controller = RhwpEditorController();
     final session = _FakeRhwpSession(pageCountValue: 1);
@@ -7523,6 +7641,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
 
     commands.add(commandJson);
     await _waitForCommandGate(commandType);
+    if (command is Map && command['type'] == 'getStyleList') {
+      return '[{"id":0,"name":"본문","englishName":"Body","type":0,"nextStyleId":0,"paraShapeId":0,"charShapeId":0},{"id":3,"name":"제목 1","englishName":"Heading 1","type":0,"nextStyleId":0,"paraShapeId":1,"charShapeId":1}]';
+    }
     if (command is Map && command['type'] == 'insertTable') {
       final paragraph = command['paragraph'];
       final offset = command['offset'];

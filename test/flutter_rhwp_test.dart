@@ -351,6 +351,40 @@ void main() {
         },
       },
     );
+    expect(jsonDecode(jsonEncode(RhwpCommand.getStyleList().toJson())), {
+      'type': 'getStyleList',
+    });
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.applyStyle(section: 0, paragraph: 1, styleId: 3).toJson(),
+        ),
+      ),
+      {'type': 'applyStyle', 'section': 0, 'paragraph': 1, 'styleId': 3},
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.applyCellStyle(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            cellIndex: 3,
+            cellParagraph: 0,
+            styleId: 3,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'applyCellStyle',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'cellIndex': 3,
+        'cellParagraph': 0,
+        'styleId': 3,
+      },
+    );
     expect(
       jsonDecode(
         jsonEncode(
@@ -1295,6 +1329,40 @@ void main() {
       },
     });
 
+    final styles = await document.styleList();
+
+    expect(styles.map((style) => style.displayName), ['본문', '제목 1']);
+    expect(styles.last.englishName, 'Heading 1');
+    expect(jsonDecode(session.lastCommandJson!), {'type': 'getStyleList'});
+
+    await document.applyStyle(section: 0, paragraph: 1, styleId: 3);
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'applyStyle',
+      'section': 0,
+      'paragraph': 1,
+      'styleId': 3,
+    });
+
+    await document.applyCellStyle(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      cellIndex: 2,
+      cellParagraph: 0,
+      styleId: 3,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'applyCellStyle',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'cellIndex': 2,
+      'cellParagraph': 0,
+      'styleId': 3,
+    });
+
     await document.insertTableRow(
       section: 0,
       paragraph: 1,
@@ -2064,6 +2132,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'getPageSetup') {
       return '{"width":59528,"height":84189,"marginLeft":8504,"marginRight":8504,"marginTop":5669,"marginBottom":4252,"marginHeader":4252,"marginFooter":4252,"marginGutter":0,"landscape":false,"binding":0}';
+    }
+    if (command is Map && command['type'] == 'getStyleList') {
+      return '[{"id":0,"name":"본문","englishName":"Body","type":0,"nextStyleId":0,"paraShapeId":0,"charShapeId":0},{"id":3,"name":"제목 1","englishName":"Heading 1","type":0,"nextStyleId":0,"paraShapeId":1,"charShapeId":1}]';
     }
     return '{"ok":true}';
   }

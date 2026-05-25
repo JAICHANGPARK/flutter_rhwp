@@ -176,6 +176,51 @@ class RhwpObjectProperties {
   final Map<String, Object?>? raw;
 }
 
+class RhwpStyleInfo {
+  const RhwpStyleInfo({
+    required this.id,
+    required this.name,
+    required this.englishName,
+    required this.type,
+    required this.nextStyleId,
+    required this.paraShapeId,
+    required this.charShapeId,
+    this.raw,
+  });
+
+  factory RhwpStyleInfo.fromJson(Map<String, Object?> json) {
+    return RhwpStyleInfo(
+      id: _intFromJson(json['id']) ?? 0,
+      name: json['name']?.toString() ?? '',
+      englishName: json['englishName']?.toString() ?? '',
+      type: _intFromJson(json['type']) ?? 0,
+      nextStyleId: _intFromJson(json['nextStyleId']) ?? 0,
+      paraShapeId: _intFromJson(json['paraShapeId']) ?? 0,
+      charShapeId: _intFromJson(json['charShapeId']) ?? 0,
+      raw: json,
+    );
+  }
+
+  final int id;
+  final String name;
+  final String englishName;
+  final int type;
+  final int nextStyleId;
+  final int paraShapeId;
+  final int charShapeId;
+  final Map<String, Object?>? raw;
+
+  String get displayName {
+    if (name.trim().isNotEmpty) {
+      return name;
+    }
+    if (englishName.trim().isNotEmpty) {
+      return englishName;
+    }
+    return 'Style $id';
+  }
+}
+
 class RhwpPageSetup {
   const RhwpPageSetup({
     required this.width,
@@ -578,6 +623,23 @@ abstract class RhwpCommand {
     int? borderType,
     int? verticalAlign,
   }) = RhwpApplyTableCellStyleCommand;
+
+  factory RhwpCommand.getStyleList() = RhwpGetStyleListCommand;
+
+  factory RhwpCommand.applyStyle({
+    required int section,
+    required int paragraph,
+    required int styleId,
+  }) = RhwpApplyStyleCommand;
+
+  factory RhwpCommand.applyCellStyle({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int styleId,
+  }) = RhwpApplyCellStyleCommand;
 
   factory RhwpCommand.createHeaderFooter({
     required int section,
@@ -1642,6 +1704,62 @@ class RhwpApplyTableCellStyleCommand extends RhwpCommand {
   };
 }
 
+class RhwpGetStyleListCommand extends RhwpCommand {
+  const RhwpGetStyleListCommand();
+
+  @override
+  Map<String, Object?> toJson() => {'type': 'getStyleList'};
+}
+
+class RhwpApplyStyleCommand extends RhwpCommand {
+  const RhwpApplyStyleCommand({
+    required this.section,
+    required this.paragraph,
+    required this.styleId,
+  });
+
+  final int section;
+  final int paragraph;
+  final int styleId;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'applyStyle',
+    'section': section,
+    'paragraph': paragraph,
+    'styleId': styleId,
+  };
+}
+
+class RhwpApplyCellStyleCommand extends RhwpCommand {
+  const RhwpApplyCellStyleCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+    required this.cellParagraph,
+    required this.styleId,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+  final int cellParagraph;
+  final int styleId;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'applyCellStyle',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'cellIndex': cellIndex,
+    'cellParagraph': cellParagraph,
+    'styleId': styleId,
+  };
+}
+
 Map<String, Object?> _paraFormatProperties({
   String? alignment,
   int? lineSpacing,
@@ -2666,6 +2784,55 @@ class RhwpDocument {
         borderWidth: borderWidth,
         borderType: borderType,
         verticalAlign: verticalAlign,
+      ),
+    );
+  }
+
+  Future<List<RhwpStyleInfo>> styleList() async {
+    final source = await apply(RhwpCommand.getStyleList());
+    final decoded = jsonDecode(source);
+    if (decoded is! List) {
+      return const [];
+    }
+    return [
+      for (final item in decoded)
+        if (item is Map)
+          RhwpStyleInfo.fromJson(
+            item.map((key, value) => MapEntry(key.toString(), value)),
+          ),
+    ];
+  }
+
+  Future<String> applyStyle({
+    required int section,
+    required int paragraph,
+    required int styleId,
+  }) {
+    return apply(
+      RhwpCommand.applyStyle(
+        section: section,
+        paragraph: paragraph,
+        styleId: styleId,
+      ),
+    );
+  }
+
+  Future<String> applyCellStyle({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int styleId,
+  }) {
+    return apply(
+      RhwpCommand.applyCellStyle(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        cellIndex: cellIndex,
+        cellParagraph: cellParagraph,
+        styleId: styleId,
       ),
     );
   }

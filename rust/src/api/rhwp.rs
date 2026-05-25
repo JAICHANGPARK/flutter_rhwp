@@ -731,6 +731,33 @@ impl RhwpSession {
                     )
                     .map_err(error_to_string)
             }
+            RhwpCommand::GetStyleList => Ok(inner.document.get_style_list()),
+            RhwpCommand::ApplyStyle {
+                section,
+                paragraph,
+                style_id,
+            } => inner
+                .document
+                .apply_style_native(section as usize, paragraph as usize, style_id as usize)
+                .map_err(error_to_string),
+            RhwpCommand::ApplyCellStyle {
+                section,
+                paragraph,
+                control_index,
+                cell_index,
+                cell_paragraph,
+                style_id,
+            } => inner
+                .document
+                .apply_cell_style_native(
+                    section as usize,
+                    paragraph as usize,
+                    control_index as usize,
+                    cell_index as usize,
+                    cell_paragraph as usize,
+                    style_id as usize,
+                )
+                .map_err(error_to_string),
             RhwpCommand::CreateHeaderFooter {
                 section,
                 is_header,
@@ -1122,6 +1149,25 @@ enum RhwpCommand {
         #[serde(rename = "cellIndex")]
         cell_index: u32,
         properties: serde_json::Value,
+    },
+    GetStyleList,
+    ApplyStyle {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "styleId")]
+        style_id: u32,
+    },
+    ApplyCellStyle {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "cellIndex")]
+        cell_index: u32,
+        #[serde(rename = "cellParagraph")]
+        cell_paragraph: u32,
+        #[serde(rename = "styleId")]
+        style_id: u32,
     },
     CreateHeaderFooter {
         section: u32,
@@ -1975,6 +2021,21 @@ mod tests {
                     .to_string(),
             )
             .expect("page setup update should be accepted");
+        let style_list = session
+            .apply_command(r#"{"type":"getStyleList"}"#.to_string())
+            .expect("style list query should be accepted");
+        let style_list: Value =
+            serde_json::from_str(&style_list).expect("style list result should be JSON");
+        let style_id = style_list
+            .as_array()
+            .and_then(|styles| styles.first())
+            .and_then(|style| style["id"].as_u64())
+            .expect("style list should expose at least one style id");
+        session
+            .apply_command(format!(
+                r#"{{"type":"applyStyle","section":0,"paragraph":0,"styleId":{style_id}}}"#
+            ))
+            .expect("apply style command should be accepted");
         let table_result = session
             .apply_command(
                 r#"{"type":"insertTable","section":0,"paragraph":0,"offset":0,"rows":2,"columns":3}"#
@@ -2033,6 +2094,12 @@ mod tests {
                 ),
             )
             .expect("apply table cell vertical alignment command should be accepted");
+        session
+            .apply_command(format!(
+                r#"{{"type":"applyCellStyle","section":0,"paragraph":{},"controlIndex":0,"cellIndex":0,"cellParagraph":0,"styleId":{style_id}}}"#,
+                table_paragraph
+            ))
+            .expect("apply cell style command should be accepted");
         session
             .apply_command(
                 format!(

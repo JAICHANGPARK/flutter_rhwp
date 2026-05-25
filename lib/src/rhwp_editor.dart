@@ -3100,6 +3100,55 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     );
   }
 
+  Future<void> _showStylePicker() async {
+    if (_busy) {
+      return;
+    }
+
+    List<RhwpStyleInfo> styles = const [];
+    setState(() {
+      _busy = true;
+      _visibleBusy = true;
+      _error = null;
+    });
+    try {
+      styles = await widget.document.styleList();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _visibleBusy = false;
+        });
+      }
+    }
+
+    if (!mounted) {
+      return;
+    }
+    if (styles.isEmpty) {
+      setState(() {
+        _error = StateError('No styles are defined in this document.');
+      });
+      _focusEditor();
+      return;
+    }
+
+    final styleId = await showDialog<int>(
+      context: context,
+      builder: (context) => _StylePickerDialog(styles: styles),
+    );
+    if (styleId != null) {
+      await _applyStyle(styleId);
+    }
+    _focusEditor();
+  }
+
   Future<void> _runSearch() async {
     final query = _searchController.text.trim();
     if (query.isEmpty) {
@@ -3568,6 +3617,59 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         spacingBefore: spacingBefore,
         spacingAfter: spacingAfter,
       );
+      _controller.selection = selection.isCollapsed
+          ? RhwpSelectionRange.collapsed(start)
+          : RhwpSelectionRange(start: start, end: end);
+    });
+  }
+
+  Future<void> _applyStyle(int styleId) async {
+    if (_busy) {
+      return;
+    }
+
+    final tableSelection = _controller.tableCellSelection;
+    if (tableSelection != null) {
+      final targets = await _tableCellParagraphTargets(tableSelection);
+      if (!mounted || targets.isEmpty) {
+        return;
+      }
+
+      await _runEdit(() async {
+        for (final target in targets) {
+          await widget.document.applyCellStyle(
+            section: target.section,
+            paragraph: target.paragraph,
+            controlIndex: target.controlIndex,
+            cellIndex: target.cellIndex,
+            cellParagraph: target.cellParagraph,
+            styleId: styleId,
+          );
+        }
+        _controller.tableCellSelection = tableSelection;
+      });
+      return;
+    }
+
+    final selection = _controller.selection;
+    final start = selection.normalizedStart;
+    final end = selection.normalizedEnd;
+    if (start.section != end.section) {
+      return;
+    }
+
+    await _runEdit(() async {
+      for (
+        var paragraph = start.paragraph;
+        paragraph <= end.paragraph;
+        paragraph += 1
+      ) {
+        await widget.document.applyStyle(
+          section: start.section,
+          paragraph: paragraph,
+          styleId: styleId,
+        );
+      }
       _controller.selection = selection.isCollapsed
           ? RhwpSelectionRange.collapsed(start)
           : RhwpSelectionRange(start: start, end: end);
@@ -6788,6 +6890,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onTextColor: (textColor) => _applyCharFormat(textColor: textColor),
           onCharShape: _showCharShapeDialog,
           onParaShape: _showParaShapeDialog,
+          onStylePicker: _showStylePicker,
           onAlignLeft: () => _applyParagraphAlignment('left'),
           onAlignCenter: () => _applyParagraphAlignment('center'),
           onAlignRight: () => _applyParagraphAlignment('right'),
@@ -8823,6 +8926,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onTextColor,
     required this.onCharShape,
     required this.onParaShape,
+    required this.onStylePicker,
     required this.onAlignLeft,
     required this.onAlignCenter,
     required this.onAlignRight,
@@ -8922,6 +9026,7 @@ class _EditorToolbar extends StatefulWidget {
   final ValueChanged<String> onTextColor;
   final VoidCallback onCharShape;
   final VoidCallback onParaShape;
+  final VoidCallback onStylePicker;
   final VoidCallback onAlignLeft;
   final VoidCallback onAlignCenter;
   final VoidCallback onAlignRight;
@@ -9418,6 +9523,19 @@ class _EditorToolbarState extends State<_EditorToolbar> {
 
   List<Widget> _formatGroups() {
     return [
+      _RibbonGroup(
+        label: '스타일',
+        child: Row(
+          children: [
+            _ToolbarIconButton(
+              tooltip: 'Style',
+              buttonKey: const ValueKey('rhwp-editor-style-picker'),
+              icon: Icons.style_outlined,
+              onPressed: widget.busy ? null : widget.onStylePicker,
+            ),
+          ],
+        ),
+      ),
       _RibbonGroup(
         label: '글자 모양',
         child: Row(
@@ -10318,6 +10436,42 @@ List<String> _splitCompareLines(String source) {
     return const [];
   }
   return normalized.split('\n');
+}
+
+class _StylePickerDialog extends StatelessWidget {
+  const _StylePickerDialog({required this.styles});
+
+  final List<RhwpStyleInfo> styles;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('스타일'),
+      content: SizedBox(
+        width: 360,
+        height: math.min(360, math.max(96, styles.length * 64)).toDouble(),
+        child: ListView.builder(
+          itemCount: styles.length,
+          itemBuilder: (context, index) {
+            final style = styles[index];
+            return ListTile(
+              key: ValueKey('rhwp-style-${style.id}'),
+              leading: const Icon(Icons.style_outlined),
+              title: Text(style.displayName),
+              subtitle: Text('ID ${style.id} - Type ${style.type}'),
+              onTap: () => Navigator.of(context).pop(style.id),
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
 }
 
 class _CharShapeDialog extends StatefulWidget {
