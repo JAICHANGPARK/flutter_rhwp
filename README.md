@@ -206,7 +206,10 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   selected-cell
   text insert/delete,
   cell text offset hit testing, Arrow/Tab/Enter keyboard handling for selected
-  table cells, and Shift+drag aspect-ratio preserving object resize.
+  table cells, Arrow/Shift+Arrow object nudging, and Shift+drag aspect-ratio
+  preserving object resize. Text input, paste, tab input, and keyboard delete
+  defer page SVG refresh briefly so normal typing does not reload the rendered
+  page after every keystroke.
 - `rust/vendor/rhwp` should be committed. `rust/target` should stay ignored.
 
 ## License

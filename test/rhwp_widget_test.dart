@@ -1928,6 +1928,75 @@ void main() {
     ]);
   });
 
+  testWidgets('RhwpNativeEditor nudges selected objects with keyboard', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_objectEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    Offset pagePoint(double x, double y) {
+      return pageTopLeft +
+          Offset(pageSize.width * x / 240, pageSize.height * y / 180);
+    }
+
+    await tester.tapAt(pagePoint(150, 85));
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await _pumpDocumentFrame(tester);
+
+    _expectRectClose(
+      controller.objectSelection!.bounds,
+      const Rect.fromLTRB(130, 60, 190, 110),
+    );
+    expect(changedCalls, 1);
+    expect(session.commands.map(jsonDecode).toList(), [
+      {
+        'type': 'getObjectProperties',
+        'section': 0,
+        'paragraph': 2,
+        'controlIndex': 1,
+        'objectType': 'shape',
+      },
+      {
+        'type': 'setObjectProperties',
+        'section': 0,
+        'paragraph': 2,
+        'controlIndex': 1,
+        'objectType': 'shape',
+        'properties': {
+          'width': 60,
+          'height': 50,
+          'horzOffset': 130,
+          'vertOffset': 60,
+        },
+      },
+    ]);
+  });
+
   testWidgets(
     'RhwpNativeEditor resizes selected objects from overlay handles',
     (tester) async {
@@ -4128,6 +4197,64 @@ void main() {
     );
   });
 
+  testWidgets('RhwpNativeEditor debounces text input page refresh', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    controller.cursor = const RhwpCursorPosition(offset: 2);
+    session.renderedPages.clear();
+
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: ' ',
+        selection: TextSelection.collapsed(offset: 1),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(jsonDecode(session.commands.single), {
+      'type': 'insertText',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 2,
+      'text': ' ',
+    });
+    expect(changedCalls, 0);
+    expect(session.renderedPages, isEmpty);
+
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+
+    expect(changedCalls, 1);
+    expect(session.renderedPages, [0]);
+  });
+
   testWidgets('RhwpNativeEditor copies cuts and pastes selected text', (
     tester,
   ) async {
@@ -4776,7 +4903,7 @@ double _viewerListOffset(WidgetTester tester) {
 }
 
 Future<void> _pumpDocumentFrame(WidgetTester tester) async {
-  for (var i = 0; i < 6; i += 1) {
+  for (var i = 0; i < 8; i += 1) {
     await tester.pump(const Duration(milliseconds: 50));
   }
 }

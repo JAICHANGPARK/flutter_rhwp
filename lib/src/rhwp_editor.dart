@@ -704,6 +704,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   final _replaceController = TextEditingController();
   TextInputConnection? _textInputConnection;
   TextEditingValue _inputValue = TextEditingValue.empty;
+  Timer? _deferredEditRefreshTimer;
   int _renderRevision = 0;
   List<_EditorSearchMatch> _searchMatches = const [];
   int _activeSearchMatch = -1;
@@ -712,9 +713,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   final _redoSnapshots = <int>[];
   bool _busy = false;
   bool _searching = false;
+  bool _hasDeferredEditRefresh = false;
   Object? _error;
 
   static const _maxUndoSnapshots = 100;
+  static const _deferredTextRenderDelay = Duration(milliseconds: 350);
 
   @override
   void initState() {
@@ -731,6 +734,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   void didUpdateWidget(covariant RhwpEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.document != widget.document) {
+      _cancelDeferredEditRefresh();
       _renderRevision += 1;
       _pageCountValue = null;
       _loadPageCount();
@@ -741,6 +745,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   void dispose() {
     _controller.removeListener(_handleControllerChanged);
     _focusNode.removeListener(_handleFocusChanged);
+    _cancelDeferredEditRefresh();
     _closeTextInput();
     if (_ownsController) {
       _controller.dispose();
@@ -980,7 +985,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     if (_editableTableCellSelection != null) {
-      await _insertTextInSelectedTableCell(text);
+      await _insertTextInSelectedTableCell(text, deferRefresh: true);
       return;
     }
 
@@ -999,12 +1004,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         text: text,
       );
       _controller.cursor = cursor.copyWith(offset: cursor.offset + text.length);
-    });
+    }, deferRefresh: true);
   }
 
   Future<void> _insertTextInSelectedTableCell(
     String text, {
     bool clearTextController = false,
+    bool deferRefresh = false,
   }) async {
     final tableSelection = _editableTableCellSelection;
     if (tableSelection == null || _busy) {
@@ -1040,7 +1046,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       if (clearTextController) {
         _textController.clear();
       }
-    });
+    }, deferRefresh: deferRefresh);
   }
 
   Future<void> _copySelection() async {
@@ -1335,6 +1341,30 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     if (!committed) {
       _controller.objectSelection = original;
     }
+  }
+
+  bool _nudgeSelectedObject(Offset delta) {
+    final selection = _controller.objectSelection;
+    if (_busy || selection == null || delta == Offset.zero) {
+      return false;
+    }
+
+    final left = math.max(0.0, selection.bounds.left + delta.dx);
+    final top = math.max(0.0, selection.bounds.top + delta.dy);
+    final appliedDelta = Offset(
+      left - selection.bounds.left,
+      top - selection.bounds.top,
+    );
+    if (appliedDelta == Offset.zero) {
+      return true;
+    }
+
+    final updated = selection.copyWith(
+      bounds: selection.bounds.shift(appliedDelta),
+    );
+    _controller.objectSelection = updated;
+    unawaited(_commitObjectBoundsChange(selection, updated));
+    return true;
   }
 
   ({int width, int height, int horzOffset, int vertOffset})
@@ -2037,7 +2067,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         count: 1,
       );
       _controller.cursor = cursor.copyWith(offset: cursor.offset - 1);
-    });
+    }, deferRefresh: true);
   }
 
   Future<void> _deleteForward() async {
@@ -2063,7 +2093,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         count: 1,
       );
       _controller.cursor = cursor;
-    });
+    }, deferRefresh: true);
   }
 
   Future<void> _deleteWord({required bool backward}) async {
@@ -2104,7 +2134,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         count: count,
       );
       _controller.cursor = cursor.copyWith(offset: deleteOffset);
-    });
+    }, deferRefresh: true);
   }
 
   Future<void> _deleteTextInSelectedTableCell({required bool backward}) async {
@@ -2145,7 +2175,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         activeCellParagraph: tableSelection.activeCellParagraph,
         activeOffset: nextOffset,
       );
-    });
+    }, deferRefresh: true);
   }
 
   Future<void> _moveTableCellSelection(
@@ -2554,7 +2584,46 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     return true;
   }
 
-  Future<bool> _runEdit(Future<void> Function() edit) async {
+  void _scheduleDeferredEditRefresh() {
+    _hasDeferredEditRefresh = true;
+    _deferredEditRefreshTimer?.cancel();
+    _deferredEditRefreshTimer = Timer(
+      _deferredTextRenderDelay,
+      _flushDeferredEditRefresh,
+    );
+  }
+
+  void _cancelDeferredEditRefresh() {
+    _deferredEditRefreshTimer?.cancel();
+    _deferredEditRefreshTimer = null;
+    _hasDeferredEditRefresh = false;
+  }
+
+  void _flushDeferredEditRefresh() {
+    if (!_hasDeferredEditRefresh) {
+      return;
+    }
+    if (_busy) {
+      _scheduleDeferredEditRefresh();
+      return;
+    }
+    _deferredEditRefreshTimer?.cancel();
+    _deferredEditRefreshTimer = null;
+    _hasDeferredEditRefresh = false;
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _renderRevision += 1;
+    });
+    widget.onChanged?.call(widget.document);
+  }
+
+  Future<bool> _runEdit(
+    Future<void> Function() edit, {
+    bool deferRefresh = false,
+  }) async {
     setState(() {
       _busy = true;
       _error = null;
@@ -2574,11 +2643,20 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       if (!mounted) {
         return false;
       }
+      if (!deferRefresh) {
+        _cancelDeferredEditRefresh();
+      }
       setState(() {
         _busy = false;
-        _renderRevision += 1;
+        if (!deferRefresh) {
+          _renderRevision += 1;
+        }
       });
-      widget.onChanged?.call(widget.document);
+      if (deferRefresh) {
+        _scheduleDeferredEditRefresh();
+      } else {
+        widget.onChanged?.call(widget.document);
+      }
       return true;
     } catch (error) {
       if (undoSnapshot != null) {
@@ -3328,6 +3406,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       }
     }
 
+    final objectNudgeStep = extendSelection ? 10.0 : 1.0;
     switch (event.logicalKey) {
       case LogicalKeyboardKey.escape:
         return _handleEscapeKey()
@@ -3341,6 +3420,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         }
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowLeft:
+        if (_nudgeSelectedObject(Offset(-objectNudgeStep, 0))) {
+          return KeyEventResult.handled;
+        }
         if (_controller.tableCellSelection != null && !wordNavigationPressed) {
           unawaited(
             _moveTableCellSelection(
@@ -3357,6 +3439,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         }
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowRight:
+        if (_nudgeSelectedObject(Offset(objectNudgeStep, 0))) {
+          return KeyEventResult.handled;
+        }
         if (_controller.tableCellSelection != null && !wordNavigationPressed) {
           unawaited(
             _moveTableCellSelection(
@@ -3373,6 +3458,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         }
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowUp:
+        if (_nudgeSelectedObject(Offset(0, -objectNudgeStep))) {
+          return KeyEventResult.handled;
+        }
         if (_controller.tableCellSelection != null && !wordNavigationPressed) {
           unawaited(
             _moveTableCellSelection(
@@ -3385,6 +3473,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         unawaited(_moveCursorVertically(-1, extendSelection: extendSelection));
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowDown:
+        if (_nudgeSelectedObject(Offset(0, objectNudgeStep))) {
+          return KeyEventResult.handled;
+        }
         if (_controller.tableCellSelection != null && !wordNavigationPressed) {
           unawaited(
             _moveTableCellSelection(

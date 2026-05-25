@@ -189,12 +189,17 @@
   and exposed them through a Flutter-native object properties dialog.
 * Added Flutter-native pointer drag move and resize handles for selected
   objects, backed by the same object properties bridge command.
+* Added Arrow and Shift+Arrow keyboard nudging for selected objects in the
+  Flutter-native editor.
 * Added Shift+drag aspect-ratio preservation for selected object resize
   handles in the Flutter-native editor.
 * Changed Flutter-native document edits to preserve the viewer widget and scroll
   position while refreshing rendered page content.
 * Changed page SVG refreshes to keep showing the previous render until the next
   render completes, reducing edit-time flicker in the native editor.
+* Changed Flutter-native text input, tab input, paste, and keyboard text delete
+  edits to debounce page SVG refreshes so typing does not reload the page on
+  every keystroke.
 * Added Flutter-native double-click word selection based on page-layer text run
   hit testing.
 * Added Flutter-native triple-click paragraph selection using the same
