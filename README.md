@@ -23,10 +23,11 @@ Implemented:
 - Export HWP, HWPX, native PDF, DOCX, text, Markdown, and page SVG.
 - Apply basic edit commands for body text insert/delete and file name updates.
 - Display pages with `RhwpViewer`.
+- Add page-local overlays to `RhwpViewer` with `pageOverlayBuilder`.
 - Edit through an initial `RhwpEditor` command overlay with a Flutter-drawn
   caret and selection marker. When page layer tree text runs are available,
-  the first-page overlay uses their source offsets and bounds before falling
-  back to command-target coordinates.
+  visible page overlays use their source offsets and bounds before falling back
+  to command-target coordinates on the first page.
 - Embed upstream `@rhwp/editor` on Web with `RhwpWebEditor` and
   `RhwpWebEditorController`.
 - Example app workflows for opening the bundled asset sample or a picked
@@ -49,9 +50,9 @@ Not complete yet:
 - Apple builds currently use the CocoaPods podspec/cargokit path for Rust
   static library linkage. SwiftPM manifests are intentionally omitted until the
   Rust build/linkage path is implemented for Swift Package Manager.
-- The Flutter-native editor still needs full scroll-aware, multi-page, and
-  complex text-flow selection mapping. The current layer-tree mapping covers
-  first-page text run bounds and falls back when geometry is unavailable.
+- The Flutter-native editor still needs full complex text-flow selection
+  mapping across split paragraphs, tables, and non-linear layout. The current
+  layer-tree mapping is page-local and falls back when geometry is unavailable.
 
 ## Usage
 

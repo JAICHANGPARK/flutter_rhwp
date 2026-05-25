@@ -123,6 +123,43 @@ void main() {
     );
   });
 
+  testWidgets('RhwpViewer composes page overlay over rendered SVG', (
+    tester,
+  ) async {
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    final overlayPages = <int>[];
+    final overlaySvgs = <String>[];
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 360,
+          height: 320,
+          child: RhwpViewer(
+            document: document,
+            padding: const EdgeInsets.all(12),
+            pageGap: 0,
+            svgBuilder: _testSvgBuilder,
+            pageOverlayBuilder: (context, page, svg) {
+              overlayPages.add(page);
+              overlaySvgs.add(svg);
+              return const ColoredBox(
+                key: ValueKey('rhwp-page-overlay'),
+                color: Colors.transparent,
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(find.byKey(const ValueKey('rhwp-page-overlay')), findsOneWidget);
+    expect(overlayPages, [0]);
+    expect(overlaySvgs.single, contains('#dc2626'));
+  });
+
   testWidgets('RhwpEditor overlay applies insert and delete commands', (
     tester,
   ) async {
@@ -224,17 +261,25 @@ void main() {
     );
     await _pumpDocumentFrame(tester);
 
-    controller.cursor = const RhwpCursorPosition(offset: 2);
+    controller.cursor = const RhwpCursorPosition(offset: 1);
     await tester.pump();
 
-    final editorTopLeft = tester.getTopLeft(find.byType(RhwpEditor));
-    final caretTopLeft = tester.getTopLeft(
+    final firstCaretTopLeft = tester.getTopLeft(
       find.byKey(const ValueKey('rhwp-editor-caret')),
     );
 
+    controller.cursor = const RhwpCursorPosition(offset: 2);
+    await tester.pump();
+
+    final secondCaretTopLeft = tester.getTopLeft(
+      find.byKey(const ValueKey('rhwp-editor-caret')),
+    );
+    final caretAdvance = secondCaretTopLeft.dx - firstCaretTopLeft.dx;
+
     expect(session.layerTreePages, [0]);
-    expect(caretTopLeft.dx - editorTopLeft.dx, closeTo(132, 1));
-    expect(caretTopLeft.dy - editorTopLeft.dy, closeTo(72, 1));
+    expect(caretAdvance, greaterThan(20));
+    expect(caretAdvance, lessThan(40));
+    expect(secondCaretTopLeft.dy, firstCaretTopLeft.dy);
   });
 }
 

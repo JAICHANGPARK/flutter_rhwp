@@ -134,8 +134,6 @@ class _RhwpEditorState extends State<RhwpEditor> {
   final _paragraphController = TextEditingController(text: '0');
   final _offsetController = TextEditingController(text: '0');
   Key _viewerKey = UniqueKey();
-  RhwpLayerTree? _pageLayerTree;
-  int _layoutGeneration = 0;
   bool _busy = false;
   Object? _error;
 
@@ -146,15 +144,13 @@ class _RhwpEditorState extends State<RhwpEditor> {
     _controller = widget.controller ?? RhwpEditorController();
     _controller.addListener(_handleControllerChanged);
     _syncCursorFields();
-    _reloadPageLayerTree();
   }
 
   @override
   void didUpdateWidget(covariant RhwpEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.document != widget.document) {
-      _pageLayerTree = null;
-      _reloadPageLayerTree();
+      _viewerKey = UniqueKey();
     }
   }
 
@@ -245,7 +241,6 @@ class _RhwpEditorState extends State<RhwpEditor> {
         _busy = false;
         _viewerKey = UniqueKey();
       });
-      _reloadPageLayerTree();
       widget.onChanged?.call(widget.document);
     } catch (error) {
       if (!mounted) {
@@ -276,31 +271,6 @@ class _RhwpEditorState extends State<RhwpEditor> {
     return parsed;
   }
 
-  Future<void> _reloadPageLayerTree() async {
-    final generation = ++_layoutGeneration;
-    try {
-      final pageCount = await widget.document.pageCount;
-      if (pageCount <= 0) {
-        _setPageLayerTree(generation, null);
-        return;
-      }
-
-      final tree = await widget.document.pageLayerTreeModel(0);
-      _setPageLayerTree(generation, tree);
-    } catch (_) {
-      _setPageLayerTree(generation, null);
-    }
-  }
-
-  void _setPageLayerTree(int generation, RhwpLayerTree? tree) {
-    if (!mounted || generation != _layoutGeneration) {
-      return;
-    }
-    setState(() {
-      _pageLayerTree = tree;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -309,15 +279,14 @@ class _RhwpEditorState extends State<RhwpEditor> {
           key: _viewerKey,
           document: widget.document,
           controller: _controller,
-        ),
-        Positioned.fill(
-          child: IgnorePointer(
-            child: _EditorSelectionOverlay(
+          pageOverlayBuilder: (context, page, _) {
+            return _EditorSelectionOverlay(
+              document: widget.document,
+              page: page,
               selection: _controller.selection,
-              zoom: _controller.zoom,
-              pageLayerTree: _pageLayerTree,
-            ),
-          ),
+              fallbackEnabled: page == 0,
+            );
+          },
         ),
         Positioned(
           left: 16,
@@ -339,81 +308,111 @@ class _RhwpEditorState extends State<RhwpEditor> {
   }
 }
 
-class _EditorSelectionOverlay extends StatelessWidget {
+class _EditorSelectionOverlay extends StatefulWidget {
   const _EditorSelectionOverlay({
+    required this.document,
+    required this.page,
     required this.selection,
-    required this.zoom,
-    required this.pageLayerTree,
+    required this.fallbackEnabled,
   });
 
+  final RhwpDocument document;
+  final int page;
   final RhwpSelectionRange selection;
-  final double zoom;
-  final RhwpLayerTree? pageLayerTree;
+  final bool fallbackEnabled;
 
-  static const _pageInset = 48.0;
-  static const _layerPageInset = 32.0;
+  @override
+  State<_EditorSelectionOverlay> createState() =>
+      _EditorSelectionOverlayState();
+}
+
+class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
+  late Future<RhwpLayerTree?> _layerTree;
+
+  static const _pageInset = 24.0;
   static const _lineHeight = 24.0;
   static const _characterWidth = 8.0;
 
   @override
+  void initState() {
+    super.initState();
+    _layerTree = _loadLayerTree();
+  }
+
+  @override
+  void didUpdateWidget(covariant _EditorSelectionOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.document != widget.document ||
+        oldWidget.page != widget.page) {
+      _layerTree = _loadLayerTree();
+    }
+  }
+
+  Future<RhwpLayerTree?> _loadLayerTree() async {
+    try {
+      return await widget.document.pageLayerTreeModel(widget.page);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    return FutureBuilder<RhwpLayerTree?>(
+      future: _layerTree,
+      builder: (context, snapshot) {
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final tree = snapshot.data;
+            if (tree != null) {
+              final layerOverlay = _buildLayerOverlay(
+                context,
+                constraints,
+                tree,
+              );
+              if (layerOverlay != null) {
+                return layerOverlay;
+              }
+            }
+
+            if (widget.fallbackEnabled) {
+              return _buildFallbackOverlay(context, constraints);
+            }
+            return const SizedBox.expand();
+          },
+        );
+      },
+    );
+  }
+
+  Widget? _buildLayerOverlay(
+    BuildContext context,
+    BoxConstraints constraints,
+    RhwpLayerTree tree,
+  ) {
+    final caretRect = tree.caretRectFor(
+      section: widget.selection.end.section,
+      paragraph: widget.selection.end.paragraph,
+      offset: widget.selection.end.offset,
+    );
+    if (caretRect == null) {
+      return null;
+    }
+
     final color = Theme.of(context).colorScheme.primary;
-    final effectiveZoom = zoom.clamp(0.25, 6.0).toDouble();
-    final start = selection.normalizedStart;
-    final end = selection.normalizedEnd;
-    final top = _pageInset + start.paragraph * _lineHeight * effectiveZoom;
-    final left = _pageInset + start.offset * _characterWidth * effectiveZoom;
-    final caretLeft =
-        _pageInset + selection.end.offset * _characterWidth * effectiveZoom;
-    final height = math.max(18.0, _lineHeight * effectiveZoom);
-    final selectionWidth = _selectionWidth(start, end, effectiveZoom);
-    final layerCaretRect = _layerCaretRect(effectiveZoom);
-    final layerSelectionRects = _layerSelectionRects(effectiveZoom);
+    final overlaySize = _overlaySize(constraints, tree);
+    final selectionRects = _layerSelectionRects(tree, overlaySize);
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (layerCaretRect != null) {
-          return Stack(
-            children: [
-              if (!selection.isCollapsed)
-                for (final (index, rect) in layerSelectionRects.indexed)
-                  _positionedRect(
-                    key: index == 0
-                        ? const ValueKey('rhwp-editor-selection')
-                        : ValueKey('rhwp-editor-selection-$index'),
-                    rect: rect,
-                    constraints: constraints,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    ),
-                  ),
-              _positionedRect(
-                key: const ValueKey('rhwp-editor-caret'),
-                rect: layerCaretRect,
-                constraints: constraints,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(1),
-                  ),
-                ),
-              ),
-            ],
-          );
-        }
-
-        final boundedTop = _bound(top, constraints.maxHeight, height);
-        final children = <Widget>[
-          if (!selection.isCollapsed)
-            Positioned(
-              key: const ValueKey('rhwp-editor-selection'),
-              left: _bound(left, constraints.maxWidth, selectionWidth),
-              top: boundedTop,
-              width: selectionWidth,
-              height: height,
+    return Stack(
+      children: [
+        if (!widget.selection.isCollapsed)
+          for (final (index, rect) in selectionRects.indexed)
+            _positionedRect(
+              key: index == 0
+                  ? const ValueKey('rhwp-editor-selection')
+                  : ValueKey('rhwp-editor-selection-$index'),
+              rect: rect,
+              constraints: constraints,
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.18),
@@ -421,80 +420,128 @@ class _EditorSelectionOverlay extends StatelessWidget {
                 ),
               ),
             ),
+        _positionedRect(
+          key: const ValueKey('rhwp-editor-caret'),
+          rect: _scalePageRect(caretRect, tree, overlaySize, caret: true),
+          constraints: constraints,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(1),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFallbackOverlay(
+    BuildContext context,
+    BoxConstraints constraints,
+  ) {
+    final color = Theme.of(context).colorScheme.primary;
+    final start = widget.selection.normalizedStart;
+    final end = widget.selection.normalizedEnd;
+    final top = _pageInset + start.paragraph * _lineHeight;
+    final left = _pageInset + start.offset * _characterWidth;
+    final caretLeft =
+        _pageInset + widget.selection.end.offset * _characterWidth;
+    final height = math.max(18.0, _lineHeight);
+    final selectionWidth = _selectionWidth(start, end);
+    final boundedTop = _bound(top, constraints.maxHeight, height);
+
+    return Stack(
+      children: [
+        if (!widget.selection.isCollapsed)
           Positioned(
-            key: const ValueKey('rhwp-editor-caret'),
-            left: _bound(caretLeft, constraints.maxWidth, 2),
+            key: const ValueKey('rhwp-editor-selection'),
+            left: _bound(left, constraints.maxWidth, selectionWidth),
             top: boundedTop,
-            width: 2,
+            width: selectionWidth,
             height: height,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(1),
+                color: color.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(3),
               ),
             ),
           ),
-        ];
-
-        return Stack(children: children);
-      },
+        Positioned(
+          key: const ValueKey('rhwp-editor-caret'),
+          left: _bound(caretLeft, constraints.maxWidth, 2),
+          top: boundedTop,
+          width: 2,
+          height: height,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(1),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
-  double _selectionWidth(
-    RhwpCursorPosition start,
-    RhwpCursorPosition end,
-    double effectiveZoom,
-  ) {
+  double _selectionWidth(RhwpCursorPosition start, RhwpCursorPosition end) {
     if (start.section != end.section || start.paragraph != end.paragraph) {
-      return 160 * effectiveZoom;
+      return 160;
     }
 
     final selectedCharacters = math.max(1, end.offset - start.offset);
-    return math.max(8.0, selectedCharacters * _characterWidth * effectiveZoom);
+    return math.max(8.0, selectedCharacters * _characterWidth);
   }
 
-  Rect? _layerCaretRect(double effectiveZoom) {
-    final rect = pageLayerTree?.caretRectFor(
-      section: selection.end.section,
-      paragraph: selection.end.paragraph,
-      offset: selection.end.offset,
-    );
-    return rect == null ? null : _pageRectToOverlay(rect, effectiveZoom, true);
-  }
-
-  List<Rect> _layerSelectionRects(double effectiveZoom) {
-    if (selection.isCollapsed) {
+  List<Rect> _layerSelectionRects(RhwpLayerTree tree, Size overlaySize) {
+    if (widget.selection.isCollapsed) {
       return const [];
     }
 
-    final start = selection.normalizedStart;
-    final end = selection.normalizedEnd;
+    final start = widget.selection.normalizedStart;
+    final end = widget.selection.normalizedEnd;
     if (start.section != end.section || start.paragraph != end.paragraph) {
-      return const [];
-    }
-
-    final rects = pageLayerTree?.selectionRectsFor(
-      section: start.section,
-      paragraph: start.paragraph,
-      startOffset: start.offset,
-      endOffset: end.offset,
-    );
-    if (rects == null) {
       return const [];
     }
 
     return [
-      for (final rect in rects) _pageRectToOverlay(rect, effectiveZoom, false),
+      for (final rect in tree.selectionRectsFor(
+        section: start.section,
+        paragraph: start.paragraph,
+        startOffset: start.offset,
+        endOffset: end.offset,
+      ))
+        _scalePageRect(rect, tree, overlaySize),
     ];
   }
 
-  Rect _pageRectToOverlay(Rect rect, double effectiveZoom, bool caret) {
+  Size _overlaySize(BoxConstraints constraints, RhwpLayerTree tree) {
+    final fallbackSize = tree.pageSize ?? Size.zero;
+    return Size(
+      constraints.maxWidth.isFinite ? constraints.maxWidth : fallbackSize.width,
+      constraints.maxHeight.isFinite
+          ? constraints.maxHeight
+          : fallbackSize.height,
+    );
+  }
+
+  Rect _scalePageRect(
+    Rect rect,
+    RhwpLayerTree tree,
+    Size overlaySize, {
+    bool caret = false,
+  }) {
+    final pageSize = tree.pageSize;
+    final scaleX = pageSize == null || pageSize.width <= 0
+        ? 1.0
+        : overlaySize.width / pageSize.width;
+    final scaleY = pageSize == null || pageSize.height <= 0
+        ? 1.0
+        : overlaySize.height / pageSize.height;
     return Rect.fromLTWH(
-      _layerPageInset + rect.left * effectiveZoom,
-      _layerPageInset + rect.top * effectiveZoom,
-      math.max(caret ? 2.0 : 4.0, rect.width * effectiveZoom),
-      math.max(12.0, rect.height * effectiveZoom),
+      rect.left * scaleX,
+      rect.top * scaleY,
+      math.max(caret ? 2.0 : 4.0, rect.width * scaleX),
+      math.max(12.0, rect.height * scaleY),
     );
   }
 
@@ -504,12 +551,10 @@ class _EditorSelectionOverlay extends StatelessWidget {
     required BoxConstraints constraints,
     required Widget child,
   }) {
-    final left = _bound(rect.left, constraints.maxWidth, rect.width);
-    final top = _bound(rect.top, constraints.maxHeight, rect.height);
     return Positioned(
       key: key,
-      left: left,
-      top: top,
+      left: _bound(rect.left, constraints.maxWidth, rect.width),
+      top: _bound(rect.top, constraints.maxHeight, rect.height),
       width: rect.width,
       height: rect.height,
       child: child,

@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:math' as math;
-import 'dart:ui' show Offset, Rect;
+import 'dart:ui' show Offset, Rect, Size;
 
 /// Parsed page layer tree returned by the rhwp core.
 ///
@@ -12,6 +12,8 @@ class RhwpLayerTree {
     required this.page,
     required Map<String, Object?> raw,
     required this.root,
+    this.pageWidth,
+    this.pageHeight,
   }) : raw = Map.unmodifiable(raw);
 
   /// Decodes a rhwp page layer tree JSON string.
@@ -26,6 +28,8 @@ class RhwpLayerTree {
       page: page,
       raw: raw,
       root: RhwpLayerNode.fromJson(raw),
+      pageWidth: _number(raw['pageWidth']),
+      pageHeight: _number(raw['pageHeight']),
     );
   }
 
@@ -37,6 +41,22 @@ class RhwpLayerTree {
 
   /// The root node of the decoded layer tree.
   final RhwpLayerNode root;
+
+  /// The declared page width in rhwp page coordinates when provided.
+  final double? pageWidth;
+
+  /// The declared page height in rhwp page coordinates when provided.
+  final double? pageHeight;
+
+  /// The page size in rhwp page coordinates when it can be inferred.
+  Size? get pageSize {
+    final width = pageWidth ?? root.bounds?.width;
+    final height = pageHeight ?? root.bounds?.height;
+    if (width == null || height == null) {
+      return null;
+    }
+    return Size(width, height);
+  }
 
   /// The root node and all descendant nodes in depth-first order.
   Iterable<RhwpLayerNode> get nodes => root.walk();

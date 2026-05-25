@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'dart:ui' show Rect;
+import 'dart:ui' show Rect, Size;
 
 import 'package:flutter_rhwp/flutter_rhwp.dart';
 import 'package:flutter_rhwp/src/rust/api/rhwp.dart' as rust;
@@ -175,6 +175,7 @@ void main() {
     );
 
     final run = tree.textRuns.single;
+    expect(tree.pageSize, const Size(240, 180));
     expect(run.section, 0);
     expect(run.paragraph, 0);
     expect(run.charStart, 3);

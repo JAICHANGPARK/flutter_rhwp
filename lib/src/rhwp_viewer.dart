@@ -5,6 +5,10 @@ import 'rhwp_document.dart';
 
 typedef RhwpSvgBuilder = Widget Function(BuildContext context, String svg);
 
+/// Builds an optional overlay for a rendered page.
+typedef RhwpPageOverlayBuilder =
+    Widget? Function(BuildContext context, int page, String svg);
+
 Widget _defaultRhwpSvgBuilder(BuildContext context, String svg) {
   return SvgPicture.string(
     svg,
@@ -46,6 +50,7 @@ class RhwpViewer extends StatefulWidget {
     this.pageGap = 16,
     this.backgroundColor = const Color(0xfff2f4f7),
     this.svgBuilder = _defaultRhwpSvgBuilder,
+    this.pageOverlayBuilder,
   });
 
   final RhwpDocument document;
@@ -54,6 +59,7 @@ class RhwpViewer extends StatefulWidget {
   final double pageGap;
   final Color backgroundColor;
   final RhwpSvgBuilder svgBuilder;
+  final RhwpPageOverlayBuilder? pageOverlayBuilder;
 
   @override
   State<RhwpViewer> createState() => _RhwpViewerState();
@@ -129,6 +135,7 @@ class _RhwpViewerState extends State<RhwpViewer> {
                         document: widget.document,
                         page: index,
                         svgBuilder: widget.svgBuilder,
+                        pageOverlayBuilder: widget.pageOverlayBuilder,
                       );
                     },
                   ),
@@ -147,11 +154,13 @@ class _RhwpSvgPage extends StatefulWidget {
     required this.document,
     required this.page,
     required this.svgBuilder,
+    required this.pageOverlayBuilder,
   });
 
   final RhwpDocument document;
   final int page;
   final RhwpSvgBuilder svgBuilder;
+  final RhwpPageOverlayBuilder? pageOverlayBuilder;
 
   @override
   State<_RhwpSvgPage> createState() => _RhwpSvgPageState();
@@ -201,10 +210,24 @@ class _RhwpSvgPageState extends State<_RhwpSvgPage>
             );
           }
 
-          return Padding(
-            padding: const EdgeInsets.all(8),
-            child: widget.svgBuilder(context, snapshot.requireData),
+          final svg = snapshot.requireData;
+          final page = widget.svgBuilder(context, svg);
+          final overlay = widget.pageOverlayBuilder?.call(
+            context,
+            widget.page,
+            svg,
           );
+          final content = overlay == null
+              ? page
+              : Stack(
+                  fit: StackFit.passthrough,
+                  children: [
+                    page,
+                    Positioned.fill(child: IgnorePointer(child: overlay)),
+                  ],
+                );
+
+          return Padding(padding: const EdgeInsets.all(8), child: content);
         },
       ),
     );

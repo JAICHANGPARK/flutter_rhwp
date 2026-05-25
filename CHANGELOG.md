@@ -71,3 +71,6 @@
 * Added text-run geometry helpers for page layer trees and made `RhwpEditor`
   prefer layer-tree caret/selection bounds when first-page text run geometry is
   available.
+* Added a page-local `RhwpViewer.pageOverlayBuilder` hook and moved
+  `RhwpEditor` caret/selection painting onto each rendered page so visible page
+  overlays stay aligned with viewer scrolling and page layout.
