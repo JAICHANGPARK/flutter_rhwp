@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -205,6 +206,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   final _sectionController = TextEditingController(text: '0');
   final _paragraphController = TextEditingController(text: '0');
   final _offsetController = TextEditingController(text: '0');
+  final _tableRowsController = TextEditingController(text: '2');
+  final _tableColumnsController = TextEditingController(text: '2');
   TextInputConnection? _textInputConnection;
   TextEditingValue _inputValue = TextEditingValue.empty;
   Key _viewerKey = UniqueKey();
@@ -242,6 +245,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _sectionController.dispose();
     _paragraphController.dispose();
     _offsetController.dispose();
+    _tableRowsController.dispose();
+    _tableColumnsController.dispose();
     super.dispose();
   }
 
@@ -388,6 +393,40 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       _controller.cursor = cursor.copyWith(
         paragraph: cursor.paragraph + 1,
         offset: 0,
+      );
+    });
+  }
+
+  Future<void> _insertTable() async {
+    if (_busy) {
+      return;
+    }
+
+    final rows = _parsePositive(_tableRowsController.text, max: 256);
+    final columns = _parsePositive(_tableColumnsController.text, max: 256);
+    _setTextIfChanged(_tableRowsController, rows.toString());
+    _setTextIfChanged(_tableColumnsController, columns.toString());
+
+    await _runEdit(() async {
+      final selection = _controller.selection;
+      final cursor = selection.isCollapsed
+          ? _readCursor()
+          : selection.normalizedStart;
+      if (!selection.isCollapsed) {
+        await _deleteSelectedText(selection);
+      }
+      final result = await widget.document.insertTable(
+        section: cursor.section,
+        paragraph: cursor.paragraph,
+        offset: cursor.offset,
+        rows: rows,
+        columns: columns,
+      );
+      final tableParagraph =
+          _readIntResult(result, 'paraIdx') ?? cursor.paragraph;
+      _controller.cursor = RhwpCursorPosition(
+        section: cursor.section,
+        paragraph: tableParagraph + 1,
       );
     });
   }
@@ -607,6 +646,29 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return 0;
     }
     return parsed;
+  }
+
+  int _parsePositive(String text, {required int max}) {
+    final parsed = int.tryParse(text);
+    if (parsed == null || parsed < 1) {
+      return 1;
+    }
+    return math.min(parsed, max);
+  }
+
+  int? _readIntResult(String resultJson, String key) {
+    try {
+      final decoded = jsonDecode(resultJson);
+      if (decoded is Map) {
+        final value = decoded[key];
+        if (value is num) {
+          return value.toInt();
+        }
+      }
+    } catch (_) {
+      return null;
+    }
+    return null;
   }
 
   void _setCursorFromPage(RhwpCursorPosition cursor) {
@@ -832,8 +894,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           sectionController: _sectionController,
           paragraphController: _paragraphController,
           offsetController: _offsetController,
+          tableRowsController: _tableRowsController,
+          tableColumnsController: _tableColumnsController,
           onInsert: _insertText,
           onDeleteBackward: _deleteBackward,
+          onInsertTable: _insertTable,
           onCut: _cutSelection,
           onCopy: _copySelection,
           onPaste: _pasteClipboard,
@@ -1287,8 +1352,11 @@ class _EditorToolbar extends StatefulWidget {
     required this.sectionController,
     required this.paragraphController,
     required this.offsetController,
+    required this.tableRowsController,
+    required this.tableColumnsController,
     required this.onInsert,
     required this.onDeleteBackward,
+    required this.onInsertTable,
     required this.onCut,
     required this.onCopy,
     required this.onPaste,
@@ -1309,8 +1377,11 @@ class _EditorToolbar extends StatefulWidget {
   final TextEditingController sectionController;
   final TextEditingController paragraphController;
   final TextEditingController offsetController;
+  final TextEditingController tableRowsController;
+  final TextEditingController tableColumnsController;
   final VoidCallback onInsert;
   final VoidCallback onDeleteBackward;
+  final VoidCallback onInsertTable;
   final VoidCallback onCut;
   final VoidCallback onCopy;
   final VoidCallback onPaste;
@@ -1413,6 +1484,22 @@ class _EditorToolbarState extends State<_EditorToolbar> {
                     tooltip: 'Delete backward',
                     icon: Icons.backspace_outlined,
                     onPressed: widget.busy ? null : widget.onDeleteBackward,
+                  ),
+                  const _ToolbarDivider(),
+                  _NumberField(
+                    label: 'Rows',
+                    controller: widget.tableRowsController,
+                  ),
+                  const SizedBox(width: 6),
+                  _NumberField(
+                    label: 'Cols',
+                    controller: widget.tableColumnsController,
+                  ),
+                  const SizedBox(width: 6),
+                  _ToolbarIconButton(
+                    tooltip: 'Insert table',
+                    icon: Icons.table_chart_outlined,
+                    onPressed: widget.busy ? null : widget.onInsertTable,
                   ),
                   const _ToolbarDivider(),
                   _ToolbarIconButton(

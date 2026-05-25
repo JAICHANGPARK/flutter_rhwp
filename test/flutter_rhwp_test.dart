@@ -40,6 +40,25 @@ void main() {
     });
   });
 
+  test('insert table command serializes to the Rust command envelope', () {
+    final command = RhwpCommand.insertTable(
+      section: 0,
+      paragraph: 1,
+      offset: 2,
+      rows: 3,
+      columns: 4,
+    );
+
+    expect(jsonDecode(jsonEncode(command.toJson())), {
+      'type': 'insertTable',
+      'section': 0,
+      'paragraph': 1,
+      'offset': 2,
+      'rows': 3,
+      'columns': 4,
+    });
+  });
+
   test('delete range command serializes to the Rust command envelope', () {
     final command = RhwpCommand.deleteRange(
       section: 0,
@@ -287,6 +306,23 @@ void main() {
       'section': 0,
       'paragraph': 1,
       'offset': 2,
+    });
+
+    await document.insertTable(
+      section: 0,
+      paragraph: 1,
+      offset: 2,
+      rows: 3,
+      columns: 4,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'insertTable',
+      'section': 0,
+      'paragraph': 1,
+      'offset': 2,
+      'rows': 3,
+      'columns': 4,
     });
   });
 

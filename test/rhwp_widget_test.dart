@@ -214,6 +214,51 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor toolbar inserts a table', (tester) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 0);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.cursor = const RhwpCursorPosition(offset: 2);
+    await tester.pump();
+
+    final insertTableButton = find.widgetWithIcon(
+      IconButton,
+      Icons.table_chart_outlined,
+    );
+    await tester.ensureVisible(insertTableButton);
+    await tester.pump();
+    await tester.tap(insertTableButton);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(controller.cursor, const RhwpCursorPosition(paragraph: 2));
+    expect(jsonDecode(session.commands.single), {
+      'type': 'insertTable',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 2,
+      'rows': 2,
+      'columns': 2,
+    });
+  });
+
   testWidgets('RhwpCommandEditor paints caret and selection target overlay', (
     tester,
   ) async {
@@ -1049,6 +1094,15 @@ class _FakeRhwpSession implements rust.RhwpSession {
   @override
   Future<String> applyCommand({required String commandJson}) async {
     commands.add(commandJson);
+    final command = jsonDecode(commandJson);
+    if (command is Map && command['type'] == 'insertTable') {
+      final paragraph = command['paragraph'];
+      final offset = command['offset'];
+      if (paragraph is int && offset is int) {
+        final tableParagraph = offset > 0 ? paragraph + 1 : paragraph;
+        return '{"ok":true,"paraIdx":$tableParagraph,"controlIdx":0}';
+      }
+    }
     return '{"ok":true}';
   }
 

@@ -165,6 +165,14 @@ abstract class RhwpCommand {
     required int offset,
   }) = RhwpSplitParagraphCommand;
 
+  factory RhwpCommand.insertTable({
+    required int section,
+    required int paragraph,
+    required int offset,
+    required int rows,
+    required int columns,
+  }) = RhwpInsertTableCommand;
+
   factory RhwpCommand.applyCharFormat({
     required int section,
     required int paragraph,
@@ -291,6 +299,32 @@ class RhwpSplitParagraphCommand extends RhwpCommand {
     'section': section,
     'paragraph': paragraph,
     'offset': offset,
+  };
+}
+
+class RhwpInsertTableCommand extends RhwpCommand {
+  const RhwpInsertTableCommand({
+    required this.section,
+    required this.paragraph,
+    required this.offset,
+    required this.rows,
+    required this.columns,
+  });
+
+  final int section;
+  final int paragraph;
+  final int offset;
+  final int rows;
+  final int columns;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'insertTable',
+    'section': section,
+    'paragraph': paragraph,
+    'offset': offset,
+    'rows': rows,
+    'columns': columns,
   };
 }
 
@@ -600,6 +634,24 @@ class RhwpDocument {
         section: section,
         paragraph: paragraph,
         offset: offset,
+      ),
+    );
+  }
+
+  Future<String> insertTable({
+    required int section,
+    required int paragraph,
+    required int offset,
+    required int rows,
+    required int columns,
+  }) {
+    return apply(
+      RhwpCommand.insertTable(
+        section: section,
+        paragraph: paragraph,
+        offset: offset,
+        rows: rows,
+        columns: columns,
       ),
     );
   }

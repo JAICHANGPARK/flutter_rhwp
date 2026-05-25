@@ -210,6 +210,28 @@ impl RhwpSession {
                 .document
                 .split_paragraph_native(section as usize, paragraph as usize, offset as usize)
                 .map_err(error_to_string),
+            RhwpCommand::InsertTable {
+                section,
+                paragraph,
+                offset,
+                rows,
+                columns,
+            } => {
+                let row_count =
+                    u16::try_from(rows).map_err(|_| "rows must fit in u16".to_string())?;
+                let column_count =
+                    u16::try_from(columns).map_err(|_| "columns must fit in u16".to_string())?;
+                inner
+                    .document
+                    .create_table_native(
+                        section as usize,
+                        paragraph as usize,
+                        offset as usize,
+                        row_count,
+                        column_count,
+                    )
+                    .map_err(error_to_string)
+            }
             RhwpCommand::ApplyCharFormat {
                 section,
                 paragraph,
@@ -369,6 +391,13 @@ enum RhwpCommand {
         section: u32,
         paragraph: u32,
         offset: u32,
+    },
+    InsertTable {
+        section: u32,
+        paragraph: u32,
+        offset: u32,
+        rows: u32,
+        columns: u32,
     },
     ApplyCharFormat {
         section: u32,
@@ -894,6 +923,12 @@ mod tests {
                     .to_string(),
             )
             .expect("delete range command should be accepted");
+        session
+            .apply_command(
+                r#"{"type":"insertTable","section":0,"paragraph":0,"offset":0,"rows":2,"columns":3}"#
+                    .to_string(),
+            )
+            .expect("insert table command should be accepted");
 
         let hwp = session.export_hwp().expect("HWP export should succeed");
         assert!(!hwp.is_empty());
