@@ -85,6 +85,9 @@
   Rust command bridge.
 * Prevented immediate text input actions from flushing the Flutter-native
   editor's deferred page refresh after every committed character.
+* Reduced example-app typing refresh churn by using a longer native-editor
+  render sync delay and deferring HWP snapshot export until save/export or a
+  native-to-full-editor mode switch.
 * Added Flutter-native picture insertion from the insert ribbon through an app
   supplied image picker callback and the Rust command bridge.
 * Added Flutter-native page break and column break insertion from the insert

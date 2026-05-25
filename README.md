@@ -240,8 +240,10 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   Committed text is shown through a
   temporary Flutter overlay with a pending caret until the refreshed page render
   completes, including table cell text input. Deleted body text is temporarily
-  masked until the refreshed page render completes. The example app uses a 1200
-  ms refresh delay for a steadier typing feel.
+  masked until the refreshed page render completes. The example app uses a 5 s
+  refresh delay for a steadier typing feel on large HWP files and defers HWP
+  snapshot export until the user saves/exports or switches from the native
+  editor to the full editor.
   Pending text previews are updated through a scoped overlay notifier, so
   normal typing updates the caret/text preview without rebuilding the whole
   native editor surface. The status bar reports body cursor, active table cell,

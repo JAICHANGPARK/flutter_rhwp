@@ -65,6 +65,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
       ? _EditorMode.fullEditor
       : _EditorMode.nativeEditor;
   bool _busy = false;
+  bool _nativeDocumentDirty = false;
 
   bool get _usesFullEditor => _editorMode == _EditorMode.fullEditor;
 
@@ -233,7 +234,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
       );
       _viewerKey = UniqueKey();
       _metadata = await document.metadata();
-      _sourceBytes = await document.exportHwp();
+      _nativeDocumentDirty = true;
       return 'Inserted text at section 0, paragraph 0';
     });
   }
@@ -272,6 +273,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
       _sourceBytes = sourceBytes;
       _fileName = fileName;
       _viewerKey = UniqueKey();
+      _nativeDocumentDirty = false;
     });
     await previous?.close();
   }
@@ -287,6 +289,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
       _sourceBytes = sourceBytes;
       _fileName = fileName;
       _viewerKey = UniqueKey();
+      _nativeDocumentDirty = false;
     });
     await previous?.close();
   }
@@ -297,6 +300,24 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
     }
     if (mode == _EditorMode.fullEditor && !_supportsFullEditorHost) {
       _showStatus('The rhwp full editor is not available on this platform');
+      return;
+    }
+
+    final nativeDocument = _document;
+    if (mode == _EditorMode.fullEditor && nativeDocument != null) {
+      await _run('Open full editor', () async {
+        final sourceBytes = _nativeDocumentDirty || _sourceBytes == null
+            ? await nativeDocument.exportHwp()
+            : _sourceBytes;
+        await _replaceWebEditorSource(
+          fileName: _fileName ?? 'document.hwp',
+          sourceBytes: sourceBytes,
+        );
+        setState(() {
+          _editorMode = mode;
+        });
+        return 'Switched to full editor';
+      });
       return;
     }
 
@@ -475,11 +496,12 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
                       key: _viewerKey,
                       document: document,
                       controller: _editorController,
-                      editRefreshDelay: const Duration(milliseconds: 1200),
+                      editRefreshDelay: const Duration(seconds: 5),
                       onOpenRequested: _busy ? null : _openDocument,
                       onImageRequested: _busy ? null : _pickEditorImage,
                       onExported: _busy ? null : _saveEditorExport,
                       onChanged: (_) async {
+                        _nativeDocumentDirty = true;
                         final metadata = await document.metadata();
                         if (!mounted) {
                           return;
@@ -487,17 +509,6 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
                         setState(() {
                           _metadata = metadata;
                         });
-                        try {
-                          final bytes = await document.exportHwp();
-                          if (mounted) {
-                            setState(() {
-                              _sourceBytes = bytes;
-                            });
-                          }
-                        } catch (_) {
-                          // Keep editing responsive even if snapshot export is
-                          // unavailable for the current document state.
-                        }
                       },
                     ),
             ),
