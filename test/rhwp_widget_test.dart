@@ -1417,6 +1417,7 @@ void main() {
         endRow: 2,
         endColumn: 3,
         activeCellIndex: 7,
+        isTextEditing: true,
       ),
     );
 
@@ -1588,6 +1589,55 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor clears selected table cell text with delete', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    await tester.tapAt(
+      pageTopLeft +
+          Offset(pageSize.width * 100 / 240, pageSize.height * 60 / 180),
+    );
+    await tester.pump();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.single), {
+      'type': 'deleteTextInTableCell',
+      'section': 0,
+      'paragraph': 5,
+      'controlIndex': 2,
+      'cellIndex': 7,
+      'cellParagraph': 0,
+      'offset': 0,
+      'count': 4,
+    });
+  });
+
   testWidgets(
     'RhwpNativeEditor copies cuts and pastes selected table cell text',
     (tester) async {
@@ -1721,6 +1771,7 @@ void main() {
         endColumn: 3,
         activeCellIndex: 7,
         activeOffset: 2,
+        isTextEditing: true,
       ),
     );
 
@@ -1740,6 +1791,26 @@ void main() {
       'cellParagraph': 0,
       'offset': 2,
       'text': 'X',
+    });
+
+    await tester.tapAt(
+      pageTopLeft +
+          Offset(pageSize.width * 118 / 240, pageSize.height * 76 / 180),
+    );
+    await tester.pump();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+    await _pumpDocumentFrame(tester);
+
+    expect(jsonDecode(session.commands.last), {
+      'type': 'deleteTextInTableCell',
+      'section': 0,
+      'paragraph': 5,
+      'controlIndex': 2,
+      'cellIndex': 7,
+      'cellParagraph': 0,
+      'offset': 2,
+      'count': 1,
     });
   });
 

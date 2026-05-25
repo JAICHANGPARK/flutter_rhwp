@@ -108,6 +108,7 @@ class RhwpTableCellSelection {
     this.activeCellIndex,
     this.activeCellParagraph = 0,
     this.activeOffset = 0,
+    this.isTextEditing = false,
   });
 
   /// Creates a selection from a decoded page layer tree cell.
@@ -167,6 +168,7 @@ class RhwpTableCellSelection {
       activeCellIndex: selection.activeCellIndex ?? extent.modelCellIndex,
       activeCellParagraph: selection.activeCellParagraph,
       activeOffset: selection.activeOffset,
+      isTextEditing: false,
     );
   }
 
@@ -187,6 +189,7 @@ class RhwpTableCellSelection {
       activeCellIndex: context?.cellIndex ?? cell.modelCellIndex,
       activeCellParagraph: context?.cellParagraph ?? 0,
       activeOffset: hit.offset,
+      isTextEditing: true,
     );
   }
 
@@ -220,6 +223,9 @@ class RhwpTableCellSelection {
   /// The active UTF-16 offset inside [activeCellParagraph].
   final int activeOffset;
 
+  /// Whether keyboard deletion should edit text at [activeOffset].
+  final bool isTextEditing;
+
   /// Whether this selection intersects [cell].
   bool containsCell(RhwpTableCellLayout cell) {
     if (!isSameTableAs(cell)) {
@@ -251,7 +257,8 @@ class RhwpTableCellSelection {
         other.endColumn == endColumn &&
         other.activeCellIndex == activeCellIndex &&
         other.activeCellParagraph == activeCellParagraph &&
-        other.activeOffset == activeOffset;
+        other.activeOffset == activeOffset &&
+        other.isTextEditing == isTextEditing;
   }
 
   @override
@@ -266,11 +273,12 @@ class RhwpTableCellSelection {
     activeCellIndex,
     activeCellParagraph,
     activeOffset,
+    isTextEditing,
   );
 
   @override
   String toString() {
-    return 'RhwpTableCellSelection(section: $section, paragraph: $paragraph, controlIndex: $controlIndex, startRow: $startRow, startColumn: $startColumn, endRow: $endRow, endColumn: $endColumn, activeCellIndex: $activeCellIndex, activeCellParagraph: $activeCellParagraph, activeOffset: $activeOffset)';
+    return 'RhwpTableCellSelection(section: $section, paragraph: $paragraph, controlIndex: $controlIndex, startRow: $startRow, startColumn: $startColumn, endRow: $endRow, endColumn: $endColumn, activeCellIndex: $activeCellIndex, activeCellParagraph: $activeCellParagraph, activeOffset: $activeOffset, isTextEditing: $isTextEditing)';
   }
 }
 
@@ -1142,6 +1150,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         activeCellIndex: tableSelection.activeCellIndex,
         activeCellParagraph: tableSelection.activeCellParagraph,
         activeOffset: nextOffset,
+        isTextEditing: true,
       );
       if (clearTextController) {
         _textController.clear();
@@ -2356,6 +2365,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   }
 
   Future<void> _deleteBackward() async {
+    final tableSelection = _controller.tableCellSelection;
+    if (tableSelection != null && !tableSelection.isTextEditing) {
+      await _deleteSelectedTableCellText(tableSelection);
+      return;
+    }
+
     if (_editableTableCellSelection != null) {
       await _deleteTextInSelectedTableCell(backward: true);
       return;
@@ -2395,6 +2410,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   }
 
   Future<void> _deleteForward() async {
+    final tableSelection = _controller.tableCellSelection;
+    if (tableSelection != null && !tableSelection.isTextEditing) {
+      await _deleteSelectedTableCellText(tableSelection);
+      return;
+    }
+
     if (_editableTableCellSelection != null) {
       await _deleteTextInSelectedTableCell(backward: false);
       return;
@@ -2431,6 +2452,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   }
 
   Future<void> _deleteWord({required bool backward}) async {
+    final tableSelection = _controller.tableCellSelection;
+    if (tableSelection != null && !tableSelection.isTextEditing) {
+      await _deleteSelectedTableCellText(tableSelection);
+      return;
+    }
+
     if (_editableTableCellSelection != null) {
       await _deleteTextInSelectedTableCell(backward: backward);
       return;
@@ -2518,6 +2545,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         activeCellIndex: tableSelection.activeCellIndex,
         activeCellParagraph: tableSelection.activeCellParagraph,
         activeOffset: nextOffset,
+        isTextEditing: true,
       );
     }, deferRefresh: true);
   }
@@ -2627,7 +2655,17 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       }
 
       _setKeyboardTableCellSelection(
-        RhwpTableCellSelection.fromCell(active.cell),
+        RhwpTableCellSelection(
+          section: active.cell.section,
+          paragraph: active.cell.paragraph,
+          controlIndex: active.cell.controlIndex,
+          startRow: active.cell.row,
+          startColumn: active.cell.column,
+          endRow: active.cell.endRow,
+          endColumn: active.cell.endColumn,
+          activeCellIndex: active.cell.modelCellIndex,
+          isTextEditing: true,
+        ),
         page: active.page,
       );
     } catch (error) {

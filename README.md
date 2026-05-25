@@ -205,7 +205,7 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   context menu, scroll-preserving page refresh after edits, and drag range
   selection and Shift+click range extension for rendered table cells, plus
   selected-cell
-  text insert/delete/copy/cut/paste,
+  text insert/delete/clear/copy/cut/paste,
   cell text offset hit testing, Arrow/Tab/Enter keyboard handling for selected
   table cells, Arrow/Shift+Arrow object nudging, and Shift+drag aspect-ratio
   preserving object resize. Text input, paste, tab input, and keyboard delete
