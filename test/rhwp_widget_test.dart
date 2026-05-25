@@ -281,6 +281,37 @@ void main() {
     expect(caretAdvance, lessThan(40));
     expect(secondCaretTopLeft.dy, firstCaretTopLeft.dy);
   });
+
+  testWidgets('RhwpEditor paints page-local selection across paragraphs', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.selection = const RhwpSelectionRange(
+      start: RhwpCursorPosition(paragraph: 0, offset: 2),
+      end: RhwpCursorPosition(paragraph: 1, offset: 2),
+    );
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('rhwp-editor-selection')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-selection-1')),
+      findsOneWidget,
+    );
+  });
 }
 
 class _WidgetHarness extends StatelessWidget {
@@ -422,6 +453,32 @@ Map<String, Object?> _editorLayerTreeJson() {
               },
               'placement': {
                 'runToPage': {'a': 1, 'b': 0, 'c': 0, 'd': 1, 'e': 80, 'f': 52},
+                'baselineY': 0,
+              },
+              'clusters': [
+                _editorTextCluster(0, 1, 0),
+                _editorTextCluster(1, 2, 10),
+                _editorTextCluster(2, 3, 20),
+                _editorTextCluster(3, 4, 30),
+              ],
+            },
+          ],
+        },
+        {
+          'kind': 'leaf',
+          'bounds': {'x': 80, 'y': 80, 'width': 80, 'height': 16},
+          'ops': [
+            {
+              'type': 'textRun',
+              'bbox': {'x': 80, 'y': 80, 'width': 80, 'height': 16},
+              'text': 'efgh',
+              'source': {
+                'id': 1,
+                'utf16Range': {'start': 0, 'end': 4},
+                'stableSourceKey': 'section:0/para:1/char:0',
+              },
+              'placement': {
+                'runToPage': {'a': 1, 'b': 0, 'c': 0, 'd': 1, 'e': 80, 'f': 92},
                 'baselineY': 0,
               },
               'clusters': [

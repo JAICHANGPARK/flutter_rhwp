@@ -499,15 +499,14 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
 
     final start = widget.selection.normalizedStart;
     final end = widget.selection.normalizedEnd;
-    if (start.section != end.section || start.paragraph != end.paragraph) {
-      return const [];
-    }
 
     return [
-      for (final rect in tree.selectionRectsFor(
-        section: start.section,
-        paragraph: start.paragraph,
+      for (final rect in tree.selectionRectsForRange(
+        startSection: start.section,
+        startParagraph: start.paragraph,
         startOffset: start.offset,
+        endSection: end.section,
+        endParagraph: end.paragraph,
         endOffset: end.offset,
       ))
         _scalePageRect(rect, tree, overlaySize),

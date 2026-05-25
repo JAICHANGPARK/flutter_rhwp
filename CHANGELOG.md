@@ -74,3 +74,5 @@
 * Added a page-local `RhwpViewer.pageOverlayBuilder` hook and moved
   `RhwpEditor` caret/selection painting onto each rendered page so visible page
   overlays stay aligned with viewer scrolling and page layout.
+* Extended page layer tree selection geometry to span multiple paragraphs and
+  wired `RhwpEditor` page overlays to render those page-local selection rects.

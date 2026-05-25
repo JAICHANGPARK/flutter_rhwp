@@ -194,6 +194,27 @@ void main() {
     );
     expect(selection.single, const Rect.fromLTRB(30, 30, 60, 42));
   });
+
+  test('page layer tree model maps multi-paragraph selection ranges', () {
+    final tree = RhwpLayerTree.fromJsonString(
+      0,
+      jsonEncode(_multiParagraphLayerTreeJson()),
+    );
+
+    final selection = tree.selectionRectsForRange(
+      startSection: 0,
+      startParagraph: 0,
+      startOffset: 2,
+      endSection: 0,
+      endParagraph: 1,
+      endOffset: 2,
+    );
+
+    expect(selection, [
+      const Rect.fromLTRB(40, 30, 60, 42),
+      const Rect.fromLTRB(20, 60, 40, 72),
+    ]);
+  });
 }
 
 Map<String, Object?> _textRunLayerTreeJson({required int charStart}) {
@@ -239,6 +260,53 @@ Map<String, Object?> _textRunLayerTreeJson({required int charStart}) {
         'utf16Range': {'start': 0, 'end': 4},
         'stableSourceKey': 'section:0/para:0/char:$charStart',
         'annotations': [],
+      },
+    ],
+  };
+}
+
+Map<String, Object?> _multiParagraphLayerTreeJson() {
+  return {
+    'pageWidth': 240,
+    'pageHeight': 180,
+    'root': {
+      'kind': 'group',
+      'bounds': {'x': 0, 'y': 0, 'width': 240, 'height': 180},
+      'children': [
+        _textRunLayerNode(paragraph: 0, y: 30),
+        _textRunLayerNode(paragraph: 1, y: 60),
+      ],
+    },
+  };
+}
+
+Map<String, Object?> _textRunLayerNode({
+  required int paragraph,
+  required double y,
+}) {
+  return {
+    'kind': 'leaf',
+    'bounds': {'x': 20, 'y': y, 'width': 60, 'height': 12},
+    'ops': [
+      {
+        'type': 'textRun',
+        'bbox': {'x': 20, 'y': y, 'width': 60, 'height': 12},
+        'text': 'abcd',
+        'source': {
+          'id': paragraph,
+          'utf16Range': {'start': 0, 'end': 4},
+          'stableSourceKey': 'section:0/para:$paragraph/char:0',
+        },
+        'placement': {
+          'runToPage': {'a': 1, 'b': 0, 'c': 0, 'd': 1, 'e': 20, 'f': y + 10},
+          'baselineY': 0,
+        },
+        'clusters': [
+          _textCluster(0, 1, 0),
+          _textCluster(1, 2, 10),
+          _textCluster(2, 3, 20),
+          _textCluster(3, 4, 30),
+        ],
       },
     ],
   };

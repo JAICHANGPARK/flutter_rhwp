@@ -124,6 +124,71 @@ class RhwpLayerTree {
     }
     return rects;
   }
+
+  /// Returns selection rectangles in page coordinates for a document range.
+  ///
+  /// The returned rectangles are page-local. If the selection spans multiple
+  /// pages, call this on each page layer tree and paint the non-empty result
+  /// for that page.
+  List<Rect> selectionRectsForRange({
+    required int startSection,
+    required int startParagraph,
+    required int startOffset,
+    required int endSection,
+    required int endParagraph,
+    required int endOffset,
+  }) {
+    final start = _TextPosition(
+      section: startSection,
+      paragraph: startParagraph,
+      offset: startOffset,
+    );
+    final end = _TextPosition(
+      section: endSection,
+      paragraph: endParagraph,
+      offset: endOffset,
+    );
+    if (start == end) {
+      return const [];
+    }
+
+    final rangeStart = start.compareTo(end) <= 0 ? start : end;
+    final rangeEnd = start.compareTo(end) <= 0 ? end : start;
+    final rects = <Rect>[];
+
+    for (final run in textRuns) {
+      final section = run.section;
+      final paragraph = run.paragraph;
+      if (section == null || paragraph == null) {
+        continue;
+      }
+
+      final runStart = _TextPosition(
+        section: section,
+        paragraph: paragraph,
+        offset: run.charStart,
+      );
+      final runEnd = _TextPosition(
+        section: section,
+        paragraph: paragraph,
+        offset: run.charEnd,
+      );
+      if (runEnd.compareTo(rangeStart) <= 0 ||
+          runStart.compareTo(rangeEnd) >= 0) {
+        continue;
+      }
+
+      final rect = run.selectionRectForOffsets(
+        _selectionStartForRun(run, rangeStart),
+        _selectionEndForRun(run, rangeEnd),
+      );
+      if (rect != null) {
+        rects.add(rect);
+      }
+    }
+
+    return rects;
+  }
 }
 
 /// A single node in a parsed rhwp page layer tree.
@@ -736,4 +801,56 @@ class _TextRange {
 
   final int start;
   final int end;
+}
+
+class _TextPosition {
+  const _TextPosition({
+    required this.section,
+    required this.paragraph,
+    required this.offset,
+  });
+
+  final int section;
+  final int paragraph;
+  final int offset;
+
+  int compareTo(_TextPosition other) {
+    final sectionCompare = section.compareTo(other.section);
+    if (sectionCompare != 0) {
+      return sectionCompare;
+    }
+
+    final paragraphCompare = paragraph.compareTo(other.paragraph);
+    if (paragraphCompare != 0) {
+      return paragraphCompare;
+    }
+
+    return offset.compareTo(other.offset);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is _TextPosition &&
+        other.section == section &&
+        other.paragraph == paragraph &&
+        other.offset == offset;
+  }
+
+  @override
+  int get hashCode => Object.hash(section, paragraph, offset);
+}
+
+int _selectionStartForRun(RhwpTextRunLayout run, _TextPosition rangeStart) {
+  if (run.section == rangeStart.section &&
+      run.paragraph == rangeStart.paragraph) {
+    return math.max(run.charStart, rangeStart.offset);
+  }
+  return run.charStart;
+}
+
+int _selectionEndForRun(RhwpTextRunLayout run, _TextPosition rangeEnd) {
+  if (run.section == rangeEnd.section && run.paragraph == rangeEnd.paragraph) {
+    return math.min(run.charEnd, rangeEnd.offset);
+  }
+  return run.charEnd;
 }
