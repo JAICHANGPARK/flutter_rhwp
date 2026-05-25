@@ -461,6 +461,61 @@ class _CharShapeDialogResult {
   final String textColor;
 }
 
+class _PendingCharFormat {
+  const _PendingCharFormat({
+    this.bold,
+    this.italic,
+    this.underline,
+    this.strikethrough,
+    this.fontSize,
+    this.textColor,
+  });
+
+  final bool? bold;
+  final bool? italic;
+  final bool? underline;
+  final bool? strikethrough;
+  final int? fontSize;
+  final String? textColor;
+
+  bool get isEmpty =>
+      bold == null &&
+      italic == null &&
+      underline == null &&
+      strikethrough == null &&
+      fontSize == null &&
+      textColor == null;
+
+  _PendingCharFormat merge({
+    bool? bold,
+    bool? italic,
+    bool? underline,
+    bool? strikethrough,
+    int? fontSize,
+    String? textColor,
+  }) {
+    return _PendingCharFormat(
+      bold: bold == null ? this.bold : _toggleBool(this.bold, bold),
+      italic: italic == null ? this.italic : _toggleBool(this.italic, italic),
+      underline: underline == null
+          ? this.underline
+          : _toggleBool(this.underline, underline),
+      strikethrough: strikethrough == null
+          ? this.strikethrough
+          : _toggleBool(this.strikethrough, strikethrough),
+      fontSize: fontSize ?? this.fontSize,
+      textColor: textColor ?? this.textColor,
+    );
+  }
+
+  static bool _toggleBool(bool? current, bool requested) {
+    if (!requested) {
+      return false;
+    }
+    return current == true ? false : true;
+  }
+}
+
 class _ParaShapeDialogResult {
   const _ParaShapeDialogResult({
     required this.alignment,
@@ -917,6 +972,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   List<_EditorSearchMatch> _searchMatches = const [];
   int _activeSearchMatch = -1;
   int? _pageCountValue;
+  _PendingCharFormat _pendingCharFormat = const _PendingCharFormat();
   final _undoSnapshots = <int>[];
   final _redoSnapshots = <int>[];
   bool _busy = false;
@@ -1127,6 +1183,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         offset: cursor.offset,
         text: text,
       );
+      await _applyPendingCharFormatToInsertedText(cursor: cursor, text: text);
       _controller.cursor = cursor.copyWith(offset: cursor.offset + text.length);
       _textController.clear();
     });
@@ -1230,6 +1287,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           offset: cursor.offset,
           text: text,
         );
+        await _applyPendingCharFormatToInsertedText(cursor: cursor, text: text);
         _controller.cursor = cursor.copyWith(
           offset: cursor.offset + text.length,
         );
@@ -1244,6 +1302,30 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       }
       _recordPendingTextOverlay(insertCursor, text);
     }
+  }
+
+  Future<void> _applyPendingCharFormatToInsertedText({
+    required RhwpCursorPosition cursor,
+    required String text,
+  }) async {
+    final pending = _pendingCharFormat;
+    if (pending.isEmpty || text.isEmpty || text.contains('\n')) {
+      return;
+    }
+
+    await widget.document.applyCharFormatRange(
+      section: cursor.section,
+      startParagraph: cursor.paragraph,
+      startOffset: cursor.offset,
+      endParagraph: cursor.paragraph,
+      endOffset: cursor.offset + text.length,
+      bold: pending.bold,
+      italic: pending.italic,
+      underline: pending.underline,
+      strikethrough: pending.strikethrough,
+      fontSize: pending.fontSize,
+      textColor: pending.textColor,
+    );
   }
 
   void _queueCommittedText(String text) {
@@ -1904,6 +1986,16 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
     final selection = _controller.selection;
     if (selection.isCollapsed) {
+      setState(() {
+        _pendingCharFormat = _pendingCharFormat.merge(
+          bold: bold,
+          italic: italic,
+          underline: underline,
+          strikethrough: strikethrough,
+          fontSize: fontSize,
+          textColor: textColor,
+        );
+      });
       return;
     }
 
@@ -5206,6 +5298,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           replaceController: _replaceController,
           tableCellSelection: _controller.tableCellSelection,
           objectSelection: _controller.objectSelection,
+          pendingCharFormat: _pendingCharFormat,
           currentPage: _controller.currentPage,
           pageCount: _pageCountValue,
           zoom: _controller.zoom,
@@ -6847,6 +6940,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.replaceController,
     required this.tableCellSelection,
     required this.objectSelection,
+    required this.pendingCharFormat,
     required this.currentPage,
     required this.pageCount,
     required this.zoom,
@@ -6927,6 +7021,7 @@ class _EditorToolbar extends StatefulWidget {
   final TextEditingController replaceController;
   final RhwpTableCellSelection? tableCellSelection;
   final RhwpObjectSelection? objectSelection;
+  final _PendingCharFormat pendingCharFormat;
   final int currentPage;
   final int? pageCount;
   final double zoom;
@@ -7413,21 +7508,25 @@ class _EditorToolbarState extends State<_EditorToolbar> {
             _ToolbarIconButton(
               tooltip: 'Bold',
               icon: Icons.format_bold,
+              selected: widget.pendingCharFormat.bold == true,
               onPressed: widget.busy ? null : widget.onBold,
             ),
             _ToolbarIconButton(
               tooltip: 'Italic',
               icon: Icons.format_italic,
+              selected: widget.pendingCharFormat.italic == true,
               onPressed: widget.busy ? null : widget.onItalic,
             ),
             _ToolbarIconButton(
               tooltip: 'Underline',
               icon: Icons.format_underlined,
+              selected: widget.pendingCharFormat.underline == true,
               onPressed: widget.busy ? null : widget.onUnderline,
             ),
             _ToolbarIconButton(
               tooltip: 'Strikethrough',
               icon: Icons.format_strikethrough,
+              selected: widget.pendingCharFormat.strikethrough == true,
               onPressed: widget.busy ? null : widget.onStrikethrough,
             ),
             const SizedBox(width: 6),
@@ -7463,7 +7562,9 @@ class _EditorToolbarState extends State<_EditorToolbar> {
                 key: ValueKey('rhwp-editor-text-color-${swatch.value}'),
                 tooltip: 'Text color ${swatch.label}',
                 color: swatch.color,
-                selected: _toolbarTextColor == swatch.value,
+                selected:
+                    (widget.pendingCharFormat.textColor ?? _toolbarTextColor) ==
+                    swatch.value,
                 onPressed: widget.busy
                     ? null
                     : () => _applyToolbarTextColor(swatch.value),
@@ -8560,6 +8661,7 @@ class _ToolbarIconButton extends StatelessWidget {
     required this.onPressed,
     this.buttonKey,
     this.filled = false,
+    this.selected = false,
   });
 
   final String tooltip;
@@ -8567,6 +8669,7 @@ class _ToolbarIconButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final Key? buttonKey;
   final bool filled;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
@@ -8575,7 +8678,14 @@ class _ToolbarIconButton extends StatelessWidget {
       tooltip: tooltip,
       onPressed: onPressed,
       icon: Icon(icon),
+      isSelected: selected,
       style: IconButton.styleFrom(
+        backgroundColor: selected
+            ? Theme.of(context).colorScheme.primaryContainer
+            : null,
+        foregroundColor: selected
+            ? Theme.of(context).colorScheme.onPrimaryContainer
+            : null,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
         minimumSize: const Size.square(36),
         fixedSize: const Size.square(36),

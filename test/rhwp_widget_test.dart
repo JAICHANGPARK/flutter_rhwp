@@ -3945,6 +3945,91 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor applies pending character format to input', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.cursor = const RhwpCursorPosition(offset: 2);
+    await tester.pump();
+
+    await tester.tap(find.text('서식'));
+    await tester.pump();
+    await tester.ensureVisible(find.byTooltip('Bold'));
+    await tester.pump();
+    await tester.tap(find.byTooltip('Bold'));
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-font-size-field')),
+      '14.5',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-apply-font-size')));
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-text-color-#2563eb')),
+    );
+    await tester.pump();
+
+    expect(changedCalls, 0);
+    expect(session.commands, isEmpty);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'Z',
+        selection: TextSelection.collapsed(offset: 1),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(changedCalls, 0);
+    expect(session.commands.map(jsonDecode), [
+      {
+        'type': 'insertText',
+        'section': 0,
+        'paragraph': 0,
+        'offset': 2,
+        'text': 'Z',
+      },
+      {
+        'type': 'applyCharFormatRange',
+        'section': 0,
+        'startParagraph': 0,
+        'startOffset': 2,
+        'endParagraph': 0,
+        'endOffset': 3,
+        'properties': {'bold': true, 'fontSize': 1450, 'textColor': '#2563eb'},
+      },
+    ]);
+
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+  });
+
   testWidgets('RhwpNativeEditor applies character shape dialog values', (
     tester,
   ) async {

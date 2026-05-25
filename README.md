@@ -192,7 +192,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   multi-paragraph selection
   replacement, multi-paragraph selected-text bold/italic/underline/strike
   formatting, inline font size and text color controls, a character shape dialog
-  for font size and text color, paragraph alignment commands and
+  for font size and text color, collapsed-selection pending character
+  formatting for the next inserted body text, paragraph alignment commands and
   Ctrl/Cmd+L/E/R/J alignment shortcuts, a paragraph
   shape dialog for line spacing, indent, and paragraph margins, header/footer
   creation from the page ribbon,
