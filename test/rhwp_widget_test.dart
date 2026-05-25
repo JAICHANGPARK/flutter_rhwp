@@ -436,6 +436,73 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor commits text input after IME composition', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    expect(tester.testTextInput.hasAnyClients, isTrue);
+    expect(tester.testTextInput.isVisible, isTrue);
+
+    controller.cursor = const RhwpCursorPosition(offset: 2);
+    await tester.pump();
+
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'ㅎ',
+        selection: TextSelection.collapsed(offset: 1),
+        composing: TextRange(start: 0, end: 1),
+      ),
+    );
+    await tester.pump();
+
+    expect(session.commands, isEmpty);
+    expect(controller.cursor, const RhwpCursorPosition(offset: 2));
+
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: '한',
+        selection: TextSelection.collapsed(offset: 1),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(controller.cursor, const RhwpCursorPosition(offset: 3));
+    expect(jsonDecode(session.commands.single), {
+      'type': 'insertText',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 2,
+      'text': '한',
+    });
+    expect(tester.testTextInput.editingState?['text'], '');
+  });
+
   testWidgets(
     'RhwpCommandEditor paints page-local selection across paragraphs',
     (tester) async {

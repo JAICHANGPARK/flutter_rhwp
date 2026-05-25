@@ -197,7 +197,7 @@ class RhwpCommandEditor extends StatelessWidget {
   }
 }
 
-class _RhwpEditorState extends State<RhwpEditor> {
+class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   late final RhwpEditorController _controller;
   late final bool _ownsController;
   final _focusNode = FocusNode(debugLabel: 'RhwpNativeEditor');
@@ -205,6 +205,8 @@ class _RhwpEditorState extends State<RhwpEditor> {
   final _sectionController = TextEditingController(text: '0');
   final _paragraphController = TextEditingController(text: '0');
   final _offsetController = TextEditingController(text: '0');
+  TextInputConnection? _textInputConnection;
+  TextEditingValue _inputValue = TextEditingValue.empty;
   Key _viewerKey = UniqueKey();
   bool _busy = false;
   Object? _error;
@@ -215,6 +217,7 @@ class _RhwpEditorState extends State<RhwpEditor> {
     _ownsController = widget.controller == null;
     _controller = widget.controller ?? RhwpEditorController();
     _controller.addListener(_handleControllerChanged);
+    _focusNode.addListener(_handleFocusChanged);
     _syncCursorFields();
   }
 
@@ -229,6 +232,8 @@ class _RhwpEditorState extends State<RhwpEditor> {
   @override
   void dispose() {
     _controller.removeListener(_handleControllerChanged);
+    _focusNode.removeListener(_handleFocusChanged);
+    _closeTextInput();
     if (_ownsController) {
       _controller.dispose();
     }
@@ -239,6 +244,12 @@ class _RhwpEditorState extends State<RhwpEditor> {
     _offsetController.dispose();
     super.dispose();
   }
+
+  @override
+  TextEditingValue? get currentTextEditingValue => _inputValue;
+
+  @override
+  AutofillScope? get currentAutofillScope => null;
 
   void _handleControllerChanged() {
     _syncCursorFields();
@@ -264,6 +275,14 @@ class _RhwpEditorState extends State<RhwpEditor> {
     );
   }
 
+  void _handleFocusChanged() {
+    if (_focusNode.hasFocus) {
+      _openTextInput();
+    } else {
+      _closeTextInput();
+    }
+  }
+
   Future<void> _insertText() async {
     final text = _textController.text;
     if (text.isEmpty) {
@@ -286,6 +305,29 @@ class _RhwpEditorState extends State<RhwpEditor> {
       );
       _controller.cursor = cursor.copyWith(offset: cursor.offset + text.length);
       _textController.clear();
+    });
+  }
+
+  Future<void> _insertCommittedText(String text) async {
+    if (text.isEmpty || _busy) {
+      return;
+    }
+
+    await _runEdit(() async {
+      final selection = _controller.selection;
+      final cursor = selection.isCollapsed
+          ? _controller.cursor
+          : selection.normalizedStart;
+      if (!selection.isCollapsed) {
+        await _deleteSelectedText(selection);
+      }
+      await widget.document.insertText(
+        section: cursor.section,
+        paragraph: cursor.paragraph,
+        offset: cursor.offset,
+        text: text,
+      );
+      _controller.cursor = cursor.copyWith(offset: cursor.offset + text.length);
     });
   }
 
@@ -405,6 +447,84 @@ class _RhwpEditorState extends State<RhwpEditor> {
 
   void _focusEditor() {
     _focusNode.requestFocus();
+    _openTextInput();
+  }
+
+  void _openTextInput() {
+    final connection = _textInputConnection;
+    if (connection != null && connection.attached) {
+      connection.show();
+      return;
+    }
+
+    final nextConnection = TextInput.attach(
+      this,
+      const TextInputConfiguration(
+        inputType: TextInputType.text,
+        inputAction: TextInputAction.done,
+        autocorrect: false,
+        enableSuggestions: false,
+      ),
+    );
+    _textInputConnection = nextConnection;
+    nextConnection.setEditingState(_inputValue);
+    nextConnection.show();
+  }
+
+  void _closeTextInput() {
+    final connection = _textInputConnection;
+    if (connection != null && connection.attached) {
+      connection.close();
+    }
+    _textInputConnection = null;
+  }
+
+  void _resetTextInputValue() {
+    _inputValue = TextEditingValue.empty;
+    final connection = _textInputConnection;
+    if (connection != null && connection.attached) {
+      connection.setEditingState(_inputValue);
+    }
+  }
+
+  @override
+  void updateEditingValue(TextEditingValue value) {
+    if (value == _inputValue) {
+      return;
+    }
+
+    _inputValue = value;
+    if (value.composing.isValid && !value.composing.isCollapsed) {
+      return;
+    }
+
+    final committedText = value.text;
+    if (committedText.isEmpty) {
+      return;
+    }
+
+    _resetTextInputValue();
+    _insertCommittedText(committedText);
+  }
+
+  @override
+  void performAction(TextInputAction action) {
+    _resetTextInputValue();
+  }
+
+  @override
+  void performPrivateCommand(String action, Map<String, dynamic> data) {}
+
+  @override
+  void updateFloatingCursor(RawFloatingCursorPoint point) {}
+
+  @override
+  void showAutocorrectionPromptRect(int start, int end) {}
+
+  @override
+  void connectionClosed() {
+    _textInputConnection?.connectionClosedReceived();
+    _textInputConnection = null;
   }
 
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {

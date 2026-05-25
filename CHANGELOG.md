@@ -129,3 +129,5 @@
 * Wired Flutter-native drag selection to the same page-layer hit-test model.
 * Added Flutter-native editor keyboard handling for left/right/home caret
   movement, shift-selection, and backspace/delete command dispatch.
+* Added a Flutter `TextInputClient` bridge so the native editor can receive IME
+  text composition and commit finalized text through the Rust insert command.
