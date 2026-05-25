@@ -1585,6 +1585,67 @@ void main() {
     expect(controller.currentPage, 0);
   });
 
+  testWidgets('RhwpNativeEditor uses page geometry for home and end', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(
+      _editorLayerTreeJson(
+        firstText: 'abcd',
+        secondText: 'efgh',
+        firstParagraph: 0,
+        secondParagraph: 0,
+        firstCharStart: 0,
+        secondCharStart: 4,
+      ),
+    );
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    controller.cursor = const RhwpCursorPosition(offset: 6);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    await _pumpDocumentFrame(tester);
+    expect(controller.cursor, const RhwpCursorPosition(offset: 4));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    await _pumpDocumentFrame(tester);
+    expect(controller.cursor, const RhwpCursorPosition(offset: 8));
+
+    controller.cursor = const RhwpCursorPosition(offset: 7);
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(
+      controller.selection,
+      const RhwpSelectionRange(
+        start: RhwpCursorPosition(offset: 7),
+        end: RhwpCursorPosition(offset: 4),
+      ),
+    );
+    expect(session.commands, isEmpty);
+  });
+
   testWidgets('RhwpNativeEditor handles document boundary shortcuts', (
     tester,
   ) async {
@@ -3002,6 +3063,8 @@ Map<String, Object?> _editorLayerTreeJson({
   String secondText = 'efgh',
   int firstParagraph = 0,
   int secondParagraph = 1,
+  int firstCharStart = 0,
+  int secondCharStart = 0,
 }) {
   return {
     'pageWidth': 240,
@@ -3021,7 +3084,8 @@ Map<String, Object?> _editorLayerTreeJson({
               'source': {
                 'id': 0,
                 'utf16Range': {'start': 0, 'end': 4},
-                'stableSourceKey': 'section:0/para:$firstParagraph/char:0',
+                'stableSourceKey':
+                    'section:0/para:$firstParagraph/char:$firstCharStart',
               },
               'placement': {
                 'runToPage': {'a': 1, 'b': 0, 'c': 0, 'd': 1, 'e': 80, 'f': 52},
@@ -3047,7 +3111,8 @@ Map<String, Object?> _editorLayerTreeJson({
               'source': {
                 'id': 1,
                 'utf16Range': {'start': 0, 'end': 4},
-                'stableSourceKey': 'section:0/para:$secondParagraph/char:0',
+                'stableSourceKey':
+                    'section:0/para:$secondParagraph/char:$secondCharStart',
               },
               'placement': {
                 'runToPage': {'a': 1, 'b': 0, 'c': 0, 'd': 1, 'e': 80, 'f': 92},

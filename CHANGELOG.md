@@ -124,6 +124,8 @@
   replacement of active text selections.
 * Changed Flutter-native ArrowUp/ArrowDown movement to prefer page-layer text
   run geometry before falling back to paragraph order.
+* Changed Flutter-native Home/End movement to use page-layer line geometry
+  before falling back to paragraph boundaries.
 * Added `RhwpNativeEditor` as the 100% Flutter widget editor track while
   keeping `RhwpFullEditor` as the WebView/upstream editor fallback.
 * Reworked the Flutter-native editor surface with a Flutter toolbar, menu tabs,

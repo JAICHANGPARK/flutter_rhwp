@@ -2355,10 +2355,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         unawaited(_moveCursorVertically(1, extendSelection: extendSelection));
         return KeyEventResult.handled;
       case LogicalKeyboardKey.home:
-        _moveCursorToLineStart(extendSelection: extendSelection);
+        unawaited(_moveCursorToLineStart(extendSelection: extendSelection));
         return KeyEventResult.handled;
       case LogicalKeyboardKey.end:
-        unawaited(_moveCursorToParagraphEnd(extendSelection: extendSelection));
+        unawaited(_moveCursorToLineEnd(extendSelection: extendSelection));
         return KeyEventResult.handled;
       case LogicalKeyboardKey.tab:
         if (!_busy && !extendSelection) {
@@ -2397,10 +2397,30 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _setCursorOrSelection(current, next, extendSelection: extendSelection);
   }
 
-  void _moveCursorToLineStart({required bool extendSelection}) {
+  Future<void> _moveCursorToLineStart({required bool extendSelection}) async {
     final current = _controller.selection;
-    final next = current.end.copyWith(offset: 0);
-    _setCursorOrSelection(current, next, extendSelection: extendSelection);
+    final cursor = current.end;
+    try {
+      final lineStart = await _lineBoundaryFor(cursor, end: false);
+      if (!mounted) {
+        return;
+      }
+      _setCursorOrSelection(
+        current,
+        lineStart?.position ?? cursor.copyWith(offset: 0),
+        extendSelection: extendSelection,
+      );
+      if (lineStart != null) {
+        unawaited(_controller.goToPage(lineStart.page));
+      }
+      _focusEditor();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    }
   }
 
   Future<void> _moveCursorVertically(
@@ -2569,17 +2589,25 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     );
   }
 
-  Future<void> _moveCursorToParagraphEnd({
-    required bool extendSelection,
-  }) async {
+  Future<void> _moveCursorToLineEnd({required bool extendSelection}) async {
     final current = _controller.selection;
     final cursor = current.end;
     try {
-      final end = await _paragraphEndFor(cursor);
-      if (!mounted || end == null) {
+      final lineEnd = await _lineBoundaryFor(cursor, end: true);
+      final paragraphEnd = lineEnd == null
+          ? await _paragraphEndFor(cursor)
+          : null;
+      if (!mounted) {
         return;
       }
-      _setCursorOrSelection(current, end, extendSelection: extendSelection);
+      final next = lineEnd?.position ?? paragraphEnd;
+      if (next == null) {
+        return;
+      }
+      _setCursorOrSelection(current, next, extendSelection: extendSelection);
+      if (lineEnd != null) {
+        unawaited(_controller.goToPage(lineEnd.page));
+      }
       _focusEditor();
     } catch (error) {
       if (mounted) {
@@ -2588,6 +2616,44 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         });
       }
     }
+  }
+
+  Future<({RhwpCursorPosition position, int page})?> _lineBoundaryFor(
+    RhwpCursorPosition cursor, {
+    required bool end,
+  }) async {
+    final pageCount = await widget.document.pageCount;
+    ({RhwpCursorPosition position, int page})? startHit;
+    ({RhwpCursorPosition position, int page})? insideHit;
+    ({RhwpCursorPosition position, int page})? fallbackHit;
+
+    for (var page = 0; page < pageCount; page += 1) {
+      final tree = await widget.document.pageLayerTreeModel(page);
+      for (final run in _bodyTextRuns(tree)) {
+        if (run.containsPosition(
+          section: cursor.section,
+          paragraph: cursor.paragraph,
+          offset: cursor.offset,
+        )) {
+          final candidate = (
+            position: cursor.copyWith(
+              offset: end ? run.charEnd : run.charStart,
+            ),
+            page: page,
+          );
+          if (cursor.offset == run.charStart) {
+            startHit ??= candidate;
+            continue;
+          }
+          if (cursor.offset > run.charStart && cursor.offset < run.charEnd) {
+            insideHit ??= candidate;
+            continue;
+          }
+          fallbackHit ??= candidate;
+        }
+      }
+    }
+    return startHit ?? insideHit ?? fallbackHit;
   }
 
   Future<void> _moveCursorToDocumentBoundary({
