@@ -85,3 +85,5 @@
   can use the same export artifact metadata contract as the Flutter bridge.
 * Documented the Rust vendoring policy: commit `rust/vendor/rhwp` for
   reproducible builds, but keep generated `rust/target` output ignored.
+* Verified that the example Web release build completes after the Web editor
+  default-mode and export artifact changes.
