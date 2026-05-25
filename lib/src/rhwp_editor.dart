@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'rhwp_document.dart';
 import 'rhwp_layer_tree.dart';
@@ -199,6 +200,7 @@ class RhwpCommandEditor extends StatelessWidget {
 class _RhwpEditorState extends State<RhwpEditor> {
   late final RhwpEditorController _controller;
   late final bool _ownsController;
+  final _focusNode = FocusNode(debugLabel: 'RhwpNativeEditor');
   final _textController = TextEditingController();
   final _sectionController = TextEditingController(text: '0');
   final _paragraphController = TextEditingController(text: '0');
@@ -230,6 +232,7 @@ class _RhwpEditorState extends State<RhwpEditor> {
     if (_ownsController) {
       _controller.dispose();
     }
+    _focusNode.dispose();
     _textController.dispose();
     _sectionController.dispose();
     _paragraphController.dispose();
@@ -268,7 +271,13 @@ class _RhwpEditorState extends State<RhwpEditor> {
     }
 
     await _runEdit(() async {
-      final cursor = _readCursor();
+      final selection = _controller.selection;
+      final cursor = selection.isCollapsed
+          ? _readCursor()
+          : selection.normalizedStart;
+      if (!selection.isCollapsed) {
+        await _deleteSelectedText(selection);
+      }
       await widget.document.insertText(
         section: cursor.section,
         paragraph: cursor.paragraph,
@@ -282,6 +291,9 @@ class _RhwpEditorState extends State<RhwpEditor> {
 
   Future<void> _deleteBackward() async {
     await _runEdit(() async {
+      if (await _deleteSelectedText(_controller.selection)) {
+        return;
+      }
       final cursor = _readCursor();
       if (cursor.offset <= 0) {
         return;
@@ -294,6 +306,48 @@ class _RhwpEditorState extends State<RhwpEditor> {
       );
       _controller.cursor = cursor.copyWith(offset: cursor.offset - 1);
     });
+  }
+
+  Future<void> _deleteForward() async {
+    await _runEdit(() async {
+      if (await _deleteSelectedText(_controller.selection)) {
+        return;
+      }
+      final cursor = _readCursor();
+      await widget.document.deleteText(
+        section: cursor.section,
+        paragraph: cursor.paragraph,
+        offset: cursor.offset,
+        count: 1,
+      );
+      _controller.cursor = cursor;
+    });
+  }
+
+  Future<bool> _deleteSelectedText(RhwpSelectionRange selection) async {
+    if (selection.isCollapsed) {
+      return false;
+    }
+
+    final start = selection.normalizedStart;
+    final end = selection.normalizedEnd;
+    if (start.section != end.section || start.paragraph != end.paragraph) {
+      return false;
+    }
+
+    final count = end.offset - start.offset;
+    if (count <= 0) {
+      return false;
+    }
+
+    await widget.document.deleteText(
+      section: start.section,
+      paragraph: start.paragraph,
+      offset: start.offset,
+      count: count,
+    );
+    _controller.cursor = start;
+    return true;
   }
 
   Future<void> _runEdit(Future<void> Function() edit) async {
@@ -349,6 +403,69 @@ class _RhwpEditorState extends State<RhwpEditor> {
     _controller.selection = selection;
   }
 
+  void _focusEditor() {
+    _focusNode.requestFocus();
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+
+    final extendSelection = HardwareKeyboard.instance.isShiftPressed;
+    switch (event.logicalKey) {
+      case LogicalKeyboardKey.arrowLeft:
+        _moveCursorHorizontally(-1, extendSelection: extendSelection);
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.arrowRight:
+        _moveCursorHorizontally(1, extendSelection: extendSelection);
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.home:
+        _moveCursorToLineStart(extendSelection: extendSelection);
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.backspace:
+        if (!_busy) {
+          _deleteBackward();
+        }
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.delete:
+        if (!_busy) {
+          _deleteForward();
+        }
+        return KeyEventResult.handled;
+    }
+
+    return KeyEventResult.ignored;
+  }
+
+  void _moveCursorHorizontally(int delta, {required bool extendSelection}) {
+    final current = _controller.selection;
+    final nextOffset = math.max(0, current.end.offset + delta);
+    final next = current.end.copyWith(offset: nextOffset);
+    _setCursorOrSelection(current, next, extendSelection: extendSelection);
+  }
+
+  void _moveCursorToLineStart({required bool extendSelection}) {
+    final current = _controller.selection;
+    final next = current.end.copyWith(offset: 0);
+    _setCursorOrSelection(current, next, extendSelection: extendSelection);
+  }
+
+  void _setCursorOrSelection(
+    RhwpSelectionRange current,
+    RhwpCursorPosition next, {
+    required bool extendSelection,
+  }) {
+    if (extendSelection) {
+      _controller.selection = RhwpSelectionRange(
+        start: current.start,
+        end: next,
+      );
+    } else {
+      _controller.cursor = next;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -366,21 +483,26 @@ class _RhwpEditorState extends State<RhwpEditor> {
           onZoomIn: _controller.zoomIn,
         ),
         Expanded(
-          child: RhwpViewer(
-            key: _viewerKey,
-            document: widget.document,
-            controller: _controller,
-            ignorePageOverlayPointer: false,
-            pageOverlayBuilder: (context, page, _) {
-              return _EditorSelectionOverlay(
-                document: widget.document,
-                page: page,
-                selection: _controller.selection,
-                fallbackEnabled: page == 0,
-                onCursorPosition: _setCursorFromPage,
-                onSelectionRange: _setSelectionFromPage,
-              );
-            },
+          child: Focus(
+            focusNode: _focusNode,
+            onKeyEvent: _handleKeyEvent,
+            child: RhwpViewer(
+              key: _viewerKey,
+              document: widget.document,
+              controller: _controller,
+              ignorePageOverlayPointer: false,
+              pageOverlayBuilder: (context, page, _) {
+                return _EditorSelectionOverlay(
+                  document: widget.document,
+                  page: page,
+                  selection: _controller.selection,
+                  fallbackEnabled: page == 0,
+                  onCursorPosition: _setCursorFromPage,
+                  onSelectionRange: _setSelectionFromPage,
+                  onFocusRequested: _focusEditor,
+                );
+              },
+            ),
           ),
         ),
         _EditorStatusBar(selection: _controller.selection, busy: _busy),
@@ -397,6 +519,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
     required this.fallbackEnabled,
     required this.onCursorPosition,
     required this.onSelectionRange,
+    required this.onFocusRequested,
   });
 
   final RhwpDocument document;
@@ -405,6 +528,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
   final bool fallbackEnabled;
   final ValueChanged<RhwpCursorPosition> onCursorPosition;
   final ValueChanged<RhwpSelectionRange> onSelectionRange;
+  final VoidCallback onFocusRequested;
 
   @override
   State<_EditorSelectionOverlay> createState() =>
@@ -499,6 +623,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
   ) {
     final cursor = _cursorForPoint(localPosition, constraints, tree);
     if (cursor != null) {
+      widget.onFocusRequested();
       _dragAnchor = cursor;
       widget.onCursorPosition(cursor);
     }

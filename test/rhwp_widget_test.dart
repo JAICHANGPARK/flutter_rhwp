@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, debugDefaultTargetPlatformOverride, kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_rhwp/flutter_rhwp.dart';
 import 'package:flutter_rhwp/src/rust/api/rhwp.dart' as rust;
 import 'package:flutter_test/flutter_test.dart';
@@ -354,6 +355,85 @@ void main() {
         end: RhwpCursorPosition(offset: 3),
       ),
     );
+  });
+
+  testWidgets('RhwpNativeEditor handles keyboard navigation and delete', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    controller.cursor = const RhwpCursorPosition(offset: 2);
+    await tester.pump();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    expect(controller.cursor, const RhwpCursorPosition(offset: 3));
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pump();
+    expect(
+      controller.selection,
+      const RhwpSelectionRange(
+        start: RhwpCursorPosition(offset: 3),
+        end: RhwpCursorPosition(offset: 2),
+      ),
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.cursor, const RhwpCursorPosition(offset: 2));
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.single), {
+      'type': 'deleteText',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 2,
+      'count': 1,
+    });
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pump();
+    expect(controller.cursor, const RhwpCursorPosition(offset: 1));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.cursor, const RhwpCursorPosition(offset: 1));
+    expect(changedCalls, 2);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'deleteText',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 1,
+      'count': 1,
+    });
   });
 
   testWidgets(

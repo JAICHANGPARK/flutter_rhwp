@@ -127,3 +127,5 @@
 * Added page-layer text hit testing so the Flutter-native editor can move the
   caret by tapping rendered document text.
 * Wired Flutter-native drag selection to the same page-layer hit-test model.
+* Added Flutter-native editor keyboard handling for left/right/home caret
+  movement, shift-selection, and backspace/delete command dispatch.
