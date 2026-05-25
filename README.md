@@ -21,6 +21,8 @@ Implemented:
 - Read raw page layer tree JSON and a typed Dart page layer tree model.
 - Extract text and Markdown.
 - Export HWP, HWPX, native PDF, DOCX, text, Markdown, and page SVG.
+- Return export bytes with stable file names, extensions, and MIME types for
+  app save/download workflows.
 - Apply basic edit commands for body text insert/delete and file name updates.
 - Display pages with `RhwpViewer`.
 - Add page-local overlays to `RhwpViewer` with `pageOverlayBuilder`.
@@ -73,6 +75,8 @@ final text = await document.extractText();
 final hwpBytes = await document.export(RhwpExportFormat.hwp);
 final svgBytes = await document.exportPageSvg(page: 0);
 final markdownBytes = await document.exportMarkdown();
+final exportedPdf = await document.exportDocument(RhwpExportFormat.pdf);
+// exportedPdf.bytes, exportedPdf.fileName, exportedPdf.mimeType
 
 await document.close();
 ```

@@ -106,6 +106,65 @@ void main() {
     expect(session.renderedSvgPages, [4]);
   });
 
+  test('export formats expose save metadata', () {
+    expect(RhwpExportFormat.hwp.fileExtension, 'hwp');
+    expect(RhwpExportFormat.hwpx.mimeType, 'application/vnd.hancom.hwpx');
+    expect(RhwpExportFormat.pdf.mimeType, 'application/pdf');
+    expect(
+      RhwpExportFormat.docx.mimeType,
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    );
+    expect(RhwpExportFormat.text.fileExtension, 'txt');
+    expect(RhwpExportFormat.markdown.fileExtension, 'md');
+    expect(RhwpExportFormat.svg.mimeType, 'image/svg+xml');
+  });
+
+  test('document exportDocument returns bytes with save metadata', () async {
+    final session = _FakeRhwpSession();
+    session.fileName = '/tmp/source/sample.hwp';
+    final document = RhwpDocument.fromSession(session);
+
+    final pdf = await document.exportDocument(RhwpExportFormat.pdf);
+
+    expect(pdf.format, RhwpExportFormat.pdf);
+    expect(pdf.bytes, [0x50, 0x44, 0x46]);
+    expect(pdf.fileName, 'sample.pdf');
+    expect(pdf.mimeType, 'application/pdf');
+
+    final svg = await document.exportDocument(
+      RhwpExportFormat.svg,
+      sourceFileName: 'picked.hwpx',
+      page: 2,
+    );
+
+    expect(utf8.decode(svg.bytes), '<svg data-page="2"/>');
+    expect(svg.fileName, 'picked-page-3.svg');
+    expect(svg.mimeType, 'image/svg+xml');
+    expect(session.renderedSvgPages, [2]);
+  });
+
+  test('exported document default file names are robust', () {
+    expect(
+      RhwpExportedDocument.defaultFileName(
+        format: RhwpExportFormat.markdown,
+        sourceFileName: r'C:\docs\report.hwp',
+      ),
+      'report.md',
+    );
+    expect(
+      RhwpExportedDocument.defaultFileName(format: RhwpExportFormat.text),
+      'document.txt',
+    );
+    expect(
+      RhwpExportedDocument.defaultFileName(
+        format: RhwpExportFormat.svg,
+        sourceFileName: '.hwp',
+        page: 0,
+      ),
+      'document-page-1.svg',
+    );
+  });
+
   test('page layer tree model flattens tolerant layer JSON', () {
     final tree = RhwpLayerTree.fromJsonString(
       0,
@@ -338,6 +397,7 @@ class _FakeRustLibApi implements RustLibApi {
 
 class _FakeRhwpSession implements rust.RhwpSession {
   String? lastCommandJson;
+  String? fileName = 'sample.hwp';
   int exportHwpCalls = 0;
   int exportHwpxCalls = 0;
   int exportPdfCalls = 0;
@@ -353,6 +413,16 @@ class _FakeRhwpSession implements rust.RhwpSession {
   Future<String> applyCommand({required String commandJson}) async {
     lastCommandJson = commandJson;
     return '{"ok":true}';
+  }
+
+  @override
+  Future<rust.RhwpDocumentInfo> documentInfo() async {
+    return rust.RhwpDocumentInfo(
+      pageCount: 5,
+      sourceFormat: 'hwp',
+      fileName: fileName,
+      rawJson: '{"pageCount":5}',
+    );
   }
 
   @override
@@ -402,6 +472,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
     pageLayerTreePages.add(page);
     return pageLayerTreeJson;
   }
+
+  @override
+  Future<int> pageCount() async => 5;
 
   @override
   void dispose() {

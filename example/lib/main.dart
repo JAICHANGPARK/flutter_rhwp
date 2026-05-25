@@ -147,17 +147,17 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
     }
 
     await _run('Export ${kind.extension.toUpperCase()}', () async {
-      final bytes = await _bytesFor(kind, document: document);
+      final exported = await _exportFor(kind, document: document);
       final path = await FilePicker.saveFile(
         dialogTitle: 'Save ${kind.label}',
-        fileName: _defaultExportName(kind),
+        fileName: exported.fileName,
         type: FileType.custom,
-        allowedExtensions: [kind.extension],
-        bytes: bytes,
+        allowedExtensions: [exported.format.fileExtension],
+        bytes: exported.bytes,
       );
 
       if (path == null) {
-        return 'Started ${kind.label} download';
+        return 'Started ${exported.fileName} download';
       }
       return 'Saved $path';
     });
@@ -188,17 +188,27 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
     });
   }
 
-  Future<Uint8List> _bytesFor(
+  Future<RhwpExportedDocument> _exportFor(
     _ExportKind kind, {
     required RhwpDocument? document,
-  }) {
+  }) async {
     if (_usesWebEditor) {
-      return _webEditorController.export(kind.format);
+      final bytes = await _webEditorController.export(kind.format);
+      return RhwpExportedDocument.fromBytes(
+        format: kind.format,
+        bytes: bytes,
+        sourceFileName: _fileName,
+        page: kind.defaultPage,
+      );
     }
     if (document == null) {
       throw StateError('No document is open');
     }
-    return document.export(kind.format);
+    return document.exportDocument(
+      kind.format,
+      sourceFileName: _fileName,
+      page: kind.defaultPage,
+    );
   }
 
   Future<void> _replaceDocument(
@@ -317,20 +327,6 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
     messenger
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  String _defaultExportName(_ExportKind kind) {
-    final baseName = _stem(_fileName ?? 'document');
-    return '$baseName.${kind.extension}';
-  }
-
-  String _stem(String name) {
-    final normalized = name.split(RegExp(r'[/\\]')).last;
-    final dot = normalized.lastIndexOf('.');
-    if (dot <= 0) {
-      return normalized;
-    }
-    return normalized.substring(0, dot);
   }
 
   @override
@@ -545,19 +541,21 @@ class _StatusBar extends StatelessWidget {
 }
 
 enum _ExportKind {
-  hwp('HWP', 'hwp', RhwpExportFormat.hwp),
-  hwpx('HWPX', 'hwpx', RhwpExportFormat.hwpx),
-  pdf('PDF', 'pdf', RhwpExportFormat.pdf),
-  docx('DOCX', 'docx', RhwpExportFormat.docx),
-  svg('SVG', 'svg', RhwpExportFormat.svg),
-  text('text', 'txt', RhwpExportFormat.text),
-  markdown('Markdown', 'md', RhwpExportFormat.markdown);
+  hwp('HWP', RhwpExportFormat.hwp),
+  hwpx('HWPX', RhwpExportFormat.hwpx),
+  pdf('PDF', RhwpExportFormat.pdf),
+  docx('DOCX', RhwpExportFormat.docx),
+  svg('SVG', RhwpExportFormat.svg, defaultPage: 0),
+  text('text', RhwpExportFormat.text),
+  markdown('Markdown', RhwpExportFormat.markdown);
 
-  const _ExportKind(this.label, this.extension, this.format);
+  const _ExportKind(this.label, this.format, {this.defaultPage});
 
   final String label;
-  final String extension;
   final RhwpExportFormat format;
+  final int? defaultPage;
+
+  String get extension => format.fileExtension;
 }
 
 enum _EditorMode { flutterBridge, upstreamWeb }

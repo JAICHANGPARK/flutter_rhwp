@@ -78,3 +78,6 @@
   wired `RhwpEditor` page overlays to render those page-local selection rects.
 * Added a Rust facade regression test for the page layer tree JSON contract that
   Flutter editor geometry depends on.
+* Added `RhwpExportedDocument` and `RhwpDocument.exportDocument()` so save and
+  download flows can use the same bytes, file name, extension, and MIME
+  metadata contract across the Flutter bridge and example app.

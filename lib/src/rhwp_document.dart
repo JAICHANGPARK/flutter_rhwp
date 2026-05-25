@@ -9,6 +9,91 @@ import 'rust/api/rhwp.dart' as rust;
 
 enum RhwpExportFormat { hwp, hwpx, pdf, docx, text, markdown, svg }
 
+extension RhwpExportFormatMetadata on RhwpExportFormat {
+  String get fileExtension {
+    return switch (this) {
+      RhwpExportFormat.hwp => 'hwp',
+      RhwpExportFormat.hwpx => 'hwpx',
+      RhwpExportFormat.pdf => 'pdf',
+      RhwpExportFormat.docx => 'docx',
+      RhwpExportFormat.text => 'txt',
+      RhwpExportFormat.markdown => 'md',
+      RhwpExportFormat.svg => 'svg',
+    };
+  }
+
+  String get mimeType {
+    return switch (this) {
+      RhwpExportFormat.hwp => 'application/x-hwp',
+      RhwpExportFormat.hwpx => 'application/vnd.hancom.hwpx',
+      RhwpExportFormat.pdf => 'application/pdf',
+      RhwpExportFormat.docx =>
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      RhwpExportFormat.text => 'text/plain; charset=utf-8',
+      RhwpExportFormat.markdown => 'text/markdown; charset=utf-8',
+      RhwpExportFormat.svg => 'image/svg+xml',
+    };
+  }
+}
+
+class RhwpExportedDocument {
+  const RhwpExportedDocument({
+    required this.format,
+    required this.bytes,
+    required this.fileName,
+    required this.mimeType,
+  });
+
+  factory RhwpExportedDocument.fromBytes({
+    required RhwpExportFormat format,
+    required Uint8List bytes,
+    String? sourceFileName,
+    int? page,
+  }) {
+    return RhwpExportedDocument(
+      format: format,
+      bytes: bytes,
+      fileName: defaultFileName(
+        format: format,
+        sourceFileName: sourceFileName,
+        page: page,
+      ),
+      mimeType: format.mimeType,
+    );
+  }
+
+  final RhwpExportFormat format;
+  final Uint8List bytes;
+  final String fileName;
+  final String mimeType;
+
+  static String defaultFileName({
+    required RhwpExportFormat format,
+    String? sourceFileName,
+    int? page,
+  }) {
+    final baseName = _stem(sourceFileName);
+    final pageSuffix = page == null ? '' : '-page-${page + 1}';
+    return '$baseName$pageSuffix.${format.fileExtension}';
+  }
+
+  static String _stem(String? name) {
+    final normalized = (name ?? '').trim().split(RegExp(r'[/\\]')).last;
+    if (normalized.isEmpty) {
+      return 'document';
+    }
+
+    if (normalized.startsWith('.')) {
+      return 'document';
+    }
+
+    final dot = normalized.lastIndexOf('.');
+    final stem = dot < 0 ? normalized : normalized.substring(0, dot);
+    final trimmed = stem.trim();
+    return trimmed.isEmpty ? 'document' : trimmed;
+  }
+}
+
 class RhwpDocumentMetadata {
   const RhwpDocumentMetadata({
     required this.pageCount,
@@ -174,6 +259,22 @@ class RhwpDocument {
         utf8.encode(await renderPageSvg(page ?? 0)),
       ),
     };
+  }
+
+  Future<RhwpExportedDocument> exportDocument(
+    RhwpExportFormat format, {
+    int? page,
+    String? sourceFileName,
+  }) async {
+    _ensureOpen();
+    final metadata = await this.metadata();
+    final bytes = await export(format, page: page);
+    return RhwpExportedDocument.fromBytes(
+      format: format,
+      bytes: bytes,
+      sourceFileName: sourceFileName ?? metadata.fileName,
+      page: page,
+    );
   }
 
   Future<Uint8List> exportHwp() => export(RhwpExportFormat.hwp);
