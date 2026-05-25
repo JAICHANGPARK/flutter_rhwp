@@ -2360,6 +2360,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       case LogicalKeyboardKey.end:
         unawaited(_moveCursorToParagraphEnd(extendSelection: extendSelection));
         return KeyEventResult.handled;
+      case LogicalKeyboardKey.tab:
+        if (!_busy && !extendSelection) {
+          unawaited(_insertCommittedText('\t'));
+        }
+        return KeyEventResult.handled;
       case LogicalKeyboardKey.enter:
       case LogicalKeyboardKey.numpadEnter:
         if (!_busy) {

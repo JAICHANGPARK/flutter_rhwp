@@ -120,6 +120,8 @@
   example, notes, and license.
 * Added ArrowUp/ArrowDown paragraph navigation with Shift selection extension
   in the Flutter-native editor.
+* Added Tab key text insertion in the Flutter-native editor, including
+  replacement of active text selections.
 * Added `RhwpNativeEditor` as the 100% Flutter widget editor track while
   keeping `RhwpFullEditor` as the WebView/upstream editor fallback.
 * Reworked the Flutter-native editor surface with a Flutter toolbar, menu tabs,
