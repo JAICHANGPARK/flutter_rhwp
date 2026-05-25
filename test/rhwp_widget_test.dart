@@ -1203,6 +1203,74 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor applies character shape dialog values', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.selection = const RhwpSelectionRange(
+      start: RhwpCursorPosition(offset: 1),
+      end: RhwpCursorPosition(offset: 3),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('서식'));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-character-shape')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-char-shape-font-size-field')),
+      '12.5',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-char-shape-bold')));
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-char-shape-strikethrough')),
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-char-shape-color-#dc2626')),
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-char-shape-apply')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.single), {
+      'type': 'applyCharFormatRange',
+      'section': 0,
+      'startParagraph': 0,
+      'startOffset': 1,
+      'endParagraph': 0,
+      'endOffset': 3,
+      'properties': {
+        'bold': true,
+        'italic': false,
+        'underline': false,
+        'strikethrough': true,
+        'fontSize': 1250,
+        'textColor': '#dc2626',
+      },
+    });
+  });
+
   testWidgets('RhwpNativeEditor applies paragraph alignment', (tester) async {
     final controller = RhwpEditorController();
     final session = _FakeRhwpSession(pageCountValue: 1);

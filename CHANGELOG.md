@@ -167,3 +167,6 @@
 * Added a Flutter-native secondary-click context menu for text selection,
   clipboard, formatting, paragraph alignment, table insertion, and selected
   table cell actions.
+* Exposed strikethrough, font size, and text color character-format properties
+  in the Dart command surface, and added a Flutter-native character shape dialog
+  that applies those values through the Rust bridge.

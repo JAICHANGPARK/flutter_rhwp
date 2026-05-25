@@ -277,6 +277,8 @@ enum _EditorContextMenuAction {
   bold,
   italic,
   underline,
+  strikethrough,
+  charShape,
   alignLeft,
   alignCenter,
   alignRight,
@@ -286,6 +288,24 @@ enum _EditorContextMenuAction {
   insertTableColumn,
   mergeCells,
   splitCell,
+}
+
+class _CharShapeDialogResult {
+  const _CharShapeDialogResult({
+    required this.bold,
+    required this.italic,
+    required this.underline,
+    required this.strikethrough,
+    required this.fontSize,
+    required this.textColor,
+  });
+
+  final bool bold;
+  final bool italic;
+  final bool underline;
+  final bool strikethrough;
+  final int fontSize;
+  final String textColor;
 }
 
 /// Controller for the Flutter-native command editor overlay.
@@ -855,6 +875,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     bool? bold,
     bool? italic,
     bool? underline,
+    bool? strikethrough,
+    int? fontSize,
+    String? textColor,
   }) async {
     if (_busy) {
       return;
@@ -881,9 +904,35 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         bold: bold,
         italic: italic,
         underline: underline,
+        strikethrough: strikethrough,
+        fontSize: fontSize,
+        textColor: textColor,
       );
       _controller.selection = RhwpSelectionRange(start: start, end: end);
     });
+  }
+
+  Future<void> _showCharShapeDialog() async {
+    if (_busy || _controller.selection.isCollapsed) {
+      return;
+    }
+
+    final result = await showDialog<_CharShapeDialogResult>(
+      context: context,
+      builder: (context) => const _CharShapeDialog(),
+    );
+    if (result == null) {
+      return;
+    }
+
+    await _applyCharFormat(
+      bold: result.bold,
+      italic: result.italic,
+      underline: result.underline,
+      strikethrough: result.strikethrough,
+      fontSize: result.fontSize,
+      textColor: result.textColor,
+    );
   }
 
   Future<void> _applyParagraphAlignment(String alignment) async {
@@ -1225,6 +1274,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         await _applyCharFormat(italic: true);
       case _EditorContextMenuAction.underline:
         await _applyCharFormat(underline: true);
+      case _EditorContextMenuAction.strikethrough:
+        await _applyCharFormat(strikethrough: true);
+      case _EditorContextMenuAction.charShape:
+        await _showCharShapeDialog();
       case _EditorContextMenuAction.alignLeft:
         await _applyParagraphAlignment('left');
       case _EditorContextMenuAction.alignCenter:
@@ -1334,6 +1387,18 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         action: _EditorContextMenuAction.underline,
         icon: Icons.format_underlined,
         label: '밑줄',
+        enabled: hasSelection && !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.strikethrough,
+        icon: Icons.format_strikethrough,
+        label: '취소선',
+        enabled: hasSelection && !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.charShape,
+        icon: Icons.text_fields,
+        label: '글자 모양',
         enabled: hasSelection && !_busy,
       ),
       const PopupMenuDivider(),
@@ -1625,6 +1690,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onBold: () => _applyCharFormat(bold: true),
           onItalic: () => _applyCharFormat(italic: true),
           onUnderline: () => _applyCharFormat(underline: true),
+          onStrikethrough: () => _applyCharFormat(strikethrough: true),
+          onCharShape: _showCharShapeDialog,
           onAlignLeft: () => _applyParagraphAlignment('left'),
           onAlignCenter: () => _applyParagraphAlignment('center'),
           onAlignRight: () => _applyParagraphAlignment('right'),
@@ -2259,6 +2326,8 @@ class _EditorToolbar extends StatefulWidget {
     required this.onBold,
     required this.onItalic,
     required this.onUnderline,
+    required this.onStrikethrough,
+    required this.onCharShape,
     required this.onAlignLeft,
     required this.onAlignCenter,
     required this.onAlignRight,
@@ -2297,6 +2366,8 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onBold;
   final VoidCallback onItalic;
   final VoidCallback onUnderline;
+  final VoidCallback onStrikethrough;
+  final VoidCallback onCharShape;
   final VoidCallback onAlignLeft;
   final VoidCallback onAlignCenter;
   final VoidCallback onAlignRight;
@@ -2563,6 +2634,17 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               icon: Icons.format_underlined,
               onPressed: widget.busy ? null : widget.onUnderline,
             ),
+            _ToolbarIconButton(
+              tooltip: 'Strikethrough',
+              icon: Icons.format_strikethrough,
+              onPressed: widget.busy ? null : widget.onStrikethrough,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Character shape',
+              buttonKey: const ValueKey('rhwp-editor-character-shape'),
+              icon: Icons.text_fields,
+              onPressed: widget.busy ? null : widget.onCharShape,
+            ),
           ],
         ),
       ),
@@ -2820,6 +2902,164 @@ class _EditorToolbarState extends State<_EditorToolbar> {
       const SizedBox(width: 6),
       _NumberField(label: 'Offset', controller: widget.offsetController),
     ];
+  }
+}
+
+class _CharShapeDialog extends StatefulWidget {
+  const _CharShapeDialog();
+
+  @override
+  State<_CharShapeDialog> createState() => _CharShapeDialogState();
+}
+
+class _CharShapeDialogState extends State<_CharShapeDialog> {
+  final _fontSizeController = TextEditingController(text: '10.0');
+  var _bold = false;
+  var _italic = false;
+  var _underline = false;
+  var _strikethrough = false;
+  var _textColor = '#000000';
+
+  static const _swatches = [
+    (label: '검정', color: Color(0xff000000), value: '#000000'),
+    (label: '빨강', color: Color(0xffdc2626), value: '#dc2626'),
+    (label: '파랑', color: Color(0xff2563eb), value: '#2563eb'),
+    (label: '초록', color: Color(0xff16a34a), value: '#16a34a'),
+  ];
+
+  @override
+  void dispose() {
+    _fontSizeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('글자 모양'),
+      content: SizedBox(
+        width: 360,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              key: const ValueKey('rhwp-char-shape-font-size-field'),
+              controller: _fontSizeController,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Font size',
+                suffixText: 'pt',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                FilterChip(
+                  key: const ValueKey('rhwp-char-shape-bold'),
+                  selected: _bold,
+                  label: const Text('Bold'),
+                  avatar: const Icon(Icons.format_bold),
+                  onSelected: (value) => setState(() => _bold = value),
+                ),
+                FilterChip(
+                  key: const ValueKey('rhwp-char-shape-italic'),
+                  selected: _italic,
+                  label: const Text('Italic'),
+                  avatar: const Icon(Icons.format_italic),
+                  onSelected: (value) => setState(() => _italic = value),
+                ),
+                FilterChip(
+                  key: const ValueKey('rhwp-char-shape-underline'),
+                  selected: _underline,
+                  label: const Text('Underline'),
+                  avatar: const Icon(Icons.format_underlined),
+                  onSelected: (value) => setState(() => _underline = value),
+                ),
+                FilterChip(
+                  key: const ValueKey('rhwp-char-shape-strikethrough'),
+                  selected: _strikethrough,
+                  label: const Text('Strike'),
+                  avatar: const Icon(Icons.format_strikethrough),
+                  onSelected: (value) => setState(() => _strikethrough = value),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text('Text color', style: Theme.of(context).textTheme.labelMedium),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final swatch in _swatches)
+                  Tooltip(
+                    message: swatch.label,
+                    child: InkWell(
+                      key: ValueKey('rhwp-char-shape-color-${swatch.value}'),
+                      borderRadius: BorderRadius.circular(18),
+                      onTap: () {
+                        setState(() {
+                          _textColor = swatch.value;
+                        });
+                      },
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: _textColor == swatch.value
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).dividerColor,
+                            width: _textColor == swatch.value ? 3 : 1,
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: CircleAvatar(
+                            radius: 12,
+                            backgroundColor: swatch.color,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const ValueKey('rhwp-char-shape-apply'),
+          onPressed: _apply,
+          child: const Text('Apply'),
+        ),
+      ],
+    );
+  }
+
+  void _apply() {
+    final points = double.tryParse(_fontSizeController.text.trim()) ?? 10.0;
+    final clampedPoints = points.clamp(1.0, 200.0);
+    Navigator.of(context).pop(
+      _CharShapeDialogResult(
+        bold: _bold,
+        italic: _italic,
+        underline: _underline,
+        strikethrough: _strikethrough,
+        fontSize: (clampedPoints * 100).round(),
+        textColor: _textColor,
+      ),
+    );
   }
 }
 

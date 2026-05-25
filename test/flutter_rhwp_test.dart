@@ -269,6 +269,9 @@ void main() {
       bold: true,
       italic: true,
       underline: true,
+      strikethrough: true,
+      fontSize: 1250,
+      textColor: '#dc2626',
     );
 
     expect(jsonDecode(jsonEncode(command.toJson())), {
@@ -277,7 +280,14 @@ void main() {
       'paragraph': 1,
       'startOffset': 2,
       'endOffset': 4,
-      'properties': {'bold': true, 'italic': true, 'underline': true},
+      'properties': {
+        'bold': true,
+        'italic': true,
+        'underline': true,
+        'strikethrough': true,
+        'fontSize': 1250,
+        'textColor': '#dc2626',
+      },
     });
   });
 
@@ -291,6 +301,9 @@ void main() {
         endParagraph: 3,
         endOffset: 4,
         bold: true,
+        strikethrough: true,
+        fontSize: 1100,
+        textColor: '#2563eb',
       );
 
       expect(jsonDecode(jsonEncode(command.toJson())), {
@@ -300,7 +313,12 @@ void main() {
         'startOffset': 2,
         'endParagraph': 3,
         'endOffset': 4,
-        'properties': {'bold': true},
+        'properties': {
+          'bold': true,
+          'strikethrough': true,
+          'fontSize': 1100,
+          'textColor': '#2563eb',
+        },
       });
     },
   );
@@ -423,6 +441,8 @@ void main() {
       startOffset: 2,
       endOffset: 4,
       bold: true,
+      fontSize: 1200,
+      textColor: '#16a34a',
     );
 
     expect(jsonDecode(session.lastCommandJson!), {
@@ -431,7 +451,7 @@ void main() {
       'paragraph': 1,
       'startOffset': 2,
       'endOffset': 4,
-      'properties': {'bold': true},
+      'properties': {'bold': true, 'fontSize': 1200, 'textColor': '#16a34a'},
     });
 
     await document.applyCharFormatRange(
@@ -441,6 +461,7 @@ void main() {
       endParagraph: 3,
       endOffset: 4,
       italic: true,
+      strikethrough: true,
     );
 
     expect(jsonDecode(session.lastCommandJson!), {
@@ -450,7 +471,7 @@ void main() {
       'startOffset': 2,
       'endParagraph': 3,
       'endOffset': 4,
-      'properties': {'italic': true},
+      'properties': {'italic': true, 'strikethrough': true},
     });
 
     await document.applyParaFormat(

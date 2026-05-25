@@ -249,6 +249,9 @@ abstract class RhwpCommand {
     bool? bold,
     bool? italic,
     bool? underline,
+    bool? strikethrough,
+    int? fontSize,
+    String? textColor,
   }) = RhwpApplyCharFormatCommand;
 
   factory RhwpCommand.applyCharFormatRange({
@@ -260,6 +263,9 @@ abstract class RhwpCommand {
     bool? bold,
     bool? italic,
     bool? underline,
+    bool? strikethrough,
+    int? fontSize,
+    String? textColor,
   }) = RhwpApplyCharFormatRangeCommand;
 
   factory RhwpCommand.applyParaFormat({
@@ -625,6 +631,9 @@ class RhwpApplyCharFormatCommand extends RhwpCommand {
     this.bold,
     this.italic,
     this.underline,
+    this.strikethrough,
+    this.fontSize,
+    this.textColor,
   });
 
   final int section;
@@ -634,6 +643,9 @@ class RhwpApplyCharFormatCommand extends RhwpCommand {
   final bool? bold;
   final bool? italic;
   final bool? underline;
+  final bool? strikethrough;
+  final int? fontSize;
+  final String? textColor;
 
   @override
   Map<String, Object?> toJson() => {
@@ -646,6 +658,9 @@ class RhwpApplyCharFormatCommand extends RhwpCommand {
       if (bold != null) 'bold': bold,
       if (italic != null) 'italic': italic,
       if (underline != null) 'underline': underline,
+      if (strikethrough != null) 'strikethrough': strikethrough,
+      if (fontSize != null) 'fontSize': fontSize,
+      if (textColor != null) 'textColor': textColor,
     },
   };
 }
@@ -660,6 +675,9 @@ class RhwpApplyCharFormatRangeCommand extends RhwpCommand {
     this.bold,
     this.italic,
     this.underline,
+    this.strikethrough,
+    this.fontSize,
+    this.textColor,
   });
 
   final int section;
@@ -670,6 +688,9 @@ class RhwpApplyCharFormatRangeCommand extends RhwpCommand {
   final bool? bold;
   final bool? italic;
   final bool? underline;
+  final bool? strikethrough;
+  final int? fontSize;
+  final String? textColor;
 
   @override
   Map<String, Object?> toJson() => {
@@ -683,6 +704,9 @@ class RhwpApplyCharFormatRangeCommand extends RhwpCommand {
       if (bold != null) 'bold': bold,
       if (italic != null) 'italic': italic,
       if (underline != null) 'underline': underline,
+      if (strikethrough != null) 'strikethrough': strikethrough,
+      if (fontSize != null) 'fontSize': fontSize,
+      if (textColor != null) 'textColor': textColor,
     },
   };
 }
@@ -1104,6 +1128,9 @@ class RhwpDocument {
     bool? bold,
     bool? italic,
     bool? underline,
+    bool? strikethrough,
+    int? fontSize,
+    String? textColor,
   }) {
     return apply(
       RhwpCommand.applyCharFormat(
@@ -1114,6 +1141,9 @@ class RhwpDocument {
         bold: bold,
         italic: italic,
         underline: underline,
+        strikethrough: strikethrough,
+        fontSize: fontSize,
+        textColor: textColor,
       ),
     );
   }
@@ -1127,6 +1157,9 @@ class RhwpDocument {
     bool? bold,
     bool? italic,
     bool? underline,
+    bool? strikethrough,
+    int? fontSize,
+    String? textColor,
   }) {
     return apply(
       RhwpCommand.applyCharFormatRange(
@@ -1138,6 +1171,9 @@ class RhwpDocument {
         bold: bold,
         italic: italic,
         underline: underline,
+        strikethrough: strikethrough,
+        fontSize: fontSize,
+        textColor: textColor,
       ),
     );
   }
