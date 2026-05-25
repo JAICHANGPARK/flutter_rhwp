@@ -205,8 +205,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   selection and Shift+click range extension for rendered table cells, plus
   selected-cell
   text insert/delete,
-  cell text offset hit testing, and Arrow/Tab/Enter keyboard handling for
-  selected table cells.
+  cell text offset hit testing, Arrow/Tab/Enter keyboard handling for selected
+  table cells, and Shift+drag aspect-ratio preserving object resize.
 - `rust/vendor/rhwp` should be committed. `rust/target` should stay ignored.
 
 ## License

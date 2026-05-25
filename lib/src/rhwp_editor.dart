@@ -4800,6 +4800,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
       handle: drag.handle,
       delta: delta,
       pageSize: tree.pageSize,
+      preserveAspectRatio: HardwareKeyboard.instance.isShiftPressed,
     );
     final updated = drag.originalSelection.copyWith(bounds: bounds);
     drag.currentSelection = updated;
@@ -4853,6 +4854,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     required _ObjectDragHandle handle,
     required Offset delta,
     required Size? pageSize,
+    bool preserveAspectRatio = false,
   }) {
     if (handle == _ObjectDragHandle.move) {
       return _clampMovedObjectBounds(
@@ -4907,6 +4909,21 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
       }
     }
 
+    if (preserveAspectRatio && _isCornerHandle(handle)) {
+      final adjusted = _preserveObjectAspectRatio(
+        original: original,
+        handle: handle,
+        left: left,
+        top: top,
+        right: right,
+        bottom: bottom,
+      );
+      left = adjusted.left;
+      top = adjusted.top;
+      right = adjusted.right;
+      bottom = adjusted.bottom;
+    }
+
     left = math.max(0, left);
     top = math.max(0, top);
     if (pageSize != null) {
@@ -4918,6 +4935,59 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     right = math.max(left + _minimumObjectExtent, right);
     bottom = math.max(top + _minimumObjectExtent, bottom);
     return Rect.fromLTRB(left, top, right, bottom);
+  }
+
+  Rect _preserveObjectAspectRatio({
+    required Rect original,
+    required _ObjectDragHandle handle,
+    required double left,
+    required double top,
+    required double right,
+    required double bottom,
+  }) {
+    if (original.width <= 0 || original.height <= 0) {
+      return Rect.fromLTRB(left, top, right, bottom);
+    }
+
+    final aspectRatio = original.width / original.height;
+    var width = math.max(_minimumObjectExtent, right - left);
+    var height = math.max(_minimumObjectExtent, bottom - top);
+    final widthScale = width / original.width;
+    final heightScale = height / original.height;
+
+    if ((widthScale - 1).abs() >= (heightScale - 1).abs()) {
+      height = width / aspectRatio;
+    } else {
+      width = height * aspectRatio;
+    }
+
+    return switch (handle) {
+      _ObjectDragHandle.northWest => Rect.fromLTRB(
+        right - width,
+        bottom - height,
+        right,
+        bottom,
+      ),
+      _ObjectDragHandle.northEast => Rect.fromLTRB(
+        left,
+        bottom - height,
+        left + width,
+        bottom,
+      ),
+      _ObjectDragHandle.southEast => Rect.fromLTRB(
+        left,
+        top,
+        left + width,
+        top + height,
+      ),
+      _ObjectDragHandle.southWest => Rect.fromLTRB(
+        right - width,
+        top,
+        right,
+        top + height,
+      ),
+      _ => Rect.fromLTRB(left, top, right, bottom),
+    };
   }
 
   Rect _clampMovedObjectBounds(Rect bounds, Size size, Size? pageSize) {
@@ -4960,6 +5030,16 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
       _ObjectDragHandle.northWest ||
       _ObjectDragHandle.north ||
       _ObjectDragHandle.northEast => true,
+      _ => false,
+    };
+  }
+
+  bool _isCornerHandle(_ObjectDragHandle handle) {
+    return switch (handle) {
+      _ObjectDragHandle.northWest ||
+      _ObjectDragHandle.northEast ||
+      _ObjectDragHandle.southEast ||
+      _ObjectDragHandle.southWest => true,
       _ => false,
     };
   }

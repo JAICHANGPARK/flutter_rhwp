@@ -2017,6 +2017,92 @@ void main() {
     },
   );
 
+  testWidgets('RhwpNativeEditor preserves object ratio with shift resize', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1000, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_objectEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 720,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    Offset pagePoint(double x, double y) {
+      return pageTopLeft +
+          Offset(pageSize.width * x / 240, pageSize.height * y / 180);
+    }
+
+    await tester.tapAt(pagePoint(150, 85));
+    await tester.pumpAndSettle();
+
+    final selectedPageTopLeft = tester.getTopLeft(pageFinder);
+    final selectedPageSize = tester.getSize(pageFinder);
+    Offset selectedPagePoint(double x, double y) {
+      return selectedPageTopLeft +
+          Offset(
+            selectedPageSize.width * x / 240,
+            selectedPageSize.height * y / 180,
+          );
+    }
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    final drag = await tester.startGesture(selectedPagePoint(179, 109));
+    await drag.moveTo(selectedPagePoint(191, 109));
+    await drag.up();
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await _pumpDocumentFrame(tester);
+
+    _expectRectClose(
+      controller.objectSelection!.bounds,
+      const Rect.fromLTRB(120, 60, 192, 120),
+    );
+    expect(changedCalls, 1);
+    expect(session.commands.map(jsonDecode).toList(), [
+      {
+        'type': 'getObjectProperties',
+        'section': 0,
+        'paragraph': 2,
+        'controlIndex': 1,
+        'objectType': 'shape',
+      },
+      {
+        'type': 'setObjectProperties',
+        'section': 0,
+        'paragraph': 2,
+        'controlIndex': 1,
+        'objectType': 'shape',
+        'properties': {
+          'width': 72,
+          'height': 60,
+          'horzOffset': 120,
+          'vertOffset': 60,
+        },
+      },
+    ]);
+  });
+
   testWidgets('RhwpNativeEditor context menu changes selected object z order', (
     tester,
   ) async {

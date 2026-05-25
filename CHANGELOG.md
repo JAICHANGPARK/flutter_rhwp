@@ -189,6 +189,8 @@
   and exposed them through a Flutter-native object properties dialog.
 * Added Flutter-native pointer drag move and resize handles for selected
   objects, backed by the same object properties bridge command.
+* Added Shift+drag aspect-ratio preservation for selected object resize
+  handles in the Flutter-native editor.
 * Changed Flutter-native document edits to preserve the viewer widget and scroll
   position while refreshing rendered page content.
 * Changed page SVG refreshes to keep showing the previous render until the next
