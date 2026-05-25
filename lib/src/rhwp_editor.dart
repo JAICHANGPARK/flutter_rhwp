@@ -4,7 +4,12 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, kIsWeb;
+    show
+        TargetPlatform,
+        ValueListenable,
+        ValueNotifier,
+        defaultTargetPlatform,
+        kIsWeb;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1082,6 +1087,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   Timer? _textInputActionIgnoreTimer;
   Timer? _deferredEditRefreshTimer;
   List<_PendingTextOverlay> _pendingTextOverlays = const [];
+  final _pendingTextOverlaysListenable =
+      ValueNotifier<List<_PendingTextOverlay>>(const []);
   int? _pendingTextRefreshRevision;
   List<_PendingDeletionOverlay> _pendingDeletionOverlays = const [];
   int? _pendingDeletionRefreshRevision;
@@ -1098,6 +1105,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   bool _ignoreTextInputActions = false;
   bool _hasDeferredEditRefresh = false;
   bool _deferredEditRefreshAwaitsTextInput = false;
+  bool _suppressControllerChangedSetState = false;
   Object? _error;
 
   static const _maxUndoSnapshots = 100;
@@ -1131,6 +1139,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _textInputActionIgnoreTimer?.cancel();
     _cancelDeferredEditRefresh();
     _closeTextInput();
+    _pendingTextOverlaysListenable.dispose();
     if (_ownsController) {
       _controller.dispose();
     }
@@ -1171,7 +1180,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     } else {
       _syncTableSelectionFields(tableSelection);
     }
-    if (mounted) {
+    if (mounted && !_suppressControllerChangedSetState) {
       setState(() {});
     }
   }
@@ -1448,9 +1457,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           text: text,
         );
         await _applyPendingCharFormatToInsertedText(cursor: cursor, text: text);
-        _controller.cursor = cursor.copyWith(
-          offset: cursor.offset + text.length,
-        );
+        final nextCursor = cursor.copyWith(offset: cursor.offset + text.length);
+        if (awaitTextInputBeforeRefresh) {
+          _setCursorForPendingText(nextCursor);
+        } else {
+          _controller.cursor = nextCursor;
+        }
       },
       deferRefresh: true,
       awaitTextInputBeforeRefresh: awaitTextInputBeforeRefresh,
@@ -1578,7 +1590,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           text: text,
         );
         _setTextIfChanged(_offsetController, nextOffset.toString());
-        _controller.tableCellSelection = RhwpTableCellSelection(
+        final nextSelection = RhwpTableCellSelection(
           section: tableSelection.section,
           paragraph: tableSelection.paragraph,
           controlIndex: tableSelection.controlIndex,
@@ -1591,6 +1603,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           activeOffset: nextOffset,
           isTextEditing: true,
         );
+        if (deferRefresh && awaitTextInputBeforeRefresh) {
+          _setTableSelectionForPendingText(nextSelection);
+        } else {
+          _controller.tableCellSelection = nextSelection;
+        }
         if (clearTextController) {
           _textController.clear();
         }
@@ -4194,7 +4211,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _deferredEditRefreshTimer = null;
     _hasDeferredEditRefresh = false;
     _deferredEditRefreshAwaitsTextInput = false;
-    _pendingTextOverlays = const [];
+    _setPendingTextOverlays(const []);
     _pendingTextRefreshRevision = null;
     _pendingDeletionOverlays = const [];
     _pendingDeletionRefreshRevision = null;
@@ -4207,6 +4224,30 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
     _deferredEditRefreshAwaitsTextInput = false;
     _scheduleDeferredEditRefresh();
+  }
+
+  void _setCursorForPendingText(RhwpCursorPosition cursor) {
+    _suppressControllerChangedSetState = true;
+    try {
+      _controller.cursor = cursor;
+    } finally {
+      _suppressControllerChangedSetState = false;
+    }
+  }
+
+  void _setTableSelectionForPendingText(RhwpTableCellSelection selection) {
+    _suppressControllerChangedSetState = true;
+    try {
+      _controller.tableCellSelection = selection;
+    } finally {
+      _suppressControllerChangedSetState = false;
+    }
+  }
+
+  void _setPendingTextOverlays(List<_PendingTextOverlay> overlays) {
+    final nextOverlays = List<_PendingTextOverlay>.unmodifiable(overlays);
+    _pendingTextOverlays = nextOverlays;
+    _pendingTextOverlaysListenable.value = nextOverlays;
   }
 
   void _recordPendingTextOverlay(RhwpCursorPosition cursor, String text) {
@@ -4224,19 +4265,15 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           last.cursor.paragraph == cursor.paragraph &&
           nextOffset == cursor.offset) {
         overlays[overlays.length - 1] = last.copyWith(text: last.text + text);
-        setState(() {
-          _pendingTextOverlays = List.unmodifiable(overlays);
-          _pendingTextRefreshRevision = null;
-        });
+        _setPendingTextOverlays(overlays);
+        _pendingTextRefreshRevision = null;
         return;
       }
     }
 
     overlays.add(_PendingTextOverlay(page: page, cursor: cursor, text: text));
-    setState(() {
-      _pendingTextOverlays = List.unmodifiable(overlays);
-      _pendingTextRefreshRevision = null;
-    });
+    _setPendingTextOverlays(overlays);
+    _pendingTextRefreshRevision = null;
   }
 
   void _recordPendingDeletionOverlay(RhwpSelectionRange range) {
@@ -4293,13 +4330,18 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
+    if (textChanged) {
+      _setPendingTextOverlays(nextTextOverlays);
+    }
+    if (nextTextOverlays.isEmpty) {
+      _pendingTextRefreshRevision = null;
+    }
+
+    if (!deletionChanged) {
+      return;
+    }
+
     setState(() {
-      if (textChanged) {
-        _pendingTextOverlays = nextTextOverlays;
-      }
-      if (nextTextOverlays.isEmpty) {
-        _pendingTextRefreshRevision = null;
-      }
       if (deletionChanged) {
         _pendingDeletionOverlays = nextDeletionOverlays;
       }
@@ -6120,9 +6162,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
                     tableCellSelection: _controller.tableCellSelection,
                     objectSelection: _controller.objectSelection,
                     composingText: _composingText,
-                    pendingTextOverlays: _pendingTextOverlays
-                        .where((overlay) => overlay.page == page)
-                        .toList(growable: false),
+                    pendingTextOverlaysListenable:
+                        _pendingTextOverlaysListenable,
                     pendingDeletionOverlays: _pendingDeletionOverlays
                         .where((overlay) => overlay.page == page)
                         .toList(growable: false),
@@ -6213,7 +6254,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
     required this.tableCellSelection,
     required this.objectSelection,
     required this.composingText,
-    required this.pendingTextOverlays,
+    required this.pendingTextOverlaysListenable,
     required this.pendingDeletionOverlays,
     required this.searchMatches,
     required this.layerRevision,
@@ -6235,7 +6276,8 @@ class _EditorSelectionOverlay extends StatefulWidget {
   final RhwpTableCellSelection? tableCellSelection;
   final RhwpObjectSelection? objectSelection;
   final String? composingText;
-  final List<_PendingTextOverlay> pendingTextOverlays;
+  final ValueListenable<List<_PendingTextOverlay>>
+  pendingTextOverlaysListenable;
   final List<_PendingDeletionOverlay> pendingDeletionOverlays;
   final List<_EditorSearchMatch> searchMatches;
   final int layerRevision;
@@ -6281,6 +6323,9 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
   void initState() {
     super.initState();
     _layerTree = _loadLayerTree();
+    widget.pendingTextOverlaysListenable.addListener(
+      _handlePendingTextOverlaysChanged,
+    );
   }
 
   @override
@@ -6290,6 +6335,36 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
         oldWidget.page != widget.page ||
         oldWidget.layerRevision != widget.layerRevision) {
       _layerTree = _loadLayerTree();
+    }
+    if (oldWidget.pendingTextOverlaysListenable !=
+        widget.pendingTextOverlaysListenable) {
+      oldWidget.pendingTextOverlaysListenable.removeListener(
+        _handlePendingTextOverlaysChanged,
+      );
+      widget.pendingTextOverlaysListenable.addListener(
+        _handlePendingTextOverlaysChanged,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.pendingTextOverlaysListenable.removeListener(
+      _handlePendingTextOverlaysChanged,
+    );
+    super.dispose();
+  }
+
+  List<_PendingTextOverlay> get _pendingTextOverlays {
+    return [
+      for (final overlay in widget.pendingTextOverlaysListenable.value)
+        if (overlay.page == widget.page) overlay,
+    ];
+  }
+
+  void _handlePendingTextOverlaysChanged() {
+    if (mounted) {
+      setState(() {});
     }
   }
 
@@ -7281,7 +7356,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
             ),
           ),
         ),
-        for (final (index, overlay) in widget.pendingTextOverlays.indexed)
+        for (final (index, overlay) in _pendingTextOverlays.indexed)
           Positioned(
             key: index == 0
                 ? const ValueKey('rhwp-editor-pending-text-preview')
@@ -7392,12 +7467,13 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     RhwpLayerTree tree,
     Size overlaySize,
   ) {
-    if (widget.pendingTextOverlays.isEmpty) {
+    final pendingTextOverlays = _pendingTextOverlays;
+    if (pendingTextOverlays.isEmpty) {
       return const [];
     }
 
     final rects = <({String text, Rect rect})>[];
-    for (final overlay in widget.pendingTextOverlays) {
+    for (final overlay in pendingTextOverlays) {
       final caretRect = tree.caretRectFor(
         section: overlay.cursor.section,
         paragraph: overlay.cursor.paragraph,
@@ -7418,11 +7494,12 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
   }
 
   Rect? _pendingTextCaretRect(RhwpLayerTree tree, Size overlaySize) {
-    if (widget.pendingTextOverlays.isEmpty) {
+    final pendingTextOverlays = _pendingTextOverlays;
+    if (pendingTextOverlays.isEmpty) {
       return null;
     }
 
-    final overlay = widget.pendingTextOverlays.last;
+    final overlay = pendingTextOverlays.last;
     final caretRect = tree.caretRectFor(
       section: overlay.cursor.section,
       paragraph: overlay.cursor.paragraph,

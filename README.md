@@ -237,6 +237,9 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   completes, including table cell text input. Deleted body text is temporarily
   masked until the refreshed page render completes. The example app uses a 1200
   ms refresh delay for a steadier typing feel.
+  Pending text previews are updated through a scoped overlay notifier, so
+  normal typing updates the caret/text preview without rebuilding the whole
+  native editor surface.
 - `rust/vendor/rhwp` should be committed. `rust/target` should stay ignored.
 
 ## License

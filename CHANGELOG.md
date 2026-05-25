@@ -233,6 +233,9 @@
 * Added pending delete masks for Flutter-native body text deletion and
   selection replacement so removed text is hidden until the refreshed page SVG
   finishes rendering.
+* Changed Flutter-native text input previews to update through a scoped
+  notifier and suppressed root editor rebuilds for pending typing cursor moves,
+  reducing visible page refresh while entering spaces or text.
 * Added Flutter-native double-click word selection based on page-layer text run
   hit testing.
 * Added Flutter-native triple-click paragraph selection using the same
