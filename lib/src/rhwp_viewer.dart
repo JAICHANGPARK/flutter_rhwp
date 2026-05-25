@@ -100,6 +100,7 @@ class RhwpViewer extends StatefulWidget {
     this.svgBuilder = _defaultRhwpSvgBuilder,
     this.pageOverlayBuilder,
     this.ignorePageOverlayPointer = true,
+    this.renderRevision = 0,
   });
 
   final RhwpDocument document;
@@ -109,6 +110,7 @@ class RhwpViewer extends StatefulWidget {
   final Color backgroundColor;
   final RhwpSvgBuilder svgBuilder;
   final RhwpPageOverlayBuilder? pageOverlayBuilder;
+  final int renderRevision;
 
   /// Whether page overlays should ignore pointer events.
   ///
@@ -201,6 +203,7 @@ class _RhwpViewerState extends State<RhwpViewer> {
                         key: _pageKeys[index],
                         document: widget.document,
                         page: index,
+                        renderRevision: widget.renderRevision,
                         svgBuilder: widget.svgBuilder,
                         pageOverlayBuilder: widget.pageOverlayBuilder,
                         ignorePageOverlayPointer:
@@ -282,6 +285,7 @@ class _RhwpSvgPage extends StatefulWidget {
     super.key,
     required this.document,
     required this.page,
+    required this.renderRevision,
     required this.svgBuilder,
     required this.pageOverlayBuilder,
     required this.ignorePageOverlayPointer,
@@ -289,6 +293,7 @@ class _RhwpSvgPage extends StatefulWidget {
 
   final RhwpDocument document;
   final int page;
+  final int renderRevision;
   final RhwpSvgBuilder svgBuilder;
   final RhwpPageOverlayBuilder? pageOverlayBuilder;
   final bool ignorePageOverlayPointer;
@@ -311,7 +316,8 @@ class _RhwpSvgPageState extends State<_RhwpSvgPage>
   void didUpdateWidget(covariant _RhwpSvgPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.document != widget.document ||
-        oldWidget.page != widget.page) {
+        oldWidget.page != widget.page ||
+        oldWidget.renderRevision != widget.renderRevision) {
       _svg = widget.document.renderPageSvg(widget.page);
     }
   }

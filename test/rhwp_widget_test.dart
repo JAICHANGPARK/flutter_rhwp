@@ -251,6 +251,47 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor preserves viewport while editing', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 8);
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final scroll = controller.goToPage(5);
+    await tester.pumpAndSettle();
+    await scroll;
+    final offsetBefore = _viewerListOffset(tester);
+    expect(offsetBefore, greaterThan(0));
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-text-field')),
+      'x',
+    );
+    await tester.tap(find.byTooltip('Insert'));
+    await _pumpDocumentFrame(tester);
+
+    expect(_viewerListOffset(tester), greaterThan(offsetBefore - 100));
+    expect(jsonDecode(session.commands.single), {
+      'type': 'insertText',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 0,
+      'text': 'x',
+    });
+  });
+
   testWidgets('RhwpNativeEditor edit ribbon restores undo and redo snapshots', (
     tester,
   ) async {
@@ -1692,6 +1733,164 @@ void main() {
             'height': 2400,
             'horzOffset': 80,
             'vertOffset': 90,
+          },
+        },
+      ]);
+    },
+  );
+
+  testWidgets('RhwpNativeEditor drags selected objects to update position', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_objectEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    Offset pagePoint(double x, double y) {
+      return pageTopLeft +
+          Offset(pageSize.width * x / 240, pageSize.height * y / 180);
+    }
+
+    await tester.tapAt(pagePoint(150, 85));
+    await tester.pump();
+
+    final drag = await tester.startGesture(pagePoint(150, 85));
+    await drag.moveTo(pagePoint(162, 93));
+    await drag.up();
+    await _pumpDocumentFrame(tester);
+
+    _expectRectClose(
+      controller.objectSelection!.bounds,
+      const Rect.fromLTRB(132, 68, 192, 118),
+    );
+    expect(changedCalls, 1);
+    expect(session.commands.map(jsonDecode).toList(), [
+      {
+        'type': 'getObjectProperties',
+        'section': 0,
+        'paragraph': 2,
+        'controlIndex': 1,
+        'objectType': 'shape',
+      },
+      {
+        'type': 'setObjectProperties',
+        'section': 0,
+        'paragraph': 2,
+        'controlIndex': 1,
+        'objectType': 'shape',
+        'properties': {
+          'width': 60,
+          'height': 50,
+          'horzOffset': 132,
+          'vertOffset': 68,
+        },
+      },
+    ]);
+  });
+
+  testWidgets(
+    'RhwpNativeEditor resizes selected objects from overlay handles',
+    (tester) async {
+      tester.view.physicalSize = const Size(1000, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(_objectEditorLayerTreeJson());
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 720,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      final pageFinder = find.byType(SvgPicture);
+      final pageTopLeft = tester.getTopLeft(pageFinder);
+      final pageSize = tester.getSize(pageFinder);
+      Offset pagePoint(double x, double y) {
+        return pageTopLeft +
+            Offset(pageSize.width * x / 240, pageSize.height * y / 180);
+      }
+
+      await tester.tapAt(pagePoint(150, 85));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-object-resize-southEast')),
+        findsOneWidget,
+      );
+
+      final selectedPageTopLeft = tester.getTopLeft(pageFinder);
+      final selectedPageSize = tester.getSize(pageFinder);
+      Offset selectedPagePoint(double x, double y) {
+        return selectedPageTopLeft +
+            Offset(
+              selectedPageSize.width * x / 240,
+              selectedPageSize.height * y / 180,
+            );
+      }
+
+      final drag = await tester.startGesture(selectedPagePoint(179, 109));
+      await drag.moveTo(selectedPagePoint(191, 119));
+      await drag.up();
+      await _pumpDocumentFrame(tester);
+
+      _expectRectClose(
+        controller.objectSelection!.bounds,
+        const Rect.fromLTRB(120, 60, 192, 120),
+      );
+      expect(changedCalls, 1);
+      expect(session.commands.map(jsonDecode).toList(), [
+        {
+          'type': 'getObjectProperties',
+          'section': 0,
+          'paragraph': 2,
+          'controlIndex': 1,
+          'objectType': 'shape',
+        },
+        {
+          'type': 'setObjectProperties',
+          'section': 0,
+          'paragraph': 2,
+          'controlIndex': 1,
+          'objectType': 'shape',
+          'properties': {
+            'width': 72,
+            'height': 60,
+            'horzOffset': 120,
+            'vertOffset': 60,
           },
         },
       ]);
@@ -3925,7 +4124,7 @@ class _FakeRhwpSession implements rust.RhwpSession {
       }
     }
     if (command is Map && command['type'] == 'getObjectProperties') {
-      return '{"width":1000,"height":2000,"horzOffset":30,"vertOffset":40}';
+      return '{"width":60,"height":50,"horzOffset":120,"vertOffset":60}';
     }
     return '{"ok":true}';
   }
@@ -4216,6 +4415,18 @@ List<Map<String, Object?>> _editorTextClusters(int length) {
     for (var index = 0; index < length; index += 1)
       _editorTextCluster(index, index + 1, index * 10),
   ];
+}
+
+void _expectRectClose(Rect actual, Rect expected) {
+  expect(actual.left, closeTo(expected.left, 0.01));
+  expect(actual.top, closeTo(expected.top, 0.01));
+  expect(actual.right, closeTo(expected.right, 0.01));
+  expect(actual.bottom, closeTo(expected.bottom, 0.01));
+}
+
+double _viewerListOffset(WidgetTester tester) {
+  final list = tester.widget<ListView>(find.byType(ListView).last);
+  return list.controller!.offset;
 }
 
 Future<void> _pumpDocumentFrame(WidgetTester tester) async {

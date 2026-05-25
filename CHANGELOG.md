@@ -185,6 +185,10 @@
   Flutter-native edit ribbon and object context menu.
 * Added selected object size/position property commands to the Dart/Rust bridge
   and exposed them through a Flutter-native object properties dialog.
+* Added Flutter-native pointer drag move and resize handles for selected
+  objects, backed by the same object properties bridge command.
+* Changed Flutter-native document edits to preserve the viewer widget and scroll
+  position while refreshing rendered page content.
 * Added Arrow and Tab keyboard navigation for selected table cells in the
   Flutter-native editor, including Shift+Arrow range extension.
 * Added Escape handling in the Flutter-native editor to clear composing input,
