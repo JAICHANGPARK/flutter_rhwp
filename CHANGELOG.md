@@ -87,3 +87,5 @@
   reproducible builds, but keep generated `rust/target` output ignored.
 * Verified that the example Web release build completes after the Web editor
   default-mode and export artifact changes.
+* Added Dart API documentation for export artifact metadata and Web editor
+  controller export methods.

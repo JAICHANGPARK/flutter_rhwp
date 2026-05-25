@@ -7,9 +7,12 @@ import 'rhwp_exception.dart';
 import 'rhwp_layer_tree.dart';
 import 'rust/api/rhwp.dart' as rust;
 
+/// Supported output formats for document export.
 enum RhwpExportFormat { hwp, hwpx, pdf, docx, text, markdown, svg }
 
+/// Save metadata for [RhwpExportFormat] values.
 extension RhwpExportFormatMetadata on RhwpExportFormat {
+  /// The default file extension without a leading dot.
   String get fileExtension {
     return switch (this) {
       RhwpExportFormat.hwp => 'hwp',
@@ -22,6 +25,7 @@ extension RhwpExportFormatMetadata on RhwpExportFormat {
     };
   }
 
+  /// The MIME type to use for saves and browser downloads.
   String get mimeType {
     return switch (this) {
       RhwpExportFormat.hwp => 'application/x-hwp',
@@ -36,7 +40,9 @@ extension RhwpExportFormatMetadata on RhwpExportFormat {
   }
 }
 
+/// Export bytes bundled with metadata needed by save and download UIs.
 class RhwpExportedDocument {
+  /// Creates an export result from explicit values.
   const RhwpExportedDocument({
     required this.format,
     required this.bytes,
@@ -44,6 +50,11 @@ class RhwpExportedDocument {
     required this.mimeType,
   });
 
+  /// Creates an export result and derives save metadata from [format].
+  ///
+  /// [sourceFileName] may be a plain file name or a platform path. When [page]
+  /// is supplied, the generated file name includes a one-based page suffix such
+  /// as `sample-page-1.svg`.
   factory RhwpExportedDocument.fromBytes({
     required RhwpExportFormat format,
     required Uint8List bytes,
@@ -62,11 +73,22 @@ class RhwpExportedDocument {
     );
   }
 
+  /// The format used to produce [bytes].
   final RhwpExportFormat format;
+
+  /// The exported document bytes.
   final Uint8List bytes;
+
+  /// The suggested file name for save and download prompts.
   final String fileName;
+
+  /// The MIME type for [bytes].
   final String mimeType;
 
+  /// The default save name for [format] and optional source context.
+  ///
+  /// Empty names, extension-only names, and paths without a usable basename fall
+  /// back to `document`.
   static String defaultFileName({
     required RhwpExportFormat format,
     String? sourceFileName,
@@ -261,6 +283,14 @@ class RhwpDocument {
     };
   }
 
+  /// Exports the document with bytes and save metadata.
+  ///
+  /// This is the preferred API for app save/download flows because it returns a
+  /// [RhwpExportedDocument] containing bytes, a suggested file name, and MIME
+  /// type. Pass [page] for page-scoped formats such as [RhwpExportFormat.svg].
+  ///
+  /// Throws [RhwpUnsupportedPlatformException] when the selected [format] is not
+  /// supported on the current platform, such as native PDF export on Web/WASM.
   Future<RhwpExportedDocument> exportDocument(
     RhwpExportFormat format, {
     int? page,

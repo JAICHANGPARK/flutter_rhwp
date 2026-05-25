@@ -12,11 +12,18 @@ import 'rhwp_exception.dart';
 @JS('__flutterRhwpWebEditorExport')
 external JSPromise<JSString> _exportEditorBytes(String hostId, String format);
 
+/// Controls an embedded upstream `@rhwp/editor` instance.
 class RhwpWebEditorController extends ChangeNotifier {
   String? _hostId;
 
+  /// Whether this controller is attached to a mounted [RhwpWebEditor].
   bool get isAttached => _hostId != null;
 
+  /// Exports the current upstream editor state as raw bytes.
+  ///
+  /// Throws [RhwpUnsupportedPlatformException] when no widget is attached, or
+  /// when the loaded upstream editor module does not expose an exporter for
+  /// [format].
   Future<Uint8List> export(RhwpExportFormat format) async {
     final hostId = _hostId;
     if (hostId == null) {
@@ -33,6 +40,10 @@ class RhwpWebEditorController extends ChangeNotifier {
     }
   }
 
+  /// Exports the current upstream editor state with save metadata.
+  ///
+  /// [sourceFileName] and [page] are used only to derive the returned
+  /// [RhwpExportedDocument.fileName].
   Future<RhwpExportedDocument> exportDocument(
     RhwpExportFormat format, {
     String? sourceFileName,
