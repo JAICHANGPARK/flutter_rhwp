@@ -92,6 +92,8 @@
   supplied image picker callback and the Rust command bridge.
 * Added Flutter-native rectangle shape insertion from the insert ribbon through
   the Rust shape-control command bridge.
+* Expanded Flutter-native shape insertion into a preset menu for rectangle,
+  ellipse, line, and text box controls.
 * Added Flutter-native page break and column break insertion from the insert
   ribbon and Ctrl/Cmd+Enter shortcuts through the Rust command bridge.
 * Added a Flutter-native document information dialog from the file ribbon,

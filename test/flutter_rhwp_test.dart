@@ -1095,6 +1095,33 @@ void main() {
       'lineFlipY': false,
     });
 
+    await document.insertShape(
+      section: 0,
+      paragraph: 1,
+      offset: 10,
+      width: 12000,
+      height: 6000,
+      shapeType: 'textbox',
+      treatAsChar: true,
+      textWrap: 'Square',
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'insertShape',
+      'section': 0,
+      'paragraph': 1,
+      'offset': 10,
+      'width': 12000,
+      'height': 6000,
+      'horzOffset': 0,
+      'vertOffset': 0,
+      'shapeType': 'textbox',
+      'treatAsChar': true,
+      'textWrap': 'Square',
+      'lineFlipX': false,
+      'lineFlipY': false,
+    });
+
     await document.insertTable(
       section: 0,
       paragraph: 1,

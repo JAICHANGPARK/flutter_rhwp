@@ -2445,7 +2445,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
   }
 
-  Future<void> _insertRectangleShape() async {
+  Future<void> _insertShape(_EditorShapePreset preset) async {
     if (_busy || _controller.tableCellSelection != null) {
       return;
     }
@@ -2462,13 +2462,15 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         section: cursor.section,
         paragraph: cursor.paragraph,
         offset: cursor.offset,
-        width: 9000,
-        height: 6750,
-        horzOffset: 0,
-        vertOffset: 0,
-        shapeType: 'rectangle',
-        treatAsChar: false,
-        textWrap: 'InFrontOfText',
+        width: preset.width,
+        height: preset.height,
+        horzOffset: preset.horzOffset,
+        vertOffset: preset.vertOffset,
+        shapeType: preset.shapeType,
+        treatAsChar: preset.treatAsChar,
+        textWrap: preset.textWrap,
+        lineFlipX: preset.lineFlipX,
+        lineFlipY: preset.lineFlipY,
       );
       final shapeParagraph =
           _readIntResult(result, 'paraIdx') ?? cursor.paragraph;
@@ -6408,7 +6410,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onInsertFootnote: _insertFootnote,
           onInsertEquation: _showInsertEquationDialog,
           onInsertPicture: _insertPicture,
-          onInsertShape: _insertRectangleShape,
+          onInsertShape: _insertShape,
           onInsertPageBreak: _insertPageBreak,
           onInsertColumnBreak: _insertColumnBreak,
           onInsertTableRow: _insertTableRow,
@@ -8139,6 +8141,62 @@ class _ObjectSelectionBox extends StatelessWidget {
 
 enum _EditorTab { file, edit, view, insert, format, page, table, tools }
 
+enum _EditorShapePreset {
+  rectangle(
+    label: 'Rectangle',
+    shapeType: 'rectangle',
+    icon: Icons.crop_square,
+    width: 9000,
+    height: 6750,
+  ),
+  ellipse(
+    label: 'Ellipse',
+    shapeType: 'ellipse',
+    icon: Icons.radio_button_unchecked,
+    width: 9000,
+    height: 6750,
+  ),
+  line(
+    label: 'Line',
+    shapeType: 'line',
+    icon: Icons.show_chart,
+    width: 9000,
+    height: 3000,
+  ),
+  textBox(
+    label: 'Text box',
+    shapeType: 'textbox',
+    icon: Icons.text_fields,
+    width: 12000,
+    height: 6000,
+    treatAsChar: true,
+    textWrap: 'Square',
+  );
+
+  const _EditorShapePreset({
+    required this.label,
+    required this.shapeType,
+    required this.icon,
+    required this.width,
+    required this.height,
+    this.treatAsChar = false,
+    this.textWrap = 'InFrontOfText',
+  });
+
+  final String label;
+  final String shapeType;
+  final IconData icon;
+  final int width;
+  final int height;
+  final bool treatAsChar;
+  final String textWrap;
+
+  int get horzOffset => 0;
+  int get vertOffset => 0;
+  bool get lineFlipX => false;
+  bool get lineFlipY => false;
+}
+
 class _EditorToolbar extends StatefulWidget {
   const _EditorToolbar({
     super.key,
@@ -8281,7 +8339,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onInsertFootnote;
   final VoidCallback onInsertEquation;
   final VoidCallback onInsertPicture;
-  final VoidCallback onInsertShape;
+  final ValueChanged<_EditorShapePreset> onInsertShape;
   final VoidCallback onInsertPageBreak;
   final VoidCallback onInsertColumnBreak;
   final VoidCallback onInsertTableRow;
@@ -8770,11 +8828,9 @@ class _EditorToolbarState extends State<_EditorToolbar> {
                   ? null
                   : widget.onInsertPicture,
             ),
-            _ToolbarIconButton(
-              tooltip: 'Insert rectangle',
-              buttonKey: const ValueKey('rhwp-editor-insert-shape'),
-              icon: Icons.crop_square,
-              onPressed: widget.busy ? null : widget.onInsertShape,
+            _ToolbarShapeMenu(
+              enabled: !widget.busy,
+              onSelected: widget.onInsertShape,
             ),
             _ToolbarIconButton(
               tooltip: 'Insert page break',
@@ -11012,6 +11068,39 @@ class _ToolbarIconButton extends StatelessWidget {
         fixedSize: const Size.square(36),
         padding: EdgeInsets.zero,
       ),
+    );
+  }
+}
+
+class _ToolbarShapeMenu extends StatelessWidget {
+  const _ToolbarShapeMenu({required this.enabled, required this.onSelected});
+
+  final bool enabled;
+  final ValueChanged<_EditorShapePreset> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<_EditorShapePreset>(
+      key: const ValueKey('rhwp-editor-insert-shape'),
+      tooltip: 'Insert shape',
+      enabled: enabled,
+      icon: const Icon(Icons.category_outlined),
+      onSelected: onSelected,
+      itemBuilder: (context) => [
+        for (final preset in _EditorShapePreset.values)
+          PopupMenuItem<_EditorShapePreset>(
+            key: ValueKey('rhwp-editor-shape-${preset.shapeType}'),
+            value: preset,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(preset.icon, size: 18),
+                const SizedBox(width: 10),
+                Text(preset.label),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

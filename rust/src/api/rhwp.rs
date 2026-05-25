@@ -2067,20 +2067,28 @@ mod tests {
 
     #[test]
     fn applies_insert_shape_command() {
-        let session =
-            open_bytes(BLANK_2010_HWP.to_vec(), None).expect("vendored sample should open");
+        let cases = [
+            ("rectangle", 9000, 6750, false, "InFrontOfText"),
+            ("ellipse", 9000, 6750, false, "InFrontOfText"),
+            ("line", 9000, 3000, false, "InFrontOfText"),
+            ("textbox", 12000, 6000, true, "Square"),
+        ];
 
-        let result = session
-            .apply_command(
-                r#"{"type":"insertShape","section":0,"paragraph":0,"offset":0,"width":9000,"height":6750,"horzOffset":0,"vertOffset":0,"shapeType":"rectangle","treatAsChar":false,"textWrap":"InFrontOfText","lineFlipX":false,"lineFlipY":false}"#
-                    .to_string(),
-            )
-            .expect("insert shape command should be accepted");
-        let result: Value = serde_json::from_str(&result).expect("shape result should be JSON");
+        for (shape_type, width, height, treat_as_char, text_wrap) in cases {
+            let session =
+                open_bytes(BLANK_2010_HWP.to_vec(), None).expect("vendored sample should open");
 
-        assert_eq!(result["ok"], true);
-        assert_eq!(result["paraIdx"], 0);
-        assert!(result["controlIdx"].as_u64().is_some());
+            let result = session
+                .apply_command(format!(
+                    r#"{{"type":"insertShape","section":0,"paragraph":0,"offset":0,"width":{width},"height":{height},"horzOffset":0,"vertOffset":0,"shapeType":"{shape_type}","treatAsChar":{treat_as_char},"textWrap":"{text_wrap}","lineFlipX":false,"lineFlipY":false}}"#
+                ))
+                .expect("insert shape command should be accepted");
+            let result: Value = serde_json::from_str(&result).expect("shape result should be JSON");
+
+            assert_eq!(result["ok"], true);
+            assert_eq!(result["paraIdx"], 0);
+            assert!(result["controlIdx"].as_u64().is_some());
+        }
     }
 
     #[test]

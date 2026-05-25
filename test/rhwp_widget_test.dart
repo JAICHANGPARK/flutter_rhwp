@@ -556,7 +556,7 @@ void main() {
     });
   });
 
-  testWidgets('RhwpNativeEditor insert ribbon inserts a rectangle shape', (
+  testWidgets('RhwpNativeEditor insert ribbon inserts shape presets', (
     tester,
   ) async {
     final controller = RhwpEditorController();
@@ -586,6 +586,8 @@ void main() {
       find.byKey(const ValueKey('rhwp-editor-insert-shape')),
     );
     await tester.tap(find.byKey(const ValueKey('rhwp-editor-insert-shape')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-shape-rectangle')));
     await _pumpDocumentFrame(tester);
 
     expect(changedCalls, 1);
@@ -605,6 +607,75 @@ void main() {
       'shapeType': 'rectangle',
       'treatAsChar': false,
       'textWrap': 'InFrontOfText',
+      'lineFlipX': false,
+      'lineFlipY': false,
+    });
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 0, offset: 10);
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-insert-shape')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-shape-ellipse')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 2);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'insertShape',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 10,
+      'width': 9000,
+      'height': 6750,
+      'horzOffset': 0,
+      'vertOffset': 0,
+      'shapeType': 'ellipse',
+      'treatAsChar': false,
+      'textWrap': 'InFrontOfText',
+      'lineFlipX': false,
+      'lineFlipY': false,
+    });
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 0, offset: 18);
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-insert-shape')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-shape-line')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 3);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'insertShape',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 18,
+      'width': 9000,
+      'height': 3000,
+      'horzOffset': 0,
+      'vertOffset': 0,
+      'shapeType': 'line',
+      'treatAsChar': false,
+      'textWrap': 'InFrontOfText',
+      'lineFlipX': false,
+      'lineFlipY': false,
+    });
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 0, offset: 26);
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-insert-shape')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-shape-textbox')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 4);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'insertShape',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 26,
+      'width': 12000,
+      'height': 6000,
+      'horzOffset': 0,
+      'vertOffset': 0,
+      'shapeType': 'textbox',
+      'treatAsChar': true,
+      'textWrap': 'Square',
       'lineFlipX': false,
       'lineFlipY': false,
     });
