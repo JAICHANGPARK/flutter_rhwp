@@ -1368,6 +1368,46 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
   }
 
+  Future<void> _showDocumentInfoDialog() async {
+    if (_busy) {
+      return;
+    }
+
+    RhwpDocumentMetadata? metadata;
+    setState(() {
+      _busy = true;
+      _visibleBusy = true;
+      _error = null;
+    });
+    try {
+      metadata = await widget.document.metadata();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _visibleBusy = false;
+        });
+      }
+    }
+
+    if (!mounted || metadata == null) {
+      return;
+    }
+    final dialogMetadata = metadata;
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) => _DocumentInfoDialog(metadata: dialogMetadata),
+    );
+    _focusEditor();
+  }
+
   Future<void> _insertCommittedText(
     String text, {
     bool awaitTextInputBeforeRefresh = false,
@@ -5984,6 +6024,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           activeSearchMatch: _activeSearchMatch,
           onInsert: _insertText,
           onOpen: _requestOpenFromEditor,
+          onDocumentInfo: _showDocumentInfoDialog,
           onSaveHwp: () => _exportFromEditor(RhwpExportFormat.hwp),
           onSaveHwpx: () => _exportFromEditor(RhwpExportFormat.hwpx),
           onExportPdf: () => _exportFromEditor(RhwpExportFormat.pdf),
@@ -7646,6 +7687,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.activeSearchMatch,
     required this.onInsert,
     required this.onOpen,
+    required this.onDocumentInfo,
     required this.onSaveHwp,
     required this.onSaveHwpx,
     required this.onExportPdf,
@@ -7740,6 +7782,7 @@ class _EditorToolbar extends StatefulWidget {
   final int activeSearchMatch;
   final VoidCallback onInsert;
   final VoidCallback onOpen;
+  final VoidCallback onDocumentInfo;
   final VoidCallback onSaveHwp;
   final VoidCallback onSaveHwpx;
   final VoidCallback onExportPdf;
@@ -7919,6 +7962,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               buttonKey: const ValueKey('rhwp-editor-open'),
               icon: Icons.folder_open,
               onPressed: widget.busy || !widget.canOpen ? null : widget.onOpen,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Document info',
+              buttonKey: const ValueKey('rhwp-editor-document-info'),
+              icon: Icons.info_outline,
+              onPressed: widget.busy ? null : widget.onDocumentInfo,
             ),
             _ToolbarIconButton(
               tooltip: 'Save HWP',
@@ -8769,6 +8818,100 @@ class _EditorToolbarState extends State<_EditorToolbar> {
       const SizedBox(width: 6),
       _NumberField(label: 'Offset', controller: widget.offsetController),
     ];
+  }
+}
+
+class _DocumentInfoDialog extends StatelessWidget {
+  const _DocumentInfoDialog({required this.metadata});
+
+  final RhwpDocumentMetadata metadata;
+
+  @override
+  Widget build(BuildContext context) {
+    final fileName = metadata.fileName?.trim();
+    return AlertDialog(
+      title: const Text('Document info'),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _InfoRow(
+              label: 'File',
+              value: fileName == null || fileName.isEmpty
+                  ? 'Untitled'
+                  : fileName,
+              valueKey: const ValueKey('rhwp-document-info-file-name'),
+            ),
+            _InfoRow(
+              label: 'Format',
+              value: metadata.sourceFormat.toUpperCase(),
+              valueKey: const ValueKey('rhwp-document-info-format'),
+            ),
+            _InfoRow(
+              label: 'Pages',
+              value: metadata.pageCount.toString(),
+              valueKey: const ValueKey('rhwp-document-info-page-count'),
+            ),
+            const SizedBox(height: 12),
+            Text('Raw', style: Theme.of(context).textTheme.labelMedium),
+            const SizedBox(height: 4),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 160),
+              width: double.infinity,
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                border: Border.all(color: Theme.of(context).dividerColor),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: SingleChildScrollView(
+                child: SelectableText(
+                  metadata.rawJson,
+                  key: const ValueKey('rhwp-document-info-raw-json'),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.label,
+    required this.value,
+    required this.valueKey,
+  });
+
+  final String label;
+  final String value;
+  final Key valueKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 88,
+            child: Text(label, style: Theme.of(context).textTheme.labelMedium),
+          ),
+          Expanded(child: SelectableText(value, key: valueKey)),
+        ],
+      ),
+    );
   }
 }
 

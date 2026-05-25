@@ -197,7 +197,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   plus Ctrl/Cmd+Home/End, Ctrl/Option word navigation, and Ctrl/Option word
   delete, IME
   composing preview, context menus, HWP/HWPX/PDF export callbacks from the file
-  ribbon, app-level file open callbacks from the file ribbon, page navigation
+  ribbon, app-level file open callbacks and document information from the file
+  ribbon, page navigation
   controls, synchronized view/status zoom controls and Ctrl/Cmd zoom shortcuts,
   Ctrl/Cmd+mouse-wheel zoom, Escape state clearing, text commit, select-all,
   copy/cut/paste, Enter paragraph splitting, Shift+Enter soft line breaks,

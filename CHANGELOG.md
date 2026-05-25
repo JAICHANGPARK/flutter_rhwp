@@ -89,6 +89,8 @@
   supplied image picker callback and the Rust command bridge.
 * Added Flutter-native page break and column break insertion from the insert
   ribbon and Ctrl/Cmd+Enter shortcuts through the Rust command bridge.
+* Added a Flutter-native document information dialog from the file ribbon,
+  backed by the existing Rust document metadata bridge.
 * Extended page layer tree selection geometry to span multiple paragraphs and
   wired `RhwpEditor` page overlays to render those page-local selection rects.
 * Added a Rust facade regression test for the page layer tree JSON contract that

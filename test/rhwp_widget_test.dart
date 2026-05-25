@@ -755,6 +755,66 @@ void main() {
     expect(session.commands, isEmpty);
   });
 
+  testWidgets('RhwpNativeEditor file ribbon shows document info', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 3);
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('파일'));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-document-info')));
+    await _pumpDocumentFrame(tester);
+
+    expect(find.text('Document info'), findsOneWidget);
+    expect(
+      tester
+          .widget<SelectableText>(
+            find.byKey(const ValueKey('rhwp-document-info-file-name')),
+          )
+          .data,
+      'sample.hwp',
+    );
+    expect(
+      tester
+          .widget<SelectableText>(
+            find.byKey(const ValueKey('rhwp-document-info-format')),
+          )
+          .data,
+      'HWP',
+    );
+    expect(
+      tester
+          .widget<SelectableText>(
+            find.byKey(const ValueKey('rhwp-document-info-page-count')),
+          )
+          .data,
+      '3',
+    );
+    expect(
+      tester
+          .widget<SelectableText>(
+            find.byKey(const ValueKey('rhwp-document-info-raw-json')),
+          )
+          .data,
+      contains('"pageCount":3'),
+    );
+    expect(session.commands, isEmpty);
+  });
+
   testWidgets('RhwpNativeEditor view controls synchronize zoom state', (
     tester,
   ) async {
@@ -6471,7 +6531,7 @@ class _FakeRhwpSession implements rust.RhwpSession {
       pageCount: pageCountValue,
       sourceFormat: 'hwp',
       fileName: 'sample.hwp',
-      rawJson: '{"pageCount":1}',
+      rawJson: '{"pageCount":$pageCountValue}',
     );
   }
 
