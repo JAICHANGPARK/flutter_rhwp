@@ -300,6 +300,39 @@ void main() {
     expect(session.exportPdfCalls, 1);
   });
 
+  testWidgets('RhwpNativeEditor file ribbon requests app file open', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var openRequests = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onOpenRequested: () => openRequests += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('파일'));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-open')));
+    await _pumpDocumentFrame(tester);
+
+    expect(openRequests, 1);
+    expect(session.commands, isEmpty);
+  });
+
   testWidgets('RhwpNativeEditor view controls synchronize zoom state', (
     tester,
   ) async {

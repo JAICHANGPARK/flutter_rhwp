@@ -163,19 +163,33 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
 
     await _run('Export ${kind.extension.toUpperCase()}', () async {
       final exported = await _exportFor(kind, document: document);
-      final path = await FilePicker.saveFile(
-        dialogTitle: 'Save ${kind.label}',
-        fileName: exported.fileName,
-        type: FileType.custom,
-        allowedExtensions: [exported.format.fileExtension],
-        bytes: exported.bytes,
-      );
-
-      if (path == null) {
-        return 'Started ${exported.fileName} download';
-      }
-      return 'Saved $path';
+      return _writeExportedDocument(exported, dialogLabel: kind.label);
     });
+  }
+
+  Future<void> _saveEditorExport(RhwpExportedDocument exported) async {
+    await _run('Save ${exported.fileName}', () {
+      return _writeExportedDocument(exported);
+    });
+  }
+
+  Future<String> _writeExportedDocument(
+    RhwpExportedDocument exported, {
+    String? dialogLabel,
+  }) async {
+    final path = await FilePicker.saveFile(
+      dialogTitle:
+          'Save ${dialogLabel ?? exported.format.fileExtension.toUpperCase()}',
+      fileName: exported.fileName,
+      type: FileType.custom,
+      allowedExtensions: [exported.format.fileExtension],
+      bytes: exported.bytes,
+    );
+
+    if (path == null) {
+      return 'Started ${exported.fileName} download';
+    }
+    return 'Saved $path';
   }
 
   Future<void> _insertDemoText() async {
@@ -440,6 +454,8 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
                       key: _viewerKey,
                       document: document,
                       controller: _editorController,
+                      onOpenRequested: _busy ? null : _openDocument,
+                      onExported: _busy ? null : _saveEditorExport,
                       onChanged: (_) async {
                         final metadata = await document.metadata();
                         if (!mounted) {
