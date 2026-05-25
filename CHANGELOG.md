@@ -90,6 +90,8 @@
   native-to-full-editor mode switch.
 * Added Flutter-native picture insertion from the insert ribbon through an app
   supplied image picker callback and the Rust command bridge.
+* Added Flutter-native rectangle shape insertion from the insert ribbon through
+  the Rust shape-control command bridge.
 * Added Flutter-native page break and column break insertion from the insert
   ribbon and Ctrl/Cmd+Enter shortcuts through the Rust command bridge.
 * Added a Flutter-native document information dialog from the file ribbon,

@@ -349,6 +349,21 @@ abstract class RhwpCommand {
     String description,
   }) = RhwpInsertPictureCommand;
 
+  factory RhwpCommand.insertShape({
+    required int section,
+    required int paragraph,
+    required int offset,
+    int width,
+    int height,
+    int horzOffset,
+    int vertOffset,
+    String shapeType,
+    bool treatAsChar,
+    String textWrap,
+    bool lineFlipX,
+    bool lineFlipY,
+  }) = RhwpInsertShapeCommand;
+
   factory RhwpCommand.splitParagraph({
     required int section,
     required int paragraph,
@@ -849,6 +864,53 @@ class RhwpInsertPictureCommand extends RhwpCommand {
     'naturalHeightPx': naturalHeightPx,
     'extension': extension,
     'description': description,
+  };
+}
+
+class RhwpInsertShapeCommand extends RhwpCommand {
+  const RhwpInsertShapeCommand({
+    required this.section,
+    required this.paragraph,
+    required this.offset,
+    this.width = 9000,
+    this.height = 6750,
+    this.horzOffset = 0,
+    this.vertOffset = 0,
+    this.shapeType = 'rectangle',
+    this.treatAsChar = false,
+    this.textWrap = 'InFrontOfText',
+    this.lineFlipX = false,
+    this.lineFlipY = false,
+  });
+
+  final int section;
+  final int paragraph;
+  final int offset;
+  final int width;
+  final int height;
+  final int horzOffset;
+  final int vertOffset;
+  final String shapeType;
+  final bool treatAsChar;
+  final String textWrap;
+  final bool lineFlipX;
+  final bool lineFlipY;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'insertShape',
+    'section': section,
+    'paragraph': paragraph,
+    'offset': offset,
+    'width': width,
+    'height': height,
+    'horzOffset': horzOffset,
+    'vertOffset': vertOffset,
+    'shapeType': shapeType,
+    'treatAsChar': treatAsChar,
+    'textWrap': textWrap,
+    'lineFlipX': lineFlipX,
+    'lineFlipY': lineFlipY,
   };
 }
 
@@ -1988,6 +2050,38 @@ class RhwpDocument {
         naturalHeightPx: naturalHeightPx,
         extension: extension,
         description: description,
+      ),
+    );
+  }
+
+  Future<String> insertShape({
+    required int section,
+    required int paragraph,
+    required int offset,
+    int width = 9000,
+    int height = 6750,
+    int horzOffset = 0,
+    int vertOffset = 0,
+    String shapeType = 'rectangle',
+    bool treatAsChar = false,
+    String textWrap = 'InFrontOfText',
+    bool lineFlipX = false,
+    bool lineFlipY = false,
+  }) {
+    return apply(
+      RhwpCommand.insertShape(
+        section: section,
+        paragraph: paragraph,
+        offset: offset,
+        width: width,
+        height: height,
+        horzOffset: horzOffset,
+        vertOffset: vertOffset,
+        shapeType: shapeType,
+        treatAsChar: treatAsChar,
+        textWrap: textWrap,
+        lineFlipX: lineFlipX,
+        lineFlipY: lineFlipY,
       ),
     );
   }

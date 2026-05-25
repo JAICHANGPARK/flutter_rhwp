@@ -142,6 +142,13 @@ await document.insertPicture(
   extension: 'png',
 );
 
+await document.insertShape(
+  section: 0,
+  paragraph: 0,
+  offset: 0,
+  shapeType: 'rectangle',
+);
+
 await document.createHeader(section: 0);
 await document.createFooter(section: 0);
 
@@ -214,7 +221,7 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   snapshot-backed undo/redo from the edit ribbon, layer-tree text search with
   Ctrl/Cmd+F focus, F3/Shift+F3 result navigation, result highlighting,
   active-match replace, replace-all, table-cell find/replace, and a tools-ribbon
-  compare dialog backed by text extraction, and basic text/table/picture
+  compare dialog backed by text extraction, and basic text/table/picture/shape
   insert/delete, page/column break insertion, plus table
   row/column and cell
   merge/split command flow with table-cell hit testing, selected-cell

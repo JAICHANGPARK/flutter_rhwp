@@ -556,6 +556,60 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor insert ribbon inserts a rectangle shape', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 900,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 0, offset: 2);
+    await tester.pump();
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-insert-shape')),
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-insert-shape')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(controller.cursor, const RhwpCursorPosition(offset: 10));
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+    ]);
+    expect(jsonDecode(session.commands.single), {
+      'type': 'insertShape',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 2,
+      'width': 9000,
+      'height': 6750,
+      'horzOffset': 0,
+      'vertOffset': 0,
+      'shapeType': 'rectangle',
+      'treatAsChar': false,
+      'textWrap': 'InFrontOfText',
+      'lineFlipX': false,
+      'lineFlipY': false,
+    });
+  });
+
   testWidgets('RhwpNativeEditor preserves viewport while editing', (
     tester,
   ) async {

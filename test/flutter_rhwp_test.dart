@@ -1066,6 +1066,35 @@ void main() {
       'description': 'sample.png',
     });
 
+    await document.insertShape(
+      section: 0,
+      paragraph: 1,
+      offset: 2,
+      width: 9000,
+      height: 6750,
+      horzOffset: 0,
+      vertOffset: 0,
+      shapeType: 'rectangle',
+      treatAsChar: false,
+      textWrap: 'InFrontOfText',
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'insertShape',
+      'section': 0,
+      'paragraph': 1,
+      'offset': 2,
+      'width': 9000,
+      'height': 6750,
+      'horzOffset': 0,
+      'vertOffset': 0,
+      'shapeType': 'rectangle',
+      'treatAsChar': false,
+      'textWrap': 'InFrontOfText',
+      'lineFlipX': false,
+      'lineFlipY': false,
+    });
+
     await document.insertTable(
       section: 0,
       paragraph: 1,

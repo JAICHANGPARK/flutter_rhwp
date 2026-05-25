@@ -294,6 +294,37 @@ impl RhwpSession {
                     &description,
                 )
                 .map_err(error_to_string),
+            RhwpCommand::InsertShape {
+                section,
+                paragraph,
+                offset,
+                width,
+                height,
+                horz_offset,
+                vert_offset,
+                shape_type,
+                treat_as_char,
+                text_wrap,
+                line_flip_x,
+                line_flip_y,
+            } => inner
+                .document
+                .create_shape_control_native(
+                    section as usize,
+                    paragraph as usize,
+                    offset as usize,
+                    width,
+                    height,
+                    horz_offset,
+                    vert_offset,
+                    treat_as_char,
+                    &text_wrap,
+                    &shape_type,
+                    line_flip_x,
+                    line_flip_y,
+                    &[],
+                )
+                .map_err(error_to_string),
             RhwpCommand::SplitParagraph {
                 section,
                 paragraph,
@@ -827,6 +858,27 @@ enum RhwpCommand {
         extension: String,
         #[serde(default)]
         description: String,
+    },
+    InsertShape {
+        section: u32,
+        paragraph: u32,
+        offset: u32,
+        width: u32,
+        height: u32,
+        #[serde(rename = "horzOffset")]
+        horz_offset: u32,
+        #[serde(rename = "vertOffset")]
+        vert_offset: u32,
+        #[serde(rename = "shapeType")]
+        shape_type: String,
+        #[serde(rename = "treatAsChar")]
+        treat_as_char: bool,
+        #[serde(rename = "textWrap")]
+        text_wrap: String,
+        #[serde(rename = "lineFlipX")]
+        line_flip_x: bool,
+        #[serde(rename = "lineFlipY")]
+        line_flip_y: bool,
     },
     SplitParagraph {
         section: u32,
@@ -2011,6 +2063,24 @@ mod tests {
         let hwpx = session.export_hwpx().expect("HWPX export should succeed");
         assert!(!hwpx.is_empty());
         open_bytes(hwpx, Some("roundtrip.hwpx".to_string())).expect("exported HWPX should reopen");
+    }
+
+    #[test]
+    fn applies_insert_shape_command() {
+        let session =
+            open_bytes(BLANK_2010_HWP.to_vec(), None).expect("vendored sample should open");
+
+        let result = session
+            .apply_command(
+                r#"{"type":"insertShape","section":0,"paragraph":0,"offset":0,"width":9000,"height":6750,"horzOffset":0,"vertOffset":0,"shapeType":"rectangle","treatAsChar":false,"textWrap":"InFrontOfText","lineFlipX":false,"lineFlipY":false}"#
+                    .to_string(),
+            )
+            .expect("insert shape command should be accepted");
+        let result: Value = serde_json::from_str(&result).expect("shape result should be JSON");
+
+        assert_eq!(result["ok"], true);
+        assert_eq!(result["paraIdx"], 0);
+        assert!(result["controlIdx"].as_u64().is_some());
     }
 
     #[test]

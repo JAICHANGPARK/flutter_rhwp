@@ -2445,6 +2445,41 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
   }
 
+  Future<void> _insertRectangleShape() async {
+    if (_busy || _controller.tableCellSelection != null) {
+      return;
+    }
+
+    final selection = _controller.selection;
+    final cursor = selection.isCollapsed
+        ? _controller.cursor
+        : selection.normalizedStart;
+    await _runEdit(() async {
+      if (!selection.isCollapsed) {
+        await _deleteSelectedText(selection);
+      }
+      final result = await widget.document.insertShape(
+        section: cursor.section,
+        paragraph: cursor.paragraph,
+        offset: cursor.offset,
+        width: 9000,
+        height: 6750,
+        horzOffset: 0,
+        vertOffset: 0,
+        shapeType: 'rectangle',
+        treatAsChar: false,
+        textWrap: 'InFrontOfText',
+      );
+      final shapeParagraph =
+          _readIntResult(result, 'paraIdx') ?? cursor.paragraph;
+      _controller.cursor = RhwpCursorPosition(
+        section: cursor.section,
+        paragraph: shapeParagraph,
+        offset: cursor.offset + 8,
+      );
+    });
+  }
+
   Future<void> _insertTableRow() async {
     if (_busy) {
       return;
@@ -6373,6 +6408,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onInsertFootnote: _insertFootnote,
           onInsertEquation: _showInsertEquationDialog,
           onInsertPicture: _insertPicture,
+          onInsertShape: _insertRectangleShape,
           onInsertPageBreak: _insertPageBreak,
           onInsertColumnBreak: _insertColumnBreak,
           onInsertTableRow: _insertTableRow,
@@ -8146,6 +8182,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onInsertFootnote,
     required this.onInsertEquation,
     required this.onInsertPicture,
+    required this.onInsertShape,
     required this.onInsertPageBreak,
     required this.onInsertColumnBreak,
     required this.onInsertTableRow,
@@ -8244,6 +8281,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onInsertFootnote;
   final VoidCallback onInsertEquation;
   final VoidCallback onInsertPicture;
+  final VoidCallback onInsertShape;
   final VoidCallback onInsertPageBreak;
   final VoidCallback onInsertColumnBreak;
   final VoidCallback onInsertTableRow;
@@ -8731,6 +8769,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               onPressed: widget.busy || !widget.canInsertPicture
                   ? null
                   : widget.onInsertPicture,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Insert rectangle',
+              buttonKey: const ValueKey('rhwp-editor-insert-shape'),
+              icon: Icons.crop_square,
+              onPressed: widget.busy ? null : widget.onInsertShape,
             ),
             _ToolbarIconButton(
               tooltip: 'Insert page break',
