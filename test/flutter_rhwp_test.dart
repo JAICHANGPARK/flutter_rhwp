@@ -232,6 +232,7 @@ void main() {
             cellIndex: 3,
             fillColor: '#fef08a',
             borderColor: '#475569',
+            verticalAlign: 1,
           ).toJson(),
         ),
       ),
@@ -248,6 +249,7 @@ void main() {
           'borderRight': {'type': 1, 'width': 1, 'color': '#475569'},
           'borderTop': {'type': 1, 'width': 1, 'color': '#475569'},
           'borderBottom': {'type': 1, 'width': 1, 'color': '#475569'},
+          'verticalAlign': 1,
         },
       },
     );
@@ -940,6 +942,7 @@ void main() {
       cellIndex: 2,
       fillColor: '#dbeafe',
       borderColor: '#475569',
+      verticalAlign: 2,
     );
 
     expect(jsonDecode(session.lastCommandJson!), {
@@ -955,6 +958,7 @@ void main() {
         'borderRight': {'type': 1, 'width': 1, 'color': '#475569'},
         'borderTop': {'type': 1, 'width': 1, 'color': '#475569'},
         'borderBottom': {'type': 1, 'width': 1, 'color': '#475569'},
+        'verticalAlign': 2,
       },
     });
 

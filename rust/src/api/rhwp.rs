@@ -1746,11 +1746,19 @@ mod tests {
         session
             .apply_command(
                 format!(
-                    r##"{{"type":"applyTableCellStyle","section":0,"paragraph":{},"controlIndex":0,"cellIndex":0,"properties":{{"fillType":"solid","fillColor":"#fef08a","borderLeft":{{"type":1,"width":1,"color":"#475569"}},"borderRight":{{"type":1,"width":1,"color":"#475569"}},"borderTop":{{"type":1,"width":1,"color":"#475569"}},"borderBottom":{{"type":1,"width":1,"color":"#475569"}}}}}}"##,
+                    r##"{{"type":"applyTableCellStyle","section":0,"paragraph":{},"controlIndex":0,"cellIndex":0,"properties":{{"fillType":"solid","fillColor":"#fef08a","verticalAlign":1,"borderLeft":{{"type":1,"width":1,"color":"#475569"}},"borderRight":{{"type":1,"width":1,"color":"#475569"}},"borderTop":{{"type":1,"width":1,"color":"#475569"}},"borderBottom":{{"type":1,"width":1,"color":"#475569"}}}}}}"##,
                     table_paragraph
                 ),
             )
             .expect("apply table cell style command should be accepted");
+        session
+            .apply_command(
+                format!(
+                    r#"{{"type":"applyTableCellStyle","section":0,"paragraph":{},"controlIndex":0,"cellIndex":0,"properties":{{"verticalAlign":2}}}}"#,
+                    table_paragraph
+                ),
+            )
+            .expect("apply table cell vertical alignment command should be accepted");
         session
             .apply_command(
                 format!(

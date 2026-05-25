@@ -304,3 +304,5 @@
   paragraphs.
 * Added `applyTableCellStyle` to the Dart/Rust command surface and wired
   Flutter-native table ribbon actions for selected cell fill and border style.
+* Extended `applyTableCellStyle` with selected table cell vertical alignment
+  controls in the Flutter-native table ribbon.

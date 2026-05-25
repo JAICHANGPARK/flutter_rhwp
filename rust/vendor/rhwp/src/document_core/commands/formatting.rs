@@ -9,7 +9,7 @@ use super::super::helpers::{
     color_ref_to_css, parse_char_shape_mods, parse_para_shape_mods,
     json_has_border_keys, json_has_tab_keys, build_tab_def_from_json,
     parse_json_i16_array, border_line_type_to_u8_val, json_color, json_i32,
-    json_object, json_str, u8_to_border_line_type, border_fills_equal,
+    json_object, json_str, json_u8, u8_to_border_line_type, border_fills_equal,
 };
 use crate::renderer::style_resolver::resolve_styles;
 use crate::renderer::composer::reflow_line_segs;
@@ -1010,7 +1010,10 @@ impl DocumentCore {
         cell_idx: usize,
         props_json: &str,
     ) -> Result<String, HwpError> {
-        if !json_has_border_keys(props_json) && json_color(props_json, "fillColor").is_none() {
+        let has_border_fill_props =
+            json_has_border_keys(props_json) || json_color(props_json, "fillColor").is_some();
+        let vertical_align = json_u8(props_json, "verticalAlign");
+        if !has_border_fill_props && vertical_align.is_none() {
             return Err(HwpError::RenderError("셀 스타일 속성이 비어 있음".to_string()));
         }
 
@@ -1029,10 +1032,14 @@ impl DocumentCore {
             }
         };
 
-        let border_fill_id = self.create_border_fill_from_cell_style_json(
-            current_border_fill_id,
-            props_json,
-        );
+        let border_fill_id = if has_border_fill_props {
+            Some(self.create_border_fill_from_cell_style_json(
+                current_border_fill_id,
+                props_json,
+            ))
+        } else {
+            None
+        };
 
         {
             let para = self.document.sections.get_mut(sec_idx)
@@ -1042,7 +1049,16 @@ impl DocumentCore {
                 Some(Control::Table(table)) => {
                     let cell = table.cells.get_mut(cell_idx)
                         .ok_or_else(|| HwpError::RenderError(format!("셀 {} 범위 초과", cell_idx)))?;
-                    cell.border_fill_id = border_fill_id;
+                    if let Some(border_fill_id) = border_fill_id {
+                        cell.border_fill_id = border_fill_id;
+                    }
+                    if let Some(vertical_align) = vertical_align {
+                        cell.vertical_align = match vertical_align {
+                            1 => crate::model::table::VerticalAlign::Center,
+                            2 => crate::model::table::VerticalAlign::Bottom,
+                            _ => crate::model::table::VerticalAlign::Top,
+                        };
+                    }
                     table.dirty = true;
                 }
                 _ => return Err(HwpError::RenderError("표 컨트롤을 찾을 수 없음".to_string())),
@@ -1052,7 +1068,10 @@ impl DocumentCore {
         self.document.sections[sec_idx].raw_stream = None;
         self.rebuild_section(sec_idx);
         self.event_log.push(DocumentEvent::ParaFormatChanged { section: sec_idx, para: parent_para_idx });
-        Ok(format!("{{\"ok\":true,\"borderFillId\":{}}}", border_fill_id))
+        match border_fill_id {
+            Some(border_fill_id) => Ok(format!("{{\"ok\":true,\"borderFillId\":{}}}", border_fill_id)),
+            None => Ok("{\"ok\":true}".to_string()),
+        }
     }
 
     fn create_border_fill_from_cell_style_json(

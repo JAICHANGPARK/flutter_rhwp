@@ -2027,6 +2027,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     String? borderColor,
     int? borderWidth,
     int? borderType,
+    int? verticalAlign,
   }) async {
     if (_busy) {
       return;
@@ -2054,6 +2055,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           borderColor: borderColor,
           borderWidth: borderWidth,
           borderType: borderType,
+          verticalAlign: verticalAlign,
         );
       }
       _controller.tableCellSelection = tableSelection;
@@ -5660,6 +5662,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
             borderType: 1,
           ),
           onClearCellFill: () => _applyTableCellStyle(clearFill: true),
+          onCellVerticalAlignTop: () => _applyTableCellStyle(verticalAlign: 0),
+          onCellVerticalAlignCenter: () =>
+              _applyTableCellStyle(verticalAlign: 1),
+          onCellVerticalAlignBottom: () =>
+              _applyTableCellStyle(verticalAlign: 2),
           onDeleteObject: _deleteSelectedObject,
           onObjectBringToFront: () =>
               _changeSelectedObjectZOrder(RhwpObjectZOrderOperation.front),
@@ -7305,6 +7312,9 @@ class _EditorToolbar extends StatefulWidget {
     required this.onCellFillColor,
     required this.onCellBorder,
     required this.onClearCellFill,
+    required this.onCellVerticalAlignTop,
+    required this.onCellVerticalAlignCenter,
+    required this.onCellVerticalAlignBottom,
     required this.onDeleteObject,
     required this.onObjectBringToFront,
     required this.onObjectSendToBack,
@@ -7389,6 +7399,9 @@ class _EditorToolbar extends StatefulWidget {
   final ValueChanged<String> onCellFillColor;
   final VoidCallback onCellBorder;
   final VoidCallback onClearCellFill;
+  final VoidCallback onCellVerticalAlignTop;
+  final VoidCallback onCellVerticalAlignCenter;
+  final VoidCallback onCellVerticalAlignBottom;
   final VoidCallback onDeleteObject;
   final VoidCallback onObjectBringToFront;
   final VoidCallback onObjectSendToBack;
@@ -8132,6 +8145,31 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               buttonKey: const ValueKey('rhwp-editor-split-cell'),
               icon: Icons.call_split_outlined,
               onPressed: widget.busy ? null : widget.onSplitTableCell,
+            ),
+          ],
+        ),
+      ),
+      _RibbonGroup(
+        label: '셀 정렬',
+        child: Row(
+          children: [
+            _ToolbarIconButton(
+              tooltip: 'Cell vertical top',
+              buttonKey: const ValueKey('rhwp-editor-cell-align-top'),
+              icon: Icons.vertical_align_top,
+              onPressed: canStyleCell ? widget.onCellVerticalAlignTop : null,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Cell vertical center',
+              buttonKey: const ValueKey('rhwp-editor-cell-align-center'),
+              icon: Icons.vertical_align_center,
+              onPressed: canStyleCell ? widget.onCellVerticalAlignCenter : null,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Cell vertical bottom',
+              buttonKey: const ValueKey('rhwp-editor-cell-align-bottom'),
+              icon: Icons.vertical_align_bottom,
+              onPressed: canStyleCell ? widget.onCellVerticalAlignBottom : null,
             ),
           ],
         ),

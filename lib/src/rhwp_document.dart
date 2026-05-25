@@ -427,6 +427,7 @@ abstract class RhwpCommand {
     String? borderColor,
     int? borderWidth,
     int? borderType,
+    int? verticalAlign,
   }) = RhwpApplyTableCellStyleCommand;
 
   factory RhwpCommand.createHeaderFooter({
@@ -1186,6 +1187,7 @@ class RhwpApplyTableCellStyleCommand extends RhwpCommand {
     this.borderColor,
     this.borderWidth,
     this.borderType,
+    this.verticalAlign,
   });
 
   final int section;
@@ -1197,6 +1199,7 @@ class RhwpApplyTableCellStyleCommand extends RhwpCommand {
   final String? borderColor;
   final int? borderWidth;
   final int? borderType;
+  final int? verticalAlign;
 
   @override
   Map<String, Object?> toJson() => {
@@ -1211,6 +1214,7 @@ class RhwpApplyTableCellStyleCommand extends RhwpCommand {
       borderColor: borderColor,
       borderWidth: borderWidth,
       borderType: borderType,
+      verticalAlign: verticalAlign,
     ),
   };
 }
@@ -1245,6 +1249,7 @@ Map<String, Object?> _tableCellStyleProperties({
   String? borderColor,
   int? borderWidth,
   int? borderType,
+  int? verticalAlign,
 }) {
   final properties = <String, Object?>{};
   if (clearFill) {
@@ -1265,6 +1270,7 @@ Map<String, Object?> _tableCellStyleProperties({
     properties['borderTop'] = border();
     properties['borderBottom'] = border();
   }
+  if (verticalAlign != null) properties['verticalAlign'] = verticalAlign;
   return properties;
 }
 
@@ -1956,6 +1962,7 @@ class RhwpDocument {
     String? borderColor,
     int? borderWidth,
     int? borderType,
+    int? verticalAlign,
   }) {
     return apply(
       RhwpCommand.applyTableCellStyle(
@@ -1968,6 +1975,7 @@ class RhwpDocument {
         borderColor: borderColor,
         borderWidth: borderWidth,
         borderType: borderType,
+        verticalAlign: verticalAlign,
       ),
     );
   }

@@ -4589,6 +4589,21 @@ void main() {
         'borderBottom': {'type': 1, 'width': 1, 'color': '#475569'},
       },
     });
+
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-cell-align-bottom')),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 3);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'applyTableCellStyle',
+      'section': 0,
+      'paragraph': 5,
+      'controlIndex': 2,
+      'cellIndex': 7,
+      'properties': {'verticalAlign': 2},
+    });
   });
 
   testWidgets('RhwpNativeEditor applies paragraph alignment shortcuts', (
