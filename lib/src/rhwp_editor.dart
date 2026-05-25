@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'rhwp_document.dart';
+import 'rhwp_layer_tree.dart';
 import 'rhwp_viewer.dart';
 
 class RhwpCursorPosition {
@@ -133,6 +134,8 @@ class _RhwpEditorState extends State<RhwpEditor> {
   final _paragraphController = TextEditingController(text: '0');
   final _offsetController = TextEditingController(text: '0');
   Key _viewerKey = UniqueKey();
+  RhwpLayerTree? _pageLayerTree;
+  int _layoutGeneration = 0;
   bool _busy = false;
   Object? _error;
 
@@ -143,6 +146,16 @@ class _RhwpEditorState extends State<RhwpEditor> {
     _controller = widget.controller ?? RhwpEditorController();
     _controller.addListener(_handleControllerChanged);
     _syncCursorFields();
+    _reloadPageLayerTree();
+  }
+
+  @override
+  void didUpdateWidget(covariant RhwpEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.document != widget.document) {
+      _pageLayerTree = null;
+      _reloadPageLayerTree();
+    }
   }
 
   @override
@@ -232,6 +245,7 @@ class _RhwpEditorState extends State<RhwpEditor> {
         _busy = false;
         _viewerKey = UniqueKey();
       });
+      _reloadPageLayerTree();
       widget.onChanged?.call(widget.document);
     } catch (error) {
       if (!mounted) {
@@ -262,6 +276,31 @@ class _RhwpEditorState extends State<RhwpEditor> {
     return parsed;
   }
 
+  Future<void> _reloadPageLayerTree() async {
+    final generation = ++_layoutGeneration;
+    try {
+      final pageCount = await widget.document.pageCount;
+      if (pageCount <= 0) {
+        _setPageLayerTree(generation, null);
+        return;
+      }
+
+      final tree = await widget.document.pageLayerTreeModel(0);
+      _setPageLayerTree(generation, tree);
+    } catch (_) {
+      _setPageLayerTree(generation, null);
+    }
+  }
+
+  void _setPageLayerTree(int generation, RhwpLayerTree? tree) {
+    if (!mounted || generation != _layoutGeneration) {
+      return;
+    }
+    setState(() {
+      _pageLayerTree = tree;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -276,6 +315,7 @@ class _RhwpEditorState extends State<RhwpEditor> {
             child: _EditorSelectionOverlay(
               selection: _controller.selection,
               zoom: _controller.zoom,
+              pageLayerTree: _pageLayerTree,
             ),
           ),
         ),
@@ -300,12 +340,18 @@ class _RhwpEditorState extends State<RhwpEditor> {
 }
 
 class _EditorSelectionOverlay extends StatelessWidget {
-  const _EditorSelectionOverlay({required this.selection, required this.zoom});
+  const _EditorSelectionOverlay({
+    required this.selection,
+    required this.zoom,
+    required this.pageLayerTree,
+  });
 
   final RhwpSelectionRange selection;
   final double zoom;
+  final RhwpLayerTree? pageLayerTree;
 
   static const _pageInset = 48.0;
+  static const _layerPageInset = 32.0;
   static const _lineHeight = 24.0;
   static const _characterWidth = 8.0;
 
@@ -321,9 +367,44 @@ class _EditorSelectionOverlay extends StatelessWidget {
         _pageInset + selection.end.offset * _characterWidth * effectiveZoom;
     final height = math.max(18.0, _lineHeight * effectiveZoom);
     final selectionWidth = _selectionWidth(start, end, effectiveZoom);
+    final layerCaretRect = _layerCaretRect(effectiveZoom);
+    final layerSelectionRects = _layerSelectionRects(effectiveZoom);
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        if (layerCaretRect != null) {
+          return Stack(
+            children: [
+              if (!selection.isCollapsed)
+                for (final (index, rect) in layerSelectionRects.indexed)
+                  _positionedRect(
+                    key: index == 0
+                        ? const ValueKey('rhwp-editor-selection')
+                        : ValueKey('rhwp-editor-selection-$index'),
+                    rect: rect,
+                    constraints: constraints,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+              _positionedRect(
+                key: const ValueKey('rhwp-editor-caret'),
+                rect: layerCaretRect,
+                constraints: constraints,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(1),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+
         final boundedTop = _bound(top, constraints.maxHeight, height);
         final children = <Widget>[
           if (!selection.isCollapsed)
@@ -371,6 +452,68 @@ class _EditorSelectionOverlay extends StatelessWidget {
 
     final selectedCharacters = math.max(1, end.offset - start.offset);
     return math.max(8.0, selectedCharacters * _characterWidth * effectiveZoom);
+  }
+
+  Rect? _layerCaretRect(double effectiveZoom) {
+    final rect = pageLayerTree?.caretRectFor(
+      section: selection.end.section,
+      paragraph: selection.end.paragraph,
+      offset: selection.end.offset,
+    );
+    return rect == null ? null : _pageRectToOverlay(rect, effectiveZoom, true);
+  }
+
+  List<Rect> _layerSelectionRects(double effectiveZoom) {
+    if (selection.isCollapsed) {
+      return const [];
+    }
+
+    final start = selection.normalizedStart;
+    final end = selection.normalizedEnd;
+    if (start.section != end.section || start.paragraph != end.paragraph) {
+      return const [];
+    }
+
+    final rects = pageLayerTree?.selectionRectsFor(
+      section: start.section,
+      paragraph: start.paragraph,
+      startOffset: start.offset,
+      endOffset: end.offset,
+    );
+    if (rects == null) {
+      return const [];
+    }
+
+    return [
+      for (final rect in rects) _pageRectToOverlay(rect, effectiveZoom, false),
+    ];
+  }
+
+  Rect _pageRectToOverlay(Rect rect, double effectiveZoom, bool caret) {
+    return Rect.fromLTWH(
+      _layerPageInset + rect.left * effectiveZoom,
+      _layerPageInset + rect.top * effectiveZoom,
+      math.max(caret ? 2.0 : 4.0, rect.width * effectiveZoom),
+      math.max(12.0, rect.height * effectiveZoom),
+    );
+  }
+
+  Positioned _positionedRect({
+    required Key key,
+    required Rect rect,
+    required BoxConstraints constraints,
+    required Widget child,
+  }) {
+    final left = _bound(rect.left, constraints.maxWidth, rect.width);
+    final top = _bound(rect.top, constraints.maxHeight, rect.height);
+    return Positioned(
+      key: key,
+      left: left,
+      top: top,
+      width: rect.width,
+      height: rect.height,
+      child: child,
+    );
   }
 
   double _bound(double value, double viewport, double extent) {

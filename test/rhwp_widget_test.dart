@@ -205,6 +205,37 @@ void main() {
     expect(find.byKey(const ValueKey('rhwp-editor-caret')), findsOneWidget);
     expect(find.byKey(const ValueKey('rhwp-editor-selection')), findsOneWidget);
   });
+
+  testWidgets('RhwpEditor positions caret from page layer tree text runs', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.cursor = const RhwpCursorPosition(offset: 2);
+    await tester.pump();
+
+    final editorTopLeft = tester.getTopLeft(find.byType(RhwpEditor));
+    final caretTopLeft = tester.getTopLeft(
+      find.byKey(const ValueKey('rhwp-editor-caret')),
+    );
+
+    expect(session.layerTreePages, [0]);
+    expect(caretTopLeft.dx - editorTopLeft.dx, closeTo(132, 1));
+    expect(caretTopLeft.dy - editorTopLeft.dy, closeTo(72, 1));
+  });
 }
 
 class _WidgetHarness extends StatelessWidget {
@@ -286,6 +317,8 @@ class _FakeRhwpSession implements rust.RhwpSession {
   final int pageCountValue;
   final commands = <String>[];
   final renderedPages = <int>[];
+  final layerTreePages = <int>[];
+  String pageLayerTreeJson = jsonEncode(_editorLayerTreeJson());
   bool _disposed = false;
 
   @override
@@ -304,6 +337,12 @@ class _FakeRhwpSession implements rust.RhwpSession {
   }
 
   @override
+  Future<String> pageLayerTree({required int page}) async {
+    layerTreePages.add(page);
+    return pageLayerTreeJson;
+  }
+
+  @override
   bool get isDisposed => _disposed;
 
   @override
@@ -313,6 +352,53 @@ class _FakeRhwpSession implements rust.RhwpSession {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+Map<String, Object?> _editorLayerTreeJson() {
+  return {
+    'pageWidth': 240,
+    'pageHeight': 180,
+    'root': {
+      'kind': 'group',
+      'bounds': {'x': 0, 'y': 0, 'width': 240, 'height': 180},
+      'children': [
+        {
+          'kind': 'leaf',
+          'bounds': {'x': 80, 'y': 40, 'width': 80, 'height': 16},
+          'ops': [
+            {
+              'type': 'textRun',
+              'bbox': {'x': 80, 'y': 40, 'width': 80, 'height': 16},
+              'text': 'abcd',
+              'source': {
+                'id': 0,
+                'utf16Range': {'start': 0, 'end': 4},
+                'stableSourceKey': 'section:0/para:0/char:0',
+              },
+              'placement': {
+                'runToPage': {'a': 1, 'b': 0, 'c': 0, 'd': 1, 'e': 80, 'f': 52},
+                'baselineY': 0,
+              },
+              'clusters': [
+                _editorTextCluster(0, 1, 0),
+                _editorTextCluster(1, 2, 10),
+                _editorTextCluster(2, 3, 20),
+                _editorTextCluster(3, 4, 30),
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  };
+}
+
+Map<String, Object?> _editorTextCluster(int start, int end, double x) {
+  return {
+    'textRangeUtf16': {'start': start, 'end': end},
+    'origin': {'x': x, 'y': 0},
+    'advance': {'dx': 10, 'dy': 0},
+  };
 }
 
 Future<void> _pumpDocumentFrame(WidgetTester tester) async {

@@ -68,3 +68,6 @@
 * Added a typed Dart page layer tree model on top of rhwp's raw page layer tree
   JSON so editor/viewer code can inspect text nodes and bounds without ad hoc
   JSON traversal.
+* Added text-run geometry helpers for page layer trees and made `RhwpEditor`
+  prefer layer-tree caret/selection bounds when first-page text run geometry is
+  available.

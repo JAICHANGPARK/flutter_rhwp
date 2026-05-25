@@ -24,7 +24,9 @@ Implemented:
 - Apply basic edit commands for body text insert/delete and file name updates.
 - Display pages with `RhwpViewer`.
 - Edit through an initial `RhwpEditor` command overlay with a Flutter-drawn
-  command-target caret and selection marker.
+  caret and selection marker. When page layer tree text runs are available,
+  the first-page overlay uses their source offsets and bounds before falling
+  back to command-target coordinates.
 - Embed upstream `@rhwp/editor` on Web with `RhwpWebEditor` and
   `RhwpWebEditorController`.
 - Example app workflows for opening the bundled asset sample or a picked
@@ -47,8 +49,9 @@ Not complete yet:
 - Apple builds currently use the CocoaPods podspec/cargokit path for Rust
   static library linkage. SwiftPM manifests are intentionally omitted until the
   Rust build/linkage path is implemented for Swift Package Manager.
-- The Flutter-native editor UI still uses command-target coordinates. Exact
-  document layout-aware caret and selection mapping is pending.
+- The Flutter-native editor still needs full scroll-aware, multi-page, and
+  complex text-flow selection mapping. The current layer-tree mapping covers
+  first-page text run bounds and falls back when geometry is unavailable.
 
 ## Usage
 

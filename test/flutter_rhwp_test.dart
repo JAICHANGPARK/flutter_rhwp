@@ -167,6 +167,88 @@ void main() {
     expect(tree.textNodes.single.text, 'from session');
     expect(tree.textNodes.single.bounds, const Rect.fromLTWH(1, 2, 3, 4));
   });
+
+  test('page layer tree model maps text run source offsets to page rects', () {
+    final tree = RhwpLayerTree.fromJsonString(
+      0,
+      jsonEncode(_textRunLayerTreeJson(charStart: 3)),
+    );
+
+    final run = tree.textRuns.single;
+    expect(run.section, 0);
+    expect(run.paragraph, 0);
+    expect(run.charStart, 3);
+    expect(run.charEnd, 7);
+    expect(run.bounds, const Rect.fromLTWH(20, 30, 60, 12));
+
+    final caret = tree.caretRectFor(section: 0, paragraph: 0, offset: 5);
+    expect(caret!.left, closeTo(40, 0.001));
+    expect(caret.top, 30);
+
+    final selection = tree.selectionRectsFor(
+      section: 0,
+      paragraph: 0,
+      startOffset: 4,
+      endOffset: 7,
+    );
+    expect(selection.single, const Rect.fromLTRB(30, 30, 60, 42));
+  });
+}
+
+Map<String, Object?> _textRunLayerTreeJson({required int charStart}) {
+  return {
+    'pageWidth': 240,
+    'pageHeight': 180,
+    'root': {
+      'kind': 'group',
+      'bounds': {'x': 0, 'y': 0, 'width': 240, 'height': 180},
+      'children': [
+        {
+          'kind': 'leaf',
+          'bounds': {'x': 20, 'y': 30, 'width': 60, 'height': 12},
+          'ops': [
+            {
+              'type': 'textRun',
+              'bbox': {'x': 20, 'y': 30, 'width': 60, 'height': 12},
+              'text': 'abcd',
+              'source': {
+                'id': 0,
+                'utf16Range': {'start': 0, 'end': 4},
+                'stableSourceKey': 'section:0/para:0/char:$charStart',
+              },
+              'placement': {
+                'runToPage': {'a': 1, 'b': 0, 'c': 0, 'd': 1, 'e': 20, 'f': 40},
+                'baselineY': 0,
+              },
+              'clusters': [
+                _textCluster(0, 1, 0),
+                _textCluster(1, 2, 10),
+                _textCluster(2, 3, 20),
+                _textCluster(3, 4, 30),
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    'textSources': [
+      {
+        'id': 0,
+        'text': 'abcd',
+        'utf16Range': {'start': 0, 'end': 4},
+        'stableSourceKey': 'section:0/para:0/char:$charStart',
+        'annotations': [],
+      },
+    ],
+  };
+}
+
+Map<String, Object?> _textCluster(int start, int end, double x) {
+  return {
+    'textRangeUtf16': {'start': start, 'end': end},
+    'origin': {'x': x, 'y': 0},
+    'advance': {'dx': 10, 'dy': 0},
+  };
 }
 
 class _FakeRustLibApi implements RustLibApi {

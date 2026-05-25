@@ -1,5 +1,6 @@
 import 'dart:convert';
-import 'dart:ui' show Rect;
+import 'dart:math' as math;
+import 'dart:ui' show Offset, Rect;
 
 /// Parsed page layer tree returned by the rhwp core.
 ///
@@ -54,6 +55,55 @@ class RhwpLayerTree {
   Iterable<RhwpLayerNode> findByType(String type) {
     return nodes.where((node) => node.type == type);
   }
+
+  /// Text run layouts decoded from `root.*.ops[type=textRun]`.
+  late final List<RhwpTextRunLayout> textRuns = List.unmodifiable(
+    _parseTextRuns(raw),
+  );
+
+  /// Returns a caret rectangle in page coordinates for a paragraph offset.
+  Rect? caretRectFor({
+    required int section,
+    required int paragraph,
+    required int offset,
+  }) {
+    for (final run in textRuns) {
+      if (run.containsPosition(
+        section: section,
+        paragraph: paragraph,
+        offset: offset,
+      )) {
+        return run.caretRectForOffset(offset);
+      }
+    }
+    return null;
+  }
+
+  /// Returns selection rectangles in page coordinates for a single paragraph.
+  List<Rect> selectionRectsFor({
+    required int section,
+    required int paragraph,
+    required int startOffset,
+    required int endOffset,
+  }) {
+    final start = math.min(startOffset, endOffset);
+    final end = math.max(startOffset, endOffset);
+    if (start == end) {
+      return const [];
+    }
+
+    final rects = <Rect>[];
+    for (final run in textRuns) {
+      if (run.section != section || run.paragraph != paragraph) {
+        continue;
+      }
+      final rect = run.selectionRectForOffsets(start, end);
+      if (rect != null) {
+        rects.add(rect);
+      }
+    }
+    return rects;
+  }
 }
 
 /// A single node in a parsed rhwp page layer tree.
@@ -103,6 +153,190 @@ class RhwpLayerNode {
     for (final child in children) {
       yield* child.walk();
     }
+  }
+}
+
+/// A text run decoded from a rhwp page layer tree paint operation.
+class RhwpTextRunLayout {
+  /// Creates a decoded text run layout.
+  RhwpTextRunLayout({
+    required this.text,
+    required this.bounds,
+    required this.charStart,
+    required this.charEnd,
+    required List<RhwpTextClusterLayout> clusters,
+    this.sourceId,
+    this.stableSourceKey,
+    this.section,
+    this.paragraph,
+    this.transform,
+  }) : clusters = List.unmodifiable(clusters);
+
+  /// The text run content.
+  final String text;
+
+  /// The text run bounds in page coordinates.
+  final Rect bounds;
+
+  /// The optional source table id.
+  final int? sourceId;
+
+  /// The stable source key emitted by rhwp, for example
+  /// `section:0/para:3/char:12`.
+  final String? stableSourceKey;
+
+  /// The document section index when [stableSourceKey] carries one.
+  final int? section;
+
+  /// The document paragraph index when [stableSourceKey] carries one.
+  final int? paragraph;
+
+  /// The paragraph UTF-16 offset where this run starts.
+  final int charStart;
+
+  /// The paragraph UTF-16 offset where this run ends.
+  final int charEnd;
+
+  /// Character cluster geometry in run-local coordinates.
+  final List<RhwpTextClusterLayout> clusters;
+
+  /// The affine transform from run-local coordinates to page coordinates.
+  final RhwpAffineTransform? transform;
+
+  /// Whether [offset] is covered by this run.
+  bool containsPosition({
+    required int section,
+    required int paragraph,
+    required int offset,
+  }) {
+    return this.section == section &&
+        this.paragraph == paragraph &&
+        offset >= charStart &&
+        offset <= charEnd;
+  }
+
+  /// Returns a caret rectangle in page coordinates for [offset].
+  Rect caretRectForOffset(int offset) {
+    final point = pagePointForOffset(offset);
+    final height = math.max(12.0, bounds.height);
+    return Rect.fromLTWH(point.dx, bounds.top, 2, height);
+  }
+
+  /// Returns the page coordinate for [offset] on this run baseline.
+  Offset pagePointForOffset(int offset) {
+    final localX = _localXForOffset(offset);
+    final point = Offset(localX, 0);
+    return transform?.transform(point) ??
+        Offset(bounds.left + localX, bounds.top);
+  }
+
+  /// Returns the selected area for the overlap of [startOffset] and [endOffset].
+  Rect? selectionRectForOffsets(int startOffset, int endOffset) {
+    final start = math.max(math.min(startOffset, endOffset), charStart);
+    final end = math.min(math.max(startOffset, endOffset), charEnd);
+    if (start >= end) {
+      return null;
+    }
+
+    final startPoint = pagePointForOffset(start);
+    final endPoint = pagePointForOffset(end);
+    final left = math.min(startPoint.dx, endPoint.dx);
+    final right = math.max(startPoint.dx, endPoint.dx);
+    return Rect.fromLTRB(
+      left,
+      bounds.top,
+      math.max(left + 2, right),
+      bounds.bottom,
+    );
+  }
+
+  double _localXForOffset(int offset) {
+    final localOffset = (offset - charStart).clamp(0, charEnd - charStart);
+    if (clusters.isEmpty) {
+      final length = math.max(1, charEnd - charStart);
+      return bounds.width * localOffset / length;
+    }
+
+    for (final cluster in clusters) {
+      if (localOffset < cluster.startUtf16) {
+        return cluster.origin.dx;
+      }
+      if (localOffset <= cluster.endUtf16) {
+        final advance = cluster.advance?.dx ?? 0;
+        final width = advance == 0 ? bounds.width / clusters.length : advance;
+        final clusterLength = math.max(
+          1,
+          cluster.endUtf16 - cluster.startUtf16,
+        );
+        final progress = (localOffset - cluster.startUtf16) / clusterLength;
+        return cluster.origin.dx + width * progress.clamp(0.0, 1.0);
+      }
+    }
+
+    final last = clusters.last;
+    return last.origin.dx + (last.advance?.dx ?? 0);
+  }
+}
+
+/// A text cluster decoded from a rhwp text run.
+class RhwpTextClusterLayout {
+  /// Creates a decoded text cluster layout.
+  const RhwpTextClusterLayout({
+    required this.startUtf16,
+    required this.endUtf16,
+    required this.origin,
+    this.advance,
+  });
+
+  /// The local UTF-16 start offset inside the run.
+  final int startUtf16;
+
+  /// The local UTF-16 end offset inside the run.
+  final int endUtf16;
+
+  /// The run-local baseline origin for this cluster.
+  final Offset origin;
+
+  /// The run-local advance for this cluster when provided.
+  final Offset? advance;
+}
+
+/// A two-dimensional affine transform.
+class RhwpAffineTransform {
+  /// Creates an affine transform using Canvas-style `a,b,c,d,e,f` values.
+  const RhwpAffineTransform({
+    required this.a,
+    required this.b,
+    required this.c,
+    required this.d,
+    required this.e,
+    required this.f,
+  });
+
+  /// Horizontal scale/skew component.
+  final double a;
+
+  /// Vertical skew component.
+  final double b;
+
+  /// Horizontal skew component.
+  final double c;
+
+  /// Vertical scale/skew component.
+  final double d;
+
+  /// Horizontal translation.
+  final double e;
+
+  /// Vertical translation.
+  final double f;
+
+  /// Applies this transform to [point].
+  Offset transform(Offset point) {
+    return Offset(
+      a * point.dx + c * point.dy + e,
+      b * point.dx + d * point.dy + f,
+    );
   }
 }
 
@@ -229,4 +463,257 @@ double? _number(Object? value) {
     return double.tryParse(value);
   }
   return null;
+}
+
+int? _integer(Object? value) {
+  if (value is int) {
+    return value;
+  }
+  if (value is num) {
+    return value.toInt();
+  }
+  if (value is String) {
+    return int.tryParse(value);
+  }
+  return null;
+}
+
+List<RhwpTextRunLayout> _parseTextRuns(Map<String, Object?> raw) {
+  final root = _asStringMap(raw['root']) ?? raw;
+  final textSources = _parseTextSourceLookup(raw['textSources']);
+  final runs = <RhwpTextRunLayout>[];
+  _collectTextRuns(root, textSources, runs);
+  return runs;
+}
+
+Map<int, Map<String, Object?>> _parseTextSourceLookup(Object? value) {
+  final lookup = <int, Map<String, Object?>>{};
+  if (value is! List) {
+    return lookup;
+  }
+
+  for (final item in value) {
+    final source = _asStringMap(item);
+    final id = _integer(source?['id']);
+    if (source != null && id != null) {
+      lookup[id] = source;
+    }
+  }
+  return lookup;
+}
+
+void _collectTextRuns(
+  Map<String, Object?> node,
+  Map<int, Map<String, Object?>> textSources,
+  List<RhwpTextRunLayout> runs,
+) {
+  final ops = node['ops'];
+  if (ops is List) {
+    for (final opValue in ops) {
+      final op = _asStringMap(opValue);
+      if (op == null) {
+        continue;
+      }
+      if (op['type'] == 'textRun') {
+        final run = _parseTextRun(op, textSources);
+        if (run != null) {
+          runs.add(run);
+        }
+      }
+    }
+  }
+
+  final children = node['children'];
+  if (children is List) {
+    for (final childValue in children) {
+      final child = _asStringMap(childValue);
+      if (child != null) {
+        _collectTextRuns(child, textSources, runs);
+      }
+    }
+  }
+
+  final child = _asStringMap(node['child']);
+  if (child != null) {
+    _collectTextRuns(child, textSources, runs);
+  }
+}
+
+RhwpTextRunLayout? _parseTextRun(
+  Map<String, Object?> op,
+  Map<int, Map<String, Object?>> textSources,
+) {
+  final bounds = _parseBounds(op);
+  if (bounds == null) {
+    return null;
+  }
+
+  final source = _asStringMap(op['source']);
+  final sourceId = _integer(source?['id']);
+  final sourceEntry = sourceId == null ? null : textSources[sourceId];
+  final stableSourceKey =
+      _firstString(source ?? const {}, const ['stableSourceKey']) ??
+      _firstString(sourceEntry ?? const {}, const ['stableSourceKey']);
+  final sourceRange =
+      _parseTextRange(_asStringMap(source?['utf16Range'])) ??
+      _parseTextRange(_asStringMap(sourceEntry?['utf16Range']));
+  final text = _firstString(op, const ['text']) ?? '';
+  final sourcePosition = _parseStableSourceKey(stableSourceKey);
+  final charStart = sourcePosition?.charStart ?? 0;
+  final charLength = sourceRange == null
+      ? text.length
+      : math.max(0, sourceRange.end - sourceRange.start);
+
+  return RhwpTextRunLayout(
+    text: text,
+    bounds: bounds,
+    sourceId: sourceId,
+    stableSourceKey: stableSourceKey,
+    section: sourcePosition?.section,
+    paragraph: sourcePosition?.paragraph,
+    charStart: charStart,
+    charEnd: charStart + charLength,
+    transform: _parsePlacementTransform(op),
+    clusters: _parseTextClusters(op['clusters']),
+  );
+}
+
+_StableSourcePosition? _parseStableSourceKey(String? value) {
+  if (value == null) {
+    return null;
+  }
+
+  final match = RegExp(
+    r'^section:(\d+)/para:(\d+)/char:(\d+)',
+  ).firstMatch(value);
+  if (match == null) {
+    return null;
+  }
+
+  return _StableSourcePosition(
+    section: int.parse(match.group(1)!),
+    paragraph: int.parse(match.group(2)!),
+    charStart: int.parse(match.group(3)!),
+  );
+}
+
+_TextRange? _parseTextRange(Map<String, Object?>? json) {
+  if (json == null) {
+    return null;
+  }
+
+  final start = _integer(json['start']);
+  final end = _integer(json['end']);
+  if (start == null || end == null) {
+    return null;
+  }
+  return _TextRange(start: start, end: end);
+}
+
+RhwpAffineTransform? _parsePlacementTransform(Map<String, Object?> op) {
+  final placement = _asStringMap(op['placement']);
+  final transform = _asStringMap(placement?['runToPage']);
+  if (transform == null) {
+    return null;
+  }
+
+  final a = _number(transform['a']);
+  final b = _number(transform['b']);
+  final c = _number(transform['c']);
+  final d = _number(transform['d']);
+  final e = _number(transform['e']);
+  final f = _number(transform['f']);
+  if (a == null ||
+      b == null ||
+      c == null ||
+      d == null ||
+      e == null ||
+      f == null) {
+    return null;
+  }
+
+  return RhwpAffineTransform(a: a, b: b, c: c, d: d, e: e, f: f);
+}
+
+List<RhwpTextClusterLayout> _parseTextClusters(Object? value) {
+  if (value is! List) {
+    return const [];
+  }
+
+  final clusters = <RhwpTextClusterLayout>[];
+  for (final item in value) {
+    final cluster = _parseTextCluster(_asStringMap(item));
+    if (cluster != null) {
+      clusters.add(cluster);
+    }
+  }
+  return clusters;
+}
+
+RhwpTextClusterLayout? _parseTextCluster(Map<String, Object?>? json) {
+  if (json == null) {
+    return null;
+  }
+
+  final range =
+      _parseTextRange(_asStringMap(json['textRangeUtf16'])) ??
+      _parseTextRange(_asStringMap(json['sourceRangeUtf16']));
+  final origin = _parsePoint(json['origin']);
+  if (range == null || origin == null) {
+    return null;
+  }
+
+  return RhwpTextClusterLayout(
+    startUtf16: range.start,
+    endUtf16: range.end,
+    origin: origin,
+    advance: _parseVector(json['advance']),
+  );
+}
+
+Offset? _parsePoint(Object? value) {
+  final json = _asStringMap(value);
+  if (json == null) {
+    return null;
+  }
+
+  final x = _number(json['x']);
+  final y = _number(json['y']);
+  if (x == null || y == null) {
+    return null;
+  }
+  return Offset(x, y);
+}
+
+Offset? _parseVector(Object? value) {
+  final json = _asStringMap(value);
+  if (json == null) {
+    return null;
+  }
+
+  final dx = _number(json['dx']);
+  final dy = _number(json['dy']);
+  if (dx == null || dy == null) {
+    return null;
+  }
+  return Offset(dx, dy);
+}
+
+class _StableSourcePosition {
+  const _StableSourcePosition({
+    required this.section,
+    required this.paragraph,
+    required this.charStart,
+  });
+
+  final int section;
+  final int paragraph;
+  final int charStart;
+}
+
+class _TextRange {
+  const _TextRange({required this.start, required this.end});
+
+  final int start;
+  final int end;
 }
