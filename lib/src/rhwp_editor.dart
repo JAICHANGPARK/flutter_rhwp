@@ -490,6 +490,13 @@ class _EditorSearchMatch {
     required this.paragraph,
     required this.startOffset,
     required this.endOffset,
+    this.tableControlIndex,
+    this.cellIndex,
+    this.cellParagraph,
+    this.cellRow,
+    this.cellColumn,
+    this.cellEndRow,
+    this.cellEndColumn,
   });
 
   final int page;
@@ -497,6 +504,15 @@ class _EditorSearchMatch {
   final int paragraph;
   final int startOffset;
   final int endOffset;
+  final int? tableControlIndex;
+  final int? cellIndex;
+  final int? cellParagraph;
+  final int? cellRow;
+  final int? cellColumn;
+  final int? cellEndRow;
+  final int? cellEndColumn;
+
+  bool get isTableCell => tableControlIndex != null && cellIndex != null;
 
   RhwpSelectionRange get selection {
     return RhwpSelectionRange(
@@ -510,6 +526,72 @@ class _EditorSearchMatch {
         paragraph: paragraph,
         offset: endOffset,
       ),
+    );
+  }
+
+  RhwpTableCellSelection? get tableCellSelection {
+    final tableControlIndex = this.tableControlIndex;
+    final cellIndex = this.cellIndex;
+    final cellParagraph = this.cellParagraph;
+    final cellRow = this.cellRow;
+    final cellColumn = this.cellColumn;
+    final cellEndRow = this.cellEndRow;
+    final cellEndColumn = this.cellEndColumn;
+    if (tableControlIndex == null ||
+        cellIndex == null ||
+        cellParagraph == null ||
+        cellRow == null ||
+        cellColumn == null ||
+        cellEndRow == null ||
+        cellEndColumn == null) {
+      return null;
+    }
+
+    return RhwpTableCellSelection(
+      section: section,
+      paragraph: paragraph,
+      controlIndex: tableControlIndex,
+      startRow: cellRow,
+      startColumn: cellColumn,
+      endRow: cellEndRow,
+      endColumn: cellEndColumn,
+      activeCellIndex: cellIndex,
+      activeCellParagraph: cellParagraph,
+      activeOffset: startOffset,
+      isTextEditing: true,
+    );
+  }
+
+  bool matchesRun(RhwpTextRunLayout run) {
+    if (run.section != section || run.paragraph != paragraph) {
+      return false;
+    }
+
+    final context = run.cellContext;
+    if (!isTableCell) {
+      return context == null;
+    }
+
+    return context != null &&
+        context.controlIndex == tableControlIndex &&
+        context.cellIndex == cellIndex &&
+        context.cellParagraph == cellParagraph;
+  }
+
+  _EditorSearchMatch copyWith({int? startOffset, int? endOffset}) {
+    return _EditorSearchMatch(
+      page: page,
+      section: section,
+      paragraph: paragraph,
+      startOffset: startOffset ?? this.startOffset,
+      endOffset: endOffset ?? this.endOffset,
+      tableControlIndex: tableControlIndex,
+      cellIndex: cellIndex,
+      cellParagraph: cellParagraph,
+      cellRow: cellRow,
+      cellColumn: cellColumn,
+      cellEndRow: cellEndRow,
+      cellEndColumn: cellEndColumn,
     );
   }
 }
@@ -811,6 +893,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   final _searchController = TextEditingController();
   final _replaceController = TextEditingController();
   TextInputConnection? _textInputConnection;
+  Future<void> _textInputEditQueue = Future<void>.value();
   TextEditingValue _inputValue = TextEditingValue.empty;
   Timer? _deferredEditRefreshTimer;
   List<_PendingTextOverlay> _pendingTextOverlays = const [];
@@ -824,8 +907,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   final _undoSnapshots = <int>[];
   final _redoSnapshots = <int>[];
   bool _busy = false;
+  bool _visibleBusy = false;
   bool _searching = false;
   bool _hasDeferredEditRefresh = false;
+  bool _deferredEditRefreshAwaitsTextInput = false;
   Object? _error;
 
   static const _maxUndoSnapshots = 100;
@@ -1042,6 +1127,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
     setState(() {
       _busy = true;
+      _visibleBusy = true;
       _error = null;
     });
     try {
@@ -1057,6 +1143,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       if (mounted) {
         setState(() {
           _busy = false;
+          _visibleBusy = false;
         });
       }
     }
@@ -1070,6 +1157,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
     setState(() {
       _busy = true;
+      _visibleBusy = true;
       _error = null;
     });
     try {
@@ -1084,42 +1172,59 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       if (mounted) {
         setState(() {
           _busy = false;
+          _visibleBusy = false;
         });
       }
     }
   }
 
-  Future<void> _insertCommittedText(String text) async {
+  Future<void> _insertCommittedText(
+    String text, {
+    bool awaitTextInputBeforeRefresh = false,
+    bool visibleBusy = true,
+  }) async {
     if (text.isEmpty || _busy) {
       return;
     }
 
     if (_editableTableCellSelection != null) {
-      await _insertTextInSelectedTableCell(text, deferRefresh: true);
+      await _insertTextInSelectedTableCell(
+        text,
+        deferRefresh: true,
+        awaitTextInputBeforeRefresh: awaitTextInputBeforeRefresh,
+        visibleBusy: visibleBusy,
+      );
       return;
     }
 
     late RhwpCursorPosition insertCursor;
     RhwpSelectionRange? deletedRange;
-    final edited = await _runEdit(() async {
-      final selection = _controller.selection;
-      final cursor = selection.isCollapsed
-          ? _controller.cursor
-          : selection.normalizedStart;
-      insertCursor = cursor;
-      if (!selection.isCollapsed) {
-        if (await _deleteSelectedText(selection)) {
-          deletedRange = selection;
+    final edited = await _runEdit(
+      () async {
+        final selection = _controller.selection;
+        final cursor = selection.isCollapsed
+            ? _controller.cursor
+            : selection.normalizedStart;
+        insertCursor = cursor;
+        if (!selection.isCollapsed) {
+          if (await _deleteSelectedText(selection)) {
+            deletedRange = selection;
+          }
         }
-      }
-      await widget.document.insertText(
-        section: cursor.section,
-        paragraph: cursor.paragraph,
-        offset: cursor.offset,
-        text: text,
-      );
-      _controller.cursor = cursor.copyWith(offset: cursor.offset + text.length);
-    }, deferRefresh: true);
+        await widget.document.insertText(
+          section: cursor.section,
+          paragraph: cursor.paragraph,
+          offset: cursor.offset,
+          text: text,
+        );
+        _controller.cursor = cursor.copyWith(
+          offset: cursor.offset + text.length,
+        );
+      },
+      deferRefresh: true,
+      awaitTextInputBeforeRefresh: awaitTextInputBeforeRefresh,
+      visibleBusy: visibleBusy,
+    );
     if (edited) {
       if (deletedRange != null) {
         _recordPendingDeletionOverlay(deletedRange!);
@@ -1128,10 +1233,36 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
   }
 
+  void _queueCommittedText(String text) {
+    if (text.isEmpty) {
+      return;
+    }
+
+    final previous = _textInputEditQueue;
+    _textInputEditQueue = () async {
+      try {
+        await previous;
+      } catch (_) {
+        // Keep later input commits moving after an earlier edit error.
+      }
+      if (!mounted) {
+        return;
+      }
+      await _insertCommittedText(
+        text,
+        awaitTextInputBeforeRefresh: true,
+        visibleBusy: false,
+      );
+    }();
+    unawaited(_textInputEditQueue);
+  }
+
   Future<void> _insertTextInSelectedTableCell(
     String text, {
     bool clearTextController = false,
     bool deferRefresh = false,
+    bool awaitTextInputBeforeRefresh = false,
+    bool visibleBusy = true,
   }) async {
     final tableSelection = _editableTableCellSelection;
     if (tableSelection == null || _busy) {
@@ -1139,36 +1270,41 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     final offset = _parseNonNegative(_offsetController.text);
-    final edited = await _runEdit(() async {
-      final result = await widget.document.insertTextInTableCell(
-        section: tableSelection.section,
-        paragraph: tableSelection.paragraph,
-        controlIndex: tableSelection.controlIndex,
-        cellIndex: tableSelection.activeCellIndex!,
-        cellParagraph: tableSelection.activeCellParagraph,
-        offset: offset,
-        text: text,
-      );
-      final nextOffset =
-          _readIntResult(result, 'charOffset') ?? offset + text.length;
-      _setTextIfChanged(_offsetController, nextOffset.toString());
-      _controller.tableCellSelection = RhwpTableCellSelection(
-        section: tableSelection.section,
-        paragraph: tableSelection.paragraph,
-        controlIndex: tableSelection.controlIndex,
-        startRow: tableSelection.startRow,
-        startColumn: tableSelection.startColumn,
-        endRow: tableSelection.endRow,
-        endColumn: tableSelection.endColumn,
-        activeCellIndex: tableSelection.activeCellIndex,
-        activeCellParagraph: tableSelection.activeCellParagraph,
-        activeOffset: nextOffset,
-        isTextEditing: true,
-      );
-      if (clearTextController) {
-        _textController.clear();
-      }
-    }, deferRefresh: deferRefresh);
+    final edited = await _runEdit(
+      () async {
+        final result = await widget.document.insertTextInTableCell(
+          section: tableSelection.section,
+          paragraph: tableSelection.paragraph,
+          controlIndex: tableSelection.controlIndex,
+          cellIndex: tableSelection.activeCellIndex!,
+          cellParagraph: tableSelection.activeCellParagraph,
+          offset: offset,
+          text: text,
+        );
+        final nextOffset =
+            _readIntResult(result, 'charOffset') ?? offset + text.length;
+        _setTextIfChanged(_offsetController, nextOffset.toString());
+        _controller.tableCellSelection = RhwpTableCellSelection(
+          section: tableSelection.section,
+          paragraph: tableSelection.paragraph,
+          controlIndex: tableSelection.controlIndex,
+          startRow: tableSelection.startRow,
+          startColumn: tableSelection.startColumn,
+          endRow: tableSelection.endRow,
+          endColumn: tableSelection.endColumn,
+          activeCellIndex: tableSelection.activeCellIndex,
+          activeCellParagraph: tableSelection.activeCellParagraph,
+          activeOffset: nextOffset,
+          isTextEditing: true,
+        );
+        if (clearTextController) {
+          _textController.clear();
+        }
+      },
+      deferRefresh: deferRefresh,
+      awaitTextInputBeforeRefresh: awaitTextInputBeforeRefresh,
+      visibleBusy: visibleBusy,
+    );
     if (edited && deferRefresh) {
       _recordPendingTextOverlay(
         RhwpCursorPosition(
@@ -1242,6 +1378,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
     setState(() {
       _busy = true;
+      _visibleBusy = true;
       _error = null;
     });
 
@@ -1303,6 +1440,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       if (mounted) {
         setState(() {
           _busy = false;
+          _visibleBusy = false;
         });
       }
     }
@@ -1400,6 +1538,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     RhwpObjectProperties properties;
     setState(() {
       _busy = true;
+      _visibleBusy = true;
       _error = null;
     });
     try {
@@ -1413,6 +1552,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       if (mounted) {
         setState(() {
           _busy = false;
+          _visibleBusy = false;
           _error = error;
         });
       }
@@ -1423,6 +1563,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
     setState(() {
       _busy = false;
+      _visibleBusy = false;
     });
 
     final result = await showDialog<_ObjectPropertiesDialogResult>(
@@ -1895,26 +2036,72 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     for (final run in tree.textRuns) {
       final section = run.section;
       final paragraph = run.paragraph;
-      if (section == null || paragraph == null || run.cellContext != null) {
+      if (section == null || paragraph == null) {
         continue;
       }
 
       final foldedText = run.text.toLowerCase();
       var index = foldedText.indexOf(foldedQuery);
       while (index >= 0) {
-        matches.add(
-          _EditorSearchMatch(
-            page: tree.page,
-            section: section,
-            paragraph: paragraph,
-            startOffset: run.charStart + index,
-            endOffset: run.charStart + index + query.length,
-          ),
+        final match = _searchMatchForRun(
+          tree: tree,
+          run: run,
+          section: section,
+          paragraph: paragraph,
+          startOffset: run.charStart + index,
+          endOffset: run.charStart + index + query.length,
         );
+        if (match != null) {
+          matches.add(match);
+        }
         index = foldedText.indexOf(foldedQuery, index + foldedQuery.length);
       }
     }
     return matches;
+  }
+
+  _EditorSearchMatch? _searchMatchForRun({
+    required RhwpLayerTree tree,
+    required RhwpTextRunLayout run,
+    required int section,
+    required int paragraph,
+    required int startOffset,
+    required int endOffset,
+  }) {
+    final context = run.cellContext;
+    if (context == null) {
+      return _EditorSearchMatch(
+        page: tree.page,
+        section: section,
+        paragraph: paragraph,
+        startOffset: startOffset,
+        endOffset: endOffset,
+      );
+    }
+
+    for (final cell in tree.tableCells) {
+      if (cell.section == section &&
+          cell.paragraph == paragraph &&
+          cell.controlIndex == context.controlIndex &&
+          cell.modelCellIndex == context.cellIndex) {
+        return _EditorSearchMatch(
+          page: tree.page,
+          section: section,
+          paragraph: paragraph,
+          startOffset: startOffset,
+          endOffset: endOffset,
+          tableControlIndex: context.controlIndex,
+          cellIndex: context.cellIndex,
+          cellParagraph: context.cellParagraph,
+          cellRow: cell.row,
+          cellColumn: cell.column,
+          cellEndRow: cell.endRow,
+          cellEndColumn: cell.endColumn,
+        );
+      }
+    }
+
+    return null;
   }
 
   void _searchNext() {
@@ -1952,9 +2139,16 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
-    _controller.clearTableCellSelection();
     final match = _searchMatches[_activeSearchMatch];
-    _controller.selection = match.selection;
+    final tableSelection = match.tableCellSelection;
+    if (tableSelection == null) {
+      _controller.clearTableCellSelection();
+      _controller.selection = match.selection;
+    } else {
+      _controller.clearSelection();
+      _syncTableSelectionFields(tableSelection);
+      _controller.tableCellSelection = tableSelection;
+    }
     unawaited(_controller.goToPage(match.page));
     _focusEditor();
   }
@@ -1969,34 +2163,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     final matchIndex = _activeSearchMatch;
     final match = _searchMatches[matchIndex];
     final replacement = _replaceController.text;
-    final replacementStart = RhwpCursorPosition(
-      section: match.section,
-      paragraph: match.paragraph,
-      offset: match.startOffset,
-    );
-    final replacementEnd = replacementStart.copyWith(
-      offset: match.startOffset + replacement.length,
-    );
-
     final replaced = await _runEdit(() async {
-      await widget.document.deleteText(
-        section: match.section,
-        paragraph: match.paragraph,
-        offset: match.startOffset,
-        count: match.endOffset - match.startOffset,
-      );
-      if (replacement.isNotEmpty) {
-        await widget.document.insertText(
-          section: match.section,
-          paragraph: match.paragraph,
-          offset: match.startOffset,
-          text: replacement,
-        );
-      }
-      _controller.selection = RhwpSelectionRange(
-        start: replacementStart,
-        end: replacementEnd,
-      );
+      await _replaceSearchMatchText(match, replacement);
+      _selectSearchReplacementRange(match, replacement.length);
     });
     if (!replaced) {
       return;
@@ -2036,36 +2205,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     final matches = List<_EditorSearchMatch>.of(_searchMatches)
       ..sort(_compareSearchMatchesDescending);
     final firstMatch = _searchMatches.first;
-    final replacementStart = RhwpCursorPosition(
-      section: firstMatch.section,
-      paragraph: firstMatch.paragraph,
-      offset: firstMatch.startOffset,
-    );
-    final replacementEnd = replacementStart.copyWith(
-      offset: firstMatch.startOffset + replacement.length,
-    );
 
     final replaced = await _runEdit(() async {
       for (final match in matches) {
-        await widget.document.deleteText(
-          section: match.section,
-          paragraph: match.paragraph,
-          offset: match.startOffset,
-          count: match.endOffset - match.startOffset,
-        );
-        if (replacement.isNotEmpty) {
-          await widget.document.insertText(
-            section: match.section,
-            paragraph: match.paragraph,
-            offset: match.startOffset,
-            text: replacement,
-          );
-        }
+        await _replaceSearchMatchText(match, replacement);
       }
-      _controller.selection = RhwpSelectionRange(
-        start: replacementStart,
-        end: replacementEnd,
-      );
+      _selectSearchReplacementRange(firstMatch, replacement.length);
     });
     if (!replaced || !mounted) {
       return;
@@ -2090,6 +2235,22 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     if (paragraph != 0) {
       return paragraph;
     }
+    final control = (right.tableControlIndex ?? -1).compareTo(
+      left.tableControlIndex ?? -1,
+    );
+    if (control != 0) {
+      return control;
+    }
+    final cell = (right.cellIndex ?? -1).compareTo(left.cellIndex ?? -1);
+    if (cell != 0) {
+      return cell;
+    }
+    final cellParagraph = (right.cellParagraph ?? -1).compareTo(
+      left.cellParagraph ?? -1,
+    );
+    if (cellParagraph != 0) {
+      return cellParagraph;
+    }
     return right.startOffset.compareTo(left.startOffset);
   }
 
@@ -2097,8 +2258,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _EditorSearchMatch candidate,
     _EditorSearchMatch replaced,
   ) {
-    if (candidate.section != replaced.section ||
-        candidate.paragraph != replaced.paragraph ||
+    if (!_sameSearchTarget(candidate, replaced) ||
         candidate.startOffset < replaced.endOffset) {
       return candidate;
     }
@@ -2110,13 +2270,107 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return candidate;
     }
 
-    return _EditorSearchMatch(
-      page: candidate.page,
-      section: candidate.section,
-      paragraph: candidate.paragraph,
+    return candidate.copyWith(
       startOffset: candidate.startOffset + delta,
       endOffset: candidate.endOffset + delta,
     );
+  }
+
+  bool _sameSearchTarget(_EditorSearchMatch left, _EditorSearchMatch right) {
+    return left.section == right.section &&
+        left.paragraph == right.paragraph &&
+        left.tableControlIndex == right.tableControlIndex &&
+        left.cellIndex == right.cellIndex &&
+        left.cellParagraph == right.cellParagraph;
+  }
+
+  Future<void> _replaceSearchMatchText(
+    _EditorSearchMatch match,
+    String replacement,
+  ) async {
+    final tableControlIndex = match.tableControlIndex;
+    final cellIndex = match.cellIndex;
+    final cellParagraph = match.cellParagraph;
+    if (tableControlIndex != null &&
+        cellIndex != null &&
+        cellParagraph != null) {
+      await widget.document.deleteTextInTableCell(
+        section: match.section,
+        paragraph: match.paragraph,
+        controlIndex: tableControlIndex,
+        cellIndex: cellIndex,
+        cellParagraph: cellParagraph,
+        offset: match.startOffset,
+        count: match.endOffset - match.startOffset,
+      );
+      if (replacement.isNotEmpty) {
+        await widget.document.insertTextInTableCell(
+          section: match.section,
+          paragraph: match.paragraph,
+          controlIndex: tableControlIndex,
+          cellIndex: cellIndex,
+          cellParagraph: cellParagraph,
+          offset: match.startOffset,
+          text: replacement,
+        );
+      }
+      return;
+    }
+
+    await widget.document.deleteText(
+      section: match.section,
+      paragraph: match.paragraph,
+      offset: match.startOffset,
+      count: match.endOffset - match.startOffset,
+    );
+    if (replacement.isNotEmpty) {
+      await widget.document.insertText(
+        section: match.section,
+        paragraph: match.paragraph,
+        offset: match.startOffset,
+        text: replacement,
+      );
+    }
+  }
+
+  void _selectSearchReplacementRange(
+    _EditorSearchMatch match,
+    int replacementLength,
+  ) {
+    final replacementStart = RhwpCursorPosition(
+      section: match.section,
+      paragraph: match.paragraph,
+      offset: match.startOffset,
+    );
+    final replacementEnd = replacementStart.copyWith(
+      offset: match.startOffset + replacementLength,
+    );
+    final tableSelection = match.tableCellSelection;
+    if (tableSelection == null) {
+      _controller.clearTableCellSelection();
+      _controller.selection = RhwpSelectionRange(
+        start: replacementStart,
+        end: replacementEnd,
+      );
+      return;
+    }
+
+    final replacementSelection = RhwpTableCellSelection(
+      section: tableSelection.section,
+      paragraph: tableSelection.paragraph,
+      controlIndex: tableSelection.controlIndex,
+      startRow: tableSelection.startRow,
+      startColumn: tableSelection.startColumn,
+      endRow: tableSelection.endRow,
+      endColumn: tableSelection.endColumn,
+      activeCellIndex: tableSelection.activeCellIndex,
+      activeCellParagraph: tableSelection.activeCellParagraph,
+      activeOffset: replacementEnd.offset,
+      isTextEditing: true,
+    );
+    _controller.clearSelection();
+    _syncTableSelectionFields(replacementSelection);
+    _controller.tableCellSelection = replacementSelection;
   }
 
   Future<void> _applyParagraphFormat({
@@ -3114,9 +3368,23 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     return true;
   }
 
-  void _scheduleDeferredEditRefresh() {
+  bool get _hasActiveTextInputConnection {
+    final connection = _textInputConnection;
+    return connection != null && connection.attached;
+  }
+
+  void _scheduleDeferredEditRefresh({
+    bool awaitTextInputBeforeRefresh = false,
+  }) {
     _hasDeferredEditRefresh = true;
     _deferredEditRefreshTimer?.cancel();
+    _deferredEditRefreshAwaitsTextInput =
+        _deferredEditRefreshAwaitsTextInput ||
+        (awaitTextInputBeforeRefresh && _hasActiveTextInputConnection);
+    if (_deferredEditRefreshAwaitsTextInput) {
+      return;
+    }
+
     final delay = widget.editRefreshDelay;
     if (delay <= Duration.zero) {
       scheduleMicrotask(_flushDeferredEditRefresh);
@@ -3129,10 +3397,20 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _deferredEditRefreshTimer?.cancel();
     _deferredEditRefreshTimer = null;
     _hasDeferredEditRefresh = false;
+    _deferredEditRefreshAwaitsTextInput = false;
     _pendingTextOverlays = const [];
     _pendingTextRefreshRevision = null;
     _pendingDeletionOverlays = const [];
     _pendingDeletionRefreshRevision = null;
+  }
+
+  void _releaseDeferredEditRefreshFromTextInput() {
+    if (!_hasDeferredEditRefresh || !_deferredEditRefreshAwaitsTextInput) {
+      return;
+    }
+
+    _deferredEditRefreshAwaitsTextInput = false;
+    _scheduleDeferredEditRefresh();
   }
 
   void _recordPendingTextOverlay(RhwpCursorPosition cursor, String text) {
@@ -3239,6 +3517,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     if (!_hasDeferredEditRefresh) {
       return;
     }
+    if (_deferredEditRefreshAwaitsTextInput && _hasActiveTextInputConnection) {
+      return;
+    }
+    _deferredEditRefreshAwaitsTextInput = false;
     if (_busy) {
       _scheduleDeferredEditRefresh();
       return;
@@ -3265,11 +3547,20 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   Future<bool> _runEdit(
     Future<void> Function() edit, {
     bool deferRefresh = false,
+    bool awaitTextInputBeforeRefresh = false,
+    bool visibleBusy = true,
   }) async {
-    setState(() {
+    if (visibleBusy) {
+      setState(() {
+        _busy = true;
+        _visibleBusy = true;
+        _error = null;
+      });
+    } else {
       _busy = true;
+      _visibleBusy = false;
       _error = null;
-    });
+    }
 
     int? undoSnapshot;
     try {
@@ -3288,14 +3579,22 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       if (!deferRefresh) {
         _cancelDeferredEditRefresh();
       }
-      setState(() {
+      if (visibleBusy || !deferRefresh) {
+        setState(() {
+          _busy = false;
+          _visibleBusy = false;
+          if (!deferRefresh) {
+            _renderRevision += 1;
+          }
+        });
+      } else {
         _busy = false;
-        if (!deferRefresh) {
-          _renderRevision += 1;
-        }
-      });
+        _visibleBusy = false;
+      }
       if (deferRefresh) {
-        _scheduleDeferredEditRefresh();
+        _scheduleDeferredEditRefresh(
+          awaitTextInputBeforeRefresh: awaitTextInputBeforeRefresh,
+        );
       } else {
         widget.onChanged?.call(widget.document);
       }
@@ -3313,6 +3612,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       }
       setState(() {
         _busy = false;
+        _visibleBusy = false;
         _error = error;
       });
       return false;
@@ -3358,6 +3658,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   }) async {
     setState(() {
       _busy = true;
+      _visibleBusy = true;
       _error = null;
     });
 
@@ -3372,6 +3673,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       }
       setState(() {
         _busy = false;
+        _visibleBusy = false;
         _renderRevision += 1;
       });
       widget.onChanged?.call(widget.document);
@@ -3389,6 +3691,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       }
       setState(() {
         _busy = false;
+        _visibleBusy = false;
         _error = error;
       });
     }
@@ -3841,6 +4144,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       connection.close();
     }
     _textInputConnection = null;
+    _releaseDeferredEditRefreshFromTextInput();
   }
 
   void _resetTextInputValue() {
@@ -3938,12 +4242,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     _resetTextInputValue();
-    _insertCommittedText(committedText);
+    _queueCommittedText(committedText);
   }
 
   @override
   void performAction(TextInputAction action) {
     _resetTextInputValue();
+    _releaseDeferredEditRefreshFromTextInput();
   }
 
   @override
@@ -3959,6 +4264,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   void connectionClosed() {
     _textInputConnection?.connectionClosedReceived();
     _textInputConnection = null;
+    _releaseDeferredEditRefreshFromTextInput();
   }
 
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
@@ -4868,7 +5174,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       children: [
         _EditorToolbar(
           key: _toolbarKey,
-          busy: _busy || _searching,
+          busy: _visibleBusy || _searching,
           error: _error,
           textController: _textController,
           sectionController: _sectionController,
@@ -5000,7 +5306,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         ),
         _EditorStatusBar(
           selection: _controller.selection,
-          busy: _busy,
+          busy: _visibleBusy,
           zoom: _controller.zoom,
           onZoomOut: _controller.zoomOut,
           onZoomIn: _controller.zoomIn,
@@ -6346,14 +6652,17 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
 
     final rects = <({Rect rect, bool active})>[];
     for (final match in widget.searchMatches) {
-      for (final rect in tree.selectionRectsForRange(
-        startSection: match.section,
-        startParagraph: match.paragraph,
-        startOffset: match.startOffset,
-        endSection: match.section,
-        endParagraph: match.paragraph,
-        endOffset: match.endOffset,
-      )) {
+      for (final run in tree.textRuns) {
+        if (!match.matchesRun(run)) {
+          continue;
+        }
+        final rect = run.selectionRectForOffsets(
+          match.startOffset,
+          match.endOffset,
+        );
+        if (rect == null) {
+          continue;
+        }
         rects.add((
           rect: _scalePageRect(rect, tree, overlaySize),
           active: identical(match, widget.activeSearchMatch),
@@ -6679,10 +6988,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
   void didUpdateWidget(covariant _EditorToolbar oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.tableCellSelection == null &&
-        widget.tableCellSelection != null) {
+        widget.tableCellSelection != null &&
+        _activeTab != _EditorTab.tools) {
       _activeTab = _EditorTab.table;
     } else if (oldWidget.objectSelection == null &&
-        widget.objectSelection != null) {
+        widget.objectSelection != null &&
+        _activeTab != _EditorTab.tools) {
       _activeTab = _EditorTab.edit;
     }
   }

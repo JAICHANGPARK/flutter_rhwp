@@ -205,6 +205,11 @@
 * Added a configurable `editRefreshDelay` for `RhwpNativeEditor` and set the
   example app to a 1200 ms delay so slower typing does not trigger a page SVG
   refresh after every space or character.
+* Changed Flutter-native text input refresh scheduling to wait for the active
+  text input action or connection close before starting `editRefreshDelay`,
+  preventing page SVG refreshes while the user is still typing, and queued
+  rapid text input commits so characters are not skipped while a previous edit
+  command is still finishing.
 * Added an optimistic Flutter text overlay for committed native-editor input so
   newly typed text remains visible until the refreshed page SVG finishes
   rendering, including table cell input and a temporary caret at the end of the
@@ -228,6 +233,8 @@
 * Added Flutter-native multi-cell table paste so tab/newline clipboard text is
   distributed across rendered table cells instead of being inserted into one
   active cell.
+* Added Flutter-native find/replace support for table cell text using
+  page-layer cell contexts and table-cell edit commands.
 * Changed Delete/Backspace on selected table cells to clear the selected cell
   text, while preserving character-level deletion for active cell text editing.
 * Split the Flutter-native editor toolbar into HWP-style ribbon tabs for file,

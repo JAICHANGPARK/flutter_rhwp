@@ -1422,9 +1422,10 @@ void main() {
     );
 
     tester.testTextInput.updateEditingValue(const TextEditingValue(text: 'Z'));
-    await _pumpDocumentFrame(tester);
+    await tester.pump();
+    await tester.pump();
 
-    expect(changedCalls, 1);
+    expect(changedCalls, 0);
     expect(jsonDecode(session.commands.single), {
       'type': 'insertTextInTableCell',
       'section': 0,
@@ -1435,6 +1436,11 @@ void main() {
       'offset': 0,
       'text': 'Z',
     });
+
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
   });
 
   testWidgets(
@@ -1503,6 +1509,16 @@ void main() {
 
       await tester.pump(const Duration(milliseconds: 400));
       await tester.pump();
+
+      expect(changedCalls, 0);
+      expect(session.renderedPages, isEmpty);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
+        findsOneWidget,
+      );
+
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await _pumpDocumentFrame(tester);
 
       expect(changedCalls, 1);
       expect(session.renderedPages, [0]);
@@ -4244,6 +4260,58 @@ void main() {
     );
   });
 
+  testWidgets('RhwpNativeEditor finds text inside table cells', (tester) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('도구'));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-search-field')),
+      'ell',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-find')));
+    await _pumpDocumentFrame(tester);
+
+    expect(find.text('1 / 1'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-search-active')),
+      findsOneWidget,
+    );
+    expect(
+      controller.tableCellSelection,
+      const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+        activeCellParagraph: 0,
+        activeOffset: 1,
+        isTextEditing: true,
+      ),
+    );
+    expect(controller.selection.isCollapsed, isTrue);
+    expect(session.commands, isEmpty);
+    expect(session.historyCommands, isEmpty);
+  });
+
   testWidgets('RhwpNativeEditor cycles search matches with F3 shortcuts', (
     tester,
   ) async {
@@ -4384,6 +4452,78 @@ void main() {
         end: RhwpCursorPosition(paragraph: 0, offset: 3),
       ),
     );
+  });
+
+  testWidgets('RhwpNativeEditor replaces the active table cell search match', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('도구'));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-search-field')),
+      'ell',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-find')));
+    await _pumpDocumentFrame(tester);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-replace-field')),
+      'XX',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-replace')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+    ]);
+    expect(session.commands.map(jsonDecode).toList(), [
+      {
+        'type': 'deleteTextInTableCell',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'cellIndex': 7,
+        'cellParagraph': 0,
+        'offset': 1,
+        'count': 3,
+      },
+      {
+        'type': 'insertTextInTableCell',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'cellIndex': 7,
+        'cellParagraph': 0,
+        'offset': 1,
+        'text': 'XX',
+      },
+    ]);
+    expect(find.text('0 / 0'), findsOneWidget);
+    expect(controller.tableCellSelection?.activeCellIndex, 7);
+    expect(controller.tableCellSelection?.activeOffset, 3);
+    expect(controller.tableCellSelection?.isTextEditing, isTrue);
   });
 
   testWidgets(
@@ -4583,9 +4723,10 @@ void main() {
         selection: TextSelection.collapsed(offset: 1),
       ),
     );
-    await _pumpDocumentFrame(tester);
+    await tester.pump();
+    await tester.pump();
 
-    expect(changedCalls, 1);
+    expect(changedCalls, 0);
     expect(controller.cursor, const RhwpCursorPosition(offset: 3));
     expect(jsonDecode(session.commands.single), {
       'type': 'insertText',
@@ -4599,9 +4740,14 @@ void main() {
       find.byKey(const ValueKey('rhwp-editor-composing-preview')),
       findsNothing,
     );
+
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
   });
 
-  testWidgets('RhwpNativeEditor debounces text input page refresh', (
+  testWidgets('RhwpNativeEditor waits for text input action before refresh', (
     tester,
   ) async {
     final controller = RhwpEditorController();
@@ -4655,6 +4801,92 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
 
+    expect(changedCalls, 0);
+    expect(session.renderedPages, isEmpty);
+
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.renderedPages, [0]);
+  });
+
+  testWidgets('RhwpNativeEditor queues rapid text input commits', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    controller.cursor = const RhwpCursorPosition(offset: 2);
+    session.renderedPages.clear();
+
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'A',
+        selection: TextSelection.collapsed(offset: 1),
+      ),
+    );
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'B',
+        selection: TextSelection.collapsed(offset: 1),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    expect(changedCalls, 0);
+    expect(session.renderedPages, isEmpty);
+    expect(controller.cursor, const RhwpCursorPosition(offset: 4));
+    expect(session.commands.map(jsonDecode), [
+      {
+        'type': 'insertText',
+        'section': 0,
+        'paragraph': 0,
+        'offset': 2,
+        'text': 'A',
+      },
+      {
+        'type': 'insertText',
+        'section': 0,
+        'paragraph': 0,
+        'offset': 3,
+        'text': 'B',
+      },
+    ]);
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
+      findsOneWidget,
+    );
+    expect(find.text('AB'), findsOneWidget);
+
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await _pumpDocumentFrame(tester);
+
     expect(changedCalls, 1);
     expect(session.renderedPages, [0]);
   });
@@ -4698,6 +4930,19 @@ void main() {
         selection: TextSelection.collapsed(offset: 1),
       ),
     );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+
+    expect(changedCalls, 0);
+    expect(session.renderedPages, isEmpty);
+
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump();
+
+    expect(changedCalls, 0);
+    expect(session.renderedPages, isEmpty);
+
+    await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 700));
 
@@ -4772,6 +5017,16 @@ void main() {
 
       await tester.pump(const Duration(milliseconds: 400));
       await tester.pump();
+
+      expect(changedCalls, 0);
+      expect(session.renderedPages, isEmpty);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
+        findsOneWidget,
+      );
+
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await _pumpDocumentFrame(tester);
 
       expect(changedCalls, 1);
       expect(session.renderedPages, [0]);
@@ -4996,9 +5251,10 @@ void main() {
         selection: TextSelection.collapsed(offset: 1),
       ),
     );
-    await _pumpDocumentFrame(tester);
+    await tester.pump();
+    await tester.pump();
 
-    expect(changedCalls, 1);
+    expect(changedCalls, 0);
     expect(controller.cursor, const RhwpCursorPosition(offset: 3));
     expect(session.commands.map(jsonDecode), [
       {
@@ -5017,6 +5273,11 @@ void main() {
         'text': 'Z',
       },
     ]);
+
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
   });
 
   testWidgets(

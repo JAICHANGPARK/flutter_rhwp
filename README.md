@@ -197,8 +197,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   creation from the page ribbon,
   snapshot-backed undo/redo from the edit ribbon, layer-tree text search with
   Ctrl/Cmd+F focus, F3/Shift+F3 result navigation, result highlighting,
-  active-match replace, and
-  replace-all, and basic text/table insert/delete plus table row/column and cell
+  active-match replace, replace-all, and table-cell find/replace, and basic
+  text/table insert/delete plus table row/column and cell
   merge/split command flow with table-cell hit testing, selected-cell
   highlighting, object/control hit testing, highlighting, pointer drag move and
   resize handles for selected objects, Delete/Backspace object deletion, object
@@ -210,12 +210,14 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   cell text offset hit testing, Arrow/Tab/Enter keyboard handling for selected
   table cells, Arrow/Shift+Arrow object nudging, and Shift+drag aspect-ratio
   preserving object resize. Text input, paste, tab input, and keyboard delete
-  defer page SVG refresh through `editRefreshDelay` so normal typing does not
-  reload the rendered page after every keystroke. Committed text is shown
-  through a temporary Flutter overlay with a pending caret until the refreshed
-  page render completes, including table cell text input. Deleted body text is
-  temporarily masked until the refreshed page render completes. The example app
-  uses a 1200 ms refresh delay for a steadier typing feel.
+  defer page SVG refresh so normal typing does not reload the rendered page
+  after every keystroke. Text-input commits wait for the active input action or
+  connection close before `editRefreshDelay` starts, and rapid input commits are
+  queued while previous edit commands finish. Committed text is shown through a
+  temporary Flutter overlay with a pending caret until the refreshed page render
+  completes, including table cell text input. Deleted body text is temporarily
+  masked until the refreshed page render completes. The example app uses a 1200
+  ms refresh delay for a steadier typing feel.
 - `rust/vendor/rhwp` should be committed. `rust/target` should stay ignored.
 
 ## License
