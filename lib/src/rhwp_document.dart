@@ -427,6 +427,13 @@ abstract class RhwpCommand {
     required int offset,
   }) = RhwpInsertColumnBreakCommand;
 
+  factory RhwpCommand.insertNewNumber({
+    required int section,
+    required int paragraph,
+    required int offset,
+    required int startNumber,
+  }) = RhwpInsertNewNumberCommand;
+
   factory RhwpCommand.insertTable({
     required int section,
     required int paragraph,
@@ -1058,6 +1065,29 @@ class RhwpInsertColumnBreakCommand extends RhwpCommand {
     'section': section,
     'paragraph': paragraph,
     'offset': offset,
+  };
+}
+
+class RhwpInsertNewNumberCommand extends RhwpCommand {
+  const RhwpInsertNewNumberCommand({
+    required this.section,
+    required this.paragraph,
+    required this.offset,
+    required this.startNumber,
+  });
+
+  final int section;
+  final int paragraph;
+  final int offset;
+  final int startNumber;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'insertNewNumber',
+    'section': section,
+    'paragraph': paragraph,
+    'offset': offset,
+    'startNumber': startNumber,
   };
 }
 
@@ -2346,6 +2376,22 @@ class RhwpDocument {
         section: section,
         paragraph: paragraph,
         offset: offset,
+      ),
+    );
+  }
+
+  Future<String> insertNewNumber({
+    required int section,
+    required int paragraph,
+    required int offset,
+    required int startNumber,
+  }) {
+    return apply(
+      RhwpCommand.insertNewNumber(
+        section: section,
+        paragraph: paragraph,
+        offset: offset,
+        startNumber: startNumber,
       ),
     );
   }

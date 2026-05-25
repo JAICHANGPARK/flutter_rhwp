@@ -349,6 +349,24 @@ impl RhwpSession {
                 .document
                 .insert_column_break_native(section as usize, paragraph as usize, offset as usize)
                 .map_err(error_to_string),
+            RhwpCommand::InsertNewNumber {
+                section,
+                paragraph,
+                offset,
+                start_number,
+            } => {
+                let start_number = u16::try_from(start_number)
+                    .map_err(|_| "startNumber must fit in u16".to_string())?;
+                inner
+                    .document
+                    .insert_new_number_native(
+                        section as usize,
+                        paragraph as usize,
+                        offset as usize,
+                        start_number,
+                    )
+                    .map_err(error_to_string)
+            }
             RhwpCommand::InsertTable {
                 section,
                 paragraph,
@@ -961,6 +979,13 @@ enum RhwpCommand {
         section: u32,
         paragraph: u32,
         offset: u32,
+    },
+    InsertNewNumber {
+        section: u32,
+        paragraph: u32,
+        offset: u32,
+        #[serde(rename = "startNumber")]
+        start_number: u32,
     },
     InsertTable {
         section: u32,
@@ -2333,6 +2358,16 @@ mod tests {
         let column_break: Value =
             serde_json::from_str(&column_break).expect("column break result should be JSON");
         assert_eq!(column_break["charOffset"].as_u64(), Some(0));
+
+        let new_number = session
+            .apply_command(format!(
+                r#"{{"type":"insertNewNumber","section":0,"paragraph":{},"offset":0,"startNumber":7}}"#,
+                page_break_paragraph
+            ))
+            .expect("new number command should be accepted");
+        let new_number: Value =
+            serde_json::from_str(&new_number).expect("new number result should be JSON");
+        assert!(new_number["controlIdx"].as_u64().is_some());
 
         let hwp = session.export_hwp().expect("HWP export should succeed");
         assert!(!hwp.is_empty());

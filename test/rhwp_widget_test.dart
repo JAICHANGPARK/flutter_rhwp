@@ -1191,6 +1191,61 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor page ribbon inserts new page number', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 2, offset: 3);
+    await tester.pump();
+
+    await tester.tap(find.text('쪽'));
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-insert-new-number')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-new-number-start-field')),
+      '7',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-new-number-apply')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(
+      controller.cursor,
+      const RhwpCursorPosition(paragraph: 2, offset: 11),
+    );
+    expect(jsonDecode(session.commands.single), {
+      'type': 'insertNewNumber',
+      'section': 0,
+      'paragraph': 2,
+      'offset': 3,
+      'startNumber': 7,
+    });
+  });
+
   testWidgets('RhwpNativeEditor page ribbon applies page setup', (
     tester,
   ) async {

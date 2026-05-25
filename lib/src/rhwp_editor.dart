@@ -645,6 +645,12 @@ class _PageSetupDialogResult {
   final int binding;
 }
 
+class _NewNumberDialogResult {
+  const _NewNumberDialogResult({required this.startNumber});
+
+  final int startNumber;
+}
+
 class _EquationDialogResult {
   const _EquationDialogResult({
     required this.script,
@@ -2529,6 +2535,37 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         paragraph: _readIntResult(result, 'paraIdx') ?? cursor.paragraph + 1,
         offset: _readIntResult(result, 'charOffset') ?? 0,
       );
+    });
+  }
+
+  Future<void> _showInsertNewNumberDialog() async {
+    if (_busy || _controller.tableCellSelection != null) {
+      return;
+    }
+
+    final result = await showDialog<_NewNumberDialogResult>(
+      context: context,
+      builder: (context) => const _NewNumberDialog(),
+    );
+    if (result == null) {
+      return;
+    }
+
+    final selection = _controller.selection;
+    final cursor = selection.isCollapsed
+        ? _controller.cursor
+        : selection.normalizedStart;
+    await _runEdit(() async {
+      if (!selection.isCollapsed) {
+        await _deleteSelectedText(selection);
+      }
+      await widget.document.insertNewNumber(
+        section: cursor.section,
+        paragraph: cursor.paragraph,
+        offset: cursor.offset,
+        startNumber: result.startNumber,
+      );
+      _controller.cursor = cursor.copyWith(offset: cursor.offset + 8);
     });
   }
 
@@ -6918,6 +6955,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onReplaceAll: _replaceAllSearchMatches,
           onCompare: _showCompareDialog,
           onPageSetup: _showPageSetupDialog,
+          onInsertNewNumber: _showInsertNewNumberDialog,
           onCreateHeader: () => _createHeaderFooter(isHeader: true),
           onCreateFooter: () => _createHeaderFooter(isHeader: false),
           onPreviousPage: () => unawaited(_controller.previousPage()),
@@ -8954,6 +8992,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onReplaceAll,
     required this.onCompare,
     required this.onPageSetup,
+    required this.onInsertNewNumber,
     required this.onCreateHeader,
     required this.onCreateFooter,
     required this.onPreviousPage,
@@ -9054,6 +9093,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onReplaceAll;
   final VoidCallback onCompare;
   final VoidCallback onPageSetup;
+  final VoidCallback onInsertNewNumber;
   final VoidCallback onCreateHeader;
   final VoidCallback onCreateFooter;
   final VoidCallback onPreviousPage;
@@ -9688,6 +9728,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               buttonKey: const ValueKey('rhwp-editor-page-setup'),
               icon: Icons.description_outlined,
               onPressed: widget.busy ? null : widget.onPageSetup,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Start new page number',
+              buttonKey: const ValueKey('rhwp-editor-insert-new-number'),
+              icon: Icons.format_list_numbered,
+              onPressed: widget.busy ? null : widget.onInsertNewNumber,
             ),
             _ToolbarIconButton(
               tooltip: 'Header',
@@ -10830,6 +10876,61 @@ Future<_ResolvedEditorImage> _resolveEditorImage(RhwpEditorImage image) async {
 String _normalizeImageExtension(String extension) {
   final normalized = extension.trim().toLowerCase().replaceFirst('.', '');
   return normalized.isEmpty ? 'png' : normalized;
+}
+
+class _NewNumberDialog extends StatefulWidget {
+  const _NewNumberDialog();
+
+  @override
+  State<_NewNumberDialog> createState() => _NewNumberDialogState();
+}
+
+class _NewNumberDialogState extends State<_NewNumberDialog> {
+  final _startNumberController = TextEditingController(text: '1');
+
+  @override
+  void dispose() {
+    _startNumberController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('새 번호로 시작'),
+      content: SizedBox(
+        width: 260,
+        child: TextField(
+          key: const ValueKey('rhwp-new-number-start-field'),
+          controller: _startNumberController,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          decoration: const InputDecoration(
+            labelText: 'Start number',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (_) => _submit(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const ValueKey('rhwp-new-number-apply'),
+          onPressed: _submit,
+          child: const Text('Apply'),
+        ),
+      ],
+    );
+  }
+
+  void _submit() {
+    final parsed = int.tryParse(_startNumberController.text.trim()) ?? 1;
+    final startNumber = parsed.clamp(1, 65535).toInt();
+    Navigator.of(context).pop(_NewNumberDialogResult(startNumber: startNumber));
+  }
 }
 
 class _PageSetupDialog extends StatefulWidget {

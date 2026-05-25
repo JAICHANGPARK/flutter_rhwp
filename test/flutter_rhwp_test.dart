@@ -855,6 +855,28 @@ void main() {
     );
   });
 
+  test('new number command serializes to the Rust envelope', () {
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.insertNewNumber(
+            section: 1,
+            paragraph: 2,
+            offset: 3,
+            startNumber: 7,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'insertNewNumber',
+        'section': 1,
+        'paragraph': 2,
+        'offset': 3,
+        'startNumber': 7,
+      },
+    );
+  });
+
   test('snapshot commands serialize to the Rust command envelope', () {
     expect(jsonDecode(jsonEncode(RhwpCommand.saveSnapshot().toJson())), {
       'type': 'saveSnapshot',
@@ -1626,6 +1648,21 @@ void main() {
         'landscape': true,
         'binding': 1,
       },
+    });
+
+    await document.insertNewNumber(
+      section: 0,
+      paragraph: 2,
+      offset: 3,
+      startNumber: 7,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'insertNewNumber',
+      'section': 0,
+      'paragraph': 2,
+      'offset': 3,
+      'startNumber': 7,
     });
 
     expect(await document.saveSnapshot(), 1);
