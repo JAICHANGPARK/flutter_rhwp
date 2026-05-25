@@ -314,6 +314,9 @@ class _RhwpSvgPageState extends State<_RhwpSvgPage>
     with AutomaticKeepAliveClientMixin {
   late Future<String> _svg;
   String? _lastSvg;
+  String? _cachedSvg;
+  RhwpSvgBuilder? _cachedSvgBuilder;
+  Widget? _cachedSvgPage;
   int? _reportedRenderRevision;
 
   @override
@@ -331,6 +334,14 @@ class _RhwpSvgPageState extends State<_RhwpSvgPage>
       _svg = widget.document.renderPageSvg(widget.page);
       _reportedRenderRevision = null;
     }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _cachedSvg = null;
+    _cachedSvgBuilder = null;
+    _cachedSvgPage = null;
   }
 
   @override
@@ -378,7 +389,7 @@ class _RhwpSvgPageState extends State<_RhwpSvgPage>
   }
 
   Widget _buildPageContent(BuildContext context, String svg) {
-    final page = widget.svgBuilder(context, svg);
+    final page = _pageWidgetForSvg(context, svg);
     final overlay = widget.pageOverlayBuilder?.call(context, widget.page, svg);
     if (overlay == null) {
       return page;
@@ -395,6 +406,21 @@ class _RhwpSvgPageState extends State<_RhwpSvgPage>
         ),
       ],
     );
+  }
+
+  Widget _pageWidgetForSvg(BuildContext context, String svg) {
+    final cachedPage = _cachedSvgPage;
+    if (cachedPage != null &&
+        _cachedSvg == svg &&
+        _cachedSvgBuilder == widget.svgBuilder) {
+      return cachedPage;
+    }
+
+    final page = widget.svgBuilder(context, svg);
+    _cachedSvg = svg;
+    _cachedSvgBuilder = widget.svgBuilder;
+    _cachedSvgPage = page;
+    return page;
   }
 
   void _reportRendered() {

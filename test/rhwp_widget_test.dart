@@ -198,6 +198,65 @@ void main() {
     expect(overlaySvgs.single, contains('#dc2626'));
   });
 
+  testWidgets('RhwpViewer keeps SVG widget cached during overlay updates', (
+    tester,
+  ) async {
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var overlayTick = 0;
+    var svgBuildCount = 0;
+    StateSetter? updateHarness;
+
+    Widget svgBuilder(BuildContext context, String svg) {
+      svgBuildCount += 1;
+      return Text(
+        key: const ValueKey('rhwp-cached-svg-page'),
+        svg.contains('#dc2626') ? 'page' : 'other',
+      );
+    }
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: StatefulBuilder(
+          builder: (context, setState) {
+            updateHarness = setState;
+            return SizedBox(
+              width: 360,
+              height: 320,
+              child: RhwpViewer(
+                document: document,
+                padding: const EdgeInsets.all(12),
+                pageGap: 0,
+                svgBuilder: svgBuilder,
+                pageOverlayBuilder: (context, page, svg) {
+                  return Text(
+                    'overlay $overlayTick',
+                    key: const ValueKey('rhwp-page-overlay-tick'),
+                  );
+                },
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(svgBuildCount, 1);
+    expect(session.renderedPages, [0]);
+    expect(find.text('overlay 0'), findsOneWidget);
+
+    updateHarness!(() {
+      overlayTick += 1;
+    });
+    await tester.pump();
+
+    expect(svgBuildCount, 1);
+    expect(session.renderedPages, [0]);
+    expect(find.text('overlay 1'), findsOneWidget);
+    expect(find.byKey(const ValueKey('rhwp-cached-svg-page')), findsOneWidget);
+  });
+
   testWidgets(
     'RhwpViewer keeps previous SVG while refreshed render is pending',
     (tester) async {
