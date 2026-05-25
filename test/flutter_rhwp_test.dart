@@ -328,13 +328,29 @@ void main() {
       section: 0,
       paragraph: 1,
       alignment: 'center',
+      lineSpacing: 180,
+      lineSpacingType: 'Percent',
+      indent: 120,
+      marginLeft: 300,
+      marginRight: 400,
+      spacingBefore: 50,
+      spacingAfter: 60,
     );
 
     expect(jsonDecode(jsonEncode(command.toJson())), {
       'type': 'applyParaFormat',
       'section': 0,
       'paragraph': 1,
-      'properties': {'alignment': 'center'},
+      'properties': {
+        'alignment': 'center',
+        'lineSpacing': 180,
+        'lineSpacingType': 'Percent',
+        'indent': 120,
+        'marginLeft': 300,
+        'marginRight': 400,
+        'spacingBefore': 50,
+        'spacingAfter': 60,
+      },
     });
   });
 
@@ -346,6 +362,13 @@ void main() {
         startParagraph: 1,
         endParagraph: 3,
         alignment: 'right',
+        lineSpacing: 200,
+        lineSpacingType: 'Fixed',
+        indent: -40,
+        marginLeft: 100,
+        marginRight: 200,
+        spacingBefore: 10,
+        spacingAfter: 20,
       );
 
       expect(jsonDecode(jsonEncode(command.toJson())), {
@@ -353,7 +376,16 @@ void main() {
         'section': 0,
         'startParagraph': 1,
         'endParagraph': 3,
-        'properties': {'alignment': 'right'},
+        'properties': {
+          'alignment': 'right',
+          'lineSpacing': 200,
+          'lineSpacingType': 'Fixed',
+          'indent': -40,
+          'marginLeft': 100,
+          'marginRight': 200,
+          'spacingBefore': 10,
+          'spacingAfter': 20,
+        },
       });
     },
   );
@@ -478,13 +510,29 @@ void main() {
       section: 0,
       paragraph: 1,
       alignment: 'center',
+      lineSpacing: 180,
+      lineSpacingType: 'Percent',
+      indent: 120,
+      marginLeft: 300,
+      marginRight: 400,
+      spacingBefore: 50,
+      spacingAfter: 60,
     );
 
     expect(jsonDecode(session.lastCommandJson!), {
       'type': 'applyParaFormat',
       'section': 0,
       'paragraph': 1,
-      'properties': {'alignment': 'center'},
+      'properties': {
+        'alignment': 'center',
+        'lineSpacing': 180,
+        'lineSpacingType': 'Percent',
+        'indent': 120,
+        'marginLeft': 300,
+        'marginRight': 400,
+        'spacingBefore': 50,
+        'spacingAfter': 60,
+      },
     });
 
     await document.applyParaFormatRange(
@@ -492,6 +540,13 @@ void main() {
       startParagraph: 1,
       endParagraph: 3,
       alignment: 'right',
+      lineSpacing: 200,
+      lineSpacingType: 'Fixed',
+      indent: -40,
+      marginLeft: 100,
+      marginRight: 200,
+      spacingBefore: 10,
+      spacingAfter: 20,
     );
 
     expect(jsonDecode(session.lastCommandJson!), {
@@ -499,7 +554,16 @@ void main() {
       'section': 0,
       'startParagraph': 1,
       'endParagraph': 3,
-      'properties': {'alignment': 'right'},
+      'properties': {
+        'alignment': 'right',
+        'lineSpacing': 200,
+        'lineSpacingType': 'Fixed',
+        'indent': -40,
+        'marginLeft': 100,
+        'marginRight': 200,
+        'spacingBefore': 10,
+        'spacingAfter': 20,
+      },
     });
 
     await document.splitParagraph(section: 0, paragraph: 1, offset: 2);

@@ -1151,13 +1151,13 @@ mod tests {
             .expect("apply char format range command should be accepted");
         session
             .apply_command(
-                r#"{"type":"applyParaFormat","section":0,"paragraph":0,"properties":{"alignment":"center"}}"#
+                r#"{"type":"applyParaFormat","section":0,"paragraph":0,"properties":{"alignment":"center","lineSpacing":180,"lineSpacingType":"Percent","indent":120,"marginLeft":300,"marginRight":400,"spacingBefore":50,"spacingAfter":60}}"#
                     .to_string(),
             )
             .expect("apply para format command should be accepted");
         session
             .apply_command(
-                r#"{"type":"applyParaFormatRange","section":0,"startParagraph":0,"endParagraph":1,"properties":{"alignment":"right"}}"#
+                r#"{"type":"applyParaFormatRange","section":0,"startParagraph":0,"endParagraph":1,"properties":{"alignment":"right","lineSpacing":200,"lineSpacingType":"Fixed","indent":-40,"marginLeft":100,"marginRight":200,"spacingBefore":10,"spacingAfter":20}}"#
                     .to_string(),
             )
             .expect("apply para format range command should be accepted");

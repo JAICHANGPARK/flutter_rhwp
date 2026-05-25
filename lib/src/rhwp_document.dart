@@ -272,6 +272,13 @@ abstract class RhwpCommand {
     required int section,
     required int paragraph,
     String? alignment,
+    int? lineSpacing,
+    String? lineSpacingType,
+    int? indent,
+    int? marginLeft,
+    int? marginRight,
+    int? spacingBefore,
+    int? spacingAfter,
   }) = RhwpApplyParaFormatCommand;
 
   factory RhwpCommand.applyParaFormatRange({
@@ -279,6 +286,13 @@ abstract class RhwpCommand {
     required int startParagraph,
     required int endParagraph,
     String? alignment,
+    int? lineSpacing,
+    String? lineSpacingType,
+    int? indent,
+    int? marginLeft,
+    int? marginRight,
+    int? spacingBefore,
+    int? spacingAfter,
   }) = RhwpApplyParaFormatRangeCommand;
 
   factory RhwpCommand.setFileName(String name) = RhwpSetFileNameCommand;
@@ -716,18 +730,41 @@ class RhwpApplyParaFormatCommand extends RhwpCommand {
     required this.section,
     required this.paragraph,
     this.alignment,
+    this.lineSpacing,
+    this.lineSpacingType,
+    this.indent,
+    this.marginLeft,
+    this.marginRight,
+    this.spacingBefore,
+    this.spacingAfter,
   });
 
   final int section;
   final int paragraph;
   final String? alignment;
+  final int? lineSpacing;
+  final String? lineSpacingType;
+  final int? indent;
+  final int? marginLeft;
+  final int? marginRight;
+  final int? spacingBefore;
+  final int? spacingAfter;
 
   @override
   Map<String, Object?> toJson() => {
     'type': 'applyParaFormat',
     'section': section,
     'paragraph': paragraph,
-    'properties': {if (alignment != null) 'alignment': alignment},
+    'properties': _paraFormatProperties(
+      alignment: alignment,
+      lineSpacing: lineSpacing,
+      lineSpacingType: lineSpacingType,
+      indent: indent,
+      marginLeft: marginLeft,
+      marginRight: marginRight,
+      spacingBefore: spacingBefore,
+      spacingAfter: spacingAfter,
+    ),
   };
 }
 
@@ -737,12 +774,26 @@ class RhwpApplyParaFormatRangeCommand extends RhwpCommand {
     required this.startParagraph,
     required this.endParagraph,
     this.alignment,
+    this.lineSpacing,
+    this.lineSpacingType,
+    this.indent,
+    this.marginLeft,
+    this.marginRight,
+    this.spacingBefore,
+    this.spacingAfter,
   });
 
   final int section;
   final int startParagraph;
   final int endParagraph;
   final String? alignment;
+  final int? lineSpacing;
+  final String? lineSpacingType;
+  final int? indent;
+  final int? marginLeft;
+  final int? marginRight;
+  final int? spacingBefore;
+  final int? spacingAfter;
 
   @override
   Map<String, Object?> toJson() => {
@@ -750,8 +801,41 @@ class RhwpApplyParaFormatRangeCommand extends RhwpCommand {
     'section': section,
     'startParagraph': startParagraph,
     'endParagraph': endParagraph,
-    'properties': {if (alignment != null) 'alignment': alignment},
+    'properties': _paraFormatProperties(
+      alignment: alignment,
+      lineSpacing: lineSpacing,
+      lineSpacingType: lineSpacingType,
+      indent: indent,
+      marginLeft: marginLeft,
+      marginRight: marginRight,
+      spacingBefore: spacingBefore,
+      spacingAfter: spacingAfter,
+    ),
   };
+}
+
+Map<String, Object?> _paraFormatProperties({
+  String? alignment,
+  int? lineSpacing,
+  String? lineSpacingType,
+  int? indent,
+  int? marginLeft,
+  int? marginRight,
+  int? spacingBefore,
+  int? spacingAfter,
+}) {
+  final properties = <String, Object?>{};
+  if (alignment != null) properties['alignment'] = alignment;
+  if (lineSpacing != null) properties['lineSpacing'] = lineSpacing;
+  if (lineSpacingType != null) {
+    properties['lineSpacingType'] = lineSpacingType;
+  }
+  if (indent != null) properties['indent'] = indent;
+  if (marginLeft != null) properties['marginLeft'] = marginLeft;
+  if (marginRight != null) properties['marginRight'] = marginRight;
+  if (spacingBefore != null) properties['spacingBefore'] = spacingBefore;
+  if (spacingAfter != null) properties['spacingAfter'] = spacingAfter;
+  return properties;
 }
 
 class RhwpSetFileNameCommand extends RhwpCommand {
@@ -1182,12 +1266,26 @@ class RhwpDocument {
     required int section,
     required int paragraph,
     String? alignment,
+    int? lineSpacing,
+    String? lineSpacingType,
+    int? indent,
+    int? marginLeft,
+    int? marginRight,
+    int? spacingBefore,
+    int? spacingAfter,
   }) {
     return apply(
       RhwpCommand.applyParaFormat(
         section: section,
         paragraph: paragraph,
         alignment: alignment,
+        lineSpacing: lineSpacing,
+        lineSpacingType: lineSpacingType,
+        indent: indent,
+        marginLeft: marginLeft,
+        marginRight: marginRight,
+        spacingBefore: spacingBefore,
+        spacingAfter: spacingAfter,
       ),
     );
   }
@@ -1197,6 +1295,13 @@ class RhwpDocument {
     required int startParagraph,
     required int endParagraph,
     String? alignment,
+    int? lineSpacing,
+    String? lineSpacingType,
+    int? indent,
+    int? marginLeft,
+    int? marginRight,
+    int? spacingBefore,
+    int? spacingAfter,
   }) {
     return apply(
       RhwpCommand.applyParaFormatRange(
@@ -1204,6 +1309,13 @@ class RhwpDocument {
         startParagraph: startParagraph,
         endParagraph: endParagraph,
         alignment: alignment,
+        lineSpacing: lineSpacing,
+        lineSpacingType: lineSpacingType,
+        indent: indent,
+        marginLeft: marginLeft,
+        marginRight: marginRight,
+        spacingBefore: spacingBefore,
+        spacingAfter: spacingAfter,
       ),
     );
   }

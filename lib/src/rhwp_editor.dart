@@ -279,6 +279,7 @@ enum _EditorContextMenuAction {
   underline,
   strikethrough,
   charShape,
+  paraShape,
   alignLeft,
   alignCenter,
   alignRight,
@@ -306,6 +307,28 @@ class _CharShapeDialogResult {
   final bool strikethrough;
   final int fontSize;
   final String textColor;
+}
+
+class _ParaShapeDialogResult {
+  const _ParaShapeDialogResult({
+    required this.alignment,
+    required this.lineSpacing,
+    required this.lineSpacingType,
+    required this.indent,
+    required this.marginLeft,
+    required this.marginRight,
+    required this.spacingBefore,
+    required this.spacingAfter,
+  });
+
+  final String alignment;
+  final int lineSpacing;
+  final String lineSpacingType;
+  final int indent;
+  final int marginLeft;
+  final int marginRight;
+  final int spacingBefore;
+  final int spacingAfter;
 }
 
 /// Controller for the Flutter-native command editor overlay.
@@ -936,6 +959,44 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   }
 
   Future<void> _applyParagraphAlignment(String alignment) async {
+    await _applyParagraphFormat(alignment: alignment);
+  }
+
+  Future<void> _showParaShapeDialog() async {
+    if (_busy) {
+      return;
+    }
+
+    final result = await showDialog<_ParaShapeDialogResult>(
+      context: context,
+      builder: (context) => const _ParaShapeDialog(),
+    );
+    if (result == null) {
+      return;
+    }
+
+    await _applyParagraphFormat(
+      alignment: result.alignment,
+      lineSpacing: result.lineSpacing,
+      lineSpacingType: result.lineSpacingType,
+      indent: result.indent,
+      marginLeft: result.marginLeft,
+      marginRight: result.marginRight,
+      spacingBefore: result.spacingBefore,
+      spacingAfter: result.spacingAfter,
+    );
+  }
+
+  Future<void> _applyParagraphFormat({
+    String? alignment,
+    int? lineSpacing,
+    String? lineSpacingType,
+    int? indent,
+    int? marginLeft,
+    int? marginRight,
+    int? spacingBefore,
+    int? spacingAfter,
+  }) async {
     if (_busy) {
       return;
     }
@@ -953,6 +1014,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         startParagraph: start.paragraph,
         endParagraph: end.paragraph,
         alignment: alignment,
+        lineSpacing: lineSpacing,
+        lineSpacingType: lineSpacingType,
+        indent: indent,
+        marginLeft: marginLeft,
+        marginRight: marginRight,
+        spacingBefore: spacingBefore,
+        spacingAfter: spacingAfter,
       );
       _controller.selection = selection.isCollapsed
           ? RhwpSelectionRange.collapsed(start)
@@ -1278,6 +1346,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         await _applyCharFormat(strikethrough: true);
       case _EditorContextMenuAction.charShape:
         await _showCharShapeDialog();
+      case _EditorContextMenuAction.paraShape:
+        await _showParaShapeDialog();
       case _EditorContextMenuAction.alignLeft:
         await _applyParagraphAlignment('left');
       case _EditorContextMenuAction.alignCenter:
@@ -1402,6 +1472,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         enabled: hasSelection && !_busy,
       ),
       const PopupMenuDivider(),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.paraShape,
+        icon: Icons.format_line_spacing,
+        label: '문단 모양',
+        enabled: !_busy,
+      ),
       _contextMenuItem(
         action: _EditorContextMenuAction.alignLeft,
         icon: Icons.format_align_left,
@@ -1692,6 +1768,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onUnderline: () => _applyCharFormat(underline: true),
           onStrikethrough: () => _applyCharFormat(strikethrough: true),
           onCharShape: _showCharShapeDialog,
+          onParaShape: _showParaShapeDialog,
           onAlignLeft: () => _applyParagraphAlignment('left'),
           onAlignCenter: () => _applyParagraphAlignment('center'),
           onAlignRight: () => _applyParagraphAlignment('right'),
@@ -2328,6 +2405,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onUnderline,
     required this.onStrikethrough,
     required this.onCharShape,
+    required this.onParaShape,
     required this.onAlignLeft,
     required this.onAlignCenter,
     required this.onAlignRight,
@@ -2368,6 +2446,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onUnderline;
   final VoidCallback onStrikethrough;
   final VoidCallback onCharShape;
+  final VoidCallback onParaShape;
   final VoidCallback onAlignLeft;
   final VoidCallback onAlignCenter;
   final VoidCallback onAlignRight;
@@ -2671,6 +2750,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               tooltip: 'Justify',
               icon: Icons.format_align_justify,
               onPressed: widget.busy ? null : widget.onAlignJustify,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Paragraph shape',
+              buttonKey: const ValueKey('rhwp-editor-paragraph-shape'),
+              icon: Icons.format_line_spacing,
+              onPressed: widget.busy ? null : widget.onParaShape,
             ),
           ],
         ),
@@ -3058,6 +3143,242 @@ class _CharShapeDialogState extends State<_CharShapeDialog> {
         strikethrough: _strikethrough,
         fontSize: (clampedPoints * 100).round(),
         textColor: _textColor,
+      ),
+    );
+  }
+}
+
+class _ParaShapeDialog extends StatefulWidget {
+  const _ParaShapeDialog();
+
+  @override
+  State<_ParaShapeDialog> createState() => _ParaShapeDialogState();
+}
+
+class _ParaShapeDialogState extends State<_ParaShapeDialog> {
+  final _lineSpacingController = TextEditingController(text: '160');
+  final _indentController = TextEditingController(text: '0');
+  final _marginLeftController = TextEditingController(text: '0');
+  final _marginRightController = TextEditingController(text: '0');
+  final _spacingBeforeController = TextEditingController(text: '0');
+  final _spacingAfterController = TextEditingController(text: '0');
+  var _alignment = 'justify';
+  var _lineSpacingType = 'Percent';
+
+  static const _alignments = [
+    (label: 'Left', value: 'left'),
+    (label: 'Center', value: 'center'),
+    (label: 'Right', value: 'right'),
+    (label: 'Justify', value: 'justify'),
+    (label: 'Distribute', value: 'distribute'),
+  ];
+
+  static const _lineSpacingTypes = [
+    (label: 'Percent', value: 'Percent'),
+    (label: 'Fixed', value: 'Fixed'),
+    (label: 'Space only', value: 'SpaceOnly'),
+    (label: 'Minimum', value: 'Minimum'),
+  ];
+
+  @override
+  void dispose() {
+    _lineSpacingController.dispose();
+    _indentController.dispose();
+    _marginLeftController.dispose();
+    _marginRightController.dispose();
+    _spacingBeforeController.dispose();
+    _spacingAfterController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('문단 모양'),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                key: const ValueKey('rhwp-para-shape-alignment-field'),
+                initialValue: _alignment,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Alignment',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                items: [
+                  for (final alignment in _alignments)
+                    DropdownMenuItem<String>(
+                      value: alignment.value,
+                      child: Text(alignment.label),
+                    ),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _alignment = value);
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      key: const ValueKey(
+                        'rhwp-para-shape-line-spacing-type-field',
+                      ),
+                      initialValue: _lineSpacingType,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Line spacing type',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: [
+                        for (final type in _lineSpacingTypes)
+                          DropdownMenuItem<String>(
+                            value: type.value,
+                            child: Text(type.label),
+                          ),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => _lineSpacingType = value);
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _ParaShapeNumberField(
+                      fieldKey: const ValueKey(
+                        'rhwp-para-shape-line-spacing-field',
+                      ),
+                      label: 'Line spacing',
+                      controller: _lineSpacingController,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _ParaShapeNumberField(
+                      fieldKey: const ValueKey('rhwp-para-shape-indent-field'),
+                      label: 'Indent',
+                      controller: _indentController,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _ParaShapeNumberField(
+                      fieldKey: const ValueKey(
+                        'rhwp-para-shape-margin-left-field',
+                      ),
+                      label: 'Left margin',
+                      controller: _marginLeftController,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _ParaShapeNumberField(
+                      fieldKey: const ValueKey(
+                        'rhwp-para-shape-margin-right-field',
+                      ),
+                      label: 'Right margin',
+                      controller: _marginRightController,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _ParaShapeNumberField(
+                      fieldKey: const ValueKey(
+                        'rhwp-para-shape-spacing-before-field',
+                      ),
+                      label: 'Before',
+                      controller: _spacingBeforeController,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _ParaShapeNumberField(
+                      fieldKey: const ValueKey(
+                        'rhwp-para-shape-spacing-after-field',
+                      ),
+                      label: 'After',
+                      controller: _spacingAfterController,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const ValueKey('rhwp-para-shape-apply'),
+          onPressed: _apply,
+          child: const Text('Apply'),
+        ),
+      ],
+    );
+  }
+
+  void _apply() {
+    Navigator.of(context).pop(
+      _ParaShapeDialogResult(
+        alignment: _alignment,
+        lineSpacing: _readInt(_lineSpacingController, fallback: 160),
+        lineSpacingType: _lineSpacingType,
+        indent: _readInt(_indentController),
+        marginLeft: _readInt(_marginLeftController),
+        marginRight: _readInt(_marginRightController),
+        spacingBefore: _readInt(_spacingBeforeController),
+        spacingAfter: _readInt(_spacingAfterController),
+      ),
+    );
+  }
+
+  int _readInt(TextEditingController controller, {int fallback = 0}) {
+    return int.tryParse(controller.text.trim()) ?? fallback;
+  }
+}
+
+class _ParaShapeNumberField extends StatelessWidget {
+  const _ParaShapeNumberField({
+    required this.fieldKey,
+    required this.label,
+    required this.controller,
+  });
+
+  final Key fieldKey;
+  final String label;
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      key: fieldKey,
+      controller: controller,
+      keyboardType: const TextInputType.numberWithOptions(signed: true),
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+        isDense: true,
       ),
     );
   }

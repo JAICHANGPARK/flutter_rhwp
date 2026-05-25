@@ -1271,6 +1271,91 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor applies paragraph shape dialog values', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.selection = const RhwpSelectionRange(
+      start: RhwpCursorPosition(paragraph: 0, offset: 1),
+      end: RhwpCursorPosition(paragraph: 1, offset: 2),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('서식'));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-paragraph-shape')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-paragraph-shape')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-para-shape-line-spacing-field')),
+      '180',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-para-shape-indent-field')),
+      '120',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-para-shape-margin-left-field')),
+      '300',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-para-shape-margin-right-field')),
+      '400',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-para-shape-spacing-before-field')),
+      '50',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-para-shape-spacing-after-field')),
+      '60',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-para-shape-apply')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.single), {
+      'type': 'applyParaFormatRange',
+      'section': 0,
+      'startParagraph': 0,
+      'endParagraph': 1,
+      'properties': {
+        'alignment': 'justify',
+        'lineSpacing': 180,
+        'lineSpacingType': 'Percent',
+        'indent': 120,
+        'marginLeft': 300,
+        'marginRight': 400,
+        'spacingBefore': 50,
+        'spacingAfter': 60,
+      },
+    });
+  });
+
   testWidgets('RhwpNativeEditor applies paragraph alignment', (tester) async {
     final controller = RhwpEditorController();
     final session = _FakeRhwpSession(pageCountValue: 1);

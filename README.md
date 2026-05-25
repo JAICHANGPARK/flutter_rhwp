@@ -171,7 +171,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   paragraph splitting, Shift+Enter soft line breaks, multi-paragraph selection
   replacement, multi-paragraph selected-text bold/italic/underline/strike
   formatting, a character shape dialog for font size and text color, paragraph
-  alignment commands, and basic text/table insert/delete plus table row/column
+  alignment commands, a paragraph shape dialog for line spacing, indent, and
+  paragraph margins, and basic text/table insert/delete plus table row/column
   and cell merge/split command flow with table-cell hit testing, selected-cell
   highlighting, and drag range selection for rendered table cells, plus
   selected-cell text insert/delete and cell text offset hit testing.
