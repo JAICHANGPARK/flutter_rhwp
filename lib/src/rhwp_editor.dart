@@ -1166,7 +1166,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
   static const _maxUndoSnapshots = 100;
   static const _textInputActionIgnoreWindow = Duration(milliseconds: 800);
-  static const _desktopTextInputFocusReleaseDelay = Duration(milliseconds: 900);
+  static const _minimumDesktopTextInputFocusReleaseDelay = Duration(
+    milliseconds: 900,
+  );
+  static const _maximumDesktopTextInputFocusReleaseDelay = Duration(seconds: 5);
   static const _desktopTextInputCommitHoldWindow = Duration(milliseconds: 1400);
   @override
   void initState() {
@@ -4774,7 +4777,19 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     return _pendingTextInputCommits > 0 ||
         _focusNode.hasFocus ||
         _hasActiveTextInputConnection ||
+        _hasPendingDesktopTextInputFocusRelease ||
         _desktopTextInputCommitHoldActive;
+  }
+
+  Duration get _desktopTextInputFocusReleaseDelay {
+    final editDelay = widget.editRefreshDelay;
+    if (editDelay <= _minimumDesktopTextInputFocusReleaseDelay) {
+      return _minimumDesktopTextInputFocusReleaseDelay;
+    }
+    if (editDelay >= _maximumDesktopTextInputFocusReleaseDelay) {
+      return _maximumDesktopTextInputFocusReleaseDelay;
+    }
+    return editDelay;
   }
 
   bool get _shouldIgnoreTextInputActionAfterCommit {

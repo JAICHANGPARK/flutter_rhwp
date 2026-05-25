@@ -6749,6 +6749,81 @@ void main() {
   );
 
   testWidgets(
+    'RhwpNativeEditor debounces desktop focus churn with edit refresh delay',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      try {
+        await tester.pumpWidget(
+          _WidgetHarness(
+            child: SizedBox(
+              width: 720,
+              height: 420,
+              child: RhwpNativeEditor(
+                document: document,
+                controller: controller,
+                editRefreshDelay: const Duration(seconds: 2),
+                onChanged: (_) => changedCalls += 1,
+              ),
+            ),
+          ),
+        );
+        await _pumpDocumentFrame(tester);
+
+        await tester.tapAt(
+          tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+              const Offset(1, 6),
+        );
+        await tester.pump();
+
+        controller.cursor = const RhwpCursorPosition(offset: 2);
+        session.renderedPages.clear();
+
+        tester.testTextInput.updateEditingValue(
+          const TextEditingValue(
+            text: 'A',
+            selection: TextSelection.collapsed(offset: 1),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        FocusManager.instance.primaryFocus?.unfocus();
+        tester.testTextInput.closeConnection();
+        await tester.pump();
+
+        await tester.pump(const Duration(milliseconds: 1600));
+        await tester.pump();
+
+        expect(changedCalls, 0);
+        expect(session.renderedPages, isEmpty);
+        expect(
+          find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
+          findsOneWidget,
+        );
+
+        await tester.pump(const Duration(milliseconds: 600));
+        await tester.pump();
+
+        expect(changedCalls, 0);
+        expect(session.renderedPages, isEmpty);
+
+        await tester.pump(const Duration(milliseconds: 2100));
+        await _pumpDocumentFrame(tester);
+
+        expect(changedCalls, 1);
+        expect(session.renderedPages, [0]);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
+
+  testWidgets(
     'RhwpNativeEditor cancels transient desktop focus release when focus returns',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;

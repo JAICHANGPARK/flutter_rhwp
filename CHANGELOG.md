@@ -5,6 +5,8 @@
   internal control clipboard.
 * Kept Flutter-native editor text refresh blocked when desktop focus/action
   churn arrives before a slow input command finishes.
+* Debounced desktop text-input focus churn with the native editor refresh delay
+  so typing or Space does not trigger visible page refreshes between commits.
 * Added Flutter-native style list/apply commands and a format toolbar style
   picker for body paragraphs and selected table-cell paragraphs.
 * Kept Flutter-native editor deferred page refresh blocked when desktop text
