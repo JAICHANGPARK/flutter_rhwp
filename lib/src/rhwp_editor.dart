@@ -1227,6 +1227,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     if (text == null || text.isEmpty) {
       return;
     }
+    final tableSelection = _controller.tableCellSelection;
+    if (tableSelection != null &&
+        await _pasteTableClipboardText(tableSelection, text)) {
+      return;
+    }
     await _insertCommittedText(text);
   }
 
@@ -2316,14 +2321,21 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     return buffer.toString();
   }
 
-  Future<void> _deleteSelectedTableCellText(
-    RhwpTableCellSelection selection,
-  ) async {
-    final segments = await _tableCellTextSegments(selection);
-    if (segments.isEmpty) {
-      return;
-    }
+  bool _isTableClipboardText(String text) {
+    return text.contains('\t') || text.contains('\n') || text.contains('\r');
+  }
 
+  List<List<String>> _parseTableClipboardText(String text) {
+    var normalized = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    if (normalized.endsWith('\n')) {
+      normalized = normalized.substring(0, normalized.length - 1);
+    }
+    return [for (final row in normalized.split('\n')) row.split('\t')];
+  }
+
+  List<_TableCellDeleteRange> _tableCellDeleteRangesFromSegments(
+    Iterable<_TableCellTextSegment> segments,
+  ) {
     final ranges = <String, _TableCellDeleteRange>{};
     for (final segment in segments) {
       if (segment.startOffset >= segment.endOffset) {
@@ -2344,13 +2356,136 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
             )
           : existing.expandTo(segment);
     }
+    return ranges.values.toList(growable: false);
+  }
 
+  Future<bool> _pasteTableClipboardText(
+    RhwpTableCellSelection selection,
+    String text,
+  ) async {
+    if (selection.isTextEditing || !_isTableClipboardText(text) || _busy) {
+      return false;
+    }
+
+    final rows = _parseTableClipboardText(text);
+    if (rows.isEmpty) {
+      return false;
+    }
+
+    final cells = await _tableCellsForSelection(selection);
+    if (!mounted || cells.isEmpty) {
+      return false;
+    }
+
+    final targets = <({RhwpTableCellLayout cell, String text})>[];
+    final targetCellIndexes = <int>{};
+    var maxColumnCount = 0;
+    for (var rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
+      final columns = rows[rowIndex];
+      maxColumnCount = math.max(maxColumnCount, columns.length);
+      for (
+        var columnIndex = 0;
+        columnIndex < columns.length;
+        columnIndex += 1
+      ) {
+        final target = _tableCellAt(
+          cells,
+          selection.startRow + rowIndex,
+          selection.startColumn + columnIndex,
+        );
+        final cell = target?.cell;
+        final cellIndex = cell?.modelCellIndex;
+        if (cell == null ||
+            cellIndex == null ||
+            !targetCellIndexes.add(cellIndex)) {
+          continue;
+        }
+        targets.add((cell: cell, text: columns[columnIndex]));
+      }
+    }
+
+    if (targets.isEmpty || maxColumnCount <= 0) {
+      return false;
+    }
+
+    final pasteSelection = RhwpTableCellSelection(
+      section: selection.section,
+      paragraph: selection.paragraph,
+      controlIndex: selection.controlIndex,
+      startRow: selection.startRow,
+      startColumn: selection.startColumn,
+      endRow: selection.startRow + rows.length - 1,
+      endColumn: selection.startColumn + maxColumnCount - 1,
+    );
+    final existingSegments = await _tableCellTextSegments(pasteSelection);
+    final deleteRanges = _tableCellDeleteRangesFromSegments(
+      existingSegments.where(
+        (segment) => targetCellIndexes.contains(segment.cellIndex),
+      ),
+    );
+    final hasInsertedText = targets.any((target) => target.text.isNotEmpty);
+    if (deleteRanges.isEmpty && !hasInsertedText) {
+      return false;
+    }
+
+    final lastTarget = targets.last;
+    final edited = await _runEdit(() async {
+      for (final range in deleteRanges) {
+        await widget.document.deleteTextInTableCell(
+          section: range.section,
+          paragraph: range.paragraph,
+          controlIndex: range.controlIndex,
+          cellIndex: range.cellIndex,
+          cellParagraph: range.cellParagraph,
+          offset: range.startOffset,
+          count: range.endOffset - range.startOffset,
+        );
+      }
+
+      for (final target in targets) {
+        if (target.text.isEmpty) {
+          continue;
+        }
+        await widget.document.insertTextInTableCell(
+          section: selection.section,
+          paragraph: selection.paragraph,
+          controlIndex: selection.controlIndex,
+          cellIndex: target.cell.modelCellIndex!,
+          cellParagraph: 0,
+          offset: 0,
+          text: target.text,
+        );
+      }
+
+      final nextSelection = RhwpTableCellSelection(
+        section: selection.section,
+        paragraph: selection.paragraph,
+        controlIndex: selection.controlIndex,
+        startRow: lastTarget.cell.row,
+        startColumn: lastTarget.cell.column,
+        endRow: lastTarget.cell.endRow,
+        endColumn: lastTarget.cell.endColumn,
+        activeCellIndex: lastTarget.cell.modelCellIndex,
+        activeOffset: lastTarget.text.length,
+        isTextEditing: true,
+      );
+      _syncTableSelectionFields(nextSelection);
+      _controller.tableCellSelection = nextSelection;
+    }, deferRefresh: true);
+    return edited;
+  }
+
+  Future<void> _deleteSelectedTableCellText(
+    RhwpTableCellSelection selection,
+  ) async {
+    final segments = await _tableCellTextSegments(selection);
+    final ranges = _tableCellDeleteRangesFromSegments(segments);
     if (ranges.isEmpty) {
       return;
     }
 
     await _runEdit(() async {
-      for (final range in ranges.values) {
+      for (final range in ranges) {
         await widget.document.deleteTextInTableCell(
           section: range.section,
           paragraph: range.paragraph,

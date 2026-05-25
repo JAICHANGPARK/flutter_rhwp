@@ -225,6 +225,9 @@
   enters the active cell without dispatching a body paragraph split command.
 * Added Flutter-native copy, cut, and paste handling for selected table cell
   text using page-layer cell text runs and table-cell edit commands.
+* Added Flutter-native multi-cell table paste so tab/newline clipboard text is
+  distributed across rendered table cells instead of being inserted into one
+  active cell.
 * Changed Delete/Backspace on selected table cells to clear the selected cell
   text, while preserving character-level deletion for active cell text editing.
 * Split the Flutter-native editor toolbar into HWP-style ribbon tabs for file,

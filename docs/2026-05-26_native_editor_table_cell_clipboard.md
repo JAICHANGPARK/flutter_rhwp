@@ -6,6 +6,7 @@
 - 표 셀 복사는 page layer tree의 `cellContext`가 붙은 text run을 읽어 셀 텍스트를 clipboard에 넣는다.
 - 표 셀 잘라내기는 같은 텍스트 run 범위를 `deleteTextInTableCell` command로 지운다.
 - 표 셀 붙여넣기는 기존 `insertTextInTableCell` 경로를 재사용해 active cell offset에 clipboard text를 삽입한다.
+- 이후 탭/줄바꿈이 들어 있는 clipboard text는 선택 셀을 기준으로 여러 셀에 분배해서 붙여넣도록 확장했다.
 - 표 셀 context menu에서도 복사/잘라내기 항목이 활성화되도록 했다.
 
 ## 이 작업을 진행한 이유

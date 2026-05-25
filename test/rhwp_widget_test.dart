@@ -1731,6 +1731,102 @@ void main() {
     },
   );
 
+  testWidgets('RhwpNativeEditor pastes clipboard table text across cells', (
+    tester,
+  ) async {
+    final clipboard = _MockClipboard();
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      clipboard.handleMethodCall,
+    );
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_tableClipboardLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+    });
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    await tester.tapAt(
+      pageTopLeft +
+          Offset(pageSize.width * 100 / 240, pageSize.height * 60 / 180),
+    );
+    await tester.pump();
+    controller.tableCellSelection = const RhwpTableCellSelection(
+      section: 0,
+      paragraph: 5,
+      controlIndex: 2,
+      startRow: 1,
+      startColumn: 3,
+      endRow: 1,
+      endColumn: 3,
+      activeCellIndex: 7,
+    );
+    await tester.pump();
+
+    await Clipboard.setData(const ClipboardData(text: 'A\tB\nC\tD'));
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.commands.map(jsonDecode).toList(), [
+      {
+        'type': 'deleteTextInTableCell',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'cellIndex': 7,
+        'cellParagraph': 0,
+        'offset': 0,
+        'count': 3,
+      },
+      for (final entry in const [
+        (cellIndex: 7, text: 'A'),
+        (cellIndex: 8, text: 'B'),
+        (cellIndex: 9, text: 'C'),
+        (cellIndex: 10, text: 'D'),
+      ])
+        {
+          'type': 'insertTextInTableCell',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': entry.cellIndex,
+          'cellParagraph': 0,
+          'offset': 0,
+          'text': entry.text,
+        },
+    ]);
+    expect(controller.tableCellSelection?.activeCellIndex, 10);
+    expect(controller.tableCellSelection?.activeOffset, 1);
+    expect(controller.tableCellSelection?.isTextEditing, isTrue);
+  });
+
   testWidgets('RhwpNativeEditor taps table cell text to set cell edit offset', (
     tester,
   ) async {
@@ -5304,6 +5400,62 @@ Map<String, Object?> _tableCellEditorLayerTreeJson() {
   };
 }
 
+Map<String, Object?> _tableClipboardLayerTreeJson() {
+  return {
+    'pageWidth': 240,
+    'pageHeight': 180,
+    'root': {
+      'kind': 'group',
+      'bounds': {'x': 0, 'y': 0, 'width': 240, 'height': 180},
+      'children': [
+        {
+          'kind': 'group',
+          'bounds': {'x': 80, 'y': 40, 'width': 100, 'height': 80},
+          'groupKind': {
+            'kind': 'table',
+            'sectionIndex': 0,
+            'paraIndex': 5,
+            'controlIndex': 2,
+            'rowCount': 4,
+            'colCount': 5,
+          },
+          'children': [
+            _editorTableCellLayerNode(
+              row: 1,
+              column: 3,
+              modelCellIndex: 7,
+              x: 90,
+              y: 50,
+              text: 'old',
+            ),
+            _editorTableCellLayerNode(
+              row: 1,
+              column: 4,
+              modelCellIndex: 8,
+              x: 140,
+              y: 50,
+            ),
+            _editorTableCellLayerNode(
+              row: 2,
+              column: 3,
+              modelCellIndex: 9,
+              x: 90,
+              y: 80,
+            ),
+            _editorTableCellLayerNode(
+              row: 2,
+              column: 4,
+              modelCellIndex: 10,
+              x: 140,
+              y: 80,
+            ),
+          ],
+        },
+      ],
+    },
+  };
+}
+
 Map<String, Object?> _objectEditorLayerTreeJson() {
   return {
     'pageWidth': 240,
@@ -5326,30 +5478,61 @@ Map<String, Object?> _objectEditorLayerTreeJson() {
   };
 }
 
-Map<String, Object?> _editorCellTextRunLayerNode() {
+Map<String, Object?> _editorTableCellLayerNode({
+  required int row,
+  required int column,
+  required int modelCellIndex,
+  required double x,
+  required double y,
+  String? text,
+}) {
+  return {
+    'kind': 'group',
+    'bounds': {'x': x, 'y': y, 'width': 40, 'height': 30},
+    'groupKind': {
+      'kind': 'tableCell',
+      'row': row,
+      'col': column,
+      'rowSpan': 1,
+      'colSpan': 1,
+      'modelCellIndex': modelCellIndex,
+    },
+    'children': [
+      if (text != null)
+        _editorCellTextRunLayerNode(
+          cellIndex: modelCellIndex,
+          text: text,
+          x: x + 6,
+          y: y + 10,
+        ),
+    ],
+  };
+}
+
+Map<String, Object?> _editorCellTextRunLayerNode({
+  int cellIndex = 7,
+  String text = 'cell',
+  double x = 96,
+  double y = 73,
+}) {
   return {
     'kind': 'leaf',
-    'bounds': {'x': 96, 'y': 73, 'width': 60, 'height': 12},
+    'bounds': {'x': x, 'y': y, 'width': 60, 'height': 12},
     'ops': [
       {
         'type': 'textRun',
-        'bbox': {'x': 96, 'y': 73, 'width': 60, 'height': 12},
-        'text': 'cell',
+        'bbox': {'x': x, 'y': y, 'width': 60, 'height': 12},
+        'text': text,
         'source': {
-          'id': 7,
-          'utf16Range': {'start': 0, 'end': 4},
-          'stableSourceKey': 'section:0/para:5/char:0/cell:5:2:7:0:0',
+          'id': cellIndex,
+          'utf16Range': {'start': 0, 'end': text.length},
+          'stableSourceKey': 'section:0/para:5/char:0/cell:5:2:$cellIndex:0:0',
         },
         'placement': {
-          'runToPage': {'a': 1, 'b': 0, 'c': 0, 'd': 1, 'e': 96, 'f': 83},
+          'runToPage': {'a': 1, 'b': 0, 'c': 0, 'd': 1, 'e': x, 'f': y + 10},
           'baselineY': 0,
         },
-        'clusters': [
-          _editorTextCluster(0, 1, 0),
-          _editorTextCluster(1, 2, 10),
-          _editorTextCluster(2, 3, 20),
-          _editorTextCluster(3, 4, 30),
-        ],
+        'clusters': _editorTextClusters(text.length),
       },
     ],
   };
