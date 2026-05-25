@@ -207,6 +207,8 @@
   status bar, backed by the shared `RhwpEditorController` zoom state.
 * Added Ctrl/Cmd zoom shortcuts to the Flutter-native editor for zoom in, zoom
   out, and reset zoom.
+* Added Ctrl/Cmd+mouse-wheel zoom handling to the Flutter-native editor
+  viewport.
 * Added file-open callback support to `RhwpNativeEditor` and wired the example
   app so the native editor file ribbon can launch the same file picker and save
   callbacks as the outer app toolbar.

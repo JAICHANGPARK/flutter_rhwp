@@ -517,6 +517,47 @@ void main() {
 
     expect(controller.zoom, 1.0);
     expect(session.commands, isEmpty);
+
+    await tester.sendEventToBinding(
+      PointerScrollEvent(
+        position: tester.getCenter(find.byType(RhwpViewer)),
+        scrollDelta: const Offset(0, -40),
+      ),
+    );
+    await tester.pump();
+
+    expect(controller.zoom, 1.0);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendEventToBinding(
+      PointerScrollEvent(
+        position: tester.getCenter(find.byType(RhwpViewer)),
+        scrollDelta: const Offset(0, -40),
+      ),
+    );
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+
+    expect(controller.zoom, 1.25);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('rhwp-editor-status-zoom')))
+          .data,
+      '125%',
+    );
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendEventToBinding(
+      PointerScrollEvent(
+        position: tester.getCenter(find.byType(RhwpViewer)),
+        scrollDelta: const Offset(0, 40),
+      ),
+    );
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+
+    expect(controller.zoom, 1.0);
+    expect(session.commands, isEmpty);
   });
 
   testWidgets('RhwpNativeEditor page ribbon creates header and footer', (

@@ -663,6 +663,26 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
   }
 
+  void _handlePointerSignal(PointerSignalEvent event) {
+    if (event is! PointerScrollEvent || event.scrollDelta.dy == 0) {
+      return;
+    }
+
+    final shortcutPressed =
+        HardwareKeyboard.instance.isControlPressed ||
+        HardwareKeyboard.instance.isMetaPressed;
+    if (!shortcutPressed) {
+      return;
+    }
+
+    if (event.scrollDelta.dy < 0) {
+      _controller.zoomIn();
+    } else {
+      _controller.zoomOut();
+    }
+    _focusEditor();
+  }
+
   Future<void> _loadPageCount() async {
     try {
       final pageCount = await widget.document.pageCount;
@@ -3657,35 +3677,39 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onResetZoom: _controller.resetZoom,
         ),
         Expanded(
-          child: Focus(
-            focusNode: _focusNode,
-            onKeyEvent: _handleKeyEvent,
-            child: RhwpViewer(
-              key: _viewerKey,
-              document: widget.document,
-              controller: _controller,
-              ignorePageOverlayPointer: false,
-              pageOverlayBuilder: (context, page, _) {
-                return _EditorSelectionOverlay(
-                  document: widget.document,
-                  page: page,
-                  selection: _controller.selection,
-                  tableCellSelection: _controller.tableCellSelection,
-                  composingText: _composingText,
-                  searchMatches: _searchMatches
-                      .where((match) => match.page == page)
-                      .toList(growable: false),
-                  activeSearchMatch: _activeSearchMatch < 0
-                      ? null
-                      : _searchMatches[_activeSearchMatch],
-                  fallbackEnabled: page == 0,
-                  onCursorPosition: _setCursorFromPage,
-                  onSelectionRange: _setSelectionFromPage,
-                  onTableCellSelection: _setTableSelectionFromPage,
-                  onFocusRequested: _focusEditor,
-                  onContextMenuRequested: _showContextMenu,
-                );
-              },
+          child: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerSignal: _handlePointerSignal,
+            child: Focus(
+              focusNode: _focusNode,
+              onKeyEvent: _handleKeyEvent,
+              child: RhwpViewer(
+                key: _viewerKey,
+                document: widget.document,
+                controller: _controller,
+                ignorePageOverlayPointer: false,
+                pageOverlayBuilder: (context, page, _) {
+                  return _EditorSelectionOverlay(
+                    document: widget.document,
+                    page: page,
+                    selection: _controller.selection,
+                    tableCellSelection: _controller.tableCellSelection,
+                    composingText: _composingText,
+                    searchMatches: _searchMatches
+                        .where((match) => match.page == page)
+                        .toList(growable: false),
+                    activeSearchMatch: _activeSearchMatch < 0
+                        ? null
+                        : _searchMatches[_activeSearchMatch],
+                    fallbackEnabled: page == 0,
+                    onCursorPosition: _setCursorFromPage,
+                    onSelectionRange: _setSelectionFromPage,
+                    onTableCellSelection: _setTableSelectionFromPage,
+                    onFocusRequested: _focusEditor,
+                    onContextMenuRequested: _showContextMenu,
+                  );
+                },
+              ),
             ),
           ),
         ),
