@@ -1791,6 +1791,38 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
   }
 
+  Future<void> _enterSelectedTableCell() async {
+    final selection = _controller.tableCellSelection;
+    if (selection == null || _busy) {
+      return;
+    }
+
+    try {
+      final cells = await _tableCellsForSelection(selection);
+      if (!mounted || cells.isEmpty) {
+        _focusEditor();
+        return;
+      }
+
+      final active = _activeTableCellForSelection(selection, cells);
+      if (active == null) {
+        _focusEditor();
+        return;
+      }
+
+      _setKeyboardTableCellSelection(
+        RhwpTableCellSelection.fromCell(active.cell),
+        page: active.page,
+      );
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    }
+  }
+
   Future<List<({RhwpTableCellLayout cell, int page})>> _tableCellsForSelection(
     RhwpTableCellSelection selection,
   ) async {
@@ -2851,6 +2883,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       case LogicalKeyboardKey.enter:
       case LogicalKeyboardKey.numpadEnter:
         if (!_busy) {
+          if (_controller.tableCellSelection != null) {
+            unawaited(_enterSelectedTableCell());
+            return KeyEventResult.handled;
+          }
           if (extendSelection) {
             _insertLineBreak();
           } else {

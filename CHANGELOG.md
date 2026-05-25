@@ -179,6 +179,8 @@
   Flutter-native editor, including Shift+Arrow range extension.
 * Added Escape handling in the Flutter-native editor to clear composing input,
   selected table cells, selected text, and active search highlights.
+* Added Enter handling for selected table cells so the Flutter-native editor
+  enters the active cell without dispatching a body paragraph split command.
 * Split the Flutter-native editor toolbar into HWP-style ribbon tabs for file,
   edit, view, input, format, page, table, and tools, with table cell selection
   opening the table ribbon context.

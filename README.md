@@ -197,7 +197,7 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   merge/split command flow with table-cell hit testing, selected-cell
   highlighting, and drag range selection for rendered table cells, plus
   selected-cell text insert/delete, cell text offset hit testing, and
-  Arrow/Tab keyboard navigation for selected table cells.
+  Arrow/Tab/Enter keyboard handling for selected table cells.
 - `rust/vendor/rhwp` should be committed. `rust/target` should stay ignored.
 
 ## License

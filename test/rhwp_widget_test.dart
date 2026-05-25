@@ -1146,6 +1146,94 @@ void main() {
     expect(session.commands, isEmpty);
   });
 
+  testWidgets('RhwpNativeEditor enters selected table cell with enter', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    Offset pagePoint(double x, double y) {
+      return pageTopLeft +
+          Offset(pageSize.width * x / 240, pageSize.height * y / 180);
+    }
+
+    final drag = await tester.startGesture(pagePoint(100, 60));
+    await tester.pump();
+    await drag.moveTo(pagePoint(150, 95));
+    await tester.pump();
+    await drag.up();
+    await tester.pump();
+
+    expect(
+      controller.tableCellSelection,
+      const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 4,
+        activeCellIndex: 7,
+      ),
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 0);
+    expect(session.commands, isEmpty);
+    expect(
+      controller.tableCellSelection,
+      const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+      ),
+    );
+
+    tester.testTextInput.updateEditingValue(const TextEditingValue(text: 'Z'));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.single), {
+      'type': 'insertTextInTableCell',
+      'section': 0,
+      'paragraph': 5,
+      'controlIndex': 2,
+      'cellIndex': 7,
+      'cellParagraph': 0,
+      'offset': 0,
+      'text': 'Z',
+    });
+  });
+
   testWidgets('RhwpNativeEditor inserts text into selected table cell', (
     tester,
   ) async {
