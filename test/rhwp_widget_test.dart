@@ -1540,6 +1540,93 @@ void main() {
     expect(session.commands, isEmpty);
   });
 
+  testWidgets('RhwpNativeEditor deletes by word with keyboard modifiers', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(
+      _editorLayerTreeJson(firstText: 'hello world', secondText: 'tail'),
+    );
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    controller.cursor = const RhwpCursorPosition(offset: 8);
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(controller.cursor, const RhwpCursorPosition(offset: 6));
+    expect(jsonDecode(session.commands.single), {
+      'type': 'deleteText',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 6,
+      'count': 2,
+    });
+
+    controller.cursor = const RhwpCursorPosition();
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 2);
+    expect(controller.cursor, const RhwpCursorPosition());
+    expect(jsonDecode(session.commands.last), {
+      'type': 'deleteText',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 0,
+      'count': 5,
+    });
+
+    controller.selection = const RhwpSelectionRange(
+      start: RhwpCursorPosition(offset: 1),
+      end: RhwpCursorPosition(offset: 4),
+    );
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 3);
+    expect(controller.cursor, const RhwpCursorPosition(offset: 1));
+    expect(jsonDecode(session.commands.last), {
+      'type': 'deleteText',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 1,
+      'count': 3,
+    });
+  });
+
   testWidgets('RhwpNativeEditor moves vertically by page geometry', (
     tester,
   ) async {

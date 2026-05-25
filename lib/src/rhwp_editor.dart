@@ -1627,6 +1627,42 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
   }
 
+  Future<void> _deleteWord({required bool backward}) async {
+    if (_editableTableCellSelection != null) {
+      await _deleteTextInSelectedTableCell(backward: backward);
+      return;
+    }
+
+    await _runEdit(() async {
+      if (await _deleteSelectedText(_controller.selection)) {
+        return;
+      }
+
+      final cursor = _readCursor();
+      final paragraphText = await _paragraphTextFor(cursor);
+      final targetOffset = paragraphText == null
+          ? (backward ? math.max(0, cursor.offset - 1) : cursor.offset + 1)
+          : _wordBoundaryOffset(
+              paragraphText.text,
+              cursor.offset,
+              backward ? -1 : 1,
+            );
+      final deleteOffset = math.min(cursor.offset, targetOffset);
+      final count = (cursor.offset - targetOffset).abs();
+      if (count == 0) {
+        return;
+      }
+
+      await widget.document.deleteText(
+        section: cursor.section,
+        paragraph: cursor.paragraph,
+        offset: deleteOffset,
+        count: count,
+      );
+      _controller.cursor = cursor.copyWith(offset: deleteOffset);
+    });
+  }
+
   Future<void> _deleteTextInSelectedTableCell({required bool backward}) async {
     final tableSelection = _editableTableCellSelection;
     if (tableSelection == null || _busy) {
@@ -2389,12 +2425,20 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         return KeyEventResult.handled;
       case LogicalKeyboardKey.backspace:
         if (!_busy) {
-          _deleteBackward();
+          if (wordNavigationPressed) {
+            unawaited(_deleteWord(backward: true));
+          } else {
+            _deleteBackward();
+          }
         }
         return KeyEventResult.handled;
       case LogicalKeyboardKey.delete:
         if (!_busy) {
-          _deleteForward();
+          if (wordNavigationPressed) {
+            unawaited(_deleteWord(backward: false));
+          } else {
+            _deleteForward();
+          }
         }
         return KeyEventResult.handled;
     }
