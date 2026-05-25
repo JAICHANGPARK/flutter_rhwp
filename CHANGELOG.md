@@ -131,3 +131,5 @@
   movement, shift-selection, and backspace/delete command dispatch.
 * Added a Flutter `TextInputClient` bridge so the native editor can receive IME
   text composition and commit finalized text through the Rust insert command.
+* Added a Flutter-native composing preview overlay so active IME composition is
+  visible near the caret before it is committed to the document.

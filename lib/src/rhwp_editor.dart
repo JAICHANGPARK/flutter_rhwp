@@ -480,11 +480,38 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   }
 
   void _resetTextInputValue() {
-    _inputValue = TextEditingValue.empty;
+    _setInputValue(TextEditingValue.empty);
     final connection = _textInputConnection;
     if (connection != null && connection.attached) {
       connection.setEditingState(_inputValue);
     }
+  }
+
+  void _setInputValue(TextEditingValue value) {
+    if (_inputValue == value) {
+      return;
+    }
+    _inputValue = value;
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  String? get _composingText {
+    final composing = _inputValue.composing;
+    if (!composing.isValid || composing.isCollapsed) {
+      return null;
+    }
+
+    final text = _inputValue.text;
+    final start = composing.start.clamp(0, text.length);
+    final end = composing.end.clamp(0, text.length);
+    if (start >= end) {
+      return null;
+    }
+
+    final composingText = text.substring(start, end);
+    return composingText.isEmpty ? null : composingText;
   }
 
   @override
@@ -493,7 +520,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
-    _inputValue = value;
+    _setInputValue(value);
     if (value.composing.isValid && !value.composing.isCollapsed) {
       return;
     }
@@ -616,6 +643,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
                   document: widget.document,
                   page: page,
                   selection: _controller.selection,
+                  composingText: _composingText,
                   fallbackEnabled: page == 0,
                   onCursorPosition: _setCursorFromPage,
                   onSelectionRange: _setSelectionFromPage,
@@ -636,6 +664,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
     required this.document,
     required this.page,
     required this.selection,
+    required this.composingText,
     required this.fallbackEnabled,
     required this.onCursorPosition,
     required this.onSelectionRange,
@@ -645,6 +674,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
   final RhwpDocument document;
   final int page;
   final RhwpSelectionRange selection;
+  final String? composingText;
   final bool fallbackEnabled;
   final ValueChanged<RhwpCursorPosition> onCursorPosition;
   final ValueChanged<RhwpSelectionRange> onSelectionRange;
@@ -818,6 +848,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     final color = Theme.of(context).colorScheme.primary;
     final overlaySize = _overlaySize(constraints, tree);
     final selectionRects = _layerSelectionRects(tree, overlaySize);
+    final scaledCaretRect = _scalePageRect(caretRect, tree, overlaySize);
 
     return Stack(
       children: [
@@ -847,6 +878,18 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
             ),
           ),
         ),
+        if (widget.composingText != null)
+          _positionedRect(
+            key: const ValueKey('rhwp-editor-composing-preview'),
+            rect: Rect.fromLTWH(
+              scaledCaretRect.left,
+              scaledCaretRect.top,
+              180,
+              32,
+            ),
+            constraints: constraints,
+            child: _ComposingPreview(text: widget.composingText!),
+          ),
       ],
     );
   }
@@ -865,6 +908,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     final height = math.max(18.0, _lineHeight);
     final selectionWidth = _selectionWidth(start, end);
     final boundedTop = _bound(top, constraints.maxHeight, height);
+    final boundedCaretLeft = _bound(caretLeft, constraints.maxWidth, 2);
 
     return Stack(
       children: [
@@ -884,7 +928,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
           ),
         Positioned(
           key: const ValueKey('rhwp-editor-caret'),
-          left: _bound(caretLeft, constraints.maxWidth, 2),
+          left: boundedCaretLeft,
           top: boundedTop,
           width: 2,
           height: height,
@@ -895,6 +939,15 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
             ),
           ),
         ),
+        if (widget.composingText != null)
+          Positioned(
+            key: const ValueKey('rhwp-editor-composing-preview'),
+            left: _bound(boundedCaretLeft, constraints.maxWidth, 180),
+            top: _bound(boundedTop, constraints.maxHeight, 32),
+            width: 180,
+            height: 32,
+            child: _ComposingPreview(text: widget.composingText!),
+          ),
       ],
     );
   }
@@ -1202,6 +1255,41 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ComposingPreview extends StatelessWidget {
+  const _ComposingPreview({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Align(
+      alignment: Alignment.topLeft,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.surface,
+          border: Border(bottom: BorderSide(color: colors.primary, width: 2)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x1f000000),
+              blurRadius: 4,
+              offset: Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          child: Text(
+            text,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
         ),
       ),
     );

@@ -482,6 +482,11 @@ void main() {
 
     expect(session.commands, isEmpty);
     expect(controller.cursor, const RhwpCursorPosition(offset: 2));
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-composing-preview')),
+      findsOneWidget,
+    );
+    expect(find.text('ㅎ'), findsOneWidget);
 
     tester.testTextInput.updateEditingValue(
       const TextEditingValue(
@@ -501,6 +506,10 @@ void main() {
       'text': '한',
     });
     expect(tester.testTextInput.editingState?['text'], '');
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-composing-preview')),
+      findsNothing,
+    );
   });
 
   testWidgets(
