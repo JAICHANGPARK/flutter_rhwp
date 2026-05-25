@@ -532,6 +532,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   final _tableEndRowController = TextEditingController(text: '1');
   final _tableEndColumnController = TextEditingController(text: '1');
   final _searchController = TextEditingController();
+  final _replaceController = TextEditingController();
   TextInputConnection? _textInputConnection;
   TextEditingValue _inputValue = TextEditingValue.empty;
   Key _viewerKey = UniqueKey();
@@ -589,6 +590,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _tableEndRowController.dispose();
     _tableEndColumnController.dispose();
     _searchController.dispose();
+    _replaceController.dispose();
     super.dispose();
   }
 
@@ -1257,6 +1259,100 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _focusEditor();
   }
 
+  Future<void> _replaceActiveSearchMatch() async {
+    if (_busy ||
+        _activeSearchMatch < 0 ||
+        _activeSearchMatch >= _searchMatches.length) {
+      return;
+    }
+
+    final matchIndex = _activeSearchMatch;
+    final match = _searchMatches[matchIndex];
+    final replacement = _replaceController.text;
+    final replacementStart = RhwpCursorPosition(
+      section: match.section,
+      paragraph: match.paragraph,
+      offset: match.startOffset,
+    );
+    final replacementEnd = replacementStart.copyWith(
+      offset: match.startOffset + replacement.length,
+    );
+
+    final replaced = await _runEdit(() async {
+      await widget.document.deleteText(
+        section: match.section,
+        paragraph: match.paragraph,
+        offset: match.startOffset,
+        count: match.endOffset - match.startOffset,
+      );
+      if (replacement.isNotEmpty) {
+        await widget.document.insertText(
+          section: match.section,
+          paragraph: match.paragraph,
+          offset: match.startOffset,
+          text: replacement,
+        );
+      }
+      _controller.selection = RhwpSelectionRange(
+        start: replacementStart,
+        end: replacementEnd,
+      );
+    });
+    if (!replaced) {
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    final remainingMatches = _searchMatches
+        .asMap()
+        .entries
+        .where((entry) => entry.key != matchIndex)
+        .map((entry) => _shiftSearchMatchAfterReplacement(entry.value, match))
+        .toList(growable: false);
+    setState(() {
+      _searchMatches = List.unmodifiable(remainingMatches);
+      if (remainingMatches.isEmpty) {
+        _activeSearchMatch = -1;
+      } else {
+        _activeSearchMatch = math.min(matchIndex, remainingMatches.length - 1);
+      }
+    });
+    if (_activeSearchMatch >= 0) {
+      _selectActiveSearchMatch();
+    } else {
+      _focusEditor();
+    }
+  }
+
+  _EditorSearchMatch _shiftSearchMatchAfterReplacement(
+    _EditorSearchMatch candidate,
+    _EditorSearchMatch replaced,
+  ) {
+    if (candidate.section != replaced.section ||
+        candidate.paragraph != replaced.paragraph ||
+        candidate.startOffset < replaced.endOffset) {
+      return candidate;
+    }
+
+    final delta =
+        _replaceController.text.length -
+        (replaced.endOffset - replaced.startOffset);
+    if (delta == 0) {
+      return candidate;
+    }
+
+    return _EditorSearchMatch(
+      page: candidate.page,
+      section: candidate.section,
+      paragraph: candidate.paragraph,
+      startOffset: candidate.startOffset + delta,
+      endOffset: candidate.endOffset + delta,
+    );
+  }
+
   Future<void> _applyParagraphFormat({
     String? alignment,
     int? lineSpacing,
@@ -1461,7 +1557,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     return true;
   }
 
-  Future<void> _runEdit(Future<void> Function() edit) async {
+  Future<bool> _runEdit(Future<void> Function() edit) async {
     setState(() {
       _busy = true;
       _error = null;
@@ -1479,13 +1575,14 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         await widget.document.discardSnapshot(stale);
       }
       if (!mounted) {
-        return;
+        return false;
       }
       setState(() {
         _busy = false;
         _viewerKey = UniqueKey();
       });
       widget.onChanged?.call(widget.document);
+      return true;
     } catch (error) {
       if (undoSnapshot != null) {
         try {
@@ -1495,12 +1592,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         }
       }
       if (!mounted) {
-        return;
+        return false;
       }
       setState(() {
         _busy = false;
         _error = error;
       });
+      return false;
     }
   }
 
@@ -2128,6 +2226,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           tableEndRowController: _tableEndRowController,
           tableEndColumnController: _tableEndColumnController,
           searchController: _searchController,
+          replaceController: _replaceController,
           tableCellSelection: _controller.tableCellSelection,
           currentPage: _controller.currentPage,
           pageCount: _pageCountValue,
@@ -2170,6 +2269,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onSearchPrevious: _searchPrevious,
           onSearchNext: _searchNext,
           onClearSearch: _clearSearch,
+          onReplace: _replaceActiveSearchMatch,
           onCreateHeader: () => _createHeaderFooter(isHeader: true),
           onCreateFooter: () => _createHeaderFooter(isHeader: false),
           onPreviousPage: () => unawaited(_controller.previousPage()),
@@ -2859,6 +2959,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.tableEndRowController,
     required this.tableEndColumnController,
     required this.searchController,
+    required this.replaceController,
     required this.tableCellSelection,
     required this.currentPage,
     required this.pageCount,
@@ -2901,6 +3002,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onSearchPrevious,
     required this.onSearchNext,
     required this.onClearSearch,
+    required this.onReplace,
     required this.onCreateHeader,
     required this.onCreateFooter,
     required this.onPreviousPage,
@@ -2925,6 +3027,7 @@ class _EditorToolbar extends StatefulWidget {
   final TextEditingController tableEndRowController;
   final TextEditingController tableEndColumnController;
   final TextEditingController searchController;
+  final TextEditingController replaceController;
   final RhwpTableCellSelection? tableCellSelection;
   final int currentPage;
   final int? pageCount;
@@ -2967,6 +3070,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onSearchPrevious;
   final VoidCallback onSearchNext;
   final VoidCallback onClearSearch;
+  final VoidCallback onReplace;
   final VoidCallback onCreateHeader;
   final VoidCallback onCreateFooter;
   final VoidCallback onPreviousPage;
@@ -3603,6 +3707,41 @@ class _EditorToolbarState extends State<_EditorToolbar> {
                   key: const ValueKey('rhwp-editor-search-count'),
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+      _RibbonGroup(
+        label: '바꾸기',
+        child: Row(
+          children: [
+            SizedBox(
+              width: 180,
+              child: TextField(
+                key: const ValueKey('rhwp-editor-replace-field'),
+                controller: widget.replaceController,
+                minLines: 1,
+                maxLines: 1,
+                decoration: const InputDecoration(
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                  labelText: 'Replace',
+                ),
+                onSubmitted: (_) {
+                  if (!widget.busy && widget.searchMatchCount > 0) {
+                    widget.onReplace();
+                  }
+                },
+              ),
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Replace match',
+              buttonKey: const ValueKey('rhwp-editor-replace'),
+              icon: Icons.find_replace,
+              filled: true,
+              onPressed: widget.busy || widget.searchMatchCount == 0
+                  ? null
+                  : widget.onReplace,
             ),
           ],
         ),

@@ -1799,6 +1799,128 @@ void main() {
     );
   });
 
+  testWidgets('RhwpNativeEditor replaces the active search match', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 3);
+    session.pageLayerTreeJsonByPage[2] = jsonEncode(
+      _editorLayerTreeJson(firstText: 'wxyz', secondText: 'mnop'),
+    );
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('도구'));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-search-field')),
+      'xy',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-find')));
+    await _pumpDocumentFrame(tester);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-replace-field')),
+      'AB',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-replace')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+    ]);
+    expect(session.commands.map((json) => jsonDecode(json)['type']), [
+      'deleteText',
+      'insertText',
+    ]);
+    expect(jsonDecode(session.commands[0]), {
+      'type': 'deleteText',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 1,
+      'count': 2,
+    });
+    expect(jsonDecode(session.commands[1]), {
+      'type': 'insertText',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 1,
+      'text': 'AB',
+    });
+    expect(find.text('0 / 0'), findsOneWidget);
+    expect(
+      controller.selection,
+      const RhwpSelectionRange(
+        start: RhwpCursorPosition(paragraph: 0, offset: 1),
+        end: RhwpCursorPosition(paragraph: 0, offset: 3),
+      ),
+    );
+  });
+
+  testWidgets(
+    'RhwpNativeEditor shifts remaining search matches after replace',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 3);
+      session.pageLayerTreeJsonByPage[2] = jsonEncode(
+        _editorLayerTreeJson(firstText: 'wxyzxy', secondText: 'mnop'),
+      );
+      final document = RhwpDocument.fromSession(session);
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(document: document, controller: controller),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      await tester.tap(find.text('도구'));
+      await tester.pump();
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-editor-search-field')),
+        'xy',
+      );
+      await tester.tap(find.byKey(const ValueKey('rhwp-editor-find')));
+      await _pumpDocumentFrame(tester);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-editor-replace-field')),
+        'ABCD',
+      );
+      await tester.tap(find.byKey(const ValueKey('rhwp-editor-replace')));
+      await _pumpDocumentFrame(tester);
+
+      expect(find.text('1 / 1'), findsOneWidget);
+      expect(
+        controller.selection,
+        const RhwpSelectionRange(
+          start: RhwpCursorPosition(paragraph: 0, offset: 6),
+          end: RhwpCursorPosition(paragraph: 0, offset: 8),
+        ),
+      );
+    },
+  );
+
   testWidgets('RhwpNativeEditor commits text input after IME composition', (
     tester,
   ) async {

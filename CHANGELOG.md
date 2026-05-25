@@ -192,3 +192,5 @@
   Flutter-native editor page ribbon Header/Footer buttons.
 * Added snapshot commands to the Dart/Rust bridge and wired `RhwpNativeEditor`
   edit-ribbon undo/redo to rhwp core snapshots.
+* Added active search-match replace to the Flutter-native editor tools ribbon,
+  using undo-aware delete/insert commands through the Rust bridge.
