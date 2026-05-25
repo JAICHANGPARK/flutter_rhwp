@@ -83,3 +83,5 @@
   metadata contract across the Flutter bridge and example app.
 * Added `RhwpWebEditorController.exportDocument()` so upstream Web editor mode
   can use the same export artifact metadata contract as the Flutter bridge.
+* Documented the Rust vendoring policy: commit `rust/vendor/rhwp` for
+  reproducible builds, but keep generated `rust/target` output ignored.

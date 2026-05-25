@@ -146,6 +146,11 @@ await document.apply(
 The Rust crate lives in `rust/`. The pinned upstream source is vendored at
 `rust/vendor/rhwp`, so normal builds do not fetch `rhwp` from GitHub.
 
+`rust/vendor/rhwp` is intentionally committed. It is the pinned upstream source
+used by `rust/Cargo.toml` through a local path dependency, which keeps plugin
+builds reproducible without a network fetch. `rust/target` is build output and
+is ignored by `rust/.gitignore`; do not commit it.
+
 Regenerate bridge code after changing `rust/src/api`:
 
 ```sh
