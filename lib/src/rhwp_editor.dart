@@ -1392,6 +1392,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           tableColumnController: _tableColumnController,
           tableEndRowController: _tableEndRowController,
           tableEndColumnController: _tableEndColumnController,
+          tableCellSelection: _controller.tableCellSelection,
           onInsert: _insertText,
           onDeleteBackward: _deleteBackward,
           onInsertTable: _insertTable,
@@ -1961,6 +1962,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.tableColumnController,
     required this.tableEndRowController,
     required this.tableEndColumnController,
+    required this.tableCellSelection,
     required this.onInsert,
     required this.onDeleteBackward,
     required this.onInsertTable,
@@ -1998,6 +2000,7 @@ class _EditorToolbar extends StatefulWidget {
   final TextEditingController tableColumnController;
   final TextEditingController tableEndRowController;
   final TextEditingController tableEndColumnController;
+  final RhwpTableCellSelection? tableCellSelection;
   final VoidCallback onInsert;
   final VoidCallback onDeleteBackward;
   final VoidCallback onInsertTable;
@@ -2025,7 +2028,16 @@ class _EditorToolbar extends StatefulWidget {
 }
 
 class _EditorToolbarState extends State<_EditorToolbar> {
-  var _activeTab = _EditorTab.edit;
+  var _activeTab = _EditorTab.insert;
+
+  @override
+  void didUpdateWidget(covariant _EditorToolbar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.tableCellSelection == null &&
+        widget.tableCellSelection != null) {
+      _activeTab = _EditorTab.table;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2063,244 +2075,470 @@ class _EditorToolbarState extends State<_EditorToolbar> {
             const Divider(height: 1),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               child: Row(
-                children: [
-                  _NumberField(
-                    label: 'Sec',
-                    controller: widget.sectionController,
-                  ),
-                  const SizedBox(width: 6),
-                  _NumberField(
-                    label: 'Para',
-                    controller: widget.paragraphController,
-                  ),
-                  const SizedBox(width: 6),
-                  _NumberField(
-                    label: 'Offset',
-                    controller: widget.offsetController,
-                  ),
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    width: 180,
-                    child: TextField(
-                      controller: widget.textController,
-                      minLines: 1,
-                      maxLines: 1,
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        border: OutlineInputBorder(),
-                        labelText: 'Text',
-                      ),
-                      onSubmitted: (_) {
-                        if (!widget.busy) {
-                          widget.onInsert();
-                        }
-                      },
-                    ),
-                  ),
-                  _ToolbarIconButton(
-                    tooltip: 'Insert',
-                    icon: Icons.keyboard_return,
-                    filled: true,
-                    onPressed: widget.busy ? null : widget.onInsert,
-                  ),
-                  _ToolbarIconButton(
-                    tooltip: 'Delete backward',
-                    icon: Icons.backspace_outlined,
-                    onPressed: widget.busy ? null : widget.onDeleteBackward,
-                  ),
-                  const _ToolbarDivider(),
-                  _NumberField(
-                    label: 'Rows',
-                    controller: widget.tableRowsController,
-                  ),
-                  const SizedBox(width: 6),
-                  _NumberField(
-                    label: 'Cols',
-                    controller: widget.tableColumnsController,
-                  ),
-                  const SizedBox(width: 6),
-                  _ToolbarIconButton(
-                    tooltip: 'Insert table',
-                    buttonKey: const ValueKey('rhwp-editor-insert-table'),
-                    icon: Icons.table_chart_outlined,
-                    onPressed: widget.busy ? null : widget.onInsertTable,
-                  ),
-                  const _ToolbarDivider(),
-                  _NumberField(
-                    label: 'TPara',
-                    controller: widget.tableParagraphController,
-                  ),
-                  const SizedBox(width: 6),
-                  _NumberField(
-                    label: 'Ctrl',
-                    controller: widget.tableControlController,
-                  ),
-                  const SizedBox(width: 6),
-                  _NumberField(
-                    label: 'Row',
-                    controller: widget.tableRowController,
-                  ),
-                  const SizedBox(width: 6),
-                  _NumberField(
-                    label: 'Col',
-                    controller: widget.tableColumnController,
-                  ),
-                  const SizedBox(width: 6),
-                  _NumberField(
-                    label: 'EndR',
-                    controller: widget.tableEndRowController,
-                  ),
-                  const SizedBox(width: 6),
-                  _NumberField(
-                    label: 'EndC',
-                    controller: widget.tableEndColumnController,
-                  ),
-                  const SizedBox(width: 6),
-                  _ToolbarIconButton(
-                    tooltip: 'Insert row below',
-                    buttonKey: const ValueKey('rhwp-editor-insert-row-below'),
-                    icon: Icons.table_rows_outlined,
-                    onPressed: widget.busy ? null : widget.onInsertTableRow,
-                  ),
-                  _ToolbarIconButton(
-                    tooltip: 'Insert column right',
-                    buttonKey: const ValueKey(
-                      'rhwp-editor-insert-column-right',
-                    ),
-                    icon: Icons.view_column_outlined,
-                    onPressed: widget.busy ? null : widget.onInsertTableColumn,
-                  ),
-                  _ToolbarIconButton(
-                    tooltip: 'Delete table row',
-                    buttonKey: const ValueKey('rhwp-editor-delete-table-row'),
-                    icon: Icons.indeterminate_check_box_outlined,
-                    onPressed: widget.busy ? null : widget.onDeleteTableRow,
-                  ),
-                  _ToolbarIconButton(
-                    tooltip: 'Delete table column',
-                    buttonKey: const ValueKey(
-                      'rhwp-editor-delete-table-column',
-                    ),
-                    icon: Icons.disabled_by_default_outlined,
-                    onPressed: widget.busy ? null : widget.onDeleteTableColumn,
-                  ),
-                  _ToolbarIconButton(
-                    tooltip: 'Merge cells',
-                    buttonKey: const ValueKey('rhwp-editor-merge-cells'),
-                    icon: Icons.call_merge_outlined,
-                    onPressed: widget.busy ? null : widget.onMergeTableCells,
-                  ),
-                  _ToolbarIconButton(
-                    tooltip: 'Split cell',
-                    buttonKey: const ValueKey('rhwp-editor-split-cell'),
-                    icon: Icons.call_split_outlined,
-                    onPressed: widget.busy ? null : widget.onSplitTableCell,
-                  ),
-                  const _ToolbarDivider(),
-                  _ToolbarIconButton(
-                    tooltip: 'Open',
-                    icon: Icons.folder_open,
-                    onPressed: null,
-                  ),
-                  _ToolbarIconButton(
-                    tooltip: 'Save',
-                    icon: Icons.save_outlined,
-                    onPressed: null,
-                  ),
-                  const _ToolbarDivider(),
-                  _ToolbarIconButton(
-                    tooltip: 'Cut',
-                    icon: Icons.content_cut,
-                    onPressed: widget.busy ? null : widget.onCut,
-                  ),
-                  _ToolbarIconButton(
-                    tooltip: 'Copy',
-                    icon: Icons.copy,
-                    onPressed: widget.busy ? null : widget.onCopy,
-                  ),
-                  _ToolbarIconButton(
-                    tooltip: 'Paste',
-                    icon: Icons.content_paste,
-                    onPressed: widget.busy ? null : widget.onPaste,
-                  ),
-                  const _ToolbarDivider(),
-                  _ToolbarIconButton(
-                    tooltip: 'Bold',
-                    icon: Icons.format_bold,
-                    onPressed: widget.busy ? null : widget.onBold,
-                  ),
-                  _ToolbarIconButton(
-                    tooltip: 'Italic',
-                    icon: Icons.format_italic,
-                    onPressed: widget.busy ? null : widget.onItalic,
-                  ),
-                  _ToolbarIconButton(
-                    tooltip: 'Underline',
-                    icon: Icons.format_underlined,
-                    onPressed: widget.busy ? null : widget.onUnderline,
-                  ),
-                  const _ToolbarDivider(),
-                  _ToolbarIconButton(
-                    tooltip: 'Align left',
-                    icon: Icons.format_align_left,
-                    onPressed: widget.busy ? null : widget.onAlignLeft,
-                  ),
-                  _ToolbarIconButton(
-                    tooltip: 'Align center',
-                    icon: Icons.format_align_center,
-                    onPressed: widget.busy ? null : widget.onAlignCenter,
-                  ),
-                  _ToolbarIconButton(
-                    tooltip: 'Align right',
-                    icon: Icons.format_align_right,
-                    onPressed: widget.busy ? null : widget.onAlignRight,
-                  ),
-                  _ToolbarIconButton(
-                    tooltip: 'Justify',
-                    icon: Icons.format_align_justify,
-                    onPressed: widget.busy ? null : widget.onAlignJustify,
-                  ),
-                  const _ToolbarDivider(),
-                  _ToolbarIconButton(
-                    tooltip: 'Zoom out',
-                    icon: Icons.zoom_out,
-                    onPressed: widget.onZoomOut,
-                  ),
-                  _ToolbarIconButton(
-                    tooltip: 'Zoom in',
-                    icon: Icons.zoom_in,
-                    onPressed: widget.onZoomIn,
-                  ),
-                  if (widget.busy) ...[
-                    const SizedBox(width: 10),
-                    const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ],
-                  if (widget.error != null) ...[
-                    const SizedBox(width: 10),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 320),
-                      child: Text(
-                        widget.error.toString(),
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: _ribbonChildren(),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  List<Widget> _ribbonChildren() {
+    final groups = switch (_activeTab) {
+      _EditorTab.file => _fileGroups(),
+      _EditorTab.edit => _editGroups(),
+      _EditorTab.view => _viewGroups(),
+      _EditorTab.insert => _insertGroups(),
+      _EditorTab.format => _formatGroups(),
+      _EditorTab.page => _pageGroups(),
+      _EditorTab.table => _tableGroups(),
+      _EditorTab.tools => _toolsGroups(),
+    };
+
+    return [
+      for (final (index, group) in groups.indexed) ...[
+        if (index > 0) const _ToolbarDivider(),
+        group,
+      ],
+      ..._stateIndicators(),
+    ];
+  }
+
+  List<Widget> _fileGroups() {
+    return [
+      _RibbonGroup(
+        label: '파일',
+        child: Row(
+          children: [
+            _ToolbarIconButton(
+              tooltip: 'Open',
+              icon: Icons.folder_open,
+              onPressed: null,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Save',
+              icon: Icons.save_outlined,
+              onPressed: null,
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _editGroups() {
+    return [
+      _RibbonGroup(
+        label: '클립보드',
+        child: Row(
+          children: [
+            _ToolbarIconButton(
+              tooltip: 'Cut',
+              icon: Icons.content_cut,
+              onPressed: widget.busy ? null : widget.onCut,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Copy',
+              icon: Icons.copy,
+              onPressed: widget.busy ? null : widget.onCopy,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Paste',
+              icon: Icons.content_paste,
+              onPressed: widget.busy ? null : widget.onPaste,
+            ),
+          ],
+        ),
+      ),
+      _RibbonGroup(
+        label: '삭제',
+        child: Row(
+          children: [
+            _ToolbarIconButton(
+              tooltip: 'Delete backward',
+              icon: Icons.backspace_outlined,
+              onPressed: widget.busy ? null : widget.onDeleteBackward,
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _viewGroups() {
+    return [
+      _RibbonGroup(
+        label: '위치',
+        child: Row(children: _cursorFields()),
+      ),
+      _RibbonGroup(
+        label: '확대',
+        child: Row(
+          children: [
+            _ToolbarIconButton(
+              tooltip: 'Zoom out',
+              icon: Icons.zoom_out,
+              onPressed: widget.onZoomOut,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Zoom in',
+              icon: Icons.zoom_in,
+              onPressed: widget.onZoomIn,
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _insertGroups() {
+    return [
+      _RibbonGroup(
+        label: '위치',
+        child: Row(children: _cursorFields()),
+      ),
+      _RibbonGroup(
+        label: '글자 입력',
+        child: Row(
+          children: [
+            SizedBox(
+              width: 180,
+              child: TextField(
+                key: const ValueKey('rhwp-editor-text-field'),
+                controller: widget.textController,
+                minLines: 1,
+                maxLines: 1,
+                decoration: const InputDecoration(
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                  labelText: 'Text',
+                ),
+                onSubmitted: (_) {
+                  if (!widget.busy) {
+                    widget.onInsert();
+                  }
+                },
+              ),
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Insert',
+              icon: Icons.keyboard_return,
+              filled: true,
+              onPressed: widget.busy ? null : widget.onInsert,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Delete backward',
+              icon: Icons.backspace_outlined,
+              onPressed: widget.busy ? null : widget.onDeleteBackward,
+            ),
+          ],
+        ),
+      ),
+      _RibbonGroup(
+        label: '표 만들기',
+        child: Row(
+          children: [
+            _NumberField(label: 'Rows', controller: widget.tableRowsController),
+            const SizedBox(width: 6),
+            _NumberField(
+              label: 'Cols',
+              controller: widget.tableColumnsController,
+            ),
+            const SizedBox(width: 6),
+            _ToolbarIconButton(
+              tooltip: 'Insert table',
+              buttonKey: const ValueKey('rhwp-editor-insert-table'),
+              icon: Icons.table_chart_outlined,
+              onPressed: widget.busy ? null : widget.onInsertTable,
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _formatGroups() {
+    return [
+      _RibbonGroup(
+        label: '글자 모양',
+        child: Row(
+          children: [
+            _ToolbarIconButton(
+              tooltip: 'Bold',
+              icon: Icons.format_bold,
+              onPressed: widget.busy ? null : widget.onBold,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Italic',
+              icon: Icons.format_italic,
+              onPressed: widget.busy ? null : widget.onItalic,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Underline',
+              icon: Icons.format_underlined,
+              onPressed: widget.busy ? null : widget.onUnderline,
+            ),
+          ],
+        ),
+      ),
+      _RibbonGroup(
+        label: '문단 모양',
+        child: Row(
+          children: [
+            _ToolbarIconButton(
+              tooltip: 'Align left',
+              icon: Icons.format_align_left,
+              onPressed: widget.busy ? null : widget.onAlignLeft,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Align center',
+              icon: Icons.format_align_center,
+              onPressed: widget.busy ? null : widget.onAlignCenter,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Align right',
+              icon: Icons.format_align_right,
+              onPressed: widget.busy ? null : widget.onAlignRight,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Justify',
+              icon: Icons.format_align_justify,
+              onPressed: widget.busy ? null : widget.onAlignJustify,
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _pageGroups() {
+    return [
+      _RibbonGroup(
+        label: '쪽',
+        child: Row(
+          children: [
+            _ToolbarIconButton(
+              tooltip: 'Page setup',
+              icon: Icons.description_outlined,
+              onPressed: null,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Header',
+              icon: Icons.vertical_align_top,
+              onPressed: null,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Footer',
+              icon: Icons.vertical_align_bottom,
+              onPressed: null,
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _tableGroups() {
+    return [
+      _RibbonGroup(
+        label: '표 위치',
+        child: Row(
+          children: [
+            _NumberField(label: 'Sec', controller: widget.sectionController),
+            const SizedBox(width: 6),
+            _NumberField(
+              label: 'TPara',
+              controller: widget.tableParagraphController,
+            ),
+            const SizedBox(width: 6),
+            _NumberField(
+              label: 'Ctrl',
+              controller: widget.tableControlController,
+            ),
+          ],
+        ),
+      ),
+      _RibbonGroup(
+        label: '셀 글자',
+        child: Row(
+          children: [
+            _NumberField(label: 'Offset', controller: widget.offsetController),
+            const SizedBox(width: 6),
+            SizedBox(
+              width: 180,
+              child: TextField(
+                key: const ValueKey('rhwp-editor-text-field'),
+                controller: widget.textController,
+                minLines: 1,
+                maxLines: 1,
+                decoration: const InputDecoration(
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                  labelText: 'Text',
+                ),
+                onSubmitted: (_) {
+                  if (!widget.busy) {
+                    widget.onInsert();
+                  }
+                },
+              ),
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Insert',
+              icon: Icons.keyboard_return,
+              filled: true,
+              onPressed: widget.busy ? null : widget.onInsert,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Delete backward',
+              icon: Icons.backspace_outlined,
+              onPressed: widget.busy ? null : widget.onDeleteBackward,
+            ),
+          ],
+        ),
+      ),
+      _RibbonGroup(
+        label: '셀 범위',
+        child: Row(
+          children: [
+            _NumberField(label: 'Row', controller: widget.tableRowController),
+            const SizedBox(width: 6),
+            _NumberField(
+              label: 'Col',
+              controller: widget.tableColumnController,
+            ),
+            const SizedBox(width: 6),
+            _NumberField(
+              label: 'EndR',
+              controller: widget.tableEndRowController,
+            ),
+            const SizedBox(width: 6),
+            _NumberField(
+              label: 'EndC',
+              controller: widget.tableEndColumnController,
+            ),
+          ],
+        ),
+      ),
+      _RibbonGroup(
+        label: '줄/칸',
+        child: Row(
+          children: [
+            _ToolbarIconButton(
+              tooltip: 'Insert row below',
+              buttonKey: const ValueKey('rhwp-editor-insert-row-below'),
+              icon: Icons.table_rows_outlined,
+              onPressed: widget.busy ? null : widget.onInsertTableRow,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Insert column right',
+              buttonKey: const ValueKey('rhwp-editor-insert-column-right'),
+              icon: Icons.view_column_outlined,
+              onPressed: widget.busy ? null : widget.onInsertTableColumn,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Delete table row',
+              buttonKey: const ValueKey('rhwp-editor-delete-table-row'),
+              icon: Icons.indeterminate_check_box_outlined,
+              onPressed: widget.busy ? null : widget.onDeleteTableRow,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Delete table column',
+              buttonKey: const ValueKey('rhwp-editor-delete-table-column'),
+              icon: Icons.disabled_by_default_outlined,
+              onPressed: widget.busy ? null : widget.onDeleteTableColumn,
+            ),
+          ],
+        ),
+      ),
+      _RibbonGroup(
+        label: '셀',
+        child: Row(
+          children: [
+            _ToolbarIconButton(
+              tooltip: 'Merge cells',
+              buttonKey: const ValueKey('rhwp-editor-merge-cells'),
+              icon: Icons.call_merge_outlined,
+              onPressed: widget.busy ? null : widget.onMergeTableCells,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Split cell',
+              buttonKey: const ValueKey('rhwp-editor-split-cell'),
+              icon: Icons.call_split_outlined,
+              onPressed: widget.busy ? null : widget.onSplitTableCell,
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _toolsGroups() {
+    return [
+      _RibbonGroup(
+        label: '검토',
+        child: Row(
+          children: [
+            _ToolbarIconButton(
+              tooltip: 'Find',
+              icon: Icons.search,
+              onPressed: null,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Compare',
+              icon: Icons.difference_outlined,
+              onPressed: null,
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _stateIndicators() {
+    if (!widget.busy && widget.error == null) {
+      return const [];
+    }
+
+    return [
+      const _ToolbarDivider(),
+      _RibbonGroup(
+        label: '상태',
+        child: Row(
+          children: [
+            if (widget.busy)
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            if (widget.error != null)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 320),
+                child: Text(
+                  widget.error.toString(),
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _cursorFields() {
+    return [
+      _NumberField(label: 'Sec', controller: widget.sectionController),
+      const SizedBox(width: 6),
+      _NumberField(label: 'Para', controller: widget.paragraphController),
+      const SizedBox(width: 6),
+      _NumberField(label: 'Offset', controller: widget.offsetController),
+    ];
   }
 }
 
@@ -2370,15 +2608,47 @@ class _EditorTabButton extends StatelessWidget {
 
   String _tabLabel(_EditorTab tab) {
     return switch (tab) {
-      _EditorTab.file => 'File',
-      _EditorTab.edit => 'Edit',
-      _EditorTab.view => 'View',
-      _EditorTab.insert => 'Insert',
-      _EditorTab.format => 'Format',
-      _EditorTab.page => 'Page',
-      _EditorTab.table => 'Table',
-      _EditorTab.tools => 'Tools',
+      _EditorTab.file => '파일',
+      _EditorTab.edit => '편집',
+      _EditorTab.view => '보기',
+      _EditorTab.insert => '입력',
+      _EditorTab.format => '서식',
+      _EditorTab.page => '쪽',
+      _EditorTab.table => '표',
+      _EditorTab.tools => '도구',
     };
+  }
+}
+
+class _RibbonGroup extends StatelessWidget {
+  const _RibbonGroup({required this.label, required this.child});
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Align(alignment: Alignment.center, child: child),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            overflow: TextOverflow.ellipsis,
+            style: textTheme.labelSmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

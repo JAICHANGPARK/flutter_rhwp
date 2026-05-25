@@ -187,7 +187,10 @@ void main() {
     );
     await _pumpDocumentFrame(tester);
 
-    await tester.enterText(find.byType(TextField).at(3), 'abc');
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-text-field')),
+      'abc',
+    );
     await tester.tap(find.byTooltip('Insert'));
     await _pumpDocumentFrame(tester);
 
@@ -293,6 +296,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('rhwp-editor-insert-table')));
     await _pumpDocumentFrame(tester);
 
+    await tester.tap(find.text('표'));
+    await tester.pump();
+
     for (final key in [
       'rhwp-editor-insert-row-below',
       'rhwp-editor-insert-column-right',
@@ -380,6 +386,9 @@ void main() {
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('rhwp-editor-insert-table')));
     await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('표'));
+    await tester.pump();
 
     for (final key in ['rhwp-editor-merge-cells', 'rhwp-editor-split-cell']) {
       await tester.ensureVisible(find.byKey(ValueKey(key)));
@@ -602,7 +611,10 @@ void main() {
     );
     await tester.pump();
 
-    await tester.enterText(find.byType(TextField).at(3), 'cell');
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-text-field')),
+      'cell',
+    );
     await tester.tap(find.byTooltip('Insert'));
     await _pumpDocumentFrame(tester);
 
@@ -677,7 +689,10 @@ void main() {
       ),
     );
 
-    await tester.enterText(find.byType(TextField).at(3), 'X');
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-text-field')),
+      'X',
+    );
     await tester.tap(find.byTooltip('Insert'));
     await _pumpDocumentFrame(tester);
 
@@ -711,9 +726,9 @@ void main() {
     );
     await _pumpDocumentFrame(tester);
 
-    expect(find.text('File'), findsOneWidget);
-    expect(find.text('Edit'), findsOneWidget);
-    expect(find.text('Format'), findsOneWidget);
+    expect(find.text('파일'), findsOneWidget);
+    expect(find.text('입력'), findsOneWidget);
+    expect(find.text('서식'), findsOneWidget);
     expect(find.byKey(const ValueKey('rhwp-editor-caret')), findsOneWidget);
     expect(find.byKey(const ValueKey('rhwp-editor-selection')), findsNothing);
 
@@ -1011,6 +1026,9 @@ void main() {
     );
     await tester.pump();
 
+    await tester.tap(find.text('서식'));
+    await tester.pump();
+
     await tester.ensureVisible(find.byTooltip('Bold'));
     await tester.pump();
     await tester.tap(find.byTooltip('Bold'));
@@ -1111,6 +1129,9 @@ void main() {
       start: RhwpCursorPosition(paragraph: 0, offset: 2),
       end: RhwpCursorPosition(paragraph: 1, offset: 2),
     );
+    await tester.pump();
+
+    await tester.tap(find.text('서식'));
     await tester.pump();
 
     await tester.ensureVisible(find.byTooltip('Align center'));
