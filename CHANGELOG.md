@@ -242,6 +242,8 @@
   including overwrite text replacement through the Rust `deleteText` command.
 * Extended Flutter-native overwrite typing to active table cell text through
   the Rust `deleteTextInTableCell` command.
+* Changed the Flutter-native status bar to show active table cell row/column
+  and object selection context instead of only body paragraph offsets.
 * Added a Flutter-native paragraph mark view toggle that paints paragraph-end
   markers from page layer tree text runs without changing rendered document
   output.

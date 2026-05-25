@@ -1392,6 +1392,14 @@ void main() {
       find.byKey(const ValueKey('rhwp-editor-table-cell-selection')),
       findsOneWidget,
     );
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('rhwp-editor-status-position')),
+          )
+          .data,
+      'Cells R2C4:R3C4',
+    );
 
     await tester.ensureVisible(
       find.byKey(const ValueKey('rhwp-editor-split-cell')),
@@ -2409,6 +2417,14 @@ void main() {
         isTextEditing: true,
       ),
     );
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('rhwp-editor-status-position')),
+          )
+          .data,
+      'Cell R2C4 / Para 0 / Offset 2',
+    );
 
     await tester.enterText(
       find.byKey(const ValueKey('rhwp-editor-text-field')),
@@ -2493,6 +2509,14 @@ void main() {
     expect(
       find.byKey(const ValueKey('rhwp-editor-object-selection')),
       findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('rhwp-editor-status-position')),
+          )
+          .data,
+      'Object shape #9 / Page 1 / Control 1',
     );
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);

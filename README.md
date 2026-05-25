@@ -244,7 +244,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   ms refresh delay for a steadier typing feel.
   Pending text previews are updated through a scoped overlay notifier, so
   normal typing updates the caret/text preview without rebuilding the whole
-  native editor surface. The view ribbon also includes a paragraph mark toggle
+  native editor surface. The status bar reports body cursor, active table cell,
+  and selected object context. The view ribbon also includes a paragraph mark toggle
   that paints paragraph-end markers from page layer tree text runs.
 - `rust/vendor/rhwp` should be committed. `rust/target` should stay ignored.
 

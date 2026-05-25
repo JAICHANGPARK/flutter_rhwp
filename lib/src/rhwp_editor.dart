@@ -6492,6 +6492,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         ),
         _EditorStatusBar(
           selection: _controller.selection,
+          tableCellSelection: _controller.tableCellSelection,
+          objectSelection: _controller.objectSelection,
           overwriteMode: _overwriteMode,
           busy: _visibleBusy,
           zoom: _controller.zoom,
@@ -11045,6 +11047,8 @@ class _ToolbarDivider extends StatelessWidget {
 class _EditorStatusBar extends StatelessWidget {
   const _EditorStatusBar({
     required this.selection,
+    required this.tableCellSelection,
+    required this.objectSelection,
     required this.overwriteMode,
     required this.busy,
     required this.zoom,
@@ -11053,6 +11057,8 @@ class _EditorStatusBar extends StatelessWidget {
   });
 
   final RhwpSelectionRange selection;
+  final RhwpTableCellSelection? tableCellSelection;
+  final RhwpObjectSelection? objectSelection;
   final bool overwriteMode;
   final bool busy;
   final double zoom;
@@ -11061,7 +11067,7 @@ class _EditorStatusBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cursor = selection.end;
+    final statusText = _positionStatusText();
     return Material(
       color: Theme.of(context).colorScheme.surface,
       child: DecoratedBox(
@@ -11075,9 +11081,13 @@ class _EditorStatusBar extends StatelessWidget {
           child: Row(
             children: [
               const SizedBox(width: 12),
-              Text(
-                'Sec ${cursor.section} / Para ${cursor.paragraph} / Offset ${cursor.offset}',
-                style: Theme.of(context).textTheme.bodySmall,
+              Flexible(
+                child: Text(
+                  statusText,
+                  key: const ValueKey('rhwp-editor-status-position'),
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ),
               const VerticalDivider(width: 24),
               Text(
@@ -11126,6 +11136,34 @@ class _EditorStatusBar extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _positionStatusText() {
+    final activeTableCellSelection = tableCellSelection;
+    if (activeTableCellSelection != null) {
+      final start =
+          'R${activeTableCellSelection.startRow + 1}C${activeTableCellSelection.startColumn + 1}';
+      final end =
+          'R${activeTableCellSelection.endRow + 1}C${activeTableCellSelection.endColumn + 1}';
+      if (activeTableCellSelection.isTextEditing) {
+        return 'Cell $start / Para ${activeTableCellSelection.activeCellParagraph} / Offset ${activeTableCellSelection.activeOffset}';
+      }
+      return start == end ? 'Cell $start' : 'Cells $start:$end';
+    }
+
+    final activeObjectSelection = objectSelection;
+    if (activeObjectSelection != null) {
+      final objectLabel = activeObjectSelection.objectIndex == null
+          ? activeObjectSelection.type
+          : '${activeObjectSelection.type} #${activeObjectSelection.objectIndex}';
+      final controlLabel = activeObjectSelection.controlIndex == null
+          ? ''
+          : ' / Control ${activeObjectSelection.controlIndex}';
+      return 'Object $objectLabel / Page ${activeObjectSelection.page + 1}$controlLabel';
+    }
+
+    final cursor = selection.end;
+    return 'Sec ${cursor.section} / Para ${cursor.paragraph} / Offset ${cursor.offset}';
   }
 }
 
