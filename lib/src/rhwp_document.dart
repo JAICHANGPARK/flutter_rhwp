@@ -173,6 +173,36 @@ abstract class RhwpCommand {
     required int columns,
   }) = RhwpInsertTableCommand;
 
+  factory RhwpCommand.insertTableRow({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int row,
+    required bool below,
+  }) = RhwpInsertTableRowCommand;
+
+  factory RhwpCommand.insertTableColumn({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int column,
+    required bool right,
+  }) = RhwpInsertTableColumnCommand;
+
+  factory RhwpCommand.deleteTableRow({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int row,
+  }) = RhwpDeleteTableRowCommand;
+
+  factory RhwpCommand.deleteTableColumn({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int column,
+  }) = RhwpDeleteTableColumnCommand;
+
   factory RhwpCommand.applyCharFormat({
     required int section,
     required int paragraph,
@@ -325,6 +355,104 @@ class RhwpInsertTableCommand extends RhwpCommand {
     'offset': offset,
     'rows': rows,
     'columns': columns,
+  };
+}
+
+class RhwpInsertTableRowCommand extends RhwpCommand {
+  const RhwpInsertTableRowCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.row,
+    this.below = true,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int row;
+  final bool below;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'insertTableRow',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'row': row,
+    'below': below,
+  };
+}
+
+class RhwpInsertTableColumnCommand extends RhwpCommand {
+  const RhwpInsertTableColumnCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.column,
+    this.right = true,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int column;
+  final bool right;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'insertTableColumn',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'column': column,
+    'right': right,
+  };
+}
+
+class RhwpDeleteTableRowCommand extends RhwpCommand {
+  const RhwpDeleteTableRowCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.row,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int row;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'deleteTableRow',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'row': row,
+  };
+}
+
+class RhwpDeleteTableColumnCommand extends RhwpCommand {
+  const RhwpDeleteTableColumnCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.column,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int column;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'deleteTableColumn',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'column': column,
   };
 }
 
@@ -652,6 +780,74 @@ class RhwpDocument {
         offset: offset,
         rows: rows,
         columns: columns,
+      ),
+    );
+  }
+
+  Future<String> insertTableRow({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int row,
+    bool below = true,
+  }) {
+    return apply(
+      RhwpCommand.insertTableRow(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        row: row,
+        below: below,
+      ),
+    );
+  }
+
+  Future<String> insertTableColumn({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int column,
+    bool right = true,
+  }) {
+    return apply(
+      RhwpCommand.insertTableColumn(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        column: column,
+        right: right,
+      ),
+    );
+  }
+
+  Future<String> deleteTableRow({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int row,
+  }) {
+    return apply(
+      RhwpCommand.deleteTableRow(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        row: row,
+      ),
+    );
+  }
+
+  Future<String> deleteTableColumn({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int column,
+  }) {
+    return apply(
+      RhwpCommand.deleteTableColumn(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        column: column,
       ),
     );
   }

@@ -116,6 +116,13 @@ await document.insertTable(
   rows: 2,
   columns: 3,
 );
+
+await document.insertTableRow(
+  section: 0,
+  paragraph: 0,
+  controlIndex: 0,
+  row: 0,
+);
 ```
 
 Export with save metadata:
@@ -153,7 +160,7 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   text commit, copy/cut/paste, Enter paragraph splitting, Shift+Enter soft line
   breaks, multi-paragraph selection replacement, multi-paragraph selected-text
   bold/italic/underline formatting, paragraph alignment commands, and basic
-  text/table insert/delete command flow.
+  text/table insert/delete plus table row/column edit command flow.
 - `rust/vendor/rhwp` should be committed. `rust/target` should stay ignored.
 
 ## License

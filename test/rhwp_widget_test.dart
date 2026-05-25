@@ -259,6 +259,94 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor toolbar edits table rows and columns', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 0);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.cursor = const RhwpCursorPosition(offset: 2);
+    await tester.pump();
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-insert-table')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-insert-table')));
+    await _pumpDocumentFrame(tester);
+
+    for (final key in [
+      'rhwp-editor-insert-row-below',
+      'rhwp-editor-insert-column-right',
+      'rhwp-editor-delete-table-row',
+      'rhwp-editor-delete-table-column',
+    ]) {
+      await tester.ensureVisible(find.byKey(ValueKey(key)));
+      await tester.pump();
+      await tester.tap(find.byKey(ValueKey(key)));
+      await _pumpDocumentFrame(tester);
+    }
+
+    expect(changedCalls, 5);
+    expect(session.commands.map(jsonDecode), [
+      {
+        'type': 'insertTable',
+        'section': 0,
+        'paragraph': 0,
+        'offset': 2,
+        'rows': 2,
+        'columns': 2,
+      },
+      {
+        'type': 'insertTableRow',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 0,
+        'row': 0,
+        'below': true,
+      },
+      {
+        'type': 'insertTableColumn',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 0,
+        'column': 0,
+        'right': true,
+      },
+      {
+        'type': 'deleteTableRow',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 0,
+        'row': 0,
+      },
+      {
+        'type': 'deleteTableColumn',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 0,
+        'column': 0,
+      },
+    ]);
+  });
+
   testWidgets('RhwpCommandEditor paints caret and selection target overlay', (
     tester,
   ) async {

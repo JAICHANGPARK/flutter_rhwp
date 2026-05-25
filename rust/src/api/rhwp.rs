@@ -232,6 +232,82 @@ impl RhwpSession {
                     )
                     .map_err(error_to_string)
             }
+            RhwpCommand::InsertTableRow {
+                section,
+                paragraph,
+                control_index,
+                row,
+                below,
+            } => {
+                let row_index =
+                    u16::try_from(row).map_err(|_| "row must fit in u16".to_string())?;
+                inner
+                    .document
+                    .insert_table_row_native(
+                        section as usize,
+                        paragraph as usize,
+                        control_index as usize,
+                        row_index,
+                        below,
+                    )
+                    .map_err(error_to_string)
+            }
+            RhwpCommand::InsertTableColumn {
+                section,
+                paragraph,
+                control_index,
+                column,
+                right,
+            } => {
+                let column_index =
+                    u16::try_from(column).map_err(|_| "column must fit in u16".to_string())?;
+                inner
+                    .document
+                    .insert_table_column_native(
+                        section as usize,
+                        paragraph as usize,
+                        control_index as usize,
+                        column_index,
+                        right,
+                    )
+                    .map_err(error_to_string)
+            }
+            RhwpCommand::DeleteTableRow {
+                section,
+                paragraph,
+                control_index,
+                row,
+            } => {
+                let row_index =
+                    u16::try_from(row).map_err(|_| "row must fit in u16".to_string())?;
+                inner
+                    .document
+                    .delete_table_row_native(
+                        section as usize,
+                        paragraph as usize,
+                        control_index as usize,
+                        row_index,
+                    )
+                    .map_err(error_to_string)
+            }
+            RhwpCommand::DeleteTableColumn {
+                section,
+                paragraph,
+                control_index,
+                column,
+            } => {
+                let column_index =
+                    u16::try_from(column).map_err(|_| "column must fit in u16".to_string())?;
+                inner
+                    .document
+                    .delete_table_column_native(
+                        section as usize,
+                        paragraph as usize,
+                        control_index as usize,
+                        column_index,
+                    )
+                    .map_err(error_to_string)
+            }
             RhwpCommand::ApplyCharFormat {
                 section,
                 paragraph,
@@ -398,6 +474,36 @@ enum RhwpCommand {
         offset: u32,
         rows: u32,
         columns: u32,
+    },
+    InsertTableRow {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        row: u32,
+        below: bool,
+    },
+    InsertTableColumn {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        column: u32,
+        right: bool,
+    },
+    DeleteTableRow {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        row: u32,
+    },
+    DeleteTableColumn {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        column: u32,
     },
     ApplyCharFormat {
         section: u32,
@@ -923,12 +1029,49 @@ mod tests {
                     .to_string(),
             )
             .expect("delete range command should be accepted");
-        session
+        let table_result = session
             .apply_command(
                 r#"{"type":"insertTable","section":0,"paragraph":0,"offset":0,"rows":2,"columns":3}"#
                     .to_string(),
             )
             .expect("insert table command should be accepted");
+        let table_result: Value =
+            serde_json::from_str(&table_result).expect("table result should be valid JSON");
+        let table_paragraph = table_result["paraIdx"]
+            .as_u64()
+            .expect("table insert result should expose paraIdx");
+        session
+            .apply_command(
+                format!(
+                    r#"{{"type":"insertTableRow","section":0,"paragraph":{},"controlIndex":0,"row":0,"below":true}}"#,
+                    table_paragraph
+                ),
+            )
+            .expect("insert table row command should be accepted");
+        session
+            .apply_command(
+                format!(
+                    r#"{{"type":"insertTableColumn","section":0,"paragraph":{},"controlIndex":0,"column":0,"right":true}}"#,
+                    table_paragraph
+                ),
+            )
+            .expect("insert table column command should be accepted");
+        session
+            .apply_command(
+                format!(
+                    r#"{{"type":"deleteTableRow","section":0,"paragraph":{},"controlIndex":0,"row":1}}"#,
+                    table_paragraph
+                ),
+            )
+            .expect("delete table row command should be accepted");
+        session
+            .apply_command(
+                format!(
+                    r#"{{"type":"deleteTableColumn","section":0,"paragraph":{},"controlIndex":0,"column":1}}"#,
+                    table_paragraph
+                ),
+            )
+            .expect("delete table column command should be accepted");
 
         let hwp = session.export_hwp().expect("HWP export should succeed");
         assert!(!hwp.is_empty());

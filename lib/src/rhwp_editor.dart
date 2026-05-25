@@ -92,6 +92,22 @@ class RhwpSelectionRange {
   }
 }
 
+class _TableReference {
+  const _TableReference({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.row,
+    required this.column,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int row;
+  final int column;
+}
+
 /// Controller for the Flutter-native command editor overlay.
 class RhwpEditorController extends RhwpViewerController {
   RhwpEditorController({super.zoom})
@@ -208,6 +224,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   final _offsetController = TextEditingController(text: '0');
   final _tableRowsController = TextEditingController(text: '2');
   final _tableColumnsController = TextEditingController(text: '2');
+  final _tableParagraphController = TextEditingController(text: '0');
+  final _tableControlController = TextEditingController(text: '0');
+  final _tableRowController = TextEditingController(text: '0');
+  final _tableColumnController = TextEditingController(text: '0');
   TextInputConnection? _textInputConnection;
   TextEditingValue _inputValue = TextEditingValue.empty;
   Key _viewerKey = UniqueKey();
@@ -247,6 +267,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _offsetController.dispose();
     _tableRowsController.dispose();
     _tableColumnsController.dispose();
+    _tableParagraphController.dispose();
+    _tableControlController.dispose();
+    _tableRowController.dispose();
+    _tableColumnController.dispose();
     super.dispose();
   }
 
@@ -424,9 +448,77 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       );
       final tableParagraph =
           _readIntResult(result, 'paraIdx') ?? cursor.paragraph;
+      _setTextIfChanged(_tableParagraphController, tableParagraph.toString());
+      _setTextIfChanged(_tableControlController, '0');
+      _setTextIfChanged(_tableRowController, '0');
+      _setTextIfChanged(_tableColumnController, '0');
       _controller.cursor = RhwpCursorPosition(
         section: cursor.section,
         paragraph: tableParagraph + 1,
+      );
+    });
+  }
+
+  Future<void> _insertTableRow() async {
+    if (_busy) {
+      return;
+    }
+
+    await _runEdit(() async {
+      final ref = _readTableReference();
+      await widget.document.insertTableRow(
+        section: ref.section,
+        paragraph: ref.paragraph,
+        controlIndex: ref.controlIndex,
+        row: ref.row,
+      );
+    });
+  }
+
+  Future<void> _insertTableColumn() async {
+    if (_busy) {
+      return;
+    }
+
+    await _runEdit(() async {
+      final ref = _readTableReference();
+      await widget.document.insertTableColumn(
+        section: ref.section,
+        paragraph: ref.paragraph,
+        controlIndex: ref.controlIndex,
+        column: ref.column,
+      );
+    });
+  }
+
+  Future<void> _deleteTableRow() async {
+    if (_busy) {
+      return;
+    }
+
+    await _runEdit(() async {
+      final ref = _readTableReference();
+      await widget.document.deleteTableRow(
+        section: ref.section,
+        paragraph: ref.paragraph,
+        controlIndex: ref.controlIndex,
+        row: ref.row,
+      );
+    });
+  }
+
+  Future<void> _deleteTableColumn() async {
+    if (_busy) {
+      return;
+    }
+
+    await _runEdit(() async {
+      final ref = _readTableReference();
+      await widget.document.deleteTableColumn(
+        section: ref.section,
+        paragraph: ref.paragraph,
+        controlIndex: ref.controlIndex,
+        column: ref.column,
       );
     });
   }
@@ -654,6 +746,21 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return 1;
     }
     return math.min(parsed, max);
+  }
+
+  _TableReference _readTableReference() {
+    final ref = _TableReference(
+      section: _parseNonNegative(_sectionController.text),
+      paragraph: _parseNonNegative(_tableParagraphController.text),
+      controlIndex: _parseNonNegative(_tableControlController.text),
+      row: _parseNonNegative(_tableRowController.text),
+      column: _parseNonNegative(_tableColumnController.text),
+    );
+    _setTextIfChanged(_tableParagraphController, ref.paragraph.toString());
+    _setTextIfChanged(_tableControlController, ref.controlIndex.toString());
+    _setTextIfChanged(_tableRowController, ref.row.toString());
+    _setTextIfChanged(_tableColumnController, ref.column.toString());
+    return ref;
   }
 
   int? _readIntResult(String resultJson, String key) {
@@ -896,9 +1003,17 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           offsetController: _offsetController,
           tableRowsController: _tableRowsController,
           tableColumnsController: _tableColumnsController,
+          tableParagraphController: _tableParagraphController,
+          tableControlController: _tableControlController,
+          tableRowController: _tableRowController,
+          tableColumnController: _tableColumnController,
           onInsert: _insertText,
           onDeleteBackward: _deleteBackward,
           onInsertTable: _insertTable,
+          onInsertTableRow: _insertTableRow,
+          onInsertTableColumn: _insertTableColumn,
+          onDeleteTableRow: _deleteTableRow,
+          onDeleteTableColumn: _deleteTableColumn,
           onCut: _cutSelection,
           onCopy: _copySelection,
           onPaste: _pasteClipboard,
@@ -1354,9 +1469,17 @@ class _EditorToolbar extends StatefulWidget {
     required this.offsetController,
     required this.tableRowsController,
     required this.tableColumnsController,
+    required this.tableParagraphController,
+    required this.tableControlController,
+    required this.tableRowController,
+    required this.tableColumnController,
     required this.onInsert,
     required this.onDeleteBackward,
     required this.onInsertTable,
+    required this.onInsertTableRow,
+    required this.onInsertTableColumn,
+    required this.onDeleteTableRow,
+    required this.onDeleteTableColumn,
     required this.onCut,
     required this.onCopy,
     required this.onPaste,
@@ -1379,9 +1502,17 @@ class _EditorToolbar extends StatefulWidget {
   final TextEditingController offsetController;
   final TextEditingController tableRowsController;
   final TextEditingController tableColumnsController;
+  final TextEditingController tableParagraphController;
+  final TextEditingController tableControlController;
+  final TextEditingController tableRowController;
+  final TextEditingController tableColumnController;
   final VoidCallback onInsert;
   final VoidCallback onDeleteBackward;
   final VoidCallback onInsertTable;
+  final VoidCallback onInsertTableRow;
+  final VoidCallback onInsertTableColumn;
+  final VoidCallback onDeleteTableRow;
+  final VoidCallback onDeleteTableColumn;
   final VoidCallback onCut;
   final VoidCallback onCopy;
   final VoidCallback onPaste;
@@ -1498,8 +1629,58 @@ class _EditorToolbarState extends State<_EditorToolbar> {
                   const SizedBox(width: 6),
                   _ToolbarIconButton(
                     tooltip: 'Insert table',
+                    buttonKey: const ValueKey('rhwp-editor-insert-table'),
                     icon: Icons.table_chart_outlined,
                     onPressed: widget.busy ? null : widget.onInsertTable,
+                  ),
+                  const _ToolbarDivider(),
+                  _NumberField(
+                    label: 'TPara',
+                    controller: widget.tableParagraphController,
+                  ),
+                  const SizedBox(width: 6),
+                  _NumberField(
+                    label: 'Ctrl',
+                    controller: widget.tableControlController,
+                  ),
+                  const SizedBox(width: 6),
+                  _NumberField(
+                    label: 'Row',
+                    controller: widget.tableRowController,
+                  ),
+                  const SizedBox(width: 6),
+                  _NumberField(
+                    label: 'Col',
+                    controller: widget.tableColumnController,
+                  ),
+                  const SizedBox(width: 6),
+                  _ToolbarIconButton(
+                    tooltip: 'Insert row below',
+                    buttonKey: const ValueKey('rhwp-editor-insert-row-below'),
+                    icon: Icons.table_rows_outlined,
+                    onPressed: widget.busy ? null : widget.onInsertTableRow,
+                  ),
+                  _ToolbarIconButton(
+                    tooltip: 'Insert column right',
+                    buttonKey: const ValueKey(
+                      'rhwp-editor-insert-column-right',
+                    ),
+                    icon: Icons.view_column_outlined,
+                    onPressed: widget.busy ? null : widget.onInsertTableColumn,
+                  ),
+                  _ToolbarIconButton(
+                    tooltip: 'Delete table row',
+                    buttonKey: const ValueKey('rhwp-editor-delete-table-row'),
+                    icon: Icons.indeterminate_check_box_outlined,
+                    onPressed: widget.busy ? null : widget.onDeleteTableRow,
+                  ),
+                  _ToolbarIconButton(
+                    tooltip: 'Delete table column',
+                    buttonKey: const ValueKey(
+                      'rhwp-editor-delete-table-column',
+                    ),
+                    icon: Icons.disabled_by_default_outlined,
+                    onPressed: widget.busy ? null : widget.onDeleteTableColumn,
                   ),
                   const _ToolbarDivider(),
                   _ToolbarIconButton(
@@ -1690,17 +1871,20 @@ class _ToolbarIconButton extends StatelessWidget {
     required this.tooltip,
     required this.icon,
     required this.onPressed,
+    this.buttonKey,
     this.filled = false,
   });
 
   final String tooltip;
   final IconData icon;
   final VoidCallback? onPressed;
+  final Key? buttonKey;
   final bool filled;
 
   @override
   Widget build(BuildContext context) {
     final button = IconButton(
+      key: buttonKey,
       tooltip: tooltip,
       onPressed: onPressed,
       icon: Icon(icon),
@@ -1717,6 +1901,7 @@ class _ToolbarIconButton extends StatelessWidget {
     }
 
     return IconButton.filled(
+      key: buttonKey,
       tooltip: tooltip,
       onPressed: onPressed,
       icon: Icon(icon),

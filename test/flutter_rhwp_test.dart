@@ -59,6 +59,89 @@ void main() {
     });
   });
 
+  test('table row and column commands serialize to Rust envelopes', () {
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.insertTableRow(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            row: 3,
+            below: true,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'insertTableRow',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'row': 3,
+        'below': true,
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.insertTableColumn(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            column: 4,
+            right: true,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'insertTableColumn',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'column': 4,
+        'right': true,
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.deleteTableRow(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            row: 3,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'deleteTableRow',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'row': 3,
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.deleteTableColumn(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            column: 4,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'deleteTableColumn',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'column': 4,
+      },
+    );
+  });
+
   test('delete range command serializes to the Rust command envelope', () {
     final command = RhwpCommand.deleteRange(
       section: 0,
@@ -323,6 +406,68 @@ void main() {
       'offset': 2,
       'rows': 3,
       'columns': 4,
+    });
+
+    await document.insertTableRow(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      row: 2,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'insertTableRow',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'row': 2,
+      'below': true,
+    });
+
+    await document.insertTableColumn(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      column: 2,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'insertTableColumn',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'column': 2,
+      'right': true,
+    });
+
+    await document.deleteTableRow(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      row: 2,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'deleteTableRow',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'row': 2,
+    });
+
+    await document.deleteTableColumn(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      column: 2,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'deleteTableColumn',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'column': 2,
     });
   });
 
