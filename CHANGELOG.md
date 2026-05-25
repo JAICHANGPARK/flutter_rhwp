@@ -159,6 +159,8 @@
   formatting in the Flutter-native editor.
 * Added `applyParaFormat` and `applyParaFormatRange` for paragraph alignment,
   with Flutter-native toolbar buttons for left, center, right, and justify.
+* Added Ctrl/Cmd+L/E/R/J paragraph alignment shortcuts for left, center, right,
+  and justify in the Flutter-native editor.
 * Added `insertTable` to the Rust bridge command surface and wired a
   Flutter-native toolbar table insertion action.
 * Added table row/column insert and delete commands to the Rust bridge surface

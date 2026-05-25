@@ -3541,6 +3541,18 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         case LogicalKeyboardKey.keyF:
           _focusSearchField();
           return KeyEventResult.handled;
+        case LogicalKeyboardKey.keyL:
+          _applyParagraphFormat(alignment: 'left');
+          return KeyEventResult.handled;
+        case LogicalKeyboardKey.keyE:
+          _applyParagraphFormat(alignment: 'center');
+          return KeyEventResult.handled;
+        case LogicalKeyboardKey.keyR:
+          _applyParagraphFormat(alignment: 'right');
+          return KeyEventResult.handled;
+        case LogicalKeyboardKey.keyJ:
+          _applyParagraphFormat(alignment: 'justify');
+          return KeyEventResult.handled;
         case LogicalKeyboardKey.home:
           unawaited(
             _moveCursorToDocumentBoundary(

@@ -3819,6 +3819,66 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor applies paragraph alignment shortcuts', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    controller.selection = const RhwpSelectionRange(
+      start: RhwpCursorPosition(paragraph: 0, offset: 2),
+      end: RhwpCursorPosition(paragraph: 1, offset: 2),
+    );
+    await tester.pump();
+
+    for (final shortcut in const [
+      (key: LogicalKeyboardKey.keyL, alignment: 'left'),
+      (key: LogicalKeyboardKey.keyE, alignment: 'center'),
+      (key: LogicalKeyboardKey.keyR, alignment: 'right'),
+      (key: LogicalKeyboardKey.keyJ, alignment: 'justify'),
+    ]) {
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(shortcut.key);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await _pumpDocumentFrame(tester);
+    }
+
+    expect(changedCalls, 4);
+    expect(session.commands.map(jsonDecode), [
+      for (final alignment in const ['left', 'center', 'right', 'justify'])
+        {
+          'type': 'applyParaFormatRange',
+          'section': 0,
+          'startParagraph': 0,
+          'endParagraph': 1,
+          'properties': {'alignment': alignment},
+        },
+    ]);
+  });
+
   testWidgets('RhwpNativeEditor focuses search with find shortcut', (
     tester,
   ) async {
