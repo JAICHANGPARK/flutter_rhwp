@@ -355,6 +355,18 @@ abstract class RhwpCommand {
     required int offset,
   }) = RhwpSplitParagraphCommand;
 
+  factory RhwpCommand.insertPageBreak({
+    required int section,
+    required int paragraph,
+    required int offset,
+  }) = RhwpInsertPageBreakCommand;
+
+  factory RhwpCommand.insertColumnBreak({
+    required int section,
+    required int paragraph,
+    required int offset,
+  }) = RhwpInsertColumnBreakCommand;
+
   factory RhwpCommand.insertTable({
     required int section,
     required int paragraph,
@@ -854,6 +866,46 @@ class RhwpSplitParagraphCommand extends RhwpCommand {
   @override
   Map<String, Object?> toJson() => {
     'type': 'splitParagraph',
+    'section': section,
+    'paragraph': paragraph,
+    'offset': offset,
+  };
+}
+
+class RhwpInsertPageBreakCommand extends RhwpCommand {
+  const RhwpInsertPageBreakCommand({
+    required this.section,
+    required this.paragraph,
+    required this.offset,
+  });
+
+  final int section;
+  final int paragraph;
+  final int offset;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'insertPageBreak',
+    'section': section,
+    'paragraph': paragraph,
+    'offset': offset,
+  };
+}
+
+class RhwpInsertColumnBreakCommand extends RhwpCommand {
+  const RhwpInsertColumnBreakCommand({
+    required this.section,
+    required this.paragraph,
+    required this.offset,
+  });
+
+  final int section;
+  final int paragraph;
+  final int offset;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'insertColumnBreak',
     'section': section,
     'paragraph': paragraph,
     'offset': offset,
@@ -1947,6 +1999,34 @@ class RhwpDocument {
   }) {
     return apply(
       RhwpCommand.splitParagraph(
+        section: section,
+        paragraph: paragraph,
+        offset: offset,
+      ),
+    );
+  }
+
+  Future<String> insertPageBreak({
+    required int section,
+    required int paragraph,
+    required int offset,
+  }) {
+    return apply(
+      RhwpCommand.insertPageBreak(
+        section: section,
+        paragraph: paragraph,
+        offset: offset,
+      ),
+    );
+  }
+
+  Future<String> insertColumnBreak({
+    required int section,
+    required int paragraph,
+    required int offset,
+  }) {
+    return apply(
+      RhwpCommand.insertColumnBreak(
         section: section,
         paragraph: paragraph,
         offset: offset,

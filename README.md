@@ -213,7 +213,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   snapshot-backed undo/redo from the edit ribbon, layer-tree text search with
   Ctrl/Cmd+F focus, F3/Shift+F3 result navigation, result highlighting,
   active-match replace, replace-all, and table-cell find/replace, and basic
-  text/table/picture insert/delete plus table row/column and cell
+  text/table/picture insert/delete, page/column break insertion, plus table
+  row/column and cell
   merge/split command flow with table-cell hit testing, selected-cell
   highlighting, object/control hit testing, highlighting, pointer drag move and
   resize handles for selected objects, Delete/Backspace object deletion, object

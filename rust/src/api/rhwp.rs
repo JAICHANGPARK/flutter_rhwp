@@ -302,6 +302,22 @@ impl RhwpSession {
                 .document
                 .split_paragraph_native(section as usize, paragraph as usize, offset as usize)
                 .map_err(error_to_string),
+            RhwpCommand::InsertPageBreak {
+                section,
+                paragraph,
+                offset,
+            } => inner
+                .document
+                .insert_page_break_native(section as usize, paragraph as usize, offset as usize)
+                .map_err(error_to_string),
+            RhwpCommand::InsertColumnBreak {
+                section,
+                paragraph,
+                offset,
+            } => inner
+                .document
+                .insert_column_break_native(section as usize, paragraph as usize, offset as usize)
+                .map_err(error_to_string),
             RhwpCommand::InsertTable {
                 section,
                 paragraph,
@@ -813,6 +829,16 @@ enum RhwpCommand {
         description: String,
     },
     SplitParagraph {
+        section: u32,
+        paragraph: u32,
+        offset: u32,
+    },
+    InsertPageBreak {
+        section: u32,
+        paragraph: u32,
+        offset: u32,
+    },
+    InsertColumnBreak {
         section: u32,
         paragraph: u32,
         offset: u32,
@@ -1985,6 +2011,45 @@ mod tests {
         let hwpx = session.export_hwpx().expect("HWPX export should succeed");
         assert!(!hwpx.is_empty());
         open_bytes(hwpx, Some("roundtrip.hwpx".to_string())).expect("exported HWPX should reopen");
+    }
+
+    #[test]
+    fn inserts_page_and_column_break_commands() {
+        let session =
+            open_bytes(BLANK_2010_HWP.to_vec(), None).expect("vendored sample should open");
+
+        session
+            .apply_command(
+                r#"{"type":"insertText","section":0,"paragraph":0,"offset":0,"text":"abc"}"#
+                    .to_string(),
+            )
+            .expect("insert text command should be accepted");
+        let page_break = session
+            .apply_command(
+                r#"{"type":"insertPageBreak","section":0,"paragraph":0,"offset":1}"#.to_string(),
+            )
+            .expect("page break command should be accepted");
+        let page_break: Value =
+            serde_json::from_str(&page_break).expect("page break result should be JSON");
+        let page_break_paragraph = page_break["paraIdx"]
+            .as_u64()
+            .expect("page break result should expose paraIdx");
+        assert_eq!(page_break["charOffset"].as_u64(), Some(0));
+
+        let column_break = session
+            .apply_command(format!(
+                r#"{{"type":"insertColumnBreak","section":0,"paragraph":{},"offset":0}}"#,
+                page_break_paragraph
+            ))
+            .expect("column break command should be accepted");
+        let column_break: Value =
+            serde_json::from_str(&column_break).expect("column break result should be JSON");
+        assert_eq!(column_break["charOffset"].as_u64(), Some(0));
+
+        let hwp = session.export_hwp().expect("HWP export should succeed");
+        assert!(!hwp.is_empty());
+        open_bytes(hwp, Some("breaks-roundtrip.hwp".to_string()))
+            .expect("break document should reopen");
     }
 
     #[test]

@@ -1976,6 +1976,47 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
   }
 
+  Future<void> _insertPageBreak() async {
+    await _insertDocumentBreak(columnBreak: false);
+  }
+
+  Future<void> _insertColumnBreak() async {
+    await _insertDocumentBreak(columnBreak: true);
+  }
+
+  Future<void> _insertDocumentBreak({required bool columnBreak}) async {
+    if (_busy || _controller.tableCellSelection != null) {
+      return;
+    }
+
+    await _runEdit(() async {
+      final selection = _controller.selection;
+      final cursor = selection.isCollapsed
+          ? _controller.cursor
+          : selection.normalizedStart;
+      if (!selection.isCollapsed) {
+        await _deleteSelectedText(selection);
+      }
+
+      final result = columnBreak
+          ? await widget.document.insertColumnBreak(
+              section: cursor.section,
+              paragraph: cursor.paragraph,
+              offset: cursor.offset,
+            )
+          : await widget.document.insertPageBreak(
+              section: cursor.section,
+              paragraph: cursor.paragraph,
+              offset: cursor.offset,
+            );
+      _controller.cursor = RhwpCursorPosition(
+        section: cursor.section,
+        paragraph: _readIntResult(result, 'paraIdx') ?? cursor.paragraph + 1,
+        offset: _readIntResult(result, 'charOffset') ?? 0,
+      );
+    });
+  }
+
   Future<void> _insertTable() async {
     if (_busy) {
       return;
@@ -5202,6 +5243,14 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       case LogicalKeyboardKey.enter:
       case LogicalKeyboardKey.numpadEnter:
         if (!_busy) {
+          if (shortcutPressed && _controller.tableCellSelection == null) {
+            if (extendSelection) {
+              _insertColumnBreak();
+            } else {
+              _insertPageBreak();
+            }
+            return KeyEventResult.handled;
+          }
           if (_controller.tableCellSelection != null) {
             unawaited(_enterSelectedTableCell());
             return KeyEventResult.handled;
@@ -5943,6 +5992,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onInsertFootnote: _insertFootnote,
           onInsertEquation: _showInsertEquationDialog,
           onInsertPicture: _insertPicture,
+          onInsertPageBreak: _insertPageBreak,
+          onInsertColumnBreak: _insertColumnBreak,
           onInsertTableRow: _insertTableRow,
           onInsertTableColumn: _insertTableColumn,
           onDeleteTableRow: _deleteTableRow,
@@ -7603,6 +7654,8 @@ class _EditorToolbar extends StatefulWidget {
     required this.onInsertFootnote,
     required this.onInsertEquation,
     required this.onInsertPicture,
+    required this.onInsertPageBreak,
+    required this.onInsertColumnBreak,
     required this.onInsertTableRow,
     required this.onInsertTableColumn,
     required this.onDeleteTableRow,
@@ -7695,6 +7748,8 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onInsertFootnote;
   final VoidCallback onInsertEquation;
   final VoidCallback onInsertPicture;
+  final VoidCallback onInsertPageBreak;
+  final VoidCallback onInsertColumnBreak;
   final VoidCallback onInsertTableRow;
   final VoidCallback onInsertTableColumn;
   final VoidCallback onDeleteTableRow;
@@ -8158,6 +8213,18 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               onPressed: widget.busy || !widget.canInsertPicture
                   ? null
                   : widget.onInsertPicture,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Insert page break',
+              buttonKey: const ValueKey('rhwp-editor-insert-page-break'),
+              icon: Icons.article_outlined,
+              onPressed: widget.busy ? null : widget.onInsertPageBreak,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Insert column break',
+              buttonKey: const ValueKey('rhwp-editor-insert-column-break'),
+              icon: Icons.view_column_outlined,
+              onPressed: widget.busy ? null : widget.onInsertColumnBreak,
             ),
           ],
         ),

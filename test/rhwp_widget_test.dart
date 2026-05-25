@@ -403,6 +403,101 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor inserts page and column breaks', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 900,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.cursor = const RhwpCursorPosition(offset: 2);
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-insert-page-break')),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(controller.cursor, const RhwpCursorPosition(paragraph: 1));
+    expect(jsonDecode(session.commands.last), {
+      'type': 'insertPageBreak',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 2,
+    });
+
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-insert-column-break')),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 2);
+    expect(controller.cursor, const RhwpCursorPosition(paragraph: 2));
+    expect(jsonDecode(session.commands.last), {
+      'type': 'insertColumnBreak',
+      'section': 0,
+      'paragraph': 1,
+      'offset': 0,
+    });
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 2, offset: 3);
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 3);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'insertPageBreak',
+      'section': 0,
+      'paragraph': 2,
+      'offset': 3,
+    });
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 3, offset: 4);
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 4);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'insertColumnBreak',
+      'section': 0,
+      'paragraph': 3,
+      'offset': 4,
+    });
+  });
+
   testWidgets('RhwpNativeEditor insert ribbon inserts a picture', (
     tester,
   ) async {

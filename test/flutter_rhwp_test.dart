@@ -40,6 +40,39 @@ void main() {
     });
   });
 
+  test('insert page break command serializes to the Rust command envelope', () {
+    final command = RhwpCommand.insertPageBreak(
+      section: 0,
+      paragraph: 1,
+      offset: 2,
+    );
+
+    expect(jsonDecode(jsonEncode(command.toJson())), {
+      'type': 'insertPageBreak',
+      'section': 0,
+      'paragraph': 1,
+      'offset': 2,
+    });
+  });
+
+  test(
+    'insert column break command serializes to the Rust command envelope',
+    () {
+      final command = RhwpCommand.insertColumnBreak(
+        section: 0,
+        paragraph: 1,
+        offset: 2,
+      );
+
+      expect(jsonDecode(jsonEncode(command.toJson())), {
+        'type': 'insertColumnBreak',
+        'section': 0,
+        'paragraph': 1,
+        'offset': 2,
+      });
+    },
+  );
+
   test('insert footnote command serializes to the Rust command envelope', () {
     final command = RhwpCommand.insertFootnote(
       section: 0,
@@ -955,6 +988,24 @@ void main() {
 
     expect(jsonDecode(session.lastCommandJson!), {
       'type': 'splitParagraph',
+      'section': 0,
+      'paragraph': 1,
+      'offset': 2,
+    });
+
+    await document.insertPageBreak(section: 0, paragraph: 1, offset: 2);
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'insertPageBreak',
+      'section': 0,
+      'paragraph': 1,
+      'offset': 2,
+    });
+
+    await document.insertColumnBreak(section: 0, paragraph: 1, offset: 2);
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'insertColumnBreak',
       'section': 0,
       'paragraph': 1,
       'offset': 2,
