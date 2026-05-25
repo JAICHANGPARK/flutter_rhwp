@@ -1137,6 +1137,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   Timer? _textInputFocusReleaseTimer;
   Timer? _desktopTextInputCommitHoldTimer;
   Timer? _deferredEditRefreshTimer;
+  int _pendingTextInputCommits = 0;
   List<_PendingTextOverlay> _pendingTextOverlays = const [];
   final _pendingTextOverlaysListenable =
       ValueNotifier<List<_PendingTextOverlay>>(const []);
@@ -1196,6 +1197,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _textInputActionIgnoreTimer?.cancel();
     _textInputFocusReleaseTimer?.cancel();
     _desktopTextInputCommitHoldTimer?.cancel();
+    _pendingTextInputCommits = 0;
     _cancelDeferredEditRefresh();
     _closeTextInput();
     _pendingTextOverlaysListenable.dispose();
@@ -1317,6 +1319,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     if (_focusNode.hasFocus) {
       _textInputFocusReleaseTimer?.cancel();
       _textInputFocusReleaseTimer = null;
+      _holdDeferredEditRefreshForTextInput();
       _openTextInput();
     } else {
       if (_shouldDelayDesktopTextInputFocusRelease) {
@@ -1695,6 +1698,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
+    _beginTextInputCommit();
     final previous = _textInputEditQueue;
     _textInputEditQueue = () async {
       try {
@@ -1703,13 +1707,18 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         // Keep later input commits moving after an earlier edit error.
       }
       if (!mounted) {
+        _endTextInputCommit();
         return;
       }
-      await _insertCommittedText(
-        text,
-        awaitTextInputBeforeRefresh: true,
-        visibleBusy: false,
-      );
+      try {
+        await _insertCommittedText(
+          text,
+          awaitTextInputBeforeRefresh: true,
+          visibleBusy: false,
+        );
+      } finally {
+        _endTextInputCommit();
+      }
     }();
     unawaited(_textInputEditQueue);
   }
@@ -4655,12 +4664,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
   bool get _shouldDelayDesktopTextInputFocusRelease {
     return _isDesktopTextInputPlatform &&
-        _hasDeferredEditRefresh &&
-        _deferredEditRefreshAwaitsTextInput;
+        (_pendingTextInputCommits > 0 ||
+            (_hasDeferredEditRefresh && _deferredEditRefreshAwaitsTextInput));
   }
 
   bool get _shouldHoldDeferredRefreshForTextInput {
-    return _focusNode.hasFocus ||
+    return _pendingTextInputCommits > 0 ||
+        _focusNode.hasFocus ||
         _hasActiveTextInputConnection ||
         _desktopTextInputCommitHoldActive;
   }
@@ -4720,24 +4730,28 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
   bool get _shouldTreatConnectionClosedAsDesktopInputChurn {
     if (!_isDesktopTextInputPlatform ||
-        !_hasDeferredEditRefresh ||
-        !_deferredEditRefreshAwaitsTextInput) {
+        (_pendingTextInputCommits <= 0 &&
+            (!_hasDeferredEditRefresh ||
+                !_deferredEditRefreshAwaitsTextInput))) {
       return false;
     }
 
-    return _focusNode.hasFocus ||
+    return _pendingTextInputCommits > 0 ||
+        _focusNode.hasFocus ||
         _hasPendingDesktopTextInputFocusRelease ||
         _desktopTextInputCommitHoldActive;
   }
 
   bool get _shouldTreatTextInputActionAsDesktopInputChurn {
     if (!_isDesktopTextInputPlatform ||
-        !_hasDeferredEditRefresh ||
-        !_deferredEditRefreshAwaitsTextInput) {
+        (_pendingTextInputCommits <= 0 &&
+            (!_hasDeferredEditRefresh ||
+                !_deferredEditRefreshAwaitsTextInput))) {
       return false;
     }
 
-    return _focusNode.hasFocus ||
+    return _pendingTextInputCommits > 0 ||
+        _focusNode.hasFocus ||
         _hasPendingDesktopTextInputFocusRelease ||
         _hasActiveTextInputConnection ||
         _desktopTextInputCommitHoldActive;
@@ -4785,6 +4799,34 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
     _deferredEditRefreshAwaitsTextInput = false;
     _scheduleDeferredEditRefresh();
+  }
+
+  void _beginTextInputCommit() {
+    _pendingTextInputCommits += 1;
+  }
+
+  void _endTextInputCommit() {
+    if (_pendingTextInputCommits <= 0) {
+      _pendingTextInputCommits = 0;
+      return;
+    }
+
+    _pendingTextInputCommits -= 1;
+    if (!_shouldHoldDeferredRefreshForTextInput) {
+      _releaseDeferredEditRefreshFromTextInput();
+    }
+  }
+
+  void _holdDeferredEditRefreshForTextInput() {
+    if (!_hasDeferredEditRefresh ||
+        _deferredEditRefreshAwaitsTextInput ||
+        (_pendingTextOverlays.isEmpty && _pendingDeletionOverlays.isEmpty)) {
+      return;
+    }
+
+    _deferredEditRefreshTimer?.cancel();
+    _deferredEditRefreshTimer = null;
+    _deferredEditRefreshAwaitsTextInput = true;
   }
 
   void _setCursorForPendingText(RhwpCursorPosition cursor) {
@@ -5562,8 +5604,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _textInputFocusReleaseTimer = null;
     final keepDesktopCommitHoldForDeferredRefresh =
         _isDesktopTextInputPlatform &&
-        _hasDeferredEditRefresh &&
-        _deferredEditRefreshAwaitsTextInput &&
+        (_pendingTextInputCommits > 0 ||
+            (_hasDeferredEditRefresh && _deferredEditRefreshAwaitsTextInput)) &&
         _desktopTextInputCommitHoldActive;
     if (!keepDesktopCommitHoldForDeferredRefresh) {
       _clearDesktopTextInputCommitHoldWindow();

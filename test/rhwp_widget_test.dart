@@ -6696,6 +6696,101 @@ void main() {
     },
   );
 
+  testWidgets(
+    'RhwpNativeEditor reholds text refresh when focus returns after slow commit',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      final saveSnapshotGate = Completer<void>();
+      session.commandGates['saveSnapshot'] = saveSnapshotGate;
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      try {
+        await tester.pumpWidget(
+          _WidgetHarness(
+            child: SizedBox(
+              width: 720,
+              height: 420,
+              child: RhwpNativeEditor(
+                document: document,
+                controller: controller,
+                editRefreshDelay: const Duration(milliseconds: 120),
+                onChanged: (_) => changedCalls += 1,
+              ),
+            ),
+          ),
+        );
+        await _pumpDocumentFrame(tester);
+
+        final caretFinder = find.byKey(const ValueKey('rhwp-editor-caret'));
+        await tester.tapAt(tester.getTopLeft(caretFinder) + const Offset(1, 6));
+        await tester.pump();
+
+        controller.cursor = const RhwpCursorPosition(offset: 2);
+        session.renderedPages.clear();
+
+        tester.testTextInput.updateEditingValue(
+          const TextEditingValue(
+            text: 'A',
+            selection: TextSelection.collapsed(offset: 1),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        expect(
+          session.historyCommands.map((json) => jsonDecode(json)['type']),
+          ['saveSnapshot'],
+        );
+
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.pump(const Duration(milliseconds: 1600));
+        await tester.pump();
+
+        saveSnapshotGate.complete();
+        await tester.pump();
+        await tester.pump();
+
+        expect(changedCalls, 0);
+        expect(session.renderedPages, isEmpty);
+        expect(session.commands.map(jsonDecode), [
+          {
+            'type': 'insertText',
+            'section': 0,
+            'paragraph': 0,
+            'offset': 2,
+            'text': 'A',
+          },
+        ]);
+        expect(
+          find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
+          findsOneWidget,
+        );
+
+        await tester.tapAt(tester.getTopLeft(caretFinder) + const Offset(1, 6));
+        await tester.pump(const Duration(milliseconds: 240));
+        await tester.pump();
+
+        expect(changedCalls, 0);
+        expect(session.renderedPages, isEmpty);
+        expect(
+          find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
+          findsOneWidget,
+        );
+
+        FocusManager.instance.primaryFocus?.unfocus();
+        await _pumpDesktopTextInputRelease(tester);
+
+        expect(changedCalls, 1);
+        expect(session.renderedPages, [0]);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
+
   testWidgets('RhwpNativeEditor queues rapid text input commits', (
     tester,
   ) async {
@@ -7394,6 +7489,7 @@ class _FakeRhwpSession implements rust.RhwpSession {
   final historyCommands = <String>[];
   final renderedPages = <int>[];
   final pendingRenderedSvgs = <Completer<String>>[];
+  final commandGates = <String, Completer<void>>{};
   final layerTreePages = <int>[];
   int exportHwpCalls = 0;
   int exportHwpxCalls = 0;
@@ -7408,6 +7504,7 @@ class _FakeRhwpSession implements rust.RhwpSession {
   @override
   Future<String> applyCommand({required String commandJson}) async {
     final command = jsonDecode(commandJson);
+    final commandType = command is Map ? command['type'] : null;
     if (command is Map &&
         const {
           'saveSnapshot',
@@ -7415,6 +7512,7 @@ class _FakeRhwpSession implements rust.RhwpSession {
           'discardSnapshot',
         }.contains(command['type'])) {
       historyCommands.add(commandJson);
+      await _waitForCommandGate(commandType);
       if (command['type'] == 'saveSnapshot') {
         final snapshotId = nextSnapshotId;
         nextSnapshotId += 1;
@@ -7424,6 +7522,7 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
 
     commands.add(commandJson);
+    await _waitForCommandGate(commandType);
     if (command is Map && command['type'] == 'insertTable') {
       final paragraph = command['paragraph'];
       final offset = command['offset'];
@@ -7462,6 +7561,17 @@ class _FakeRhwpSession implements rust.RhwpSession {
       return '{"width":59528,"height":84189,"marginLeft":8504,"marginRight":8504,"marginTop":5669,"marginBottom":4252,"marginHeader":4252,"marginFooter":4252,"marginGutter":0,"landscape":false,"binding":0}';
     }
     return '{"ok":true}';
+  }
+
+  Future<void> _waitForCommandGate(Object? commandType) async {
+    if (commandType is! String) {
+      return;
+    }
+
+    final gate = commandGates[commandType];
+    if (gate != null && !gate.isCompleted) {
+      await gate.future;
+    }
   }
 
   @override

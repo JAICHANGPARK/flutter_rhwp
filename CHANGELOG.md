@@ -3,6 +3,8 @@
 * Updated plugin release metadata for the `2026.5.24` release.
 * Added Flutter-native selected object copy, cut, and paste through rhwp core's
   internal control clipboard.
+* Kept Flutter-native editor text refresh blocked when desktop focus/action
+  churn arrives before a slow input command finishes.
 * Kept Flutter-native editor deferred page refresh blocked when desktop text
   input focus briefly drops and returns during typing.
 * Initial flutter_rhwp plugin scaffold.
