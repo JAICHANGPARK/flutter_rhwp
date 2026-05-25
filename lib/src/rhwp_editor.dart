@@ -568,6 +568,18 @@ class _PageSetupDialogResult {
   final int binding;
 }
 
+class _EquationDialogResult {
+  const _EquationDialogResult({
+    required this.script,
+    required this.fontSize,
+    required this.color,
+  });
+
+  final String script;
+  final int fontSize;
+  final int color;
+}
+
 class _EditorSearchMatch {
   const _EditorSearchMatch({
     required this.page,
@@ -1966,6 +1978,39 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         section: cursor.section,
         paragraph: cursor.paragraph,
         offset: cursor.offset,
+      );
+      _controller.cursor = cursor.copyWith(offset: cursor.offset + 1);
+    });
+  }
+
+  Future<void> _showInsertEquationDialog() async {
+    if (_busy || _controller.tableCellSelection != null) {
+      return;
+    }
+
+    final result = await showDialog<_EquationDialogResult>(
+      context: context,
+      builder: (context) => const _EquationDialog(),
+    );
+    if (result == null || result.script.trim().isEmpty) {
+      return;
+    }
+
+    final selection = _controller.selection;
+    final cursor = selection.isCollapsed
+        ? _controller.cursor
+        : selection.normalizedStart;
+    await _runEdit(() async {
+      if (!selection.isCollapsed) {
+        await _deleteSelectedText(selection);
+      }
+      await widget.document.insertEquation(
+        section: cursor.section,
+        paragraph: cursor.paragraph,
+        offset: cursor.offset,
+        script: result.script.trim(),
+        fontSize: result.fontSize,
+        color: result.color,
       );
       _controller.cursor = cursor.copyWith(offset: cursor.offset + 1);
     });
@@ -5748,6 +5793,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onDeleteBackward: _deleteBackward,
           onInsertTable: _insertTable,
           onInsertFootnote: _insertFootnote,
+          onInsertEquation: _showInsertEquationDialog,
           onInsertTableRow: _insertTableRow,
           onInsertTableColumn: _insertTableColumn,
           onDeleteTableRow: _deleteTableRow,
@@ -7405,6 +7451,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onDeleteBackward,
     required this.onInsertTable,
     required this.onInsertFootnote,
+    required this.onInsertEquation,
     required this.onInsertTableRow,
     required this.onInsertTableColumn,
     required this.onDeleteTableRow,
@@ -7494,6 +7541,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onDeleteBackward;
   final VoidCallback onInsertTable;
   final VoidCallback onInsertFootnote;
+  final VoidCallback onInsertEquation;
   final VoidCallback onInsertTableRow;
   final VoidCallback onInsertTableColumn;
   final VoidCallback onDeleteTableRow;
@@ -7943,6 +7991,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               buttonKey: const ValueKey('rhwp-editor-insert-footnote'),
               icon: Icons.notes_outlined,
               onPressed: widget.busy ? null : widget.onInsertFootnote,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Insert equation',
+              buttonKey: const ValueKey('rhwp-editor-insert-equation'),
+              icon: Icons.functions,
+              onPressed: widget.busy ? null : widget.onInsertEquation,
             ),
           ],
         ),
@@ -8637,6 +8691,132 @@ class _CharShapeDialogState extends State<_CharShapeDialog> {
       ),
     );
   }
+}
+
+class _EquationDialog extends StatefulWidget {
+  const _EquationDialog();
+
+  @override
+  State<_EquationDialog> createState() => _EquationDialogState();
+}
+
+class _EquationDialogState extends State<_EquationDialog> {
+  final _scriptController = TextEditingController(text: 'x^2 + y^2');
+  final _fontSizeController = TextEditingController(text: '10.0');
+  var _color = '#000000';
+
+  @override
+  void dispose() {
+    _scriptController.dispose();
+    _fontSizeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('수식 넣기'),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              key: const ValueKey('rhwp-equation-script-field'),
+              controller: _scriptController,
+              minLines: 2,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                labelText: 'Equation script',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const ValueKey('rhwp-equation-font-size-field'),
+              controller: _fontSizeController,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Font size',
+                suffixText: 'pt',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('Color', style: Theme.of(context).textTheme.labelMedium),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final swatch in _charColorSwatches)
+                  Tooltip(
+                    message: swatch.label,
+                    child: InkWell(
+                      key: ValueKey('rhwp-equation-color-${swatch.value}'),
+                      borderRadius: BorderRadius.circular(18),
+                      onTap: () {
+                        setState(() {
+                          _color = swatch.value;
+                        });
+                      },
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: _color == swatch.value
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).dividerColor,
+                            width: _color == swatch.value ? 3 : 1,
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: CircleAvatar(
+                            radius: 12,
+                            backgroundColor: swatch.color,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const ValueKey('rhwp-equation-apply'),
+          onPressed: _apply,
+          child: const Text('Insert'),
+        ),
+      ],
+    );
+  }
+
+  void _apply() {
+    Navigator.of(context).pop(
+      _EquationDialogResult(
+        script: _scriptController.text,
+        fontSize: _hwpFontSizeFromPointText(_fontSizeController.text),
+        color: _equationColorFromHex(_color),
+      ),
+    );
+  }
+}
+
+int _equationColorFromHex(String value) {
+  final hex = value.replaceFirst('#', '');
+  return int.tryParse(hex, radix: 16) ?? 0;
 }
 
 class _PageSetupDialog extends StatefulWidget {

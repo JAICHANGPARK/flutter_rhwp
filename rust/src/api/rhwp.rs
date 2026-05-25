@@ -250,6 +250,24 @@ impl RhwpSession {
                 .document
                 .insert_footnote_native(section as usize, paragraph as usize, offset as usize)
                 .map_err(error_to_string),
+            RhwpCommand::InsertEquation {
+                section,
+                paragraph,
+                offset,
+                script,
+                font_size,
+                color,
+            } => inner
+                .document
+                .insert_equation_native(
+                    section as usize,
+                    paragraph as usize,
+                    offset as usize,
+                    &script,
+                    font_size,
+                    color,
+                )
+                .map_err(error_to_string),
             RhwpCommand::SplitParagraph {
                 section,
                 paragraph,
@@ -742,6 +760,15 @@ enum RhwpCommand {
         section: u32,
         paragraph: u32,
         offset: u32,
+    },
+    InsertEquation {
+        section: u32,
+        paragraph: u32,
+        offset: u32,
+        script: String,
+        #[serde(rename = "fontSize")]
+        font_size: u32,
+        color: u32,
     },
     SplitParagraph {
         section: u32,
@@ -1689,6 +1716,12 @@ mod tests {
                 r#"{"type":"insertFootnote","section":0,"paragraph":0,"offset":4}"#.to_string(),
             )
             .expect("insert footnote command should be accepted");
+        session
+            .apply_command(
+                r#"{"type":"insertEquation","section":0,"paragraph":0,"offset":5,"script":"x+y","fontSize":1000,"color":0}"#
+                    .to_string(),
+            )
+            .expect("insert equation command should be accepted");
         session
             .apply_command(
                 r#"{"type":"insertText","section":0,"paragraph":1,"offset":0,"text":"next"}"#

@@ -81,6 +81,8 @@
   definitions through the Rust bridge.
 * Added Flutter-native footnote insertion from the insert ribbon through the
   Rust command bridge.
+* Added Flutter-native equation insertion from the insert ribbon through the
+  Rust command bridge.
 * Extended page layer tree selection geometry to span multiple paragraphs and
   wired `RhwpEditor` page overlays to render those page-local selection rects.
 * Added a Rust facade regression test for the page layer tree JSON contract that

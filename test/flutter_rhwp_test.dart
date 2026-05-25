@@ -55,6 +55,27 @@ void main() {
     });
   });
 
+  test('insert equation command serializes to the Rust command envelope', () {
+    final command = RhwpCommand.insertEquation(
+      section: 0,
+      paragraph: 1,
+      offset: 2,
+      script: 'x^2 + y^2',
+      fontSize: 1200,
+      color: 0x2563eb,
+    );
+
+    expect(jsonDecode(jsonEncode(command.toJson())), {
+      'type': 'insertEquation',
+      'section': 0,
+      'paragraph': 1,
+      'offset': 2,
+      'script': 'x^2 + y^2',
+      'fontSize': 1200,
+      'color': 0x2563eb,
+    });
+  });
+
   test('insert table command serializes to the Rust command envelope', () {
     final command = RhwpCommand.insertTable(
       section: 0,
@@ -917,6 +938,25 @@ void main() {
       'section': 0,
       'paragraph': 1,
       'offset': 2,
+    });
+
+    await document.insertEquation(
+      section: 0,
+      paragraph: 1,
+      offset: 2,
+      script: 'x^2 + y^2',
+      fontSize: 1200,
+      color: 0x2563eb,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'insertEquation',
+      'section': 0,
+      'paragraph': 1,
+      'offset': 2,
+      'script': 'x^2 + y^2',
+      'fontSize': 1200,
+      'color': 0x2563eb,
     });
 
     await document.insertTable(

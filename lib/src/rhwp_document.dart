@@ -327,6 +327,15 @@ abstract class RhwpCommand {
     required int offset,
   }) = RhwpInsertFootnoteCommand;
 
+  factory RhwpCommand.insertEquation({
+    required int section,
+    required int paragraph,
+    required int offset,
+    required String script,
+    int fontSize,
+    int color,
+  }) = RhwpInsertEquationCommand;
+
   factory RhwpCommand.splitParagraph({
     required int section,
     required int paragraph,
@@ -745,6 +754,35 @@ class RhwpInsertFootnoteCommand extends RhwpCommand {
     'section': section,
     'paragraph': paragraph,
     'offset': offset,
+  };
+}
+
+class RhwpInsertEquationCommand extends RhwpCommand {
+  const RhwpInsertEquationCommand({
+    required this.section,
+    required this.paragraph,
+    required this.offset,
+    required this.script,
+    this.fontSize = 1000,
+    this.color = 0,
+  });
+
+  final int section;
+  final int paragraph;
+  final int offset;
+  final String script;
+  final int fontSize;
+  final int color;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'insertEquation',
+    'section': section,
+    'paragraph': paragraph,
+    'offset': offset,
+    'script': script,
+    'fontSize': fontSize,
+    'color': color,
   };
 }
 
@@ -1796,6 +1834,26 @@ class RhwpDocument {
         section: section,
         paragraph: paragraph,
         offset: offset,
+      ),
+    );
+  }
+
+  Future<String> insertEquation({
+    required int section,
+    required int paragraph,
+    required int offset,
+    required String script,
+    int fontSize = 1000,
+    int color = 0,
+  }) {
+    return apply(
+      RhwpCommand.insertEquation(
+        section: section,
+        paragraph: paragraph,
+        offset: offset,
+        script: script,
+        fontSize: fontSize,
+        color: color,
       ),
     );
   }

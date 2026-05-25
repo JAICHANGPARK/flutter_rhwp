@@ -373,6 +373,32 @@ void main() {
       'paragraph': 0,
       'offset': 2,
     });
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-insert-equation')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-equation-script-field')),
+      'sqrt x',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-equation-font-size-field')),
+      '12',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-equation-color-#2563eb')));
+    await tester.tap(find.byKey(const ValueKey('rhwp-equation-apply')));
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.cursor.offset, 4);
+    expect(changedCalls, 4);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'insertEquation',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 3,
+      'script': 'sqrt x',
+      'fontSize': 1200,
+      'color': 0x2563eb,
+    });
   });
 
   testWidgets('RhwpNativeEditor preserves viewport while editing', (
