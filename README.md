@@ -1,64 +1,51 @@
 # flutter_rhwp
 
-Flutter bindings and widgets for HWP/HWPX documents, built with
-`flutter_rust_bridge` v2.
+Flutter plugin for reading, viewing, editing, saving, and exporting HWP/HWPX
+documents.
 
-Repository: [`JAICHANGPARK/flutter_rhwp`](https://github.com/JAICHANGPARK/flutter_rhwp)
+- Repository: [JAICHANGPARK/flutter_rhwp](https://github.com/JAICHANGPARK/flutter_rhwp)
+- Rust core: [edwardkim/rhwp](https://github.com/edwardkim/rhwp), vendored at
+  `rust/vendor/rhwp`
+- Bridge: `flutter_rust_bridge` v2
+- Version: `2026.5.24`
 
-Rust core: upstream [`edwardkim/rhwp`](https://github.com/edwardkim/rhwp),
-vendored at v0.7.12 for reproducible plugin builds.
-
-## Status
-
-This package is an initial plugin scaffold. It already wires Flutter to a
-vendored `rhwp` v0.7.12 Rust crate through FRB opaque sessions.
-
-Implemented:
+## Features
 
 - Open HWP/HWPX bytes.
-- Read page count and document metadata.
 - Render pages as SVG.
-- Read raw page layer tree JSON and a typed Dart page layer tree model.
 - Extract text and Markdown.
-- Export HWP, HWPX, native PDF, DOCX, text, Markdown, and page SVG.
-- Return export bytes with stable file names, extensions, and MIME types for
-  app save/download workflows.
-- Apply basic edit commands for body text insert/delete and file name updates.
-- Display pages with `RhwpViewer`.
-- Add page-local overlays to `RhwpViewer` with `pageOverlayBuilder`.
-- Edit through an initial `RhwpEditor` command overlay with a Flutter-drawn
-  caret and selection marker. When page layer tree text runs are available,
-  visible page overlays use their source offsets and bounds, including
-  selections spanning multiple paragraphs, before falling back to command-target
-  coordinates on the first page.
-- Embed upstream `@rhwp/editor` on Web with `RhwpWebEditor` and
-  `RhwpWebEditorController`.
-- Example app workflows for opening the bundled asset sample or a picked
-  HWP/HWPX file, toggling between the Flutter bridge viewer/editor and the
-  upstream Web editor, then saving HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
-- On Web, the example opens files in upstream Web editor mode by default so the
-  browser editor can run even before the FRB WASM bridge is initialized.
+- Export HWP, HWPX, PDF, DOCX, text, Markdown, and page SVG.
+- Use `RhwpViewer` for Flutter-native viewing.
+- Use `RhwpFullEditor` for the upstream full editor UI.
+- Use `RhwpCommandEditor` for explicit Flutter/Rust edit commands.
 
-Not complete yet:
+## Installation
 
-- DOCX export currently maps extracted Markdown into paragraph, heading, and
-  simple table OOXML. Image embedding and exact layout mapping are still
-  pending.
-- Flutter bridge PDF export on Web/WASM throws
-  `RhwpUnsupportedPlatformException`. In Web editor mode, export support depends
-  on the methods exposed by the loaded upstream `@rhwp/editor` build.
-- Web requires the FRB WASM build step and generated `pkg/` output.
-- `RhwpWebEditor` loads `@rhwp/editor` from a configurable ESM URL. Production
-  apps should host or bundle that module instead of relying on a public CDN.
-- Apple builds currently use the CocoaPods podspec/cargokit path for Rust
-  static library linkage. SwiftPM manifests are intentionally omitted until the
-  Rust build/linkage path is implemented for Swift Package Manager.
-- The Flutter-native editor still needs full complex text-flow selection
-  mapping for tables, nested textboxes, bidirectional text, and non-linear
-  layout. The current layer-tree mapping is page-local and falls back when
-  geometry is unavailable.
+Until this package is published, add it from GitHub:
 
-## Usage
+```yaml
+dependencies:
+  flutter_rhwp:
+    git:
+      url: https://github.com/JAICHANGPARK/flutter_rhwp.git
+      ref: main
+```
+
+Then run:
+
+```sh
+flutter pub get
+```
+
+Requirements:
+
+- Flutter `>=3.35.0`
+- Windows full editor: Microsoft WebView2 runtime
+- Linux full editor: WebKitGTK 4.1
+- Sandboxed macOS full editor with remote `@rhwp/editor`: outgoing network
+  client entitlement
+
+## Quick Start
 
 ```dart
 import 'dart:io';
@@ -70,16 +57,13 @@ final document = await Rhwp.open(bytes, fileName: 'sample.hwp');
 
 final pageCount = await document.pageCount;
 final firstPageSvg = await document.renderPageSvg(0);
-final firstPageLayers = await document.pageLayerTreeModel(0);
 final text = await document.extractText();
-final hwpBytes = await document.export(RhwpExportFormat.hwp);
-final svgBytes = await document.exportPageSvg(page: 0);
-final markdownBytes = await document.exportMarkdown();
 final exportedPdf = await document.exportDocument(RhwpExportFormat.pdf);
-// exportedPdf.bytes, exportedPdf.fileName, exportedPdf.mimeType
 
 await document.close();
 ```
+
+## Usage
 
 Viewer:
 
@@ -87,137 +71,69 @@ Viewer:
 RhwpViewer(document: document)
 ```
 
-Editor:
+Full editor:
 
 ```dart
-RhwpEditor(document: document)
-```
+final controller = RhwpFullEditorController();
 
-Web editor:
-
-```dart
-final webEditorController = RhwpWebEditorController();
-
-RhwpWebEditor(
-  controller: webEditorController,
+RhwpFullEditor(
+  controller: controller,
   initialBytes: bytes,
   fileName: 'sample.hwp',
 );
 
-final editedHwp = await webEditorController.exportHwp();
-final exportedWebPdf = await webEditorController.exportDocument(
+final editedHwp = await controller.exportHwp();
+```
+
+Command editor:
+
+```dart
+RhwpCommandEditor(document: document)
+```
+
+Edit with Rust bridge commands:
+
+```dart
+await document.insertText(
+  section: 0,
+  paragraph: 0,
+  offset: 0,
+  text: 'Hello',
+);
+```
+
+Export with save metadata:
+
+```dart
+final exported = await document.exportDocument(
   RhwpExportFormat.pdf,
   sourceFileName: 'sample.hwp',
 );
+
+// exported.bytes
+// exported.fileName
+// exported.mimeType
 ```
 
-`RhwpWebEditor` is a Web-only embed for upstream
-[`@rhwp/editor`](https://www.npmjs.com/package/@rhwp/editor). It complements
-the FRB bridge: use the Flutter bridge for a consistent cross-platform API, and
-switch to the upstream Web editor when a browser app needs the full iframe-based
-editing UI. The module URL defaults to `https://esm.sh/@rhwp/editor`; pass
-`moduleUrl` to point at a locally bundled or self-hosted ESM build. The
-controller tries the upstream editor's exported methods such as `exportHwp`,
-`exportHwpx`, `exportPdf`, `exportDocx`, `exportText`, `exportMarkdown`, and
-`exportSvg`; `exportDocument()` wraps those bytes with the same file name and
-MIME metadata used by the Flutter bridge. If a method is missing, it throws
-`RhwpUnsupportedPlatformException` with the upstream error message.
-
-The example app starts in upstream Web editor mode on Web. Switching to
-`Flutter` mode opens the same bytes through the FRB bridge; if the browser is
-not cross-origin isolated or the WASM bundle is missing, the Web editor remains
-usable while the Flutter bridge reports the load error.
-
-Editing command:
-
-```dart
-await document.apply(
-  RhwpCommand.insertText(
-    section: 0,
-    paragraph: 0,
-    offset: 0,
-    text: 'Hello',
-  ),
-);
-```
-
-## Rust
-
-The Rust crate lives in `rust/`. The pinned upstream source is vendored at
-`rust/vendor/rhwp`, so normal builds do not fetch `rhwp` from GitHub.
-
-`rust/vendor/rhwp` is intentionally committed. It is the pinned upstream source
-used by `rust/Cargo.toml` through a local path dependency, which keeps plugin
-builds reproducible without a network fetch. `rust/target` is build output and
-is ignored by `rust/.gitignore`; do not commit it.
-
-Regenerate bridge code after changing `rust/src/api`:
-
-```sh
-flutter_rust_bridge_codegen generate
-```
-
-Build the example Web WASM bundle:
-
-```sh
-rustup target add wasm32-unknown-unknown
-rustup component add rust-src --toolchain nightly
-cargo install wasm-pack --locked
-flutter_rust_bridge_codegen build-web --dart-root . --rust-root rust -o "$PWD/example/web"
-(cd example && flutter build web)
-```
-
-Use an absolute `-o` path, or a path relative to `rust/`, because `wasm-pack`
-resolves the output directory from the Rust crate root.
-
-The example Web app registers `example/web/coi-serviceworker.js` so local Web
-debugging can enable COOP/COEP headers required by FRB's atomics-based WASM
-bundle. If you run with a self-hosted upstream editor module:
+## Example
 
 ```sh
 cd example
-flutter run -d chrome \
-  --dart-define=RHWP_EDITOR_MODULE_URL=http://localhost:7700/path/to/editor.js
+flutter run -d macos
 ```
 
-Run checks:
+The example can open the bundled HWP asset or a picked HWP/HWPX file, then
+export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
 
-```sh
-cargo check --manifest-path rust/Cargo.toml
-cargo test --manifest-path rust/Cargo.toml
-flutter analyze
-flutter test
-(cd example && flutter test)
-```
+## Notes
 
-The example app adds `file_picker` for user-selected file open/save flows. On
-macOS the example enables user-selected read/write sandbox entitlement.
+- `RhwpFullEditor` uses upstream `@rhwp/editor`.
+- On Web it embeds the editor directly.
+- On Android, iOS, macOS, Windows, and Linux it uses `webview_all`.
+- Initial full-editor file loading uses `editor.loadFile(data, fileName)`.
+- `rust/vendor/rhwp` should be committed. `rust/target` should stay ignored.
 
 ## License
 
-`flutter_rhwp` is released under the MIT license. The vendored upstream
-[`edwardkim/rhwp`](https://github.com/edwardkim/rhwp) core is also MIT licensed
-and kept at `rust/vendor/rhwp` for reproducible builds. See
-[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for bundled source,
-generated bridge, and dependency notices.
-
-## CI
-
-GitHub Actions runs the same checks in `.github/workflows/ci.yml`:
-
-- Rust facade tests, including the page layer tree JSON contract used by the
-  Flutter editor overlay, and Flutter analyze/unit tests.
-- Dart unit tests include a generated FRB bridge mock smoke test.
-- Example Linux, macOS, and Windows desktop integration tests for bundled asset
-  open/render/export scenarios.
-- Example Android emulator integration tests for the bundled asset
-  open/render/export workflow.
-- Example iOS simulator integration tests for the bundled asset
-  open/render/export workflow.
-- Example Web widget tests for the upstream Web editor default mode and browser
-  mode toggle, including bundled sample auto-open without eager FRB WASM
-  initialization.
-- FRB WASM bundle generation followed by `flutter build web`.
-- Desktop example builds for Linux, macOS, and Windows.
-- Mobile example builds for Android and iOS without code signing, followed by
-  Android emulator and iOS simulator integration workflows.
+MIT. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for bundled source and
+dependency notices.

@@ -9,12 +9,12 @@ void main() {
     await tester.pumpWidget(const RhwpExampleApp(autoOpenSample: false));
 
     expect(find.text('flutter_rhwp'), findsOneWidget);
-    if (kIsWeb) {
-      expect(find.text('Web editor'), findsOneWidget);
-    }
+    expect(find.text('Full editor'), findsOneWidget);
   });
 
-  testWidgets('opens bundled sample in Web editor mode on Web', (tester) async {
+  testWidgets('opens bundled sample in full editor mode on Web', (
+    tester,
+  ) async {
     if (!kIsWeb) {
       return;
     }
@@ -31,13 +31,13 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.text('flutter_rhwp'), findsOneWidget);
-    expect(find.text('Web editor'), findsOneWidget);
+    expect(find.text('Full editor'), findsOneWidget);
     expect(
       find.textContaining('korea_ai_action_plan_2026_2028.hwp'),
       findsOneWidget,
     );
     expect(
-      find.textContaining('Opened bundled sample in Web editor'),
+      find.textContaining('Opened bundled sample in full editor'),
       findsWidgets,
     );
   });

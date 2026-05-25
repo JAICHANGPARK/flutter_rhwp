@@ -38,8 +38,14 @@ Their license files are provided by the packages downloaded from pub.dev.
 | `flutter_rust_bridge` | 2.11.1 | MIT | Dart/Rust bridge runtime and generated binding support |
 | `flutter_svg` | 2.3.0 | MIT | SVG page rendering in `RhwpViewer` |
 | `web` | 1.1.1 | BSD-style; generated web API data includes Mozilla attribution under CC-BY-SA 2.5 where noted upstream | Web editor host and browser interop |
+| `webview_all` | 1.0.3 | BSD-3-Clause | Native full editor WebView host for Android, iOS, macOS, Windows, and Linux |
 
 Flutter SDK packages are governed by the Flutter/Dart SDK licenses.
+
+`webview_all` resolves platform implementation packages including
+`webview_all_linux`, `webview_all_windows`, `webview_all_web`,
+`webview_flutter_android`, `webview_flutter_platform_interface`, and
+`webview_flutter_wkwebview` through `pubspec.lock`.
 
 ## Direct Rust Dependencies
 

@@ -1,7 +1,8 @@
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_rhwp/flutter_rhwp.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -16,6 +17,20 @@ const _webEditorModuleUrl = String.fromEnvironment(
   'RHWP_EDITOR_MODULE_URL',
   defaultValue: RhwpWebEditor.defaultModuleUrl,
 );
+
+bool get _supportsFullEditorHost {
+  if (kIsWeb) {
+    return true;
+  }
+  return switch (defaultTargetPlatform) {
+    TargetPlatform.android ||
+    TargetPlatform.iOS ||
+    TargetPlatform.linux ||
+    TargetPlatform.macOS ||
+    TargetPlatform.windows => true,
+    TargetPlatform.fuchsia => false,
+  };
+}
 
 typedef RhwpSampleBytesLoader = Future<Uint8List> Function();
 
@@ -38,7 +53,7 @@ class RhwpExampleApp extends StatefulWidget {
 class _RhwpExampleAppState extends State<RhwpExampleApp> {
   final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
   final _editorController = RhwpEditorController();
-  final _webEditorController = RhwpWebEditorController();
+  final _fullEditorController = RhwpFullEditorController();
   Key _viewerKey = UniqueKey();
   RhwpDocument? _document;
   RhwpDocumentMetadata? _metadata;
@@ -46,12 +61,12 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
   Object? _error;
   String? _fileName;
   String? _status;
-  _EditorMode _editorMode = kIsWeb
-      ? _EditorMode.upstreamWeb
-      : _EditorMode.flutterBridge;
+  _EditorMode _editorMode = _supportsFullEditorHost
+      ? _EditorMode.fullEditor
+      : _EditorMode.commands;
   bool _busy = false;
 
-  bool get _usesWebEditor => kIsWeb && _editorMode == _EditorMode.upstreamWeb;
+  bool get _usesFullEditor => _editorMode == _EditorMode.fullEditor;
 
   @override
   void initState() {
@@ -65,15 +80,15 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
   void dispose() {
     _document?.close();
     _editorController.dispose();
-    _webEditorController.dispose();
+    _fullEditorController.dispose();
     super.dispose();
   }
 
   Future<void> _createBlankDocument() async {
     await _run('New document', () async {
-      if (_usesWebEditor) {
+      if (_usesFullEditor) {
         await _replaceWebEditorSource(fileName: 'blank.hwp');
-        return 'Created blank.hwp in Web editor';
+        return 'Created blank.hwp in full editor';
       }
 
       final next = await Rhwp.createEmpty(fileName: 'blank.hwp');
@@ -86,12 +101,12 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
   Future<void> _openSampleDocument() async {
     await _run('Open sample asset', () async {
       final bytes = await _loadSampleBytes();
-      if (_usesWebEditor) {
+      if (_usesFullEditor) {
         await _replaceWebEditorSource(
           fileName: _sampleFileName,
           sourceBytes: bytes,
         );
-        return 'Opened bundled sample in Web editor';
+        return 'Opened bundled sample in full editor';
       }
 
       final next = await Rhwp.open(bytes, fileName: _sampleFileName);
@@ -128,9 +143,9 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
 
       final file = result.files.single;
       final bytes = await file.xFile.readAsBytes();
-      if (_usesWebEditor) {
+      if (_usesFullEditor) {
         await _replaceWebEditorSource(fileName: file.name, sourceBytes: bytes);
-        return 'Opened ${file.name} in Web editor';
+        return 'Opened ${file.name} in full editor';
       }
 
       final next = await Rhwp.open(bytes, fileName: file.name);
@@ -141,7 +156,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
 
   Future<void> _saveExport(_ExportKind kind) async {
     final document = _document;
-    if (document == null && !_usesWebEditor) {
+    if (document == null && !_usesFullEditor) {
       _showStatus('No document is open');
       return;
     }
@@ -167,8 +182,8 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
     final document = _document;
     if (document == null) {
       _showStatus(
-        _usesWebEditor
-            ? 'Use the upstream Web editor toolbar for direct edits'
+        _usesFullEditor
+            ? 'Use the full editor toolbar for direct edits'
             : 'No document is open',
       );
       return;
@@ -192,8 +207,8 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
     _ExportKind kind, {
     required RhwpDocument? document,
   }) async {
-    if (_usesWebEditor) {
-      return _webEditorController.exportDocument(
+    if (_usesFullEditor) {
+      return _fullEditorController.exportDocument(
         kind.format,
         sourceFileName: _fileName,
         page: kind.defaultPage,
@@ -245,13 +260,13 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
     if (mode == _editorMode) {
       return;
     }
-    if (mode == _EditorMode.upstreamWeb && !kIsWeb) {
-      _showStatus('The upstream rhwp Web editor is only available on Web');
+    if (mode == _EditorMode.fullEditor && !_supportsFullEditorHost) {
+      _showStatus('The rhwp full editor is not available on this platform');
       return;
     }
 
     final sourceBytes = _sourceBytes;
-    if (mode == _EditorMode.flutterBridge &&
+    if (mode == _EditorMode.commands &&
         _document == null &&
         sourceBytes != null) {
       await _run('Open Flutter bridge', () async {
@@ -272,8 +287,8 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
       return;
     }
 
-    if (mode == _EditorMode.flutterBridge && _document == null) {
-      _showStatus('Open a HWP/HWPX file before switching to Flutter bridge');
+    if (mode == _EditorMode.commands && _document == null) {
+      _showStatus('Open a HWP/HWPX file before switching to commands');
       return;
     }
 
@@ -331,7 +346,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
   Widget build(BuildContext context) {
     final document = _document;
     final canShowWebEditor =
-        _usesWebEditor && (_fileName != null || _sourceBytes != null);
+        _usesFullEditor && (_fileName != null || _sourceBytes != null);
     final canExport = document != null || canShowWebEditor;
 
     return MaterialApp(
@@ -357,7 +372,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
               icon: const Icon(Icons.note_add_outlined),
             ),
             IconButton(
-              tooltip: 'Insert text',
+              tooltip: 'Insert text command',
               onPressed: _busy || document == null ? null : _insertDemoText,
               icon: const Icon(Icons.edit_outlined),
             ),
@@ -400,7 +415,9 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
               status: _status,
               error: _error,
               editorMode: _editorMode,
-              onEditorModeChanged: kIsWeb && !_busy ? _setEditorMode : null,
+              onEditorModeChanged: _supportsFullEditorHost && !_busy
+                  ? _setEditorMode
+                  : null,
             ),
             Expanded(
               child: _busy && !canExport
@@ -408,18 +425,18 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
                   : _error != null && !canExport
                   ? Center(child: Text(_error.toString()))
                   : canShowWebEditor
-                  ? RhwpWebEditor(
+                  ? RhwpFullEditor(
                       key: ValueKey(
-                        'web-editor-${_fileName ?? 'document'}-${_sourceBytes?.length ?? 0}-${_viewerKey.hashCode}',
+                        'full-editor-${_fileName ?? 'document'}-${_sourceBytes?.length ?? 0}-${_viewerKey.hashCode}',
                       ),
-                      controller: _webEditorController,
+                      controller: _fullEditorController,
                       moduleUrl: widget.webEditorModuleUrl,
                       initialBytes: _sourceBytes,
                       fileName: _fileName,
                     )
                   : document == null
                   ? const SizedBox.shrink()
-                  : RhwpEditor(
+                  : RhwpCommandEditor(
                       key: _viewerKey,
                       document: document,
                       controller: _editorController,
@@ -513,14 +530,14 @@ class _StatusBar extends StatelessWidget {
                   ),
                   segments: const [
                     ButtonSegment(
-                      value: _EditorMode.flutterBridge,
+                      value: _EditorMode.commands,
                       icon: Icon(Icons.integration_instructions_outlined),
-                      label: Text('Flutter'),
+                      label: Text('Commands'),
                     ),
                     ButtonSegment(
-                      value: _EditorMode.upstreamWeb,
+                      value: _EditorMode.fullEditor,
                       icon: Icon(Icons.web_asset_outlined),
-                      label: Text('Web editor'),
+                      label: Text('Full editor'),
                     ),
                   ],
                   selected: {editorMode},
@@ -556,4 +573,4 @@ enum _ExportKind {
   String get extension => format.fileExtension;
 }
 
-enum _EditorMode { flutterBridge, upstreamWeb }
+enum _EditorMode { commands, fullEditor }

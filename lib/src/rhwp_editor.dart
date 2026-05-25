@@ -80,6 +80,7 @@ class RhwpSelectionRange {
   int get hashCode => Object.hash(start, end);
 }
 
+/// Controller for the Flutter-native command editor overlay.
 class RhwpEditorController extends RhwpViewerController {
   RhwpEditorController({super.zoom})
     : _cursor = const RhwpCursorPosition(),
@@ -110,6 +111,15 @@ class RhwpEditorController extends RhwpViewerController {
   }
 }
 
+/// Explicit controller name for [RhwpCommandEditor].
+typedef RhwpCommandEditorController = RhwpEditorController;
+
+/// Flutter-native command editor overlay.
+///
+/// This is not the full upstream WYSIWYG editor. It renders pages through
+/// [RhwpViewer], draws a command-target caret/selection overlay, and applies
+/// explicit `insertText`/`deleteText` commands through the Rust bridge. Use
+/// `RhwpFullEditor` when the application needs the full upstream editor UI.
 class RhwpEditor extends StatefulWidget {
   const RhwpEditor({
     super.key,
@@ -124,6 +134,33 @@ class RhwpEditor extends StatefulWidget {
 
   @override
   State<RhwpEditor> createState() => _RhwpEditorState();
+}
+
+/// Explicit name for the Flutter-native command editor overlay.
+///
+/// Prefer this name when you want the lightweight command API surface. It
+/// intentionally does not provide the full toolbar/menu editor from upstream
+/// `@rhwp/editor`.
+class RhwpCommandEditor extends StatelessWidget {
+  const RhwpCommandEditor({
+    super.key,
+    required this.document,
+    this.controller,
+    this.onChanged,
+  });
+
+  final RhwpDocument document;
+  final RhwpEditorController? controller;
+  final ValueChanged<RhwpDocument>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return RhwpEditor(
+      document: document,
+      controller: controller,
+      onChanged: onChanged,
+    );
+  }
 }
 
 class _RhwpEditorState extends State<RhwpEditor> {

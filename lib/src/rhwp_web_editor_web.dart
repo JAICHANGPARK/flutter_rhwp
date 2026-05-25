@@ -274,6 +274,7 @@ class _RhwpWebEditorState extends State<RhwpWebEditor> {
       ],
       svg: [
         { name: 'exportSvg', args: firstPageArgs },
+        { name: 'getPageSvg', args: firstPageArgs },
         { name: 'renderPageSvg', args: firstPageArgs },
         { name: 'renderSvg', args: firstPageArgs },
       ],
@@ -346,7 +347,8 @@ class _RhwpWebEditorState extends State<RhwpWebEditor> {
 
   async function tryOpenInitialBytes(editor, bytes) {
     if (!bytes) return false;
-    const candidates = ['openBytes', 'loadBytes', 'openHwp', 'loadHwp', 'importHwp'];
+    const candidates = ['loadFile', 'openBytes', 'loadBytes', 'openHwp', 'loadHwp', 'importHwp'];
+    let lastError = null;
     for (const name of candidates) {
       if (typeof editor?.[name] !== 'function') continue;
       const attempts = [
@@ -359,10 +361,14 @@ class _RhwpWebEditorState extends State<RhwpWebEditor> {
         try {
           await editor[name](...args);
           return true;
-        } catch (_) {
+        } catch (error) {
+          lastError = error;
           // Try the next likely iframe-wrapper signature.
         }
       }
+    }
+    if (lastError) {
+      throw lastError;
     }
     return false;
   }
@@ -402,7 +408,7 @@ class _RhwpWebEditorState extends State<RhwpWebEditor> {
       const bytes = decodeBase64(initialBase64);
       const didOpen = await tryOpenInitialBytes(editor, bytes);
       if (bytes && !didOpen) {
-        console.warn(
+        throw new Error(
           'rhwp Web editor was mounted, but this @rhwp/editor build did not expose a known byte-loading API.',
         );
       }

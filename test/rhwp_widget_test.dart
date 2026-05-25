@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, debugDefaultTargetPlatformOverride, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_rhwp/flutter_rhwp.dart';
 import 'package:flutter_rhwp/src/rust/api/rhwp.dart' as rust;
@@ -160,7 +162,7 @@ void main() {
     expect(overlaySvgs.single, contains('#dc2626'));
   });
 
-  testWidgets('RhwpEditor overlay applies insert and delete commands', (
+  testWidgets('RhwpCommandEditor overlay applies insert and delete commands', (
     tester,
   ) async {
     final controller = RhwpEditorController();
@@ -173,7 +175,7 @@ void main() {
         child: SizedBox(
           width: 720,
           height: 420,
-          child: RhwpEditor(
+          child: RhwpCommandEditor(
             document: document,
             controller: controller,
             onChanged: (_) => changedCalls += 1,
@@ -211,7 +213,7 @@ void main() {
     });
   });
 
-  testWidgets('RhwpEditor paints caret and selection target overlay', (
+  testWidgets('RhwpCommandEditor paints caret and selection target overlay', (
     tester,
   ) async {
     final controller = RhwpEditorController();
@@ -223,7 +225,7 @@ void main() {
         child: SizedBox(
           width: 720,
           height: 420,
-          child: RhwpEditor(document: document, controller: controller),
+          child: RhwpCommandEditor(document: document, controller: controller),
         ),
       ),
     );
@@ -243,74 +245,111 @@ void main() {
     expect(find.byKey(const ValueKey('rhwp-editor-selection')), findsOneWidget);
   });
 
-  testWidgets('RhwpEditor positions caret from page layer tree text runs', (
+  testWidgets(
+    'RhwpCommandEditor positions caret from page layer tree text runs',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      final document = RhwpDocument.fromSession(session);
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpCommandEditor(
+              document: document,
+              controller: controller,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      controller.cursor = const RhwpCursorPosition(offset: 1);
+      await tester.pump();
+
+      final firstCaretTopLeft = tester.getTopLeft(
+        find.byKey(const ValueKey('rhwp-editor-caret')),
+      );
+
+      controller.cursor = const RhwpCursorPosition(offset: 2);
+      await tester.pump();
+
+      final secondCaretTopLeft = tester.getTopLeft(
+        find.byKey(const ValueKey('rhwp-editor-caret')),
+      );
+      final caretAdvance = secondCaretTopLeft.dx - firstCaretTopLeft.dx;
+
+      expect(session.layerTreePages, [0]);
+      expect(caretAdvance, greaterThan(20));
+      expect(caretAdvance, lessThan(40));
+      expect(secondCaretTopLeft.dy, firstCaretTopLeft.dy);
+    },
+  );
+
+  testWidgets(
+    'RhwpCommandEditor paints page-local selection across paragraphs',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      final document = RhwpDocument.fromSession(session);
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpCommandEditor(
+              document: document,
+              controller: controller,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      controller.selection = const RhwpSelectionRange(
+        start: RhwpCursorPosition(paragraph: 0, offset: 2),
+        end: RhwpCursorPosition(paragraph: 1, offset: 2),
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-selection')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-selection-1')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('RhwpFullEditor reports unsupported host platforms', (
     tester,
   ) async {
-    final controller = RhwpEditorController();
-    final session = _FakeRhwpSession(pageCountValue: 1);
-    final document = RhwpDocument.fromSession(session);
+    if (kIsWeb) {
+      return;
+    }
+    debugDefaultTargetPlatformOverride = TargetPlatform.fuchsia;
 
-    await tester.pumpWidget(
-      _WidgetHarness(
-        child: SizedBox(
-          width: 720,
-          height: 420,
-          child: RhwpEditor(document: document, controller: controller),
+    try {
+      await tester.pumpWidget(
+        const _WidgetHarness(
+          child: SizedBox(width: 360, height: 240, child: RhwpFullEditor()),
         ),
-      ),
-    );
-    await _pumpDocumentFrame(tester);
+      );
 
-    controller.cursor = const RhwpCursorPosition(offset: 1);
-    await tester.pump();
-
-    final firstCaretTopLeft = tester.getTopLeft(
-      find.byKey(const ValueKey('rhwp-editor-caret')),
-    );
-
-    controller.cursor = const RhwpCursorPosition(offset: 2);
-    await tester.pump();
-
-    final secondCaretTopLeft = tester.getTopLeft(
-      find.byKey(const ValueKey('rhwp-editor-caret')),
-    );
-    final caretAdvance = secondCaretTopLeft.dx - firstCaretTopLeft.dx;
-
-    expect(session.layerTreePages, [0]);
-    expect(caretAdvance, greaterThan(20));
-    expect(caretAdvance, lessThan(40));
-    expect(secondCaretTopLeft.dy, firstCaretTopLeft.dy);
-  });
-
-  testWidgets('RhwpEditor paints page-local selection across paragraphs', (
-    tester,
-  ) async {
-    final controller = RhwpEditorController();
-    final session = _FakeRhwpSession(pageCountValue: 1);
-    final document = RhwpDocument.fromSession(session);
-
-    await tester.pumpWidget(
-      _WidgetHarness(
-        child: SizedBox(
-          width: 720,
-          height: 420,
-          child: RhwpEditor(document: document, controller: controller),
+      expect(
+        find.text(
+          'The rhwp full editor requires Android, iOS, macOS, Windows, Linux, or Web.',
         ),
-      ),
-    );
-    await _pumpDocumentFrame(tester);
-
-    controller.selection = const RhwpSelectionRange(
-      start: RhwpCursorPosition(paragraph: 0, offset: 2),
-      end: RhwpCursorPosition(paragraph: 1, offset: 2),
-    );
-    await tester.pump();
-
-    expect(find.byKey(const ValueKey('rhwp-editor-selection')), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('rhwp-editor-selection-1')),
-      findsOneWidget,
-    );
+        findsOneWidget,
+      );
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
   });
 }
 

@@ -95,3 +95,25 @@
   published in the runtime package archive.
 * Added bundled asset integration coverage for native PDF export metadata and
   PDF byte structure, while keeping Web/WASM on the explicit unsupported path.
+* Added `RhwpFullEditor` as the public full-editor surface backed by upstream
+  `@rhwp/editor`, and introduced `RhwpCommandEditor` to make the Flutter-native
+  command overlay's limited role explicit.
+* Backed native `RhwpFullEditor` with `webview_all` so the upstream editor can
+  be hosted on Android, iOS, macOS, Windows, and Linux instead of being limited
+  to Web.
+* Updated the Linux example runner to host Flutter in a `GtkOverlay`, matching
+  the platform view setup required by `webview_all`'s Linux WebKitGTK
+  implementation.
+* Added the WebKitGTK 4.1 development package to Linux CI dependencies for the
+  full-editor WebView host.
+* Raised the Flutter SDK lower bound to 3.35.0 to match the native full-editor
+  WebView host dependency.
+* Added macOS outgoing network entitlements to the example app so WKWebView can
+  load the upstream editor module in sandboxed debug/profile/release runs.
+* Added a Flutter-side loading/error overlay for native `RhwpFullEditor` so
+  WebView bootstrap failures do not appear as a blank black panel.
+* Fixed upstream editor file injection by using `@rhwp/editor`'s documented
+  `loadFile(data, fileName)` API, and added `getPageSvg()` as the SVG export
+  method for full-editor mode.
+* Simplified README around package purpose, installation, quick start, usage,
+  example, notes, and license.
