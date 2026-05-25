@@ -305,6 +305,7 @@ class _RhwpSvgPage extends StatefulWidget {
 class _RhwpSvgPageState extends State<_RhwpSvgPage>
     with AutomaticKeepAliveClientMixin {
   late Future<String> _svg;
+  String? _lastSvg;
 
   @override
   void initState() {
@@ -335,6 +336,13 @@ class _RhwpSvgPageState extends State<_RhwpSvgPage>
         future: _svg,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
+            final lastSvg = _lastSvg;
+            if (lastSvg != null) {
+              return Padding(
+                padding: const EdgeInsets.all(8),
+                child: _buildPageContent(context, lastSvg),
+              );
+            }
             return const SizedBox(
               height: 480,
               child: Center(child: CircularProgressIndicator()),
@@ -348,29 +356,33 @@ class _RhwpSvgPageState extends State<_RhwpSvgPage>
           }
 
           final svg = snapshot.requireData;
-          final page = widget.svgBuilder(context, svg);
-          final overlay = widget.pageOverlayBuilder?.call(
-            context,
-            widget.page,
-            svg,
+          _lastSvg = svg;
+          return Padding(
+            padding: const EdgeInsets.all(8),
+            child: _buildPageContent(context, svg),
           );
-          final content = overlay == null
-              ? page
-              : Stack(
-                  fit: StackFit.passthrough,
-                  children: [
-                    page,
-                    Positioned.fill(
-                      child: widget.ignorePageOverlayPointer
-                          ? IgnorePointer(child: overlay)
-                          : overlay,
-                    ),
-                  ],
-                );
-
-          return Padding(padding: const EdgeInsets.all(8), child: content);
         },
       ),
+    );
+  }
+
+  Widget _buildPageContent(BuildContext context, String svg) {
+    final page = widget.svgBuilder(context, svg);
+    final overlay = widget.pageOverlayBuilder?.call(context, widget.page, svg);
+    if (overlay == null) {
+      return page;
+    }
+
+    return Stack(
+      fit: StackFit.passthrough,
+      children: [
+        page,
+        Positioned.fill(
+          child: widget.ignorePageOverlayPointer
+              ? IgnorePointer(child: overlay)
+              : overlay,
+        ),
+      ],
     );
   }
 

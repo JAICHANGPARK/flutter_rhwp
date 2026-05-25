@@ -189,6 +189,8 @@
   objects, backed by the same object properties bridge command.
 * Changed Flutter-native document edits to preserve the viewer widget and scroll
   position while refreshing rendered page content.
+* Changed page SVG refreshes to keep showing the previous render until the next
+  render completes, reducing edit-time flicker in the native editor.
 * Added Arrow and Tab keyboard navigation for selected table cells in the
   Flutter-native editor, including Shift+Arrow range extension.
 * Added Escape handling in the Flutter-native editor to clear composing input,

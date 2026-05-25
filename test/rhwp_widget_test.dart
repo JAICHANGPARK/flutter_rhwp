@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart'
@@ -196,6 +197,54 @@ void main() {
     expect(overlayPages, [0]);
     expect(overlaySvgs.single, contains('#dc2626'));
   });
+
+  testWidgets(
+    'RhwpViewer keeps previous SVG while refreshed render is pending',
+    (tester) async {
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      final document = RhwpDocument.fromSession(session);
+      var renderRevision = 0;
+
+      Widget buildViewer() {
+        return _WidgetHarness(
+          child: SizedBox(
+            width: 360,
+            height: 320,
+            child: RhwpViewer(
+              document: document,
+              renderRevision: renderRevision,
+              padding: const EdgeInsets.all(12),
+              pageGap: 0,
+              svgBuilder: (context, svg) {
+                return Text(
+                  key: const ValueKey('rhwp-test-rendered-svg-state'),
+                  svg.contains('#16a34a') ? 'new' : 'old',
+                );
+              },
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(buildViewer());
+      await _pumpDocumentFrame(tester);
+      expect(find.text('old'), findsOneWidget);
+
+      final pendingSvg = Completer<String>();
+      session.pendingRenderedSvgs.add(pendingSvg);
+      renderRevision += 1;
+      await tester.pumpWidget(buildViewer());
+      await tester.pump();
+
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.text('old'), findsOneWidget);
+
+      pendingSvg.complete(_pageSvg.replaceAll('#dc2626', '#16a34a'));
+      await _pumpDocumentFrame(tester);
+
+      expect(find.text('new'), findsOneWidget);
+    },
+  );
 
   testWidgets('RhwpNativeEditor toolbar applies insert and delete commands', (
     tester,
@@ -4087,6 +4136,7 @@ class _FakeRhwpSession implements rust.RhwpSession {
   final commands = <String>[];
   final historyCommands = <String>[];
   final renderedPages = <int>[];
+  final pendingRenderedSvgs = <Completer<String>>[];
   final layerTreePages = <int>[];
   int exportHwpCalls = 0;
   int exportHwpxCalls = 0;
@@ -4163,6 +4213,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
   @override
   Future<String> renderPageSvg({required int page}) async {
     renderedPages.add(page);
+    if (pendingRenderedSvgs.isNotEmpty) {
+      return pendingRenderedSvgs.removeAt(0).future;
+    }
     return _pageSvg;
   }
 
