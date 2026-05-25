@@ -91,3 +91,5 @@
   controller export methods.
 * Relaxed the `flutter_rust_bridge` dependency constraint to a caret range and
   recorded the current `flutter pub publish --dry-run` warnings.
+* Added `.pubignore` so repository work logs remain in `docs/` without being
+  published in the runtime package archive.
