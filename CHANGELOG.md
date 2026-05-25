@@ -305,6 +305,9 @@
 * Kept Flutter-native text input refresh deferred while desktop platforms churn
   the text input connection, so typing spaces or characters no longer triggers
   a page SVG refresh while the editor still has focus.
+* Kept delayed desktop `TextInputAction.done` events from releasing the
+  Flutter-native editor's deferred page refresh while the editor still has
+  focus, preventing another per-character refresh path on macOS/Linux/Windows.
 * Cached the rendered SVG page widget inside `RhwpViewer` so native-editor
   overlay updates during typing do not rebuild the SVG picture and appear as a
   page refresh.

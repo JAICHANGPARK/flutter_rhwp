@@ -4068,6 +4068,26 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
   }
 
+  bool get _shouldTreatTextInputActionAsDesktopInputChurn {
+    if (kIsWeb ||
+        !_focusNode.hasFocus ||
+        !_hasDeferredEditRefresh ||
+        !_deferredEditRefreshAwaitsTextInput) {
+      return false;
+    }
+
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.linux:
+      case TargetPlatform.macOS:
+      case TargetPlatform.windows:
+        return true;
+      case TargetPlatform.android:
+      case TargetPlatform.fuchsia:
+      case TargetPlatform.iOS:
+        return false;
+    }
+  }
+
   void _scheduleDeferredEditRefresh({
     bool awaitTextInputBeforeRefresh = false,
   }) {
@@ -4947,7 +4967,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   @override
   void performAction(TextInputAction action) {
     _resetTextInputValue();
-    if (_shouldIgnoreTextInputActionAfterCommit) {
+    if (_shouldIgnoreTextInputActionAfterCommit ||
+        _shouldTreatTextInputActionAsDesktopInputChurn) {
       return;
     }
     _releaseDeferredEditRefreshFromTextInput();

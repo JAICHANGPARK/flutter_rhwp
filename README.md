@@ -227,8 +227,10 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   preserving object resize. Text input, paste, tab input, and keyboard delete
   defer page SVG refresh so normal typing does not reload the rendered page
   after every keystroke. Text-input commits wait for the active input action or
-  connection close before `editRefreshDelay` starts, and rapid input commits are
-  queued while previous edit commands finish. Committed text is shown through a
+  connection close before `editRefreshDelay` starts; on desktop, automatic
+  delayed `TextInputAction.done` events are ignored while the editor still has
+  focus. Rapid input commits are queued while previous edit commands finish.
+  Committed text is shown through a
   temporary Flutter overlay with a pending caret until the refreshed page render
   completes, including table cell text input. Deleted body text is temporarily
   masked until the refreshed page render completes. The example app uses a 1200
