@@ -204,3 +204,5 @@
   focus the Flutter-native search field.
 * Added F3 and Shift+F3 search result navigation shortcuts for the
   Flutter-native editor.
+* Added Ctrl/Cmd+Home and Ctrl/Cmd+End document boundary navigation, including
+  Shift selection extension, using page layer tree source positions.

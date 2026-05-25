@@ -2290,6 +2290,22 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         case LogicalKeyboardKey.keyF:
           _focusSearchField();
           return KeyEventResult.handled;
+        case LogicalKeyboardKey.home:
+          unawaited(
+            _moveCursorToDocumentBoundary(
+              end: false,
+              extendSelection: extendSelection,
+            ),
+          );
+          return KeyEventResult.handled;
+        case LogicalKeyboardKey.end:
+          unawaited(
+            _moveCursorToDocumentBoundary(
+              end: true,
+              extendSelection: extendSelection,
+            ),
+          );
+          return KeyEventResult.handled;
         case LogicalKeyboardKey.keyZ:
           if (HardwareKeyboard.instance.isShiftPressed) {
             _redoEdit();
@@ -2395,6 +2411,74 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         });
       }
     }
+  }
+
+  Future<void> _moveCursorToDocumentBoundary({
+    required bool end,
+    required bool extendSelection,
+  }) async {
+    final current = _controller.selection;
+    try {
+      final boundary = await _documentTextBoundary(end: end);
+      if (!mounted || boundary == null) {
+        return;
+      }
+      _setCursorOrSelection(
+        current,
+        boundary.position,
+        extendSelection: extendSelection,
+      );
+      unawaited(_controller.goToPage(boundary.page));
+      _focusEditor();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    }
+  }
+
+  Future<({RhwpCursorPosition position, int page})?> _documentTextBoundary({
+    required bool end,
+  }) async {
+    final pageCount = await widget.document.pageCount;
+    RhwpCursorPosition? boundary;
+    var boundaryPage = _controller.currentPage;
+
+    for (var page = 0; page < pageCount; page += 1) {
+      final tree = await widget.document.pageLayerTreeModel(page);
+      for (final run in tree.textRuns) {
+        final section = run.section;
+        final paragraph = run.paragraph;
+        if (section == null ||
+            paragraph == null ||
+            run.cellContext != null ||
+            run.text.isEmpty) {
+          continue;
+        }
+
+        final candidate = RhwpCursorPosition(
+          section: section,
+          paragraph: paragraph,
+          offset: end ? run.charEnd : run.charStart,
+        );
+        final shouldReplace =
+            boundary == null ||
+            (end
+                ? candidate.compareTo(boundary) > 0
+                : candidate.compareTo(boundary) < 0);
+        if (shouldReplace) {
+          boundary = candidate;
+          boundaryPage = page;
+        }
+      }
+    }
+
+    if (boundary == null) {
+      return null;
+    }
+    return (position: boundary, page: boundaryPage);
   }
 
   Future<RhwpCursorPosition?> _paragraphEndFor(

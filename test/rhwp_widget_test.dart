@@ -1457,6 +1457,86 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor handles document boundary shortcuts', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 3);
+    session.pageLayerTreeJsonByPage[0] = jsonEncode(
+      _editorLayerTreeJson(
+        firstText: 'abcd',
+        secondText: 'efgh',
+        firstParagraph: 0,
+        secondParagraph: 1,
+      ),
+    );
+    session.pageLayerTreeJsonByPage[2] = jsonEncode(
+      _editorLayerTreeJson(
+        firstText: 'ijkl',
+        secondText: 'mnop',
+        firstParagraph: 4,
+        secondParagraph: 5,
+      ),
+    );
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 3, offset: 2);
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.cursor, const RhwpCursorPosition(paragraph: 0));
+    expect(controller.currentPage, 0);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(
+      controller.cursor,
+      const RhwpCursorPosition(paragraph: 5, offset: 4),
+    );
+    expect(controller.currentPage, 2);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(
+      controller.selection,
+      const RhwpSelectionRange(
+        start: RhwpCursorPosition(paragraph: 5, offset: 4),
+        end: RhwpCursorPosition(paragraph: 0),
+      ),
+    );
+    expect(controller.currentPage, 0);
+    expect(session.commands, isEmpty);
+    expect(session.historyCommands, isEmpty);
+  });
+
   testWidgets('RhwpNativeEditor handles enter and soft line break', (
     tester,
   ) async {
@@ -2724,6 +2804,8 @@ class _MockClipboard {
 Map<String, Object?> _editorLayerTreeJson({
   String firstText = 'abcd',
   String secondText = 'efgh',
+  int firstParagraph = 0,
+  int secondParagraph = 1,
 }) {
   return {
     'pageWidth': 240,
@@ -2743,7 +2825,7 @@ Map<String, Object?> _editorLayerTreeJson({
               'source': {
                 'id': 0,
                 'utf16Range': {'start': 0, 'end': 4},
-                'stableSourceKey': 'section:0/para:0/char:0',
+                'stableSourceKey': 'section:0/para:$firstParagraph/char:0',
               },
               'placement': {
                 'runToPage': {'a': 1, 'b': 0, 'c': 0, 'd': 1, 'e': 80, 'f': 52},
@@ -2769,7 +2851,7 @@ Map<String, Object?> _editorLayerTreeJson({
               'source': {
                 'id': 1,
                 'utf16Range': {'start': 0, 'end': 4},
-                'stableSourceKey': 'section:0/para:1/char:0',
+                'stableSourceKey': 'section:0/para:$secondParagraph/char:0',
               },
               'placement': {
                 'runToPage': {'a': 1, 'b': 0, 'c': 0, 'd': 1, 'e': 80, 'f': 92},
