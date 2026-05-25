@@ -1480,6 +1480,111 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor moves vertically by page geometry', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(
+      _editorLayerTreeJson(firstParagraph: 4, secondParagraph: 1),
+    );
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 4, offset: 2);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await _pumpDocumentFrame(tester);
+
+    expect(
+      controller.cursor,
+      const RhwpCursorPosition(paragraph: 1, offset: 2),
+    );
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 1, offset: 3);
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(
+      controller.selection,
+      const RhwpSelectionRange(
+        start: RhwpCursorPosition(paragraph: 1, offset: 3),
+        end: RhwpCursorPosition(paragraph: 4, offset: 3),
+      ),
+    );
+    expect(session.commands, isEmpty);
+  });
+
+  testWidgets('RhwpNativeEditor moves vertically across page geometry', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 2);
+    session.pageLayerTreeJsonByPage[0] = jsonEncode(
+      _editorLayerTreeJson(firstParagraph: 0, secondParagraph: 1),
+    );
+    session.pageLayerTreeJsonByPage[1] = jsonEncode(
+      _editorLayerTreeJson(firstParagraph: 2, secondParagraph: 3),
+    );
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 1, offset: 2);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await _pumpDocumentFrame(tester);
+
+    expect(
+      controller.cursor,
+      const RhwpCursorPosition(paragraph: 2, offset: 2),
+    );
+    expect(controller.currentPage, 1);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await _pumpDocumentFrame(tester);
+
+    expect(
+      controller.cursor,
+      const RhwpCursorPosition(paragraph: 1, offset: 2),
+    );
+    expect(controller.currentPage, 0);
+  });
+
   testWidgets('RhwpNativeEditor handles document boundary shortcuts', (
     tester,
   ) async {

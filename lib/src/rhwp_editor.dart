@@ -2349,10 +2349,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         _moveCursorHorizontally(1, extendSelection: extendSelection);
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowUp:
-        unawaited(_moveCursorByParagraph(-1, extendSelection: extendSelection));
+        unawaited(_moveCursorVertically(-1, extendSelection: extendSelection));
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowDown:
-        unawaited(_moveCursorByParagraph(1, extendSelection: extendSelection));
+        unawaited(_moveCursorVertically(1, extendSelection: extendSelection));
         return KeyEventResult.handled;
       case LogicalKeyboardKey.home:
         _moveCursorToLineStart(extendSelection: extendSelection);
@@ -2403,7 +2403,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _setCursorOrSelection(current, next, extendSelection: extendSelection);
   }
 
-  Future<void> _moveCursorByParagraph(
+  Future<void> _moveCursorVertically(
     int delta, {
     required bool extendSelection,
   }) async {
@@ -2414,18 +2414,18 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     final current = _controller.selection;
     final cursor = current.end;
     try {
-      final paragraphs = await _bodyParagraphs();
-      final target = _paragraphRelativeTo(paragraphs, cursor, delta);
+      final target =
+          await _verticalTextPositionFrom(cursor, delta) ??
+          await _paragraphPositionRelativeTo(cursor, delta);
       if (!mounted || target == null) {
         return;
       }
 
-      final next = RhwpCursorPosition(
-        section: target.section,
-        paragraph: target.paragraph,
-        offset: math.min(cursor.offset, target.endOffset),
+      _setCursorOrSelection(
+        current,
+        target.position,
+        extendSelection: extendSelection,
       );
-      _setCursorOrSelection(current, next, extendSelection: extendSelection);
       unawaited(_controller.goToPage(target.page));
       _focusEditor();
     } catch (error) {
@@ -2435,6 +2435,138 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         });
       }
     }
+  }
+
+  Future<({RhwpCursorPosition position, int page})?> _verticalTextPositionFrom(
+    RhwpCursorPosition cursor,
+    int delta,
+  ) async {
+    final pageCount = await widget.document.pageCount;
+    ({RhwpLayerTree tree, RhwpTextRunLayout run, int page})? currentRun;
+
+    for (var page = 0; page < pageCount; page += 1) {
+      final tree = await widget.document.pageLayerTreeModel(page);
+      for (final run in _bodyTextRuns(tree)) {
+        if (run.containsPosition(
+          section: cursor.section,
+          paragraph: cursor.paragraph,
+          offset: cursor.offset,
+        )) {
+          currentRun = (tree: tree, run: run, page: page);
+          break;
+        }
+      }
+      if (currentRun != null) {
+        break;
+      }
+    }
+
+    if (currentRun == null) {
+      return null;
+    }
+
+    final currentPoint = currentRun.run.pagePointForOffset(cursor.offset);
+    final currentY = currentRun.run.bounds.center.dy;
+    final samePageTarget = _nearestVerticalRun(
+      currentRun.tree,
+      page: currentRun.page,
+      targetX: currentPoint.dx,
+      direction: delta,
+      currentY: currentY,
+    );
+    if (samePageTarget != null) {
+      return _positionOnRun(samePageTarget, currentPoint.dx);
+    }
+
+    var page = currentRun.page + delta.sign;
+    while (page >= 0 && page < pageCount) {
+      final tree = await widget.document.pageLayerTreeModel(page);
+      final target = _nearestVerticalRun(
+        tree,
+        page: page,
+        targetX: currentPoint.dx,
+        direction: delta,
+      );
+      if (target != null) {
+        return _positionOnRun(target, currentPoint.dx);
+      }
+      page += delta.sign;
+    }
+
+    return null;
+  }
+
+  ({RhwpTextRunLayout run, int page})? _nearestVerticalRun(
+    RhwpLayerTree tree, {
+    required int page,
+    required double targetX,
+    required int direction,
+    double? currentY,
+  }) {
+    ({RhwpTextRunLayout run, int page, double vertical, double horizontal})?
+    best;
+
+    for (final run in _bodyTextRuns(tree)) {
+      final runY = run.bounds.center.dy;
+      final vertical = currentY == null
+          ? (direction > 0 ? runY : -runY)
+          : (runY - currentY) * direction;
+      if (currentY != null && vertical <= 0) {
+        continue;
+      }
+
+      final offset = run.closestOffsetForPoint(Offset(targetX, runY));
+      final horizontal = (run.pagePointForOffset(offset).dx - targetX).abs();
+      final candidate = (
+        run: run,
+        page: page,
+        vertical: vertical,
+        horizontal: horizontal,
+      );
+      if (best == null ||
+          candidate.vertical < best.vertical ||
+          (candidate.vertical == best.vertical &&
+              candidate.horizontal < best.horizontal)) {
+        best = candidate;
+      }
+    }
+
+    if (best == null) {
+      return null;
+    }
+    return (run: best.run, page: best.page);
+  }
+
+  ({RhwpCursorPosition position, int page}) _positionOnRun(
+    ({RhwpTextRunLayout run, int page}) target,
+    double x,
+  ) {
+    final run = target.run;
+    return (
+      position: RhwpCursorPosition(
+        section: run.section!,
+        paragraph: run.paragraph!,
+        offset: run.closestOffsetForPoint(Offset(x, run.bounds.center.dy)),
+      ),
+      page: target.page,
+    );
+  }
+
+  Future<({RhwpCursorPosition position, int page})?>
+  _paragraphPositionRelativeTo(RhwpCursorPosition cursor, int delta) async {
+    final paragraphs = await _bodyParagraphs();
+    final target = _paragraphRelativeTo(paragraphs, cursor, delta);
+    if (target == null) {
+      return null;
+    }
+    return (
+      position: RhwpCursorPosition(
+        section: target.section,
+        paragraph: target.paragraph,
+        offset: math.min(cursor.offset, target.endOffset),
+      ),
+      page: target.page,
+    );
   }
 
   Future<void> _moveCursorToParagraphEnd({
@@ -2616,6 +2748,18 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return left.paragraph.compareTo(right.paragraph);
     });
     return result;
+  }
+
+  Iterable<RhwpTextRunLayout> _bodyTextRuns(RhwpLayerTree tree) sync* {
+    for (final run in tree.textRuns) {
+      if (run.section == null ||
+          run.paragraph == null ||
+          run.cellContext != null ||
+          run.text.isEmpty) {
+        continue;
+      }
+      yield run;
+    }
   }
 
   Future<RhwpCursorPosition?> _paragraphEndFor(
