@@ -855,6 +855,24 @@ void main() {
     expect(tree.tableCellForPoint(const Offset(10, 10)), isNull);
   });
 
+  test('page layer tree model maps table cell text source context', () {
+    final tree = RhwpLayerTree.fromJsonString(
+      0,
+      jsonEncode(_cellTextRunLayerTreeJson()),
+    );
+
+    final hit = tree.textPositionForPoint(const Offset(118, 68));
+
+    expect(hit, isNotNull);
+    expect(hit!.offset, 3);
+    expect(hit.cellContext, isNotNull);
+    expect(hit.cellContext!.parentParagraph, 5);
+    expect(hit.cellContext!.controlIndex, 2);
+    expect(hit.cellContext!.cellIndex, 7);
+    expect(hit.cellContext!.cellParagraph, 0);
+    expect(hit.cellContext!.textDirection, 0);
+  });
+
   test('page layer tree model maps multi-paragraph selection ranges', () {
     final tree = RhwpLayerTree.fromJsonString(
       0,
@@ -966,6 +984,45 @@ Map<String, Object?> _tableCellLayerTreeJson() {
                 'colSpan': 1,
                 'modelCellIndex': 7,
               },
+            },
+          ],
+        },
+      ],
+    },
+  };
+}
+
+Map<String, Object?> _cellTextRunLayerTreeJson() {
+  return {
+    'pageWidth': 240,
+    'pageHeight': 180,
+    'root': {
+      'kind': 'group',
+      'bounds': {'x': 0, 'y': 0, 'width': 240, 'height': 180},
+      'children': [
+        {
+          'kind': 'leaf',
+          'bounds': {'x': 90, 'y': 60, 'width': 80, 'height': 16},
+          'ops': [
+            {
+              'type': 'textRun',
+              'bbox': {'x': 90, 'y': 60, 'width': 80, 'height': 16},
+              'text': 'cell',
+              'source': {
+                'id': 0,
+                'utf16Range': {'start': 0, 'end': 4},
+                'stableSourceKey': 'section:0/para:5/char:0/cell:5:2:7:0:0',
+              },
+              'placement': {
+                'runToPage': {'a': 1, 'b': 0, 'c': 0, 'd': 1, 'e': 90, 'f': 72},
+                'baselineY': 0,
+              },
+              'clusters': [
+                _textCluster(0, 1, 0),
+                _textCluster(1, 2, 10),
+                _textCluster(2, 3, 20),
+                _textCluster(3, 4, 30),
+              ],
             },
           ],
         },

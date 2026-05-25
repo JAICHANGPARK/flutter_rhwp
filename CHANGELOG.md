@@ -159,3 +159,5 @@
   multi-cell overlay highlighting and merge command context updates.
 * Added selected table cell text insert/delete commands through the Rust bridge
   and wired `RhwpNativeEditor` text input to the active cell.
+* Added table cell text source parsing and hit testing so tapping rendered cell
+  text sets the active cell edit offset.

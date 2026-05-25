@@ -345,6 +345,7 @@ class RhwpLayerTree {
           paragraph: paragraph,
           offset: offset,
           run: run,
+          cellContext: run.cellContext,
         );
       }
     }
@@ -361,6 +362,7 @@ class RhwpTextHitResult {
     required this.paragraph,
     required this.offset,
     required this.run,
+    this.cellContext,
   });
 
   /// The document section index.
@@ -374,6 +376,36 @@ class RhwpTextHitResult {
 
   /// The text run that produced the hit.
   final RhwpTextRunLayout run;
+
+  /// Table cell context when the hit belongs to a cell text run.
+  final RhwpCellTextContext? cellContext;
+}
+
+/// Source context for text rendered inside a table cell.
+class RhwpCellTextContext {
+  /// Creates a table cell text context.
+  const RhwpCellTextContext({
+    required this.parentParagraph,
+    required this.controlIndex,
+    required this.cellIndex,
+    required this.cellParagraph,
+    required this.textDirection,
+  });
+
+  /// The parent paragraph containing the table control.
+  final int parentParagraph;
+
+  /// The table control index inside [parentParagraph].
+  final int controlIndex;
+
+  /// The table cell model index.
+  final int cellIndex;
+
+  /// The paragraph index inside the table cell.
+  final int cellParagraph;
+
+  /// The rhwp text direction value for this cell path entry.
+  final int textDirection;
 }
 
 /// A table cell decoded from a rhwp page layer tree.
@@ -488,6 +520,7 @@ class RhwpTextRunLayout {
     this.stableSourceKey,
     this.section,
     this.paragraph,
+    this.cellContext,
     this.transform,
   }) : clusters = List.unmodifiable(clusters);
 
@@ -515,6 +548,9 @@ class RhwpTextRunLayout {
 
   /// The paragraph UTF-16 offset where this run ends.
   final int charEnd;
+
+  /// Table cell source context when this run belongs to a cell.
+  final RhwpCellTextContext? cellContext;
 
   /// Character cluster geometry in run-local coordinates.
   final List<RhwpTextClusterLayout> clusters;
@@ -1055,6 +1091,7 @@ RhwpTextRunLayout? _parseTextRun(
     paragraph: sourcePosition?.paragraph,
     charStart: charStart,
     charEnd: charStart + charLength,
+    cellContext: sourcePosition?.cellContext,
     transform: _parsePlacementTransform(op),
     clusters: _parseTextClusters(op['clusters']),
   );
@@ -1066,7 +1103,7 @@ _StableSourcePosition? _parseStableSourceKey(String? value) {
   }
 
   final match = RegExp(
-    r'^section:(\d+)/para:(\d+)/char:(\d+)',
+    r'^section:(\d+)/para:(\d+)/char:(\d+)(?:/cell:(\d+):(.+))?',
   ).firstMatch(value);
   if (match == null) {
     return null;
@@ -1076,7 +1113,50 @@ _StableSourcePosition? _parseStableSourceKey(String? value) {
     section: int.parse(match.group(1)!),
     paragraph: int.parse(match.group(2)!),
     charStart: int.parse(match.group(3)!),
+    cellContext: _parseCellTextContext(
+      parentParagraph: _parseIntGroup(match, 4),
+      path: match.group(5),
+    ),
   );
+}
+
+RhwpCellTextContext? _parseCellTextContext({
+  required int? parentParagraph,
+  required String? path,
+}) {
+  if (parentParagraph == null || path == null || path.isEmpty) {
+    return null;
+  }
+
+  final firstEntry = path.split('.').first;
+  final parts = firstEntry.split(':');
+  if (parts.length < 4) {
+    return null;
+  }
+
+  final controlIndex = int.tryParse(parts[0]);
+  final cellIndex = int.tryParse(parts[1]);
+  final cellParagraph = int.tryParse(parts[2]);
+  final textDirection = int.tryParse(parts[3]);
+  if (controlIndex == null ||
+      cellIndex == null ||
+      cellParagraph == null ||
+      textDirection == null) {
+    return null;
+  }
+
+  return RhwpCellTextContext(
+    parentParagraph: parentParagraph,
+    controlIndex: controlIndex,
+    cellIndex: cellIndex,
+    cellParagraph: cellParagraph,
+    textDirection: textDirection,
+  );
+}
+
+int? _parseIntGroup(RegExpMatch match, int group) {
+  final value = match.group(group);
+  return value == null ? null : int.tryParse(value);
 }
 
 _TextRange? _parseTextRange(Map<String, Object?>? json) {
@@ -1186,11 +1266,13 @@ class _StableSourcePosition {
     required this.section,
     required this.paragraph,
     required this.charStart,
+    this.cellContext,
   });
 
   final int section;
   final int paragraph;
   final int charStart;
+  final RhwpCellTextContext? cellContext;
 }
 
 class _TextRange {

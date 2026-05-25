@@ -634,6 +634,65 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor taps table cell text to set cell edit offset', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    await tester.tapAt(
+      pageTopLeft +
+          Offset(pageSize.width * 118 / 240, pageSize.height * 76 / 180),
+    );
+    await tester.pump();
+
+    expect(
+      controller.tableCellSelection,
+      const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+        activeOffset: 2,
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField).at(3), 'X');
+    await tester.tap(find.byTooltip('Insert'));
+    await _pumpDocumentFrame(tester);
+
+    expect(jsonDecode(session.commands.single), {
+      'type': 'insertTextInTableCell',
+      'section': 0,
+      'paragraph': 5,
+      'controlIndex': 2,
+      'cellIndex': 7,
+      'cellParagraph': 0,
+      'offset': 2,
+      'text': 'X',
+    });
+  });
+
   testWidgets('RhwpCommandEditor paints caret and selection target overlay', (
     tester,
   ) async {
@@ -1623,6 +1682,7 @@ Map<String, Object?> _tableCellEditorLayerTreeJson() {
                 'colSpan': 1,
                 'modelCellIndex': 7,
               },
+              'children': [_editorCellTextRunLayerNode()],
             },
             {
               'kind': 'group',
@@ -1640,6 +1700,35 @@ Map<String, Object?> _tableCellEditorLayerTreeJson() {
         },
       ],
     },
+  };
+}
+
+Map<String, Object?> _editorCellTextRunLayerNode() {
+  return {
+    'kind': 'leaf',
+    'bounds': {'x': 96, 'y': 73, 'width': 60, 'height': 12},
+    'ops': [
+      {
+        'type': 'textRun',
+        'bbox': {'x': 96, 'y': 73, 'width': 60, 'height': 12},
+        'text': 'cell',
+        'source': {
+          'id': 7,
+          'utf16Range': {'start': 0, 'end': 4},
+          'stableSourceKey': 'section:0/para:5/char:0/cell:5:2:7:0:0',
+        },
+        'placement': {
+          'runToPage': {'a': 1, 'b': 0, 'c': 0, 'd': 1, 'e': 96, 'f': 83},
+          'baselineY': 0,
+        },
+        'clusters': [
+          _editorTextCluster(0, 1, 0),
+          _editorTextCluster(1, 2, 10),
+          _editorTextCluster(2, 3, 20),
+          _editorTextCluster(3, 4, 30),
+        ],
+      },
+    ],
   };
 }
 

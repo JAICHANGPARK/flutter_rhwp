@@ -105,6 +105,7 @@ class RhwpTableCellSelection {
     required this.endColumn,
     this.activeCellIndex,
     this.activeCellParagraph = 0,
+    this.activeOffset = 0,
   });
 
   /// Creates a selection from a decoded page layer tree cell.
@@ -144,6 +145,26 @@ class RhwpTableCellSelection {
     );
   }
 
+  /// Creates a selection from a table cell and text hit inside that cell.
+  factory RhwpTableCellSelection.fromCellTextHit(
+    RhwpTableCellLayout cell,
+    RhwpTextHitResult hit,
+  ) {
+    final context = hit.cellContext;
+    return RhwpTableCellSelection(
+      section: cell.section,
+      paragraph: cell.paragraph,
+      controlIndex: cell.controlIndex,
+      startRow: cell.row,
+      startColumn: cell.column,
+      endRow: cell.endRow,
+      endColumn: cell.endColumn,
+      activeCellIndex: context?.cellIndex ?? cell.modelCellIndex,
+      activeCellParagraph: context?.cellParagraph ?? 0,
+      activeOffset: hit.offset,
+    );
+  }
+
   /// The document section index containing the table.
   final int section;
 
@@ -170,6 +191,9 @@ class RhwpTableCellSelection {
 
   /// The active paragraph index inside [activeCellIndex].
   final int activeCellParagraph;
+
+  /// The active UTF-16 offset inside [activeCellParagraph].
+  final int activeOffset;
 
   /// Whether this selection intersects [cell].
   bool containsCell(RhwpTableCellLayout cell) {
@@ -201,7 +225,8 @@ class RhwpTableCellSelection {
         other.endRow == endRow &&
         other.endColumn == endColumn &&
         other.activeCellIndex == activeCellIndex &&
-        other.activeCellParagraph == activeCellParagraph;
+        other.activeCellParagraph == activeCellParagraph &&
+        other.activeOffset == activeOffset;
   }
 
   @override
@@ -215,11 +240,12 @@ class RhwpTableCellSelection {
     endColumn,
     activeCellIndex,
     activeCellParagraph,
+    activeOffset,
   );
 
   @override
   String toString() {
-    return 'RhwpTableCellSelection(section: $section, paragraph: $paragraph, controlIndex: $controlIndex, startRow: $startRow, startColumn: $startColumn, endRow: $endRow, endColumn: $endColumn, activeCellIndex: $activeCellIndex, activeCellParagraph: $activeCellParagraph)';
+    return 'RhwpTableCellSelection(section: $section, paragraph: $paragraph, controlIndex: $controlIndex, startRow: $startRow, startColumn: $startColumn, endRow: $endRow, endColumn: $endColumn, activeCellIndex: $activeCellIndex, activeCellParagraph: $activeCellParagraph, activeOffset: $activeOffset)';
   }
 }
 
@@ -485,6 +511,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       _tableEndColumnController,
       selection.endColumn.toString(),
     );
+    _setTextIfChanged(_offsetController, selection.activeOffset.toString());
   }
 
   void _setTextIfChanged(TextEditingController controller, String text) {
@@ -586,6 +613,18 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       final nextOffset =
           _readIntResult(result, 'charOffset') ?? offset + text.length;
       _setTextIfChanged(_offsetController, nextOffset.toString());
+      _controller.tableCellSelection = RhwpTableCellSelection(
+        section: tableSelection.section,
+        paragraph: tableSelection.paragraph,
+        controlIndex: tableSelection.controlIndex,
+        startRow: tableSelection.startRow,
+        startColumn: tableSelection.startColumn,
+        endRow: tableSelection.endRow,
+        endColumn: tableSelection.endColumn,
+        activeCellIndex: tableSelection.activeCellIndex,
+        activeCellParagraph: tableSelection.activeCellParagraph,
+        activeOffset: nextOffset,
+      );
       if (clearTextController) {
         _textController.clear();
       }
@@ -959,6 +998,18 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           _readIntResult(result, 'charOffset') ??
           (backward ? deleteOffset : currentOffset);
       _setTextIfChanged(_offsetController, nextOffset.toString());
+      _controller.tableCellSelection = RhwpTableCellSelection(
+        section: tableSelection.section,
+        paragraph: tableSelection.paragraph,
+        controlIndex: tableSelection.controlIndex,
+        startRow: tableSelection.startRow,
+        startColumn: tableSelection.startColumn,
+        endRow: tableSelection.endRow,
+        endColumn: tableSelection.endColumn,
+        activeCellIndex: tableSelection.activeCellIndex,
+        activeCellParagraph: tableSelection.activeCellParagraph,
+        activeOffset: nextOffset,
+      );
     });
   }
 
@@ -1111,7 +1162,6 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
     _controller.clearSelection();
     _syncTableSelectionFields(selection);
-    _setTextIfChanged(_offsetController, '0');
     _controller.tableCellSelection = selection;
   }
 
@@ -1517,9 +1567,15 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
   ) {
     final tableCell = _tableCellForPoint(localPosition, constraints, tree);
     if (tableCell != null) {
+      final textHit = _textHitForPoint(localPosition, constraints, tree);
+      final tableTextHit = textHit?.cellContext == null ? null : textHit;
       _tableDragAnchor = tableCell;
       _dragAnchor = null;
-      widget.onTableCellSelection(RhwpTableCellSelection.fromCell(tableCell));
+      widget.onTableCellSelection(
+        tableTextHit == null
+            ? RhwpTableCellSelection.fromCell(tableCell)
+            : RhwpTableCellSelection.fromCellTextHit(tableCell, tableTextHit),
+      );
       widget.onFocusRequested();
       return;
     }
@@ -1580,20 +1636,13 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     BoxConstraints constraints,
     RhwpLayerTree? tree,
   ) {
-    if (tree != null) {
-      final pagePoint = _pagePointFromOverlayPoint(
-        localPosition,
-        constraints,
-        tree,
+    final hit = _textHitForPoint(localPosition, constraints, tree);
+    if (hit != null) {
+      return RhwpCursorPosition(
+        section: hit.section,
+        paragraph: hit.paragraph,
+        offset: hit.offset,
       );
-      final hit = tree.textPositionForPoint(pagePoint, verticalTolerance: 12);
-      if (hit != null) {
-        return RhwpCursorPosition(
-          section: hit.section,
-          paragraph: hit.paragraph,
-          offset: hit.offset,
-        );
-      }
     }
 
     if (widget.fallbackEnabled) {
@@ -1601,6 +1650,23 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     }
 
     return null;
+  }
+
+  RhwpTextHitResult? _textHitForPoint(
+    Offset localPosition,
+    BoxConstraints constraints,
+    RhwpLayerTree? tree,
+  ) {
+    if (tree == null) {
+      return null;
+    }
+
+    final pagePoint = _pagePointFromOverlayPoint(
+      localPosition,
+      constraints,
+      tree,
+    );
+    return tree.textPositionForPoint(pagePoint, verticalTolerance: 12);
   }
 
   RhwpCursorPosition _fallbackCursorFor(Offset localPosition) {
