@@ -2363,6 +2363,49 @@ void main() {
     );
   });
 
+  testWidgets('RhwpNativeEditor selects a paragraph on triple click', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1)
+      ..pageLayerTreeJson = jsonEncode(
+        _editorLayerTreeJson(firstText: 'hello world'),
+      );
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.cursor = const RhwpCursorPosition(offset: 7);
+    await tester.pump();
+    final paragraphPoint =
+        tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+        const Offset(1, 6);
+
+    await tester.tapAt(paragraphPoint);
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tapAt(paragraphPoint);
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tapAt(paragraphPoint);
+    await _pumpDocumentFrame(tester);
+
+    expect(
+      controller.selection,
+      const RhwpSelectionRange(
+        start: RhwpCursorPosition(offset: 0),
+        end: RhwpCursorPosition(offset: 11),
+      ),
+    );
+  });
+
   testWidgets('RhwpNativeEditor handles keyboard navigation and delete', (
     tester,
   ) async {

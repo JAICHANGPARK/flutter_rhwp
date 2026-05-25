@@ -193,6 +193,8 @@
   render completes, reducing edit-time flicker in the native editor.
 * Added Flutter-native double-click word selection based on page-layer text run
   hit testing.
+* Added Flutter-native triple-click paragraph selection using the same
+  page-layer text source model.
 * Added Arrow and Tab keyboard navigation for selected table cells in the
   Flutter-native editor, including Shift+Arrow range extension.
 * Added Escape handling in the Flutter-native editor to clear composing input,

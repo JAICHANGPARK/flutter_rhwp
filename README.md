@@ -177,7 +177,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
 - `RhwpNativeEditor` is the 100% Flutter widget editor path and currently
   includes an HWP-style Flutter ribbon toolbar, page viewport, page-layer caret
   hit testing, caret/drag-selection overlay, keyboard caret movement including
-  double-click word selection, page-layer geometry based ArrowUp/ArrowDown,
+  double-click word selection, triple-click paragraph selection,
+  page-layer geometry based ArrowUp/ArrowDown,
   PageUp/PageDown, and Home/End,
   plus Ctrl/Cmd+Home/End, Ctrl/Option word navigation, and Ctrl/Option word
   delete, IME

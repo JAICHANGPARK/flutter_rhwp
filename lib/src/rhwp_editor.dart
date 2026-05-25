@@ -2748,6 +2748,23 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _controller.selection = selection;
   }
 
+  Future<void> _selectParagraphFromPage(RhwpCursorPosition cursor) async {
+    if (_busy) {
+      return;
+    }
+
+    final end = await _paragraphEndFor(cursor);
+    if (!mounted || end == null) {
+      return;
+    }
+
+    _controller.selection = RhwpSelectionRange(
+      start: cursor.copyWith(offset: 0),
+      end: end,
+    );
+    _focusEditor();
+  }
+
   void _focusEditor() {
     _focusNode.requestFocus();
     _openTextInput();
@@ -4194,6 +4211,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
                     fallbackEnabled: page == 0,
                     onCursorPosition: _setCursorFromPage,
                     onSelectionRange: _setSelectionFromPage,
+                    onParagraphSelection: _selectParagraphFromPage,
                     onTableCellSelection: _setTableSelectionFromPage,
                     onObjectSelection: _setObjectSelectionFromPage,
                     onObjectBoundsChange: _commitObjectBoundsChange,
@@ -4276,6 +4294,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
     required this.fallbackEnabled,
     required this.onCursorPosition,
     required this.onSelectionRange,
+    required this.onParagraphSelection,
     required this.onTableCellSelection,
     required this.onObjectSelection,
     required this.onObjectBoundsChange,
@@ -4295,6 +4314,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
   final bool fallbackEnabled;
   final ValueChanged<RhwpCursorPosition> onCursorPosition;
   final ValueChanged<RhwpSelectionRange> onSelectionRange;
+  final Future<void> Function(RhwpCursorPosition cursor) onParagraphSelection;
   final ValueChanged<RhwpTableCellSelection?> onTableCellSelection;
   final ValueChanged<RhwpObjectSelection?> onObjectSelection;
   final Future<void> Function(
@@ -4317,6 +4337,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
   _ObjectDragSession? _objectDrag;
   Duration? _lastPrimaryClickTime;
   Offset? _lastPrimaryClickPosition;
+  int _primaryClickCount = 0;
 
   static const _pageInset = 24.0;
   static const _lineHeight = 24.0;
@@ -4462,9 +4483,28 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     widget.onObjectSelection(null);
 
     final textHit = _textHitForPoint(localPosition, constraints, tree);
-    if (_isDoubleClick(event, textHit)) {
+    final clickCount = _recordPrimaryClick(event, textHit);
+    if (clickCount >= 3) {
+      _primaryClickCount = 0;
       _lastPrimaryClickTime = null;
       _lastPrimaryClickPosition = null;
+      if (textHit != null && textHit.cellContext == null) {
+        widget.onFocusRequested();
+        _dragAnchor = null;
+        unawaited(
+          widget.onParagraphSelection(
+            RhwpCursorPosition(
+              section: textHit.section,
+              paragraph: textHit.paragraph,
+              offset: textHit.offset,
+            ),
+          ),
+        );
+        return;
+      }
+    }
+
+    if (clickCount == 2) {
       final wordSelection = _wordSelectionForHit(textHit);
       if (wordSelection != null) {
         widget.onFocusRequested();
@@ -4472,9 +4512,6 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
         widget.onSelectionRange(wordSelection);
         return;
       }
-    } else {
-      _lastPrimaryClickTime = event.timeStamp;
-      _lastPrimaryClickPosition = localPosition;
     }
 
     final cursor = _cursorForTextHitOrPoint(
@@ -4490,19 +4527,25 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     }
   }
 
-  bool _isDoubleClick(PointerDownEvent event, RhwpTextHitResult? hit) {
+  int _recordPrimaryClick(PointerDownEvent event, RhwpTextHitResult? hit) {
     if (hit == null || hit.cellContext != null) {
-      return false;
+      _primaryClickCount = 0;
+      _lastPrimaryClickTime = null;
+      _lastPrimaryClickPosition = null;
+      return 1;
     }
 
     final lastTime = _lastPrimaryClickTime;
     final lastPosition = _lastPrimaryClickPosition;
-    if (lastTime == null || lastPosition == null) {
-      return false;
-    }
-
-    return event.timeStamp - lastTime <= _doubleClickTimeout &&
+    final continuesClickSequence =
+        lastTime != null &&
+        lastPosition != null &&
+        event.timeStamp - lastTime <= _doubleClickTimeout &&
         (event.localPosition - lastPosition).distance <= _doubleClickDistance;
+    _primaryClickCount = continuesClickSequence ? _primaryClickCount + 1 : 1;
+    _lastPrimaryClickTime = event.timeStamp;
+    _lastPrimaryClickPosition = event.localPosition;
+    return _primaryClickCount;
   }
 
   RhwpSelectionRange? _wordSelectionForHit(RhwpTextHitResult? hit) {
