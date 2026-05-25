@@ -241,6 +241,13 @@ abstract class RhwpCommand {
     required int column,
   }) = RhwpSplitTableCellCommand;
 
+  factory RhwpCommand.deleteObjectControl({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required String objectType,
+  }) = RhwpDeleteObjectControlCommand;
+
   factory RhwpCommand.applyCharFormat({
     required int section,
     required int paragraph,
@@ -647,6 +654,29 @@ class RhwpSplitTableCellCommand extends RhwpCommand {
     'controlIndex': controlIndex,
     'row': row,
     'column': column,
+  };
+}
+
+class RhwpDeleteObjectControlCommand extends RhwpCommand {
+  const RhwpDeleteObjectControlCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.objectType,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final String objectType;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'deleteObjectControl',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'objectType': objectType,
   };
 }
 
@@ -1267,6 +1297,22 @@ class RhwpDocument {
         controlIndex: controlIndex,
         row: row,
         column: column,
+      ),
+    );
+  }
+
+  Future<String> deleteObjectControl({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required String objectType,
+  }) {
+    return apply(
+      RhwpCommand.deleteObjectControl(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        objectType: objectType,
       ),
     );
   }

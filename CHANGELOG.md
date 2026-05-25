@@ -177,6 +177,9 @@
   text sets the active cell edit offset.
 * Added page-layer object/control hit testing and Flutter overlay highlighting
   for selected bounded objects in `RhwpNativeEditor`.
+* Added a `deleteObjectControl` Dart/Rust command and wired selected object
+  deletion through `RhwpNativeEditor` Delete/Backspace handling and context
+  menu actions.
 * Added Arrow and Tab keyboard navigation for selected table cells in the
   Flutter-native editor, including Shift+Arrow range extension.
 * Added Escape handling in the Flutter-native editor to clear composing input,

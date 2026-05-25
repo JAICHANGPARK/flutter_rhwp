@@ -1462,6 +1462,103 @@ void main() {
     expect(session.commands, isEmpty);
   });
 
+  testWidgets('RhwpNativeEditor deletes selected object controls', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_objectEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    await tester.tapAt(
+      pageTopLeft +
+          Offset(pageSize.width * 150 / 240, pageSize.height * 85 / 180),
+    );
+    await tester.pump();
+    expect(controller.objectSelection, isNotNull);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.objectSelection, isNull);
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.single), {
+      'type': 'deleteObjectControl',
+      'section': 0,
+      'paragraph': 2,
+      'controlIndex': 1,
+      'objectType': 'shape',
+    });
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-object-selection')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('RhwpNativeEditor context menu deletes selected objects', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_objectEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    final objectPoint =
+        pageTopLeft +
+        Offset(pageSize.width * 150 / 240, pageSize.height * 85 / 180);
+
+    await tester.tapAt(objectPoint, buttons: kSecondaryMouseButton);
+    await tester.pumpAndSettle();
+
+    expect(controller.objectSelection, isNotNull);
+    expect(find.text('개체 삭제'), findsOneWidget);
+
+    await tester.tap(find.text('개체 삭제'));
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.objectSelection, isNull);
+    expect(jsonDecode(session.commands.single), {
+      'type': 'deleteObjectControl',
+      'section': 0,
+      'paragraph': 2,
+      'controlIndex': 1,
+      'objectType': 'shape',
+    });
+  });
+
   testWidgets('RhwpNativeEditor context menu copies selected text', (
     tester,
   ) async {

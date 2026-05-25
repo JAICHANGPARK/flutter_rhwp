@@ -400,6 +400,18 @@ impl RhwpSession {
                     )
                     .map_err(error_to_string)
             }
+            RhwpCommand::DeleteObjectControl {
+                section,
+                paragraph,
+                control_index,
+                object_type,
+            } => delete_object_control(
+                &mut inner.document,
+                section as usize,
+                paragraph as usize,
+                control_index as usize,
+                &object_type,
+            ),
             RhwpCommand::ApplyCharFormat {
                 section,
                 paragraph,
@@ -663,6 +675,14 @@ enum RhwpCommand {
         row: u32,
         column: u32,
     },
+    DeleteObjectControl {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "objectType")]
+        object_type: String,
+    },
     ApplyCharFormat {
         section: u32,
         paragraph: u32,
@@ -716,6 +736,80 @@ enum RhwpCommand {
     SetFileName {
         name: String,
     },
+}
+
+fn delete_object_control(
+    document: &mut HwpDocument,
+    section: usize,
+    paragraph: usize,
+    control_index: usize,
+    object_type: &str,
+) -> Result<String, String> {
+    let kind = object_type.to_ascii_lowercase();
+    if matches!(kind.as_str(), "picture" | "image" | "img") {
+        let picture_error =
+            match document.delete_picture_control_native(section, paragraph, control_index) {
+                Ok(result) => return Ok(result),
+                Err(error) => error_to_string(error),
+            };
+        return document
+            .delete_shape_control_native(section, paragraph, control_index)
+            .map_err(|error| {
+                format!(
+                    "unsupported picture-like object control at section {section}, paragraph {paragraph}, control {control_index}; picture: {picture_error}; shape: {}",
+                    error_to_string(error)
+                )
+            });
+    }
+
+    if matches!(kind.as_str(), "equation" | "formula") {
+        return document
+            .delete_equation_control_native(section, paragraph, control_index)
+            .map_err(error_to_string);
+    }
+
+    if matches!(
+        kind.as_str(),
+        "shape"
+            | "textbox"
+            | "text_box"
+            | "text box"
+            | "rect"
+            | "rectangle"
+            | "ellipse"
+            | "line"
+            | "polygon"
+            | "path"
+            | "curve"
+            | "arc"
+            | "group"
+            | "ole"
+            | "chart"
+    ) {
+        return document
+            .delete_shape_control_native(section, paragraph, control_index)
+            .map_err(error_to_string);
+    }
+
+    let shape_error = match document.delete_shape_control_native(section, paragraph, control_index)
+    {
+        Ok(result) => return Ok(result),
+        Err(error) => error_to_string(error),
+    };
+    let picture_error =
+        match document.delete_picture_control_native(section, paragraph, control_index) {
+            Ok(result) => return Ok(result),
+            Err(error) => error_to_string(error),
+        };
+    let equation_error =
+        match document.delete_equation_control_native(section, paragraph, control_index) {
+            Ok(result) => return Ok(result),
+            Err(error) => error_to_string(error),
+        };
+
+    Err(format!(
+        "unsupported object control type '{object_type}' at section {section}, paragraph {paragraph}, control {control_index}; shape: {shape_error}; picture: {picture_error}; equation: {equation_error}"
+    ))
 }
 
 fn selected_pages(page_count: u32, page: Option<u32>) -> Result<Vec<u32>, String> {
@@ -1321,6 +1415,14 @@ mod tests {
                 ),
             )
             .expect("delete table column command should be accepted");
+        let missing_object_result = session.apply_command(
+            r#"{"type":"deleteObjectControl","section":0,"paragraph":0,"controlIndex":99,"objectType":"shape"}"#
+                .to_string(),
+        );
+        assert!(
+            missing_object_result.is_err(),
+            "delete object command should route through the Rust facade"
+        );
 
         let hwp = session.export_hwp().expect("HWP export should succeed");
         assert!(!hwp.is_empty());

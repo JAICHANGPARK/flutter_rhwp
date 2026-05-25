@@ -241,6 +241,23 @@ void main() {
     );
   });
 
+  test('object control commands serialize to Rust envelopes', () {
+    final command = RhwpCommand.deleteObjectControl(
+      section: 0,
+      paragraph: 2,
+      controlIndex: 4,
+      objectType: 'shape',
+    );
+
+    expect(jsonDecode(jsonEncode(command.toJson())), {
+      'type': 'deleteObjectControl',
+      'section': 0,
+      'paragraph': 2,
+      'controlIndex': 4,
+      'objectType': 'shape',
+    });
+  });
+
   test('delete range command serializes to the Rust command envelope', () {
     final command = RhwpCommand.deleteRange(
       section: 0,
@@ -779,6 +796,21 @@ void main() {
       'controlIndex': 0,
       'row': 0,
       'column': 0,
+    });
+
+    await document.deleteObjectControl(
+      section: 0,
+      paragraph: 2,
+      controlIndex: 1,
+      objectType: 'shape',
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'deleteObjectControl',
+      'section': 0,
+      'paragraph': 2,
+      'controlIndex': 1,
+      'objectType': 'shape',
     });
 
     expect(await document.saveSnapshot(), 1);

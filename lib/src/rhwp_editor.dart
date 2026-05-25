@@ -367,6 +367,7 @@ enum _EditorContextMenuAction {
   insertTableColumn,
   mergeCells,
   splitCell,
+  deleteObject,
 }
 
 enum _TableCellNavigationDirection { left, right, up, down }
@@ -709,7 +710,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   void _handleControllerChanged() {
     final tableSelection = _controller.tableCellSelection;
     if (tableSelection == null) {
-      _syncCursorFields();
+      final objectSelection = _controller.objectSelection;
+      if (objectSelection == null) {
+        _syncCursorFields();
+      } else {
+        _syncObjectSelectionFields(objectSelection);
+      }
     } else {
       _syncTableSelectionFields(tableSelection);
     }
@@ -743,6 +749,24 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       selection.endColumn.toString(),
     );
     _setTextIfChanged(_offsetController, selection.activeOffset.toString());
+  }
+
+  void _syncObjectSelectionFields(RhwpObjectSelection selection) {
+    final section = selection.section;
+    if (section != null) {
+      _setTextIfChanged(_sectionController, section.toString());
+    }
+
+    final paragraph = selection.paragraph;
+    if (paragraph != null) {
+      _setTextIfChanged(_paragraphController, paragraph.toString());
+      _setTextIfChanged(_tableParagraphController, paragraph.toString());
+    }
+
+    final controlIndex = selection.controlIndex;
+    if (controlIndex != null) {
+      _setTextIfChanged(_tableControlController, controlIndex.toString());
+    }
   }
 
   void _setTextIfChanged(TextEditingController controller, String text) {
@@ -1063,6 +1087,39 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
   Future<void> _insertLineBreak() async {
     await _insertCommittedText('\n');
+  }
+
+  Future<void> _deleteSelectedObject() async {
+    final selection = _controller.objectSelection;
+    if (selection == null || _busy) {
+      return;
+    }
+
+    final section = selection.section;
+    final paragraph = selection.paragraph;
+    final controlIndex = selection.controlIndex;
+    if (section == null || paragraph == null || controlIndex == null) {
+      setState(() {
+        _error =
+            'Selected object is missing section, paragraph, or control index.';
+      });
+      return;
+    }
+
+    await _runEdit(() async {
+      await widget.document.deleteObjectControl(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        objectType: selection.type,
+      );
+      _controller.clearObjectSelection();
+      _controller.cursor = RhwpCursorPosition(
+        section: section,
+        paragraph: paragraph,
+        offset: _controller.cursor.offset,
+      );
+    });
   }
 
   Future<void> _splitParagraph() async {
@@ -1710,6 +1767,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
+    if (_controller.objectSelection != null) {
+      await _deleteSelectedObject();
+      return;
+    }
+
     await _runEdit(() async {
       if (await _deleteSelectedText(_controller.selection)) {
         return;
@@ -1734,6 +1796,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
+    if (_controller.objectSelection != null) {
+      await _deleteSelectedObject();
+      return;
+    }
+
     await _runEdit(() async {
       if (await _deleteSelectedText(_controller.selection)) {
         return;
@@ -1752,6 +1819,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   Future<void> _deleteWord({required bool backward}) async {
     if (_editableTableCellSelection != null) {
       await _deleteTextInSelectedTableCell(backward: backward);
+      return;
+    }
+
+    if (_controller.objectSelection != null) {
+      await _deleteSelectedObject();
       return;
     }
 
@@ -2512,12 +2584,33 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         await _mergeTableCells();
       case _EditorContextMenuAction.splitCell:
         await _splitTableCell();
+      case _EditorContextMenuAction.deleteObject:
+        await _deleteSelectedObject();
     }
   }
 
   List<PopupMenuEntry<_EditorContextMenuAction>> _contextMenuItems() {
     final hasSelection = !_controller.selection.isCollapsed;
     final hasTableSelection = _controller.tableCellSelection != null;
+    final hasObjectSelection = _controller.objectSelection != null;
+
+    if (hasObjectSelection) {
+      return [
+        _contextMenuItem(
+          action: _EditorContextMenuAction.selectAll,
+          icon: Icons.select_all,
+          label: '모두 선택',
+          enabled: !_busy,
+        ),
+        const PopupMenuDivider(),
+        _contextMenuItem(
+          action: _EditorContextMenuAction.deleteObject,
+          icon: Icons.delete_outline,
+          label: '개체 삭제',
+          enabled: !_busy,
+        ),
+      ];
+    }
 
     if (hasTableSelection) {
       return [
@@ -3739,6 +3832,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           searchFocusNode: _searchFocusNode,
           replaceController: _replaceController,
           tableCellSelection: _controller.tableCellSelection,
+          objectSelection: _controller.objectSelection,
           currentPage: _controller.currentPage,
           pageCount: _pageCountValue,
           zoom: _controller.zoom,
@@ -3759,6 +3853,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onDeleteTableColumn: _deleteTableColumn,
           onMergeTableCells: _mergeTableCells,
           onSplitTableCell: _splitTableCell,
+          onDeleteObject: _deleteSelectedObject,
           onCut: _cutSelection,
           onCopy: _copySelection,
           onPaste: _pasteClipboard,
@@ -4558,6 +4653,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.searchFocusNode,
     required this.replaceController,
     required this.tableCellSelection,
+    required this.objectSelection,
     required this.currentPage,
     required this.pageCount,
     required this.zoom,
@@ -4578,6 +4674,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onDeleteTableColumn,
     required this.onMergeTableCells,
     required this.onSplitTableCell,
+    required this.onDeleteObject,
     required this.onCut,
     required this.onCopy,
     required this.onPaste,
@@ -4629,6 +4726,7 @@ class _EditorToolbar extends StatefulWidget {
   final FocusNode searchFocusNode;
   final TextEditingController replaceController;
   final RhwpTableCellSelection? tableCellSelection;
+  final RhwpObjectSelection? objectSelection;
   final int currentPage;
   final int? pageCount;
   final double zoom;
@@ -4649,6 +4747,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onDeleteTableColumn;
   final VoidCallback onMergeTableCells;
   final VoidCallback onSplitTableCell;
+  final VoidCallback onDeleteObject;
   final VoidCallback onCut;
   final VoidCallback onCopy;
   final VoidCallback onPaste;
@@ -4703,6 +4802,9 @@ class _EditorToolbarState extends State<_EditorToolbar> {
     if (oldWidget.tableCellSelection == null &&
         widget.tableCellSelection != null) {
       _activeTab = _EditorTab.table;
+    } else if (oldWidget.objectSelection == null &&
+        widget.objectSelection != null) {
+      _activeTab = _EditorTab.edit;
     }
   }
 
@@ -4879,6 +4981,14 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               tooltip: 'Delete backward',
               icon: Icons.backspace_outlined,
               onPressed: widget.busy ? null : widget.onDeleteBackward,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Delete selected object',
+              buttonKey: const ValueKey('rhwp-editor-delete-object'),
+              icon: Icons.delete_outline,
+              onPressed: widget.busy || widget.objectSelection == null
+                  ? null
+                  : widget.onDeleteObject,
             ),
           ],
         ),
