@@ -239,6 +239,9 @@
 * Added a Flutter-native paragraph mark view toggle that paints paragraph-end
   markers from page layer tree text runs without changing rendered document
   output.
+* Added a Flutter-native compare dialog in the tools ribbon that uses
+  `extractText` and shows same/changed/added/removed line counts without
+  editing the document.
 * Added Flutter-native double-click word selection based on page-layer text run
   hit testing.
 * Added Flutter-native triple-click paragraph selection using the same

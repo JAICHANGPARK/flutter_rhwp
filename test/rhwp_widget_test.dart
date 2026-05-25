@@ -5550,6 +5550,73 @@ void main() {
     );
   });
 
+  testWidgets('RhwpNativeEditor tools ribbon compares extracted text', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.extractedText = 'alpha\nbeta\ngamma';
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('도구'));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-compare')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-compare')));
+    await tester.pump();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-compare-target-field')),
+      'alpha\nBETTA\ngamma\ndelta',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-compare-run')));
+    await tester.pump();
+
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('rhwp-compare-same-count')))
+          .data,
+      '2',
+    );
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('rhwp-compare-changed-count')),
+          )
+          .data,
+      '1',
+    );
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('rhwp-compare-added-count')))
+          .data,
+      '1',
+    );
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('rhwp-compare-removed-count')),
+          )
+          .data,
+      '0',
+    );
+    expect(find.text('beta  ->  BETTA'), findsOneWidget);
+    expect(session.commands, isEmpty);
+  });
+
   testWidgets('RhwpNativeEditor commits text input after IME composition', (
     tester,
   ) async {
@@ -6525,6 +6592,7 @@ class _FakeRhwpSession implements rust.RhwpSession {
   int exportHwpxCalls = 0;
   int exportPdfCalls = 0;
   int nextSnapshotId = 1;
+  String extractedText = 'alpha\nbeta';
   String pageLayerTreeJson = jsonEncode(_editorLayerTreeJson());
   final pageLayerTreeJsonByPage = <int, String>{};
   bool _disposed = false;
@@ -6585,6 +6653,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
       rawJson: '{"pageCount":$pageCountValue}',
     );
   }
+
+  @override
+  Future<String> extractText({int? page}) async => extractedText;
 
   @override
   Future<Uint8List> exportHwp() async {

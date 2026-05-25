@@ -1425,6 +1425,45 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _focusEditor();
   }
 
+  Future<void> _showCompareDialog() async {
+    if (_busy) {
+      return;
+    }
+
+    String? sourceText;
+    setState(() {
+      _busy = true;
+      _visibleBusy = true;
+      _error = null;
+    });
+    try {
+      sourceText = await widget.document.extractText();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _visibleBusy = false;
+        });
+      }
+    }
+
+    if (!mounted || sourceText == null) {
+      return;
+    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) => _CompareDialog(sourceText: sourceText!),
+    );
+    _focusEditor();
+  }
+
   Future<void> _insertCommittedText(
     String text, {
     bool awaitTextInputBeforeRefresh = false,
@@ -6141,6 +6180,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onClearSearch: _clearSearch,
           onReplace: _replaceActiveSearchMatch,
           onReplaceAll: _replaceAllSearchMatches,
+          onCompare: _showCompareDialog,
           onPageSetup: _showPageSetupDialog,
           onCreateHeader: () => _createHeaderFooter(isHeader: true),
           onCreateFooter: () => _createHeaderFooter(isHeader: false),
@@ -7899,6 +7939,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onClearSearch,
     required this.onReplace,
     required this.onReplaceAll,
+    required this.onCompare,
     required this.onPageSetup,
     required this.onCreateHeader,
     required this.onCreateFooter,
@@ -7996,6 +8037,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onClearSearch;
   final VoidCallback onReplace;
   final VoidCallback onReplaceAll;
+  final VoidCallback onCompare;
   final VoidCallback onPageSetup;
   final VoidCallback onCreateHeader;
   final VoidCallback onCreateFooter;
@@ -8943,8 +8985,9 @@ class _EditorToolbarState extends State<_EditorToolbar> {
           children: [
             _ToolbarIconButton(
               tooltip: 'Compare',
+              buttonKey: const ValueKey('rhwp-editor-compare'),
               icon: Icons.difference_outlined,
-              onPressed: null,
+              onPressed: widget.busy ? null : widget.onCompare,
             ),
           ],
         ),
@@ -9087,6 +9130,295 @@ class _InfoRow extends StatelessWidget {
       ),
     );
   }
+}
+
+class _CompareDialog extends StatefulWidget {
+  const _CompareDialog({required this.sourceText});
+
+  final String sourceText;
+
+  @override
+  State<_CompareDialog> createState() => _CompareDialogState();
+}
+
+class _CompareDialogState extends State<_CompareDialog> {
+  final _targetController = TextEditingController();
+  _CompareSummary? _summary;
+
+  @override
+  void dispose() {
+    _targetController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = _summary;
+    return AlertDialog(
+      title: const Text('Compare'),
+      content: SizedBox(
+        width: 620,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              key: const ValueKey('rhwp-compare-target-field'),
+              controller: _targetController,
+              minLines: 6,
+              maxLines: 10,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                labelText: 'Comparison text',
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (summary != null) _CompareSummaryView(summary: summary),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+        FilledButton.icon(
+          key: const ValueKey('rhwp-compare-run'),
+          onPressed: _runCompare,
+          icon: const Icon(Icons.difference_outlined),
+          label: const Text('Compare'),
+        ),
+      ],
+    );
+  }
+
+  void _runCompare() {
+    setState(() {
+      _summary = _CompareSummary.fromTexts(
+        widget.sourceText,
+        _targetController.text,
+      );
+    });
+  }
+}
+
+class _CompareSummaryView extends StatelessWidget {
+  const _CompareSummaryView({required this.summary});
+
+  final _CompareSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _CompareMetric(
+              label: 'Same',
+              value: summary.same,
+              valueKey: const ValueKey('rhwp-compare-same-count'),
+            ),
+            _CompareMetric(
+              label: 'Changed',
+              value: summary.changed,
+              valueKey: const ValueKey('rhwp-compare-changed-count'),
+            ),
+            _CompareMetric(
+              label: 'Added',
+              value: summary.added,
+              valueKey: const ValueKey('rhwp-compare-added-count'),
+            ),
+            _CompareMetric(
+              label: 'Removed',
+              value: summary.removed,
+              valueKey: const ValueKey('rhwp-compare-removed-count'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          constraints: const BoxConstraints(maxHeight: 220),
+          decoration: BoxDecoration(
+            border: Border.all(color: Theme.of(context).dividerColor),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: summary.preview.length,
+            itemBuilder: (context, index) {
+              return _ComparePreviewTile(line: summary.preview[index]);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CompareMetric extends StatelessWidget {
+  const _CompareMetric({
+    required this.label,
+    required this.value,
+    required this.valueKey,
+  });
+
+  final String label;
+  final int value;
+  final Key valueKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 116,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.all(color: Theme.of(context).dividerColor),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label, style: Theme.of(context).textTheme.labelMedium),
+              const SizedBox(height: 2),
+              Text(
+                value.toString(),
+                key: valueKey,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ComparePreviewTile extends StatelessWidget {
+  const _ComparePreviewTile({required this.line});
+
+  final _ComparePreviewLine line;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = switch (line.type) {
+      _CompareLineType.same => colorScheme.surface,
+      _CompareLineType.changed => colorScheme.tertiaryContainer,
+      _CompareLineType.added => colorScheme.primaryContainer,
+      _CompareLineType.removed => colorScheme.errorContainer,
+    };
+    final icon = switch (line.type) {
+      _CompareLineType.same => Icons.check,
+      _CompareLineType.changed => Icons.compare_arrows,
+      _CompareLineType.added => Icons.add,
+      _CompareLineType.removed => Icons.remove,
+    };
+    return ColoredBox(
+      color: color.withValues(alpha: 0.42),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 16),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                line.text.isEmpty ? ' ' : line.text,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CompareSummary {
+  const _CompareSummary({
+    required this.same,
+    required this.changed,
+    required this.added,
+    required this.removed,
+    required this.preview,
+  });
+
+  factory _CompareSummary.fromTexts(String source, String target) {
+    final sourceLines = _splitCompareLines(source);
+    final targetLines = _splitCompareLines(target);
+    final preview = <_ComparePreviewLine>[];
+    var same = 0;
+    var changed = 0;
+    var added = 0;
+    var removed = 0;
+    final maxLength = math.max(sourceLines.length, targetLines.length);
+
+    for (var index = 0; index < maxLength; index += 1) {
+      final sourceLine = index < sourceLines.length ? sourceLines[index] : null;
+      final targetLine = index < targetLines.length ? targetLines[index] : null;
+      if (sourceLine == targetLine) {
+        same += 1;
+        preview.add(
+          _ComparePreviewLine(_CompareLineType.same, sourceLine ?? ''),
+        );
+      } else if (sourceLine == null) {
+        added += 1;
+        preview.add(
+          _ComparePreviewLine(_CompareLineType.added, targetLine ?? ''),
+        );
+      } else if (targetLine == null) {
+        removed += 1;
+        preview.add(_ComparePreviewLine(_CompareLineType.removed, sourceLine));
+      } else {
+        changed += 1;
+        preview.add(
+          _ComparePreviewLine(
+            _CompareLineType.changed,
+            '$sourceLine  ->  $targetLine',
+          ),
+        );
+      }
+    }
+
+    return _CompareSummary(
+      same: same,
+      changed: changed,
+      added: added,
+      removed: removed,
+      preview: List.unmodifiable(preview.take(80)),
+    );
+  }
+
+  final int same;
+  final int changed;
+  final int added;
+  final int removed;
+  final List<_ComparePreviewLine> preview;
+}
+
+class _ComparePreviewLine {
+  const _ComparePreviewLine(this.type, this.text);
+
+  final _CompareLineType type;
+  final String text;
+}
+
+enum _CompareLineType { same, changed, added, removed }
+
+List<String> _splitCompareLines(String source) {
+  final normalized = source.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  if (normalized.isEmpty) {
+    return const [];
+  }
+  return normalized.split('\n');
 }
 
 class _CharShapeDialog extends StatefulWidget {
