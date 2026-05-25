@@ -709,6 +709,64 @@ class _PendingDeletionOverlay {
   final RhwpSelectionRange range;
 }
 
+class _TableCellTextSegment {
+  const _TableCellTextSegment({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+    required this.cellParagraph,
+    required this.row,
+    required this.column,
+    required this.startOffset,
+    required this.endOffset,
+    required this.text,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+  final int cellParagraph;
+  final int row;
+  final int column;
+  final int startOffset;
+  final int endOffset;
+  final String text;
+}
+
+class _TableCellDeleteRange {
+  const _TableCellDeleteRange({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+    required this.cellParagraph,
+    required this.startOffset,
+    required this.endOffset,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+  final int cellParagraph;
+  final int startOffset;
+  final int endOffset;
+
+  _TableCellDeleteRange expandTo(_TableCellTextSegment segment) {
+    return _TableCellDeleteRange(
+      section: section,
+      paragraph: paragraph,
+      controlIndex: controlIndex,
+      cellIndex: cellIndex,
+      cellParagraph: cellParagraph,
+      startOffset: math.min(startOffset, segment.startOffset),
+      endOffset: math.max(endOffset, segment.endOffset),
+    );
+  }
+}
+
 class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   late final RhwpEditorController _controller;
   late final bool _ownsController;
@@ -1102,6 +1160,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   }
 
   Future<void> _copySelection() async {
+    final tableText = await _selectedTableCellText();
+    if (tableText != null && tableText.isNotEmpty) {
+      await Clipboard.setData(ClipboardData(text: tableText));
+      return;
+    }
+
     final text = await _selectedText();
     if (text == null || text.isEmpty) {
       return;
@@ -1110,6 +1174,17 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   }
 
   Future<void> _cutSelection() async {
+    final tableSelection = _controller.tableCellSelection;
+    final tableText = await _selectedTableCellText();
+    if (tableSelection != null && tableText != null && tableText.isNotEmpty) {
+      if (_busy) {
+        return;
+      }
+      await Clipboard.setData(ClipboardData(text: tableText));
+      await _deleteSelectedTableCellText(tableSelection);
+      return;
+    }
+
     final text = await _selectedText();
     if (text == null || text.isEmpty || _busy) {
       return;
@@ -2091,6 +2166,193 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return null;
     }
     return parts.join('\n');
+  }
+
+  Future<String?> _selectedTableCellText() async {
+    final selection = _controller.tableCellSelection;
+    if (selection == null) {
+      return null;
+    }
+
+    final allCells = await _tableCellsForSelection(selection);
+    final cells = [
+      for (final entry in allCells)
+        if (selection.containsCell(entry.cell)) entry.cell,
+    ];
+    if (cells.isEmpty) {
+      return null;
+    }
+
+    final segments = await _tableCellTextSegments(selection);
+    final buffer = StringBuffer();
+    int? previousRow;
+    var needsCellSeparator = false;
+
+    for (final cell in cells) {
+      if (previousRow != null && cell.row != previousRow) {
+        buffer.write('\n');
+        needsCellSeparator = false;
+      }
+      if (needsCellSeparator) {
+        buffer.write('\t');
+      }
+      buffer.write(_tableCellTextFromSegments(cell, segments));
+      previousRow = cell.row;
+      needsCellSeparator = true;
+    }
+
+    return buffer.toString();
+  }
+
+  Future<List<_TableCellTextSegment>> _tableCellTextSegments(
+    RhwpTableCellSelection selection,
+  ) async {
+    final pageCount = await widget.document.pageCount;
+    final segments = <_TableCellTextSegment>[];
+
+    for (var page = 0; page < pageCount; page += 1) {
+      final tree = await widget.document.pageLayerTreeModel(page);
+      for (final cell in tree.tableCells) {
+        final cellIndex = cell.modelCellIndex;
+        if (cellIndex == null || !selection.containsCell(cell)) {
+          continue;
+        }
+
+        for (final run in tree.textRuns) {
+          final context = run.cellContext;
+          final section = run.section;
+          final paragraph = run.paragraph;
+          if (context == null ||
+              section == null ||
+              paragraph == null ||
+              section != cell.section ||
+              paragraph != cell.paragraph ||
+              context.parentParagraph != cell.paragraph ||
+              context.controlIndex != cell.controlIndex ||
+              context.cellIndex != cellIndex) {
+            continue;
+          }
+
+          segments.add(
+            _TableCellTextSegment(
+              section: section,
+              paragraph: paragraph,
+              controlIndex: context.controlIndex,
+              cellIndex: context.cellIndex,
+              cellParagraph: context.cellParagraph,
+              row: cell.row,
+              column: cell.column,
+              startOffset: run.charStart,
+              endOffset: run.charEnd,
+              text: run.text,
+            ),
+          );
+        }
+      }
+    }
+
+    segments.sort((left, right) {
+      final row = left.row.compareTo(right.row);
+      if (row != 0) {
+        return row;
+      }
+      final column = left.column.compareTo(right.column);
+      if (column != 0) {
+        return column;
+      }
+      final paragraph = left.cellParagraph.compareTo(right.cellParagraph);
+      if (paragraph != 0) {
+        return paragraph;
+      }
+      return left.startOffset.compareTo(right.startOffset);
+    });
+    return segments;
+  }
+
+  String _tableCellTextFromSegments(
+    RhwpTableCellLayout cell,
+    List<_TableCellTextSegment> segments,
+  ) {
+    final cellIndex = cell.modelCellIndex;
+    if (cellIndex == null) {
+      return '';
+    }
+
+    final buffer = StringBuffer();
+    int? previousParagraph;
+    for (final segment in segments) {
+      if (segment.cellIndex != cellIndex) {
+        continue;
+      }
+      if (previousParagraph != null &&
+          segment.cellParagraph != previousParagraph) {
+        buffer.write('\n');
+      }
+      buffer.write(segment.text);
+      previousParagraph = segment.cellParagraph;
+    }
+    return buffer.toString();
+  }
+
+  Future<void> _deleteSelectedTableCellText(
+    RhwpTableCellSelection selection,
+  ) async {
+    final segments = await _tableCellTextSegments(selection);
+    if (segments.isEmpty) {
+      return;
+    }
+
+    final ranges = <String, _TableCellDeleteRange>{};
+    for (final segment in segments) {
+      if (segment.startOffset >= segment.endOffset) {
+        continue;
+      }
+      final key =
+          '${segment.section}/${segment.paragraph}/${segment.controlIndex}/${segment.cellIndex}/${segment.cellParagraph}';
+      final existing = ranges[key];
+      ranges[key] = existing == null
+          ? _TableCellDeleteRange(
+              section: segment.section,
+              paragraph: segment.paragraph,
+              controlIndex: segment.controlIndex,
+              cellIndex: segment.cellIndex,
+              cellParagraph: segment.cellParagraph,
+              startOffset: segment.startOffset,
+              endOffset: segment.endOffset,
+            )
+          : existing.expandTo(segment);
+    }
+
+    if (ranges.isEmpty) {
+      return;
+    }
+
+    await _runEdit(() async {
+      for (final range in ranges.values) {
+        await widget.document.deleteTextInTableCell(
+          section: range.section,
+          paragraph: range.paragraph,
+          controlIndex: range.controlIndex,
+          cellIndex: range.cellIndex,
+          cellParagraph: range.cellParagraph,
+          offset: range.startOffset,
+          count: range.endOffset - range.startOffset,
+        );
+      }
+      _syncTableSelectionFields(
+        RhwpTableCellSelection(
+          section: selection.section,
+          paragraph: selection.paragraph,
+          controlIndex: selection.controlIndex,
+          startRow: selection.startRow,
+          startColumn: selection.startColumn,
+          endRow: selection.endRow,
+          endColumn: selection.endColumn,
+          activeCellIndex: selection.activeCellIndex,
+          activeCellParagraph: selection.activeCellParagraph,
+        ),
+      );
+    });
   }
 
   Future<void> _deleteBackward() async {
@@ -3204,13 +3466,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           action: _EditorContextMenuAction.cut,
           icon: Icons.content_cut,
           label: '잘라내기',
-          enabled: hasSelection && !_busy,
+          enabled: !_busy,
         ),
         _contextMenuItem(
           action: _EditorContextMenuAction.copy,
           icon: Icons.copy,
           label: '복사',
-          enabled: hasSelection,
+          enabled: true,
         ),
         _contextMenuItem(
           action: _EditorContextMenuAction.paste,

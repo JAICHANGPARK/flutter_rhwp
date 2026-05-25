@@ -220,6 +220,8 @@
   selected table cells, selected text, and active search highlights.
 * Added Enter handling for selected table cells so the Flutter-native editor
   enters the active cell without dispatching a body paragraph split command.
+* Added Flutter-native copy, cut, and paste handling for selected table cell
+  text using page-layer cell text runs and table-cell edit commands.
 * Split the Flutter-native editor toolbar into HWP-style ribbon tabs for file,
   edit, view, input, format, page, table, and tools, with table cell selection
   opening the table ribbon context.
