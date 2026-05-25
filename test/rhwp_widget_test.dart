@@ -5699,6 +5699,126 @@ void main() {
     expect(changedCalls, 1);
   });
 
+  testWidgets('RhwpNativeEditor toggles overwrite mode with insert key', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    final inputMode = find.byKey(
+      const ValueKey('rhwp-editor-status-input-mode'),
+    );
+    expect(tester.widget<Text>(inputMode).data, 'Insert');
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.insert);
+    await tester.pump();
+
+    expect(tester.widget<Text>(inputMode).data, 'Overwrite');
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.insert);
+    await tester.pump();
+
+    expect(tester.widget<Text>(inputMode).data, 'Insert');
+  });
+
+  testWidgets('RhwpNativeEditor overwrites body text while mode is enabled', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    controller.cursor = const RhwpCursorPosition(offset: 1);
+    await tester.sendKeyEvent(LogicalKeyboardKey.insert);
+    session.renderedPages.clear();
+
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'Z',
+        selection: TextSelection.collapsed(offset: 1),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(changedCalls, 0);
+    expect(session.renderedPages, isEmpty);
+    expect(controller.cursor, const RhwpCursorPosition(offset: 2));
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+    ]);
+    expect(session.commands.map(jsonDecode), [
+      {
+        'type': 'deleteText',
+        'section': 0,
+        'paragraph': 0,
+        'offset': 1,
+        'count': 1,
+      },
+      {
+        'type': 'insertText',
+        'section': 0,
+        'paragraph': 0,
+        'offset': 1,
+        'text': 'Z',
+      },
+    ]);
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-pending-delete-mask')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
+      findsOneWidget,
+    );
+
+    await _releaseTextInputAction(tester);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.renderedPages, [0]);
+  });
+
   testWidgets('RhwpNativeEditor waits for text input action before refresh', (
     tester,
   ) async {

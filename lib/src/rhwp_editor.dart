@@ -1108,6 +1108,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   bool _deferredEditRefreshAwaitsTextInput = false;
   bool _suppressControllerChangedSetState = false;
   bool _showParagraphMarks = false;
+  bool _overwriteMode = false;
   Object? _error;
 
   static const _maxUndoSnapshots = 100;
@@ -1251,6 +1252,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _focusEditor();
   }
 
+  void _toggleOverwriteMode() {
+    setState(() {
+      _overwriteMode = !_overwriteMode;
+    });
+    _focusEditor();
+  }
+
   void _handleFocusChanged() {
     if (_focusNode.hasFocus) {
       _textInputFocusReleaseTimer?.cancel();
@@ -1322,6 +1330,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           : selection.normalizedStart;
       if (!selection.isCollapsed) {
         await _deleteSelectedText(selection);
+      } else {
+        await _deleteOverwriteText(cursor, text);
       }
       await widget.document.insertText(
         section: cursor.section,
@@ -1505,6 +1515,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           if (await _deleteSelectedText(selection)) {
             deletedRange = selection;
           }
+        } else {
+          deletedRange = await _deleteOverwriteText(cursor, text);
         }
         await widget.document.insertText(
           section: cursor.section,
@@ -1530,6 +1542,41 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       }
       _recordPendingTextOverlay(insertCursor, text);
     }
+  }
+
+  Future<RhwpSelectionRange?> _deleteOverwriteText(
+    RhwpCursorPosition cursor,
+    String text,
+  ) async {
+    if (!_overwriteMode || text.isEmpty || text.contains('\n')) {
+      return null;
+    }
+
+    final int? endOffset;
+    try {
+      endOffset = await _paragraphEndOffsetFor(cursor);
+    } catch (_) {
+      return null;
+    }
+    if (endOffset == null || cursor.offset >= endOffset) {
+      return null;
+    }
+
+    final count = math.min(text.length, endOffset - cursor.offset);
+    if (count <= 0) {
+      return null;
+    }
+
+    await widget.document.deleteText(
+      section: cursor.section,
+      paragraph: cursor.paragraph,
+      offset: cursor.offset,
+      count: count,
+    );
+    return RhwpSelectionRange(
+      start: cursor,
+      end: cursor.copyWith(offset: cursor.offset + count),
+    );
   }
 
   Future<void> _applyPendingCharFormatToInsertedText({
@@ -5283,6 +5330,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     final shortcutPressed =
         HardwareKeyboard.instance.isControlPressed ||
         HardwareKeyboard.instance.isMetaPressed;
+    if (!shortcutPressed &&
+        event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.insert) {
+      _toggleOverwriteMode();
+      return KeyEventResult.handled;
+    }
     if (shortcutPressed && event is KeyDownEvent) {
       switch (event.logicalKey) {
         case LogicalKeyboardKey.keyC:
@@ -6138,6 +6191,22 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   Future<RhwpCursorPosition?> _paragraphEndFor(
     RhwpCursorPosition cursor,
   ) async {
+    final location = await _paragraphEndLocationFor(cursor);
+    if (location == null) {
+      return null;
+    }
+    unawaited(_controller.goToPage(location.page));
+    return cursor.copyWith(offset: location.offset);
+  }
+
+  Future<int?> _paragraphEndOffsetFor(RhwpCursorPosition cursor) async {
+    final location = await _paragraphEndLocationFor(cursor);
+    return location?.offset;
+  }
+
+  Future<({int offset, int page})?> _paragraphEndLocationFor(
+    RhwpCursorPosition cursor,
+  ) async {
     final pageCount = await widget.document.pageCount;
     int? endOffset;
     var endPage = _controller.currentPage;
@@ -6160,8 +6229,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     if (endOffset == null) {
       return null;
     }
-    unawaited(_controller.goToPage(endPage));
-    return cursor.copyWith(offset: endOffset);
+    return (offset: endOffset, page: endPage);
   }
 
   void _setCursorOrSelection(
@@ -6344,6 +6412,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         ),
         _EditorStatusBar(
           selection: _controller.selection,
+          overwriteMode: _overwriteMode,
           busy: _visibleBusy,
           zoom: _controller.zoom,
           onZoomOut: _controller.zoomOut,
@@ -10896,6 +10965,7 @@ class _ToolbarDivider extends StatelessWidget {
 class _EditorStatusBar extends StatelessWidget {
   const _EditorStatusBar({
     required this.selection,
+    required this.overwriteMode,
     required this.busy,
     required this.zoom,
     required this.onZoomOut,
@@ -10903,6 +10973,7 @@ class _EditorStatusBar extends StatelessWidget {
   });
 
   final RhwpSelectionRange selection;
+  final bool overwriteMode;
   final bool busy;
   final double zoom;
   final VoidCallback onZoomOut;
@@ -10930,7 +11001,10 @@ class _EditorStatusBar extends StatelessWidget {
               ),
               const VerticalDivider(width: 24),
               Text(
-                selection.isCollapsed ? 'Insert' : 'Selection',
+                selection.isCollapsed
+                    ? (overwriteMode ? 'Overwrite' : 'Insert')
+                    : 'Selection',
+                key: const ValueKey('rhwp-editor-status-input-mode'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const Spacer(),

@@ -238,6 +238,8 @@
   reducing visible page refresh while entering spaces or text.
 * Added a short desktop text-input focus grace window so transient IME/focus
   churn while typing does not release the deferred page refresh immediately.
+* Added Flutter-native Insert/Overwrite input mode toggling with the Insert key,
+  including overwrite text replacement through the Rust `deleteText` command.
 * Added a Flutter-native paragraph mark view toggle that paints paragraph-end
   markers from page layer tree text runs without changing rendered document
   output.
