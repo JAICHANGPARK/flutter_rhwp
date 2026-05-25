@@ -890,6 +890,36 @@ impl DocumentCore {
         Ok("{\"ok\":true}".to_string())
     }
 
+    /// 문단 서식 적용 (네이티브) — 본문 여러 문단 범위.
+    pub fn apply_para_format_range_native(
+        &mut self,
+        sec_idx: usize,
+        start_para: usize,
+        end_para: usize,
+        props_json: &str,
+    ) -> Result<String, HwpError> {
+        if sec_idx >= self.document.sections.len() {
+            return Err(HwpError::RenderError(format!("구역 {} 범위 초과", sec_idx)));
+        }
+
+        let section = &self.document.sections[sec_idx];
+        if start_para >= section.paragraphs.len() {
+            return Err(HwpError::RenderError(format!("문단 {} 범위 초과", start_para)));
+        }
+        if end_para >= section.paragraphs.len() {
+            return Err(HwpError::RenderError(format!("문단 {} 범위 초과", end_para)));
+        }
+        if start_para > end_para {
+            return Err(HwpError::RenderError("선택 시작 문단이 끝 문단보다 큼".to_string()));
+        }
+
+        for para_idx in start_para..=end_para {
+            self.apply_para_format_native(sec_idx, para_idx, props_json)?;
+        }
+
+        Ok("{\"ok\":true}".to_string())
+    }
+
     /// 문단 서식 적용 (네이티브) — 셀 내 문단
     pub fn apply_para_format_in_cell_native(
         &mut self,

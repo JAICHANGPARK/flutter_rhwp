@@ -250,6 +250,38 @@ impl RhwpSession {
                     )
                     .map_err(error_to_string)
             }
+            RhwpCommand::ApplyParaFormat {
+                section,
+                paragraph,
+                properties,
+            } => {
+                let properties_json = properties.to_string();
+                inner
+                    .document
+                    .apply_para_format_native(
+                        section as usize,
+                        paragraph as usize,
+                        &properties_json,
+                    )
+                    .map_err(error_to_string)
+            }
+            RhwpCommand::ApplyParaFormatRange {
+                section,
+                start_paragraph,
+                end_paragraph,
+                properties,
+            } => {
+                let properties_json = properties.to_string();
+                inner
+                    .document
+                    .apply_para_format_range_native(
+                        section as usize,
+                        start_paragraph as usize,
+                        end_paragraph as usize,
+                        &properties_json,
+                    )
+                    .map_err(error_to_string)
+            }
             RhwpCommand::SetFileName { name } => {
                 inner.document.set_file_name(&name);
                 inner.file_name = Some(name);
@@ -357,6 +389,19 @@ enum RhwpCommand {
         end_paragraph: u32,
         #[serde(rename = "endOffset")]
         end_offset: u32,
+        properties: serde_json::Value,
+    },
+    ApplyParaFormat {
+        section: u32,
+        paragraph: u32,
+        properties: serde_json::Value,
+    },
+    ApplyParaFormatRange {
+        section: u32,
+        #[serde(rename = "startParagraph")]
+        start_paragraph: u32,
+        #[serde(rename = "endParagraph")]
+        end_paragraph: u32,
         properties: serde_json::Value,
     },
     SetFileName {
@@ -831,6 +876,18 @@ mod tests {
                     .to_string(),
             )
             .expect("apply char format range command should be accepted");
+        session
+            .apply_command(
+                r#"{"type":"applyParaFormat","section":0,"paragraph":0,"properties":{"alignment":"center"}}"#
+                    .to_string(),
+            )
+            .expect("apply para format command should be accepted");
+        session
+            .apply_command(
+                r#"{"type":"applyParaFormatRange","section":0,"startParagraph":0,"endParagraph":1,"properties":{"alignment":"right"}}"#
+                    .to_string(),
+            )
+            .expect("apply para format range command should be accepted");
         session
             .apply_command(
                 r#"{"type":"deleteRange","section":0,"startParagraph":0,"startOffset":2,"endParagraph":1,"endOffset":2}"#

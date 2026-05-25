@@ -601,6 +601,71 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor applies paragraph alignment', (tester) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    controller.selection = const RhwpSelectionRange(
+      start: RhwpCursorPosition(paragraph: 0, offset: 2),
+      end: RhwpCursorPosition(paragraph: 1, offset: 2),
+    );
+    await tester.pump();
+
+    await tester.ensureVisible(find.byTooltip('Align center'));
+    await tester.pump();
+    await tester.tap(find.byTooltip('Align center'));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.single), {
+      'type': 'applyParaFormatRange',
+      'section': 0,
+      'startParagraph': 0,
+      'endParagraph': 1,
+      'properties': {'alignment': 'center'},
+    });
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 1, offset: 2);
+    await tester.pump();
+
+    await tester.ensureVisible(find.byTooltip('Align right'));
+    await tester.pump();
+    await tester.tap(find.byTooltip('Align right'));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 2);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'applyParaFormatRange',
+      'section': 0,
+      'startParagraph': 1,
+      'endParagraph': 1,
+      'properties': {'alignment': 'right'},
+    });
+  });
+
   testWidgets('RhwpNativeEditor commits text input after IME composition', (
     tester,
   ) async {

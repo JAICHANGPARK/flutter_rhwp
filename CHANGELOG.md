@@ -143,3 +143,5 @@
   Flutter-native bold, italic, and underline toolbar/shortcut actions.
 * Added `applyCharFormatRange` for same-section multi-paragraph character
   formatting in the Flutter-native editor.
+* Added `applyParaFormat` and `applyParaFormatRange` for paragraph alignment,
+  with Flutter-native toolbar buttons for left, center, right, and justify.

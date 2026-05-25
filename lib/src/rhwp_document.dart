@@ -186,6 +186,19 @@ abstract class RhwpCommand {
     bool? underline,
   }) = RhwpApplyCharFormatRangeCommand;
 
+  factory RhwpCommand.applyParaFormat({
+    required int section,
+    required int paragraph,
+    String? alignment,
+  }) = RhwpApplyParaFormatCommand;
+
+  factory RhwpCommand.applyParaFormatRange({
+    required int section,
+    required int startParagraph,
+    required int endParagraph,
+    String? alignment,
+  }) = RhwpApplyParaFormatRangeCommand;
+
   factory RhwpCommand.setFileName(String name) = RhwpSetFileNameCommand;
 }
 
@@ -349,6 +362,49 @@ class RhwpApplyCharFormatRangeCommand extends RhwpCommand {
       if (italic != null) 'italic': italic,
       if (underline != null) 'underline': underline,
     },
+  };
+}
+
+class RhwpApplyParaFormatCommand extends RhwpCommand {
+  const RhwpApplyParaFormatCommand({
+    required this.section,
+    required this.paragraph,
+    this.alignment,
+  });
+
+  final int section;
+  final int paragraph;
+  final String? alignment;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'applyParaFormat',
+    'section': section,
+    'paragraph': paragraph,
+    'properties': {if (alignment != null) 'alignment': alignment},
+  };
+}
+
+class RhwpApplyParaFormatRangeCommand extends RhwpCommand {
+  const RhwpApplyParaFormatRangeCommand({
+    required this.section,
+    required this.startParagraph,
+    required this.endParagraph,
+    this.alignment,
+  });
+
+  final int section;
+  final int startParagraph;
+  final int endParagraph;
+  final String? alignment;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'applyParaFormatRange',
+    'section': section,
+    'startParagraph': startParagraph,
+    'endParagraph': endParagraph,
+    'properties': {if (alignment != null) 'alignment': alignment},
   };
 }
 
@@ -590,6 +646,36 @@ class RhwpDocument {
         bold: bold,
         italic: italic,
         underline: underline,
+      ),
+    );
+  }
+
+  Future<String> applyParaFormat({
+    required int section,
+    required int paragraph,
+    String? alignment,
+  }) {
+    return apply(
+      RhwpCommand.applyParaFormat(
+        section: section,
+        paragraph: paragraph,
+        alignment: alignment,
+      ),
+    );
+  }
+
+  Future<String> applyParaFormatRange({
+    required int section,
+    required int startParagraph,
+    required int endParagraph,
+    String? alignment,
+  }) {
+    return apply(
+      RhwpCommand.applyParaFormatRange(
+        section: section,
+        startParagraph: startParagraph,
+        endParagraph: endParagraph,
+        alignment: alignment,
       ),
     );
   }

@@ -427,6 +427,31 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
   }
 
+  Future<void> _applyParagraphAlignment(String alignment) async {
+    if (_busy) {
+      return;
+    }
+
+    final selection = _controller.selection;
+    final start = selection.normalizedStart;
+    final end = selection.normalizedEnd;
+    if (start.section != end.section) {
+      return;
+    }
+
+    await _runEdit(() async {
+      await widget.document.applyParaFormatRange(
+        section: start.section,
+        startParagraph: start.paragraph,
+        endParagraph: end.paragraph,
+        alignment: alignment,
+      );
+      _controller.selection = selection.isCollapsed
+          ? RhwpSelectionRange.collapsed(start)
+          : RhwpSelectionRange(start: start, end: end);
+    });
+  }
+
   Future<String?> _selectedText() async {
     final selection = _controller.selection;
     if (selection.isCollapsed) {
@@ -815,6 +840,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onBold: () => _applyCharFormat(bold: true),
           onItalic: () => _applyCharFormat(italic: true),
           onUnderline: () => _applyCharFormat(underline: true),
+          onAlignLeft: () => _applyParagraphAlignment('left'),
+          onAlignCenter: () => _applyParagraphAlignment('center'),
+          onAlignRight: () => _applyParagraphAlignment('right'),
+          onAlignJustify: () => _applyParagraphAlignment('justify'),
           onZoomOut: _controller.zoomOut,
           onZoomIn: _controller.zoomIn,
         ),
@@ -1266,6 +1295,10 @@ class _EditorToolbar extends StatefulWidget {
     required this.onBold,
     required this.onItalic,
     required this.onUnderline,
+    required this.onAlignLeft,
+    required this.onAlignCenter,
+    required this.onAlignRight,
+    required this.onAlignJustify,
     required this.onZoomOut,
     required this.onZoomIn,
   });
@@ -1284,6 +1317,10 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onBold;
   final VoidCallback onItalic;
   final VoidCallback onUnderline;
+  final VoidCallback onAlignLeft;
+  final VoidCallback onAlignCenter;
+  final VoidCallback onAlignRight;
+  final VoidCallback onAlignJustify;
   final VoidCallback onZoomOut;
   final VoidCallback onZoomIn;
 
@@ -1419,6 +1456,27 @@ class _EditorToolbarState extends State<_EditorToolbar> {
                     tooltip: 'Underline',
                     icon: Icons.format_underlined,
                     onPressed: widget.busy ? null : widget.onUnderline,
+                  ),
+                  const _ToolbarDivider(),
+                  _ToolbarIconButton(
+                    tooltip: 'Align left',
+                    icon: Icons.format_align_left,
+                    onPressed: widget.busy ? null : widget.onAlignLeft,
+                  ),
+                  _ToolbarIconButton(
+                    tooltip: 'Align center',
+                    icon: Icons.format_align_center,
+                    onPressed: widget.busy ? null : widget.onAlignCenter,
+                  ),
+                  _ToolbarIconButton(
+                    tooltip: 'Align right',
+                    icon: Icons.format_align_right,
+                    onPressed: widget.busy ? null : widget.onAlignRight,
+                  ),
+                  _ToolbarIconButton(
+                    tooltip: 'Justify',
+                    icon: Icons.format_align_justify,
+                    onPressed: widget.busy ? null : widget.onAlignJustify,
                   ),
                   const _ToolbarDivider(),
                   _ToolbarIconButton(

@@ -104,6 +104,41 @@ void main() {
     },
   );
 
+  test('apply para format command serializes to the Rust command envelope', () {
+    final command = RhwpCommand.applyParaFormat(
+      section: 0,
+      paragraph: 1,
+      alignment: 'center',
+    );
+
+    expect(jsonDecode(jsonEncode(command.toJson())), {
+      'type': 'applyParaFormat',
+      'section': 0,
+      'paragraph': 1,
+      'properties': {'alignment': 'center'},
+    });
+  });
+
+  test(
+    'apply para format range command serializes to the Rust command envelope',
+    () {
+      final command = RhwpCommand.applyParaFormatRange(
+        section: 0,
+        startParagraph: 1,
+        endParagraph: 3,
+        alignment: 'right',
+      );
+
+      expect(jsonDecode(jsonEncode(command.toJson())), {
+        'type': 'applyParaFormatRange',
+        'section': 0,
+        'startParagraph': 1,
+        'endParagraph': 3,
+        'properties': {'alignment': 'right'},
+      });
+    },
+  );
+
   test('closed exception has a stable message', () {
     expect(
       const RhwpClosedException().toString(),
@@ -215,6 +250,34 @@ void main() {
       'endParagraph': 3,
       'endOffset': 4,
       'properties': {'italic': true},
+    });
+
+    await document.applyParaFormat(
+      section: 0,
+      paragraph: 1,
+      alignment: 'center',
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'applyParaFormat',
+      'section': 0,
+      'paragraph': 1,
+      'properties': {'alignment': 'center'},
+    });
+
+    await document.applyParaFormatRange(
+      section: 0,
+      startParagraph: 1,
+      endParagraph: 3,
+      alignment: 'right',
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'applyParaFormatRange',
+      'section': 0,
+      'startParagraph': 1,
+      'endParagraph': 3,
+      'properties': {'alignment': 'right'},
     });
 
     await document.splitParagraph(section: 0, paragraph: 1, offset: 2);

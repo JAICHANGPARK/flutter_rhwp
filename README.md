@@ -101,6 +101,13 @@ await document.insertText(
   offset: 0,
   text: 'Hello',
 );
+
+await document.applyParaFormatRange(
+  section: 0,
+  startParagraph: 0,
+  endParagraph: 2,
+  alignment: 'center',
+);
 ```
 
 Export with save metadata:
@@ -137,7 +144,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   caret/drag-selection overlay, keyboard caret movement, IME composing preview,
   text commit, copy/cut/paste, Enter paragraph splitting, Shift+Enter soft line
   breaks, multi-paragraph selection replacement, multi-paragraph selected-text
-  bold/italic/underline formatting, and basic insert/delete command flow.
+  bold/italic/underline formatting, paragraph alignment commands, and basic
+  insert/delete command flow.
 - `rust/vendor/rhwp` should be committed. `rust/target` should stay ignored.
 
 ## License
