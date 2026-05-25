@@ -240,6 +240,8 @@
   churn while typing does not release the deferred page refresh immediately.
 * Added Flutter-native Insert/Overwrite input mode toggling with the Insert key,
   including overwrite text replacement through the Rust `deleteText` command.
+* Extended Flutter-native overwrite typing to active table cell text through
+  the Rust `deleteTextInTableCell` command.
 * Added a Flutter-native paragraph mark view toggle that paints paragraph-end
   markers from page layer tree text runs without changing rendered document
   output.
