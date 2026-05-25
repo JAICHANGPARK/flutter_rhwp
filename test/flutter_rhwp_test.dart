@@ -146,6 +146,56 @@ void main() {
     expect(
       jsonDecode(
         jsonEncode(
+          RhwpCommand.insertTextInTableCell(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            cellIndex: 3,
+            cellParagraph: 0,
+            offset: 4,
+            text: 'cell',
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'insertTextInTableCell',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'cellIndex': 3,
+        'cellParagraph': 0,
+        'offset': 4,
+        'text': 'cell',
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.deleteTextInTableCell(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            cellIndex: 3,
+            cellParagraph: 0,
+            offset: 4,
+            count: 1,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'deleteTextInTableCell',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'cellIndex': 3,
+        'cellParagraph': 0,
+        'offset': 4,
+        'count': 1,
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
           RhwpCommand.mergeTableCells(
             section: 0,
             paragraph: 1,
@@ -455,6 +505,48 @@ void main() {
       'offset': 2,
       'rows': 3,
       'columns': 4,
+    });
+
+    await document.insertTextInTableCell(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      cellIndex: 2,
+      cellParagraph: 0,
+      offset: 2,
+      text: 'cell',
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'insertTextInTableCell',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'cellIndex': 2,
+      'cellParagraph': 0,
+      'offset': 2,
+      'text': 'cell',
+    });
+
+    await document.deleteTextInTableCell(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      cellIndex: 2,
+      cellParagraph: 0,
+      offset: 2,
+      count: 1,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'deleteTextInTableCell',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'cellIndex': 2,
+      'cellParagraph': 0,
+      'offset': 2,
+      'count': 1,
     });
 
     await document.insertTableRow(

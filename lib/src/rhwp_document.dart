@@ -151,6 +151,26 @@ abstract class RhwpCommand {
     required int count,
   }) = RhwpDeleteTextCommand;
 
+  factory RhwpCommand.insertTextInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int offset,
+    required String text,
+  }) = RhwpInsertTextInTableCellCommand;
+
+  factory RhwpCommand.deleteTextInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int offset,
+    required int count,
+  }) = RhwpDeleteTextInTableCellCommand;
+
   factory RhwpCommand.deleteRange({
     required int section,
     required int startParagraph,
@@ -299,6 +319,70 @@ class RhwpDeleteTextCommand extends RhwpCommand {
     'type': 'deleteText',
     'section': section,
     'paragraph': paragraph,
+    'offset': offset,
+    'count': count,
+  };
+}
+
+class RhwpInsertTextInTableCellCommand extends RhwpCommand {
+  const RhwpInsertTextInTableCellCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+    required this.cellParagraph,
+    required this.offset,
+    required this.text,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+  final int cellParagraph;
+  final int offset;
+  final String text;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'insertTextInTableCell',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'cellIndex': cellIndex,
+    'cellParagraph': cellParagraph,
+    'offset': offset,
+    'text': text,
+  };
+}
+
+class RhwpDeleteTextInTableCellCommand extends RhwpCommand {
+  const RhwpDeleteTextInTableCellCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+    required this.cellParagraph,
+    required this.offset,
+    required this.count,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+  final int cellParagraph;
+  final int offset;
+  final int count;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'deleteTextInTableCell',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'cellIndex': cellIndex,
+    'cellParagraph': cellParagraph,
     'offset': offset,
     'count': count,
   };
@@ -804,6 +888,50 @@ class RhwpDocument {
       RhwpCommand.deleteText(
         section: section,
         paragraph: paragraph,
+        offset: offset,
+        count: count,
+      ),
+    );
+  }
+
+  Future<String> insertTextInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int offset,
+    required String text,
+  }) {
+    return apply(
+      RhwpCommand.insertTextInTableCell(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        cellIndex: cellIndex,
+        cellParagraph: cellParagraph,
+        offset: offset,
+        text: text,
+      ),
+    );
+  }
+
+  Future<String> deleteTextInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int offset,
+    required int count,
+  }) {
+    return apply(
+      RhwpCommand.deleteTextInTableCell(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        cellIndex: cellIndex,
+        cellParagraph: cellParagraph,
         offset: offset,
         count: count,
       ),

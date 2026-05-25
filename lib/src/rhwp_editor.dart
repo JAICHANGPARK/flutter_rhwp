@@ -103,6 +103,8 @@ class RhwpTableCellSelection {
     required this.startColumn,
     required this.endRow,
     required this.endColumn,
+    this.activeCellIndex,
+    this.activeCellParagraph = 0,
   });
 
   /// Creates a selection from a decoded page layer tree cell.
@@ -115,6 +117,7 @@ class RhwpTableCellSelection {
       startColumn: cell.column,
       endRow: cell.endRow,
       endColumn: cell.endColumn,
+      activeCellIndex: cell.modelCellIndex,
     );
   }
 
@@ -137,6 +140,7 @@ class RhwpTableCellSelection {
       startColumn: math.min(anchor.column, extent.column),
       endRow: math.max(anchor.endRow, extent.endRow),
       endColumn: math.max(anchor.endColumn, extent.endColumn),
+      activeCellIndex: anchor.modelCellIndex,
     );
   }
 
@@ -160,6 +164,12 @@ class RhwpTableCellSelection {
 
   /// The last selected column.
   final int endColumn;
+
+  /// The active table cell model index used for text editing.
+  final int? activeCellIndex;
+
+  /// The active paragraph index inside [activeCellIndex].
+  final int activeCellParagraph;
 
   /// Whether this selection intersects [cell].
   bool containsCell(RhwpTableCellLayout cell) {
@@ -189,7 +199,9 @@ class RhwpTableCellSelection {
         other.startRow == startRow &&
         other.startColumn == startColumn &&
         other.endRow == endRow &&
-        other.endColumn == endColumn;
+        other.endColumn == endColumn &&
+        other.activeCellIndex == activeCellIndex &&
+        other.activeCellParagraph == activeCellParagraph;
   }
 
   @override
@@ -201,11 +213,13 @@ class RhwpTableCellSelection {
     startColumn,
     endRow,
     endColumn,
+    activeCellIndex,
+    activeCellParagraph,
   );
 
   @override
   String toString() {
-    return 'RhwpTableCellSelection(section: $section, paragraph: $paragraph, controlIndex: $controlIndex, startRow: $startRow, startColumn: $startColumn, endRow: $endRow, endColumn: $endColumn)';
+    return 'RhwpTableCellSelection(section: $section, paragraph: $paragraph, controlIndex: $controlIndex, startRow: $startRow, startColumn: $startColumn, endRow: $endRow, endColumn: $endColumn, activeCellIndex: $activeCellIndex, activeCellParagraph: $activeCellParagraph)';
   }
 }
 
@@ -436,7 +450,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   AutofillScope? get currentAutofillScope => null;
 
   void _handleControllerChanged() {
-    _syncCursorFields();
+    final tableSelection = _controller.tableCellSelection;
+    if (tableSelection == null) {
+      _syncCursorFields();
+    } else {
+      _syncTableSelectionFields(tableSelection);
+    }
     if (mounted) {
       setState(() {});
     }
@@ -447,6 +466,25 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _setTextIfChanged(_sectionController, cursor.section.toString());
     _setTextIfChanged(_paragraphController, cursor.paragraph.toString());
     _setTextIfChanged(_offsetController, cursor.offset.toString());
+  }
+
+  void _syncTableSelectionFields(RhwpTableCellSelection selection) {
+    _setTextIfChanged(_sectionController, selection.section.toString());
+    _setTextIfChanged(
+      _tableParagraphController,
+      selection.paragraph.toString(),
+    );
+    _setTextIfChanged(
+      _tableControlController,
+      selection.controlIndex.toString(),
+    );
+    _setTextIfChanged(_tableRowController, selection.startRow.toString());
+    _setTextIfChanged(_tableColumnController, selection.startColumn.toString());
+    _setTextIfChanged(_tableEndRowController, selection.endRow.toString());
+    _setTextIfChanged(
+      _tableEndColumnController,
+      selection.endColumn.toString(),
+    );
   }
 
   void _setTextIfChanged(TextEditingController controller, String text) {
@@ -470,6 +508,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   Future<void> _insertText() async {
     final text = _textController.text;
     if (text.isEmpty) {
+      return;
+    }
+
+    if (_editableTableCellSelection != null) {
+      await _insertTextInSelectedTableCell(text, clearTextController: true);
       return;
     }
 
@@ -497,6 +540,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
+    if (_editableTableCellSelection != null) {
+      await _insertTextInSelectedTableCell(text);
+      return;
+    }
+
     await _runEdit(() async {
       final selection = _controller.selection;
       final cursor = selection.isCollapsed
@@ -512,6 +560,35 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         text: text,
       );
       _controller.cursor = cursor.copyWith(offset: cursor.offset + text.length);
+    });
+  }
+
+  Future<void> _insertTextInSelectedTableCell(
+    String text, {
+    bool clearTextController = false,
+  }) async {
+    final tableSelection = _editableTableCellSelection;
+    if (tableSelection == null || _busy) {
+      return;
+    }
+
+    final offset = _parseNonNegative(_offsetController.text);
+    await _runEdit(() async {
+      final result = await widget.document.insertTextInTableCell(
+        section: tableSelection.section,
+        paragraph: tableSelection.paragraph,
+        controlIndex: tableSelection.controlIndex,
+        cellIndex: tableSelection.activeCellIndex!,
+        cellParagraph: tableSelection.activeCellParagraph,
+        offset: offset,
+        text: text,
+      );
+      final nextOffset =
+          _readIntResult(result, 'charOffset') ?? offset + text.length;
+      _setTextIfChanged(_offsetController, nextOffset.toString());
+      if (clearTextController) {
+        _textController.clear();
+      }
     });
   }
 
@@ -812,6 +889,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   }
 
   Future<void> _deleteBackward() async {
+    if (_editableTableCellSelection != null) {
+      await _deleteTextInSelectedTableCell(backward: true);
+      return;
+    }
+
     await _runEdit(() async {
       if (await _deleteSelectedText(_controller.selection)) {
         return;
@@ -831,6 +913,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   }
 
   Future<void> _deleteForward() async {
+    if (_editableTableCellSelection != null) {
+      await _deleteTextInSelectedTableCell(backward: false);
+      return;
+    }
+
     await _runEdit(() async {
       if (await _deleteSelectedText(_controller.selection)) {
         return;
@@ -843,6 +930,35 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         count: 1,
       );
       _controller.cursor = cursor;
+    });
+  }
+
+  Future<void> _deleteTextInSelectedTableCell({required bool backward}) async {
+    final tableSelection = _editableTableCellSelection;
+    if (tableSelection == null || _busy) {
+      return;
+    }
+
+    final currentOffset = _parseNonNegative(_offsetController.text);
+    final deleteOffset = backward ? currentOffset - 1 : currentOffset;
+    if (deleteOffset < 0) {
+      return;
+    }
+
+    await _runEdit(() async {
+      final result = await widget.document.deleteTextInTableCell(
+        section: tableSelection.section,
+        paragraph: tableSelection.paragraph,
+        controlIndex: tableSelection.controlIndex,
+        cellIndex: tableSelection.activeCellIndex!,
+        cellParagraph: tableSelection.activeCellParagraph,
+        offset: deleteOffset,
+        count: 1,
+      );
+      final nextOffset =
+          _readIntResult(result, 'charOffset') ??
+          (backward ? deleteOffset : currentOffset);
+      _setTextIfChanged(_offsetController, nextOffset.toString());
     });
   }
 
@@ -975,6 +1091,14 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     return null;
   }
 
+  RhwpTableCellSelection? get _editableTableCellSelection {
+    final selection = _controller.tableCellSelection;
+    if (selection == null || selection.activeCellIndex == null) {
+      return null;
+    }
+    return selection;
+  }
+
   void _setCursorFromPage(RhwpCursorPosition cursor) {
     _controller.cursor = cursor;
   }
@@ -985,22 +1109,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
-    _setTextIfChanged(_sectionController, selection.section.toString());
-    _setTextIfChanged(
-      _tableParagraphController,
-      selection.paragraph.toString(),
-    );
-    _setTextIfChanged(
-      _tableControlController,
-      selection.controlIndex.toString(),
-    );
-    _setTextIfChanged(_tableRowController, selection.startRow.toString());
-    _setTextIfChanged(_tableColumnController, selection.startColumn.toString());
-    _setTextIfChanged(_tableEndRowController, selection.endRow.toString());
-    _setTextIfChanged(
-      _tableEndColumnController,
-      selection.endColumn.toString(),
-    );
+    _controller.clearSelection();
+    _syncTableSelectionFields(selection);
+    _setTextIfChanged(_offsetController, '0');
     _controller.tableCellSelection = selection;
   }
 

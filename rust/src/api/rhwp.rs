@@ -185,6 +185,46 @@ impl RhwpSession {
                     count as usize,
                 )
                 .map_err(error_to_string),
+            RhwpCommand::InsertTextInTableCell {
+                section,
+                paragraph,
+                control_index,
+                cell_index,
+                cell_paragraph,
+                offset,
+                text,
+            } => inner
+                .document
+                .insert_text_in_cell_native(
+                    section as usize,
+                    paragraph as usize,
+                    control_index as usize,
+                    cell_index as usize,
+                    cell_paragraph as usize,
+                    offset as usize,
+                    &text,
+                )
+                .map_err(error_to_string),
+            RhwpCommand::DeleteTextInTableCell {
+                section,
+                paragraph,
+                control_index,
+                cell_index,
+                cell_paragraph,
+                offset,
+                count,
+            } => inner
+                .document
+                .delete_text_in_cell_native(
+                    section as usize,
+                    paragraph as usize,
+                    control_index as usize,
+                    cell_index as usize,
+                    cell_paragraph as usize,
+                    offset as usize,
+                    count as usize,
+                )
+                .map_err(error_to_string),
             RhwpCommand::DeleteRange {
                 section,
                 start_paragraph,
@@ -501,6 +541,30 @@ enum RhwpCommand {
     DeleteText {
         section: u32,
         paragraph: u32,
+        offset: u32,
+        count: u32,
+    },
+    InsertTextInTableCell {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "cellIndex")]
+        cell_index: u32,
+        #[serde(rename = "cellParagraph")]
+        cell_paragraph: u32,
+        offset: u32,
+        text: String,
+    },
+    DeleteTextInTableCell {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "cellIndex")]
+        cell_index: u32,
+        #[serde(rename = "cellParagraph")]
+        cell_paragraph: u32,
         offset: u32,
         count: u32,
     },
@@ -1121,6 +1185,22 @@ mod tests {
         assert!(table_layer_tree.contains("\"paraIndex\":"));
         assert!(table_layer_tree.contains("\"controlIndex\":"));
         assert!(table_layer_tree.contains(r#""kind":"tableCell""#));
+        session
+            .apply_command(
+                format!(
+                    r#"{{"type":"insertTextInTableCell","section":0,"paragraph":{},"controlIndex":0,"cellIndex":0,"cellParagraph":0,"offset":0,"text":"cell"}}"#,
+                    table_paragraph
+                ),
+            )
+            .expect("insert text in table cell command should be accepted");
+        session
+            .apply_command(
+                format!(
+                    r#"{{"type":"deleteTextInTableCell","section":0,"paragraph":{},"controlIndex":0,"cellIndex":0,"cellParagraph":0,"offset":0,"count":1}}"#,
+                    table_paragraph
+                ),
+            )
+            .expect("delete text in table cell command should be accepted");
         session
             .apply_command(
                 format!(

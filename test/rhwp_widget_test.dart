@@ -462,6 +462,7 @@ void main() {
         startColumn: 3,
         endRow: 2,
         endColumn: 3,
+        activeCellIndex: 7,
       ),
     );
     expect(
@@ -536,6 +537,7 @@ void main() {
         startColumn: 3,
         endRow: 2,
         endColumn: 4,
+        activeCellIndex: 7,
       ),
     );
     expect(
@@ -564,6 +566,71 @@ void main() {
       'startColumn': 3,
       'endRow': 2,
       'endColumn': 4,
+    });
+  });
+
+  testWidgets('RhwpNativeEditor inserts text into selected table cell', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    await tester.tapAt(
+      pageTopLeft +
+          Offset(pageSize.width * 100 / 240, pageSize.height * 60 / 180),
+    );
+    await tester.pump();
+
+    await tester.enterText(find.byType(TextField).at(3), 'cell');
+    await tester.tap(find.byTooltip('Insert'));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.single), {
+      'type': 'insertTextInTableCell',
+      'section': 0,
+      'paragraph': 5,
+      'controlIndex': 2,
+      'cellIndex': 7,
+      'cellParagraph': 0,
+      'offset': 0,
+      'text': 'cell',
+    });
+
+    await tester.tap(find.byTooltip('Delete backward'));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 2);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'deleteTextInTableCell',
+      'section': 0,
+      'paragraph': 5,
+      'controlIndex': 2,
+      'cellIndex': 7,
+      'cellParagraph': 0,
+      'offset': 3,
+      'count': 1,
     });
   });
 
