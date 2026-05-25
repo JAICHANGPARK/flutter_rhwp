@@ -89,3 +89,5 @@
   default-mode and export artifact changes.
 * Added Dart API documentation for export artifact metadata and Web editor
   controller export methods.
+* Relaxed the `flutter_rust_bridge` dependency constraint to a caret range and
+  recorded the current `flutter pub publish --dry-run` warnings.
