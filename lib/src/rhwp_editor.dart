@@ -519,7 +519,9 @@ class RhwpCommandEditor extends StatelessWidget {
 class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   late final RhwpEditorController _controller;
   late final bool _ownsController;
+  final _toolbarKey = GlobalKey<_EditorToolbarState>();
   final _focusNode = FocusNode(debugLabel: 'RhwpNativeEditor');
+  final _searchFocusNode = FocusNode(debugLabel: 'RhwpNativeEditorSearch');
   final _textController = TextEditingController();
   final _sectionController = TextEditingController(text: '0');
   final _paragraphController = TextEditingController(text: '0');
@@ -578,6 +580,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       _controller.dispose();
     }
     _focusNode.dispose();
+    _searchFocusNode.dispose();
     _textController.dispose();
     _sectionController.dispose();
     _paragraphController.dispose();
@@ -1261,6 +1264,16 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         });
       }
     }
+  }
+
+  void _focusSearchField() {
+    _toolbarKey.currentState?.activateTab(_EditorTab.tools);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _searchFocusNode.requestFocus();
+    });
   }
 
   List<_EditorSearchMatch> _searchTree(RhwpLayerTree tree, String query) {
@@ -2274,6 +2287,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         case LogicalKeyboardKey.keyA:
           _selectAllText();
           return KeyEventResult.handled;
+        case LogicalKeyboardKey.keyF:
+          _focusSearchField();
+          return KeyEventResult.handled;
         case LogicalKeyboardKey.keyZ:
           if (HardwareKeyboard.instance.isShiftPressed) {
             _redoEdit();
@@ -2423,6 +2439,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     return Column(
       children: [
         _EditorToolbar(
+          key: _toolbarKey,
           busy: _busy || _searching,
           error: _error,
           textController: _textController,
@@ -2438,6 +2455,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           tableEndRowController: _tableEndRowController,
           tableEndColumnController: _tableEndColumnController,
           searchController: _searchController,
+          searchFocusNode: _searchFocusNode,
           replaceController: _replaceController,
           tableCellSelection: _controller.tableCellSelection,
           currentPage: _controller.currentPage,
@@ -3158,6 +3176,7 @@ enum _EditorTab { file, edit, view, insert, format, page, table, tools }
 
 class _EditorToolbar extends StatefulWidget {
   const _EditorToolbar({
+    super.key,
     required this.busy,
     required this.error,
     required this.textController,
@@ -3173,6 +3192,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.tableEndRowController,
     required this.tableEndColumnController,
     required this.searchController,
+    required this.searchFocusNode,
     required this.replaceController,
     required this.tableCellSelection,
     required this.currentPage,
@@ -3243,6 +3263,7 @@ class _EditorToolbar extends StatefulWidget {
   final TextEditingController tableEndRowController;
   final TextEditingController tableEndColumnController;
   final TextEditingController searchController;
+  final FocusNode searchFocusNode;
   final TextEditingController replaceController;
   final RhwpTableCellSelection? tableCellSelection;
   final int currentPage;
@@ -3304,6 +3325,15 @@ class _EditorToolbar extends StatefulWidget {
 class _EditorToolbarState extends State<_EditorToolbar> {
   var _activeTab = _EditorTab.insert;
 
+  void activateTab(_EditorTab tab) {
+    if (_activeTab == tab) {
+      return;
+    }
+    setState(() {
+      _activeTab = tab;
+    });
+  }
+
   @override
   void didUpdateWidget(covariant _EditorToolbar oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -3338,9 +3368,7 @@ class _EditorToolbarState extends State<_EditorToolbar> {
                       tab: tab,
                       selected: tab == _activeTab,
                       onPressed: () {
-                        setState(() {
-                          _activeTab = tab;
-                        });
+                        activateTab(tab);
                       },
                     ),
                 ],
@@ -3885,6 +3913,7 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               child: TextField(
                 key: const ValueKey('rhwp-editor-search-field'),
                 controller: widget.searchController,
+                focusNode: widget.searchFocusNode,
                 minLines: 1,
                 maxLines: 1,
                 decoration: const InputDecoration(

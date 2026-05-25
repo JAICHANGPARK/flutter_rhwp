@@ -1846,6 +1846,49 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor focuses search with find shortcut', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-search-field')),
+      findsNothing,
+    );
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    await tester.pump();
+
+    final searchField = tester.widget<TextField>(
+      find.byKey(const ValueKey('rhwp-editor-search-field')),
+    );
+    expect(searchField.focusNode?.hasFocus, isTrue);
+    expect(session.commands, isEmpty);
+    expect(session.historyCommands, isEmpty);
+  });
+
   testWidgets('RhwpNativeEditor finds and highlights text from layer tree', (
     tester,
   ) async {

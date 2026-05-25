@@ -200,3 +200,5 @@
   Ctrl/Cmd+A shortcut using page layer tree source positions.
 * Added End and Shift+End keyboard navigation to move or extend selection to
   the current paragraph end from page layer tree source positions.
+* Added Ctrl/Cmd+F handling in `RhwpNativeEditor` to open the tools ribbon and
+  focus the Flutter-native search field.
