@@ -308,6 +308,58 @@ impl RhwpSession {
                     )
                     .map_err(error_to_string)
             }
+            RhwpCommand::MergeTableCells {
+                section,
+                paragraph,
+                control_index,
+                start_row,
+                start_column,
+                end_row,
+                end_column,
+            } => {
+                let start_row =
+                    u16::try_from(start_row).map_err(|_| "startRow must fit in u16".to_string())?;
+                let start_column = u16::try_from(start_column)
+                    .map_err(|_| "startColumn must fit in u16".to_string())?;
+                let end_row =
+                    u16::try_from(end_row).map_err(|_| "endRow must fit in u16".to_string())?;
+                let end_column = u16::try_from(end_column)
+                    .map_err(|_| "endColumn must fit in u16".to_string())?;
+                inner
+                    .document
+                    .merge_table_cells_native(
+                        section as usize,
+                        paragraph as usize,
+                        control_index as usize,
+                        start_row,
+                        start_column,
+                        end_row,
+                        end_column,
+                    )
+                    .map_err(error_to_string)
+            }
+            RhwpCommand::SplitTableCell {
+                section,
+                paragraph,
+                control_index,
+                row,
+                column,
+            } => {
+                let row_index =
+                    u16::try_from(row).map_err(|_| "row must fit in u16".to_string())?;
+                let column_index =
+                    u16::try_from(column).map_err(|_| "column must fit in u16".to_string())?;
+                inner
+                    .document
+                    .split_table_cell_native(
+                        section as usize,
+                        paragraph as usize,
+                        control_index as usize,
+                        row_index,
+                        column_index,
+                    )
+                    .map_err(error_to_string)
+            }
             RhwpCommand::ApplyCharFormat {
                 section,
                 paragraph,
@@ -503,6 +555,28 @@ enum RhwpCommand {
         paragraph: u32,
         #[serde(rename = "controlIndex")]
         control_index: u32,
+        column: u32,
+    },
+    MergeTableCells {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "startRow")]
+        start_row: u32,
+        #[serde(rename = "startColumn")]
+        start_column: u32,
+        #[serde(rename = "endRow")]
+        end_row: u32,
+        #[serde(rename = "endColumn")]
+        end_column: u32,
+    },
+    SplitTableCell {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        row: u32,
         column: u32,
     },
     ApplyCharFormat {
@@ -1040,6 +1114,22 @@ mod tests {
         let table_paragraph = table_result["paraIdx"]
             .as_u64()
             .expect("table insert result should expose paraIdx");
+        session
+            .apply_command(
+                format!(
+                    r#"{{"type":"mergeTableCells","section":0,"paragraph":{},"controlIndex":0,"startRow":0,"startColumn":0,"endRow":1,"endColumn":1}}"#,
+                    table_paragraph
+                ),
+            )
+            .expect("merge table cells command should be accepted");
+        session
+            .apply_command(
+                format!(
+                    r#"{{"type":"splitTableCell","section":0,"paragraph":{},"controlIndex":0,"row":0,"column":0}}"#,
+                    table_paragraph
+                ),
+            )
+            .expect("split table cell command should be accepted");
         session
             .apply_command(
                 format!(

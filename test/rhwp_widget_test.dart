@@ -347,6 +347,77 @@ void main() {
     ]);
   });
 
+  testWidgets('RhwpNativeEditor toolbar merges and splits table cells', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 0);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.cursor = const RhwpCursorPosition(offset: 2);
+    await tester.pump();
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-insert-table')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-insert-table')));
+    await _pumpDocumentFrame(tester);
+
+    for (final key in ['rhwp-editor-merge-cells', 'rhwp-editor-split-cell']) {
+      await tester.ensureVisible(find.byKey(ValueKey(key)));
+      await tester.pump();
+      await tester.tap(find.byKey(ValueKey(key)));
+      await _pumpDocumentFrame(tester);
+    }
+
+    expect(changedCalls, 3);
+    expect(session.commands.map(jsonDecode), [
+      {
+        'type': 'insertTable',
+        'section': 0,
+        'paragraph': 0,
+        'offset': 2,
+        'rows': 2,
+        'columns': 2,
+      },
+      {
+        'type': 'mergeTableCells',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 0,
+        'startRow': 0,
+        'startColumn': 0,
+        'endRow': 1,
+        'endColumn': 1,
+      },
+      {
+        'type': 'splitTableCell',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 0,
+        'row': 0,
+        'column': 0,
+      },
+    ]);
+  });
+
   testWidgets('RhwpCommandEditor paints caret and selection target overlay', (
     tester,
   ) async {

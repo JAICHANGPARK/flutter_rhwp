@@ -203,6 +203,24 @@ abstract class RhwpCommand {
     required int column,
   }) = RhwpDeleteTableColumnCommand;
 
+  factory RhwpCommand.mergeTableCells({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int startRow,
+    required int startColumn,
+    required int endRow,
+    required int endColumn,
+  }) = RhwpMergeTableCellsCommand;
+
+  factory RhwpCommand.splitTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int row,
+    required int column,
+  }) = RhwpSplitTableCellCommand;
+
   factory RhwpCommand.applyCharFormat({
     required int section,
     required int paragraph,
@@ -452,6 +470,64 @@ class RhwpDeleteTableColumnCommand extends RhwpCommand {
     'section': section,
     'paragraph': paragraph,
     'controlIndex': controlIndex,
+    'column': column,
+  };
+}
+
+class RhwpMergeTableCellsCommand extends RhwpCommand {
+  const RhwpMergeTableCellsCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.startRow,
+    required this.startColumn,
+    required this.endRow,
+    required this.endColumn,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int startRow;
+  final int startColumn;
+  final int endRow;
+  final int endColumn;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'mergeTableCells',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'startRow': startRow,
+    'startColumn': startColumn,
+    'endRow': endRow,
+    'endColumn': endColumn,
+  };
+}
+
+class RhwpSplitTableCellCommand extends RhwpCommand {
+  const RhwpSplitTableCellCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.row,
+    required this.column,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int row;
+  final int column;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'splitTableCell',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'row': row,
     'column': column,
   };
 }
@@ -847,6 +923,46 @@ class RhwpDocument {
         section: section,
         paragraph: paragraph,
         controlIndex: controlIndex,
+        column: column,
+      ),
+    );
+  }
+
+  Future<String> mergeTableCells({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int startRow,
+    required int startColumn,
+    required int endRow,
+    required int endColumn,
+  }) {
+    return apply(
+      RhwpCommand.mergeTableCells(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        startRow: startRow,
+        startColumn: startColumn,
+        endRow: endRow,
+        endColumn: endColumn,
+      ),
+    );
+  }
+
+  Future<String> splitTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int row,
+    required int column,
+  }) {
+    return apply(
+      RhwpCommand.splitTableCell(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        row: row,
         column: column,
       ),
     );

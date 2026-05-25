@@ -99,6 +99,8 @@ class _TableReference {
     required this.controlIndex,
     required this.row,
     required this.column,
+    required this.endRow,
+    required this.endColumn,
   });
 
   final int section;
@@ -106,6 +108,8 @@ class _TableReference {
   final int controlIndex;
   final int row;
   final int column;
+  final int endRow;
+  final int endColumn;
 }
 
 /// Controller for the Flutter-native command editor overlay.
@@ -228,6 +232,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   final _tableControlController = TextEditingController(text: '0');
   final _tableRowController = TextEditingController(text: '0');
   final _tableColumnController = TextEditingController(text: '0');
+  final _tableEndRowController = TextEditingController(text: '1');
+  final _tableEndColumnController = TextEditingController(text: '1');
   TextInputConnection? _textInputConnection;
   TextEditingValue _inputValue = TextEditingValue.empty;
   Key _viewerKey = UniqueKey();
@@ -271,6 +277,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _tableControlController.dispose();
     _tableRowController.dispose();
     _tableColumnController.dispose();
+    _tableEndRowController.dispose();
+    _tableEndColumnController.dispose();
     super.dispose();
   }
 
@@ -452,6 +460,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       _setTextIfChanged(_tableControlController, '0');
       _setTextIfChanged(_tableRowController, '0');
       _setTextIfChanged(_tableColumnController, '0');
+      _setTextIfChanged(_tableEndRowController, '1');
+      _setTextIfChanged(_tableEndColumnController, '1');
       _controller.cursor = RhwpCursorPosition(
         section: cursor.section,
         paragraph: tableParagraph + 1,
@@ -518,6 +528,42 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         section: ref.section,
         paragraph: ref.paragraph,
         controlIndex: ref.controlIndex,
+        column: ref.column,
+      );
+    });
+  }
+
+  Future<void> _mergeTableCells() async {
+    if (_busy) {
+      return;
+    }
+
+    await _runEdit(() async {
+      final ref = _readTableReference();
+      await widget.document.mergeTableCells(
+        section: ref.section,
+        paragraph: ref.paragraph,
+        controlIndex: ref.controlIndex,
+        startRow: ref.row,
+        startColumn: ref.column,
+        endRow: ref.endRow,
+        endColumn: ref.endColumn,
+      );
+    });
+  }
+
+  Future<void> _splitTableCell() async {
+    if (_busy) {
+      return;
+    }
+
+    await _runEdit(() async {
+      final ref = _readTableReference();
+      await widget.document.splitTableCell(
+        section: ref.section,
+        paragraph: ref.paragraph,
+        controlIndex: ref.controlIndex,
+        row: ref.row,
         column: ref.column,
       );
     });
@@ -755,11 +801,15 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       controlIndex: _parseNonNegative(_tableControlController.text),
       row: _parseNonNegative(_tableRowController.text),
       column: _parseNonNegative(_tableColumnController.text),
+      endRow: _parseNonNegative(_tableEndRowController.text),
+      endColumn: _parseNonNegative(_tableEndColumnController.text),
     );
     _setTextIfChanged(_tableParagraphController, ref.paragraph.toString());
     _setTextIfChanged(_tableControlController, ref.controlIndex.toString());
     _setTextIfChanged(_tableRowController, ref.row.toString());
     _setTextIfChanged(_tableColumnController, ref.column.toString());
+    _setTextIfChanged(_tableEndRowController, ref.endRow.toString());
+    _setTextIfChanged(_tableEndColumnController, ref.endColumn.toString());
     return ref;
   }
 
@@ -1007,6 +1057,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           tableControlController: _tableControlController,
           tableRowController: _tableRowController,
           tableColumnController: _tableColumnController,
+          tableEndRowController: _tableEndRowController,
+          tableEndColumnController: _tableEndColumnController,
           onInsert: _insertText,
           onDeleteBackward: _deleteBackward,
           onInsertTable: _insertTable,
@@ -1014,6 +1066,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onInsertTableColumn: _insertTableColumn,
           onDeleteTableRow: _deleteTableRow,
           onDeleteTableColumn: _deleteTableColumn,
+          onMergeTableCells: _mergeTableCells,
+          onSplitTableCell: _splitTableCell,
           onCut: _cutSelection,
           onCopy: _copySelection,
           onPaste: _pasteClipboard,
@@ -1473,6 +1527,8 @@ class _EditorToolbar extends StatefulWidget {
     required this.tableControlController,
     required this.tableRowController,
     required this.tableColumnController,
+    required this.tableEndRowController,
+    required this.tableEndColumnController,
     required this.onInsert,
     required this.onDeleteBackward,
     required this.onInsertTable,
@@ -1480,6 +1536,8 @@ class _EditorToolbar extends StatefulWidget {
     required this.onInsertTableColumn,
     required this.onDeleteTableRow,
     required this.onDeleteTableColumn,
+    required this.onMergeTableCells,
+    required this.onSplitTableCell,
     required this.onCut,
     required this.onCopy,
     required this.onPaste,
@@ -1506,6 +1564,8 @@ class _EditorToolbar extends StatefulWidget {
   final TextEditingController tableControlController;
   final TextEditingController tableRowController;
   final TextEditingController tableColumnController;
+  final TextEditingController tableEndRowController;
+  final TextEditingController tableEndColumnController;
   final VoidCallback onInsert;
   final VoidCallback onDeleteBackward;
   final VoidCallback onInsertTable;
@@ -1513,6 +1573,8 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onInsertTableColumn;
   final VoidCallback onDeleteTableRow;
   final VoidCallback onDeleteTableColumn;
+  final VoidCallback onMergeTableCells;
+  final VoidCallback onSplitTableCell;
   final VoidCallback onCut;
   final VoidCallback onCopy;
   final VoidCallback onPaste;
@@ -1654,6 +1716,16 @@ class _EditorToolbarState extends State<_EditorToolbar> {
                     controller: widget.tableColumnController,
                   ),
                   const SizedBox(width: 6),
+                  _NumberField(
+                    label: 'EndR',
+                    controller: widget.tableEndRowController,
+                  ),
+                  const SizedBox(width: 6),
+                  _NumberField(
+                    label: 'EndC',
+                    controller: widget.tableEndColumnController,
+                  ),
+                  const SizedBox(width: 6),
                   _ToolbarIconButton(
                     tooltip: 'Insert row below',
                     buttonKey: const ValueKey('rhwp-editor-insert-row-below'),
@@ -1681,6 +1753,18 @@ class _EditorToolbarState extends State<_EditorToolbar> {
                     ),
                     icon: Icons.disabled_by_default_outlined,
                     onPressed: widget.busy ? null : widget.onDeleteTableColumn,
+                  ),
+                  _ToolbarIconButton(
+                    tooltip: 'Merge cells',
+                    buttonKey: const ValueKey('rhwp-editor-merge-cells'),
+                    icon: Icons.call_merge_outlined,
+                    onPressed: widget.busy ? null : widget.onMergeTableCells,
+                  ),
+                  _ToolbarIconButton(
+                    tooltip: 'Split cell',
+                    buttonKey: const ValueKey('rhwp-editor-split-cell'),
+                    icon: Icons.call_split_outlined,
+                    onPressed: widget.busy ? null : widget.onSplitTableCell,
                   ),
                   const _ToolbarDivider(),
                   _ToolbarIconButton(

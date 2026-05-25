@@ -149,3 +149,5 @@
   Flutter-native toolbar table insertion action.
 * Added table row/column insert and delete commands to the Rust bridge surface
   with Flutter-native toolbar actions.
+* Added table cell merge and split commands to the Rust bridge surface with
+  Flutter-native toolbar actions.

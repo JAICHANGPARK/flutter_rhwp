@@ -142,6 +142,55 @@ void main() {
     );
   });
 
+  test('table cell commands serialize to Rust envelopes', () {
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.mergeTableCells(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            startRow: 0,
+            startColumn: 0,
+            endRow: 1,
+            endColumn: 1,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'mergeTableCells',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'startRow': 0,
+        'startColumn': 0,
+        'endRow': 1,
+        'endColumn': 1,
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.splitTableCell(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            row: 0,
+            column: 0,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'splitTableCell',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'row': 0,
+        'column': 0,
+      },
+    );
+  });
+
   test('delete range command serializes to the Rust command envelope', () {
     final command = RhwpCommand.deleteRange(
       section: 0,
@@ -468,6 +517,44 @@ void main() {
       'paragraph': 1,
       'controlIndex': 0,
       'column': 2,
+    });
+
+    await document.mergeTableCells(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      startRow: 0,
+      startColumn: 0,
+      endRow: 1,
+      endColumn: 1,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'mergeTableCells',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'startRow': 0,
+      'startColumn': 0,
+      'endRow': 1,
+      'endColumn': 1,
+    });
+
+    await document.splitTableCell(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      row: 0,
+      column: 0,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'splitTableCell',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'row': 0,
+      'column': 0,
     });
   });
 
