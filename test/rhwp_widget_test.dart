@@ -403,6 +403,64 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor insert ribbon inserts a picture', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 900,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onImageRequested: () => RhwpEditorImage(
+              bytes: Uint8List.fromList([1, 2, 3]),
+              extension: '.PNG',
+              width: 750,
+              height: 1500,
+              naturalWidthPx: 10,
+              naturalHeightPx: 20,
+              description: 'sample.png',
+            ),
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 0, offset: 2);
+    await tester.pump();
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-insert-picture')),
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-insert-picture')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(controller.cursor, const RhwpCursorPosition(paragraph: 2));
+    expect(jsonDecode(session.commands.single), {
+      'type': 'insertPicture',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 2,
+      'imageData': [1, 2, 3],
+      'width': 750,
+      'height': 1500,
+      'naturalWidthPx': 10,
+      'naturalHeightPx': 20,
+      'extension': 'png',
+      'description': 'sample.png',
+    });
+  });
+
   testWidgets('RhwpNativeEditor preserves viewport while editing', (
     tester,
   ) async {
@@ -6211,6 +6269,14 @@ class _FakeRhwpSession implements rust.RhwpSession {
       if (paragraph is int && offset is int) {
         final tableParagraph = offset > 0 ? paragraph + 1 : paragraph;
         return '{"ok":true,"paraIdx":$tableParagraph,"controlIdx":0}';
+      }
+    }
+    if (command is Map && command['type'] == 'insertPicture') {
+      final paragraph = command['paragraph'];
+      final offset = command['offset'];
+      if (paragraph is int && offset is int) {
+        final pictureParagraph = offset > 0 ? paragraph + 1 : paragraph;
+        return '{"ok":true,"paraIdx":$pictureParagraph,"controlIdx":0}';
       }
     }
     if (command is Map && command['type'] == 'getObjectProperties') {

@@ -76,6 +76,35 @@ void main() {
     });
   });
 
+  test('insert picture command serializes to the Rust command envelope', () {
+    final command = RhwpCommand.insertPicture(
+      section: 0,
+      paragraph: 1,
+      offset: 2,
+      imageData: Uint8List.fromList([1, 2, 3]),
+      width: 750,
+      height: 1500,
+      naturalWidthPx: 10,
+      naturalHeightPx: 20,
+      extension: 'png',
+      description: 'sample.png',
+    );
+
+    expect(jsonDecode(jsonEncode(command.toJson())), {
+      'type': 'insertPicture',
+      'section': 0,
+      'paragraph': 1,
+      'offset': 2,
+      'imageData': [1, 2, 3],
+      'width': 750,
+      'height': 1500,
+      'naturalWidthPx': 10,
+      'naturalHeightPx': 20,
+      'extension': 'png',
+      'description': 'sample.png',
+    });
+  });
+
   test('insert table command serializes to the Rust command envelope', () {
     final command = RhwpCommand.insertTable(
       section: 0,
@@ -957,6 +986,33 @@ void main() {
       'script': 'x^2 + y^2',
       'fontSize': 1200,
       'color': 0x2563eb,
+    });
+
+    await document.insertPicture(
+      section: 0,
+      paragraph: 1,
+      offset: 2,
+      imageData: Uint8List.fromList([1, 2, 3]),
+      width: 750,
+      height: 1500,
+      naturalWidthPx: 10,
+      naturalHeightPx: 20,
+      extension: 'png',
+      description: 'sample.png',
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'insertPicture',
+      'section': 0,
+      'paragraph': 1,
+      'offset': 2,
+      'imageData': [1, 2, 3],
+      'width': 750,
+      'height': 1500,
+      'naturalWidthPx': 10,
+      'naturalHeightPx': 20,
+      'extension': 'png',
+      'description': 'sample.png',
     });
 
     await document.insertTable(

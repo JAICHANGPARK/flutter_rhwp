@@ -154,6 +154,27 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
     });
   }
 
+  Future<RhwpEditorImage?> _pickEditorImage() async {
+    final result = await FilePicker.pickFiles(
+      dialogTitle: 'Insert picture',
+      type: FileType.custom,
+      allowedExtensions: const ['png', 'jpg', 'jpeg', 'bmp', 'gif'],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) {
+      return null;
+    }
+
+    final file = result.files.single;
+    final bytes = await file.xFile.readAsBytes();
+    final extension = file.extension ?? file.name.split('.').last;
+    return RhwpEditorImage(
+      bytes: bytes,
+      extension: extension,
+      description: file.name,
+    );
+  }
+
   Future<void> _saveExport(_ExportKind kind) async {
     final document = _document;
     if (document == null && !_usesFullEditor) {
@@ -456,6 +477,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
                       controller: _editorController,
                       editRefreshDelay: const Duration(milliseconds: 1200),
                       onOpenRequested: _busy ? null : _openDocument,
+                      onImageRequested: _busy ? null : _pickEditorImage,
                       onExported: _busy ? null : _saveEditorExport,
                       onChanged: (_) async {
                         final metadata = await document.metadata();

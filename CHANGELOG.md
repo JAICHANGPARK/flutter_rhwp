@@ -85,6 +85,8 @@
   Rust command bridge.
 * Prevented immediate text input actions from flushing the Flutter-native
   editor's deferred page refresh after every committed character.
+* Added Flutter-native picture insertion from the insert ribbon through an app
+  supplied image picker callback and the Rust command bridge.
 * Extended page layer tree selection geometry to span multiple paragraphs and
   wired `RhwpEditor` page overlays to render those page-local selection rects.
 * Added a Rust facade regression test for the page layer tree JSON contract that

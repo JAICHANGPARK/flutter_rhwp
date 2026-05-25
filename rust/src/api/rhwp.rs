@@ -268,6 +268,32 @@ impl RhwpSession {
                     color,
                 )
                 .map_err(error_to_string),
+            RhwpCommand::InsertPicture {
+                section,
+                paragraph,
+                offset,
+                image_data,
+                width,
+                height,
+                natural_width_px,
+                natural_height_px,
+                extension,
+                description,
+            } => inner
+                .document
+                .insert_picture_native(
+                    section as usize,
+                    paragraph as usize,
+                    offset as usize,
+                    &image_data,
+                    width,
+                    height,
+                    natural_width_px,
+                    natural_height_px,
+                    &extension,
+                    &description,
+                )
+                .map_err(error_to_string),
             RhwpCommand::SplitParagraph {
                 section,
                 paragraph,
@@ -769,6 +795,22 @@ enum RhwpCommand {
         #[serde(rename = "fontSize")]
         font_size: u32,
         color: u32,
+    },
+    InsertPicture {
+        section: u32,
+        paragraph: u32,
+        offset: u32,
+        #[serde(rename = "imageData")]
+        image_data: Vec<u8>,
+        width: u32,
+        height: u32,
+        #[serde(rename = "naturalWidthPx")]
+        natural_width_px: u32,
+        #[serde(rename = "naturalHeightPx")]
+        natural_height_px: u32,
+        extension: String,
+        #[serde(default)]
+        description: String,
     },
     SplitParagraph {
         section: u32,
@@ -1722,6 +1764,12 @@ mod tests {
                     .to_string(),
             )
             .expect("insert equation command should be accepted");
+        session
+            .apply_command(
+                r#"{"type":"insertPicture","section":0,"paragraph":0,"offset":6,"imageData":[137,80,78,71],"width":750,"height":750,"naturalWidthPx":10,"naturalHeightPx":10,"extension":"png","description":"test"}"#
+                    .to_string(),
+            )
+            .expect("insert picture command should be accepted");
         session
             .apply_command(
                 r#"{"type":"insertText","section":0,"paragraph":1,"offset":0,"text":"next"}"#

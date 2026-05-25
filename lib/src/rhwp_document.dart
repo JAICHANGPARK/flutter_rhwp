@@ -336,6 +336,19 @@ abstract class RhwpCommand {
     int color,
   }) = RhwpInsertEquationCommand;
 
+  factory RhwpCommand.insertPicture({
+    required int section,
+    required int paragraph,
+    required int offset,
+    required Uint8List imageData,
+    required int width,
+    required int height,
+    required int naturalWidthPx,
+    required int naturalHeightPx,
+    required String extension,
+    String description,
+  }) = RhwpInsertPictureCommand;
+
   factory RhwpCommand.splitParagraph({
     required int section,
     required int paragraph,
@@ -783,6 +796,47 @@ class RhwpInsertEquationCommand extends RhwpCommand {
     'script': script,
     'fontSize': fontSize,
     'color': color,
+  };
+}
+
+class RhwpInsertPictureCommand extends RhwpCommand {
+  const RhwpInsertPictureCommand({
+    required this.section,
+    required this.paragraph,
+    required this.offset,
+    required this.imageData,
+    required this.width,
+    required this.height,
+    required this.naturalWidthPx,
+    required this.naturalHeightPx,
+    required this.extension,
+    this.description = '',
+  });
+
+  final int section;
+  final int paragraph;
+  final int offset;
+  final Uint8List imageData;
+  final int width;
+  final int height;
+  final int naturalWidthPx;
+  final int naturalHeightPx;
+  final String extension;
+  final String description;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'insertPicture',
+    'section': section,
+    'paragraph': paragraph,
+    'offset': offset,
+    'imageData': imageData.toList(growable: false),
+    'width': width,
+    'height': height,
+    'naturalWidthPx': naturalWidthPx,
+    'naturalHeightPx': naturalHeightPx,
+    'extension': extension,
+    'description': description,
   };
 }
 
@@ -1854,6 +1908,34 @@ class RhwpDocument {
         script: script,
         fontSize: fontSize,
         color: color,
+      ),
+    );
+  }
+
+  Future<String> insertPicture({
+    required int section,
+    required int paragraph,
+    required int offset,
+    required Uint8List imageData,
+    required int width,
+    required int height,
+    required int naturalWidthPx,
+    required int naturalHeightPx,
+    required String extension,
+    String description = '',
+  }) {
+    return apply(
+      RhwpCommand.insertPicture(
+        section: section,
+        paragraph: paragraph,
+        offset: offset,
+        imageData: imageData,
+        width: width,
+        height: height,
+        naturalWidthPx: naturalWidthPx,
+        naturalHeightPx: naturalHeightPx,
+        extension: extension,
+        description: description,
       ),
     );
   }

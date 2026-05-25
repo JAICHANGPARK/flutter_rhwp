@@ -93,6 +93,7 @@ RhwpNativeEditor(
   document: document,
   editRefreshDelay: const Duration(milliseconds: 1200),
   onOpenRequested: pickAndOpenDocument,
+  onImageRequested: pickImageForEditor,
   onExported: saveExportedDocument,
 )
 ```
@@ -127,6 +128,18 @@ await document.insertTableRow(
   paragraph: 0,
   controlIndex: 0,
   row: 0,
+);
+
+await document.insertPicture(
+  section: 0,
+  paragraph: 0,
+  offset: 0,
+  imageData: imageBytes,
+  width: 15000,
+  height: 10000,
+  naturalWidthPx: 200,
+  naturalHeightPx: 133,
+  extension: 'png',
 );
 
 await document.createHeader(section: 0);
@@ -200,7 +213,7 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   snapshot-backed undo/redo from the edit ribbon, layer-tree text search with
   Ctrl/Cmd+F focus, F3/Shift+F3 result navigation, result highlighting,
   active-match replace, replace-all, and table-cell find/replace, and basic
-  text/table insert/delete plus table row/column and cell
+  text/table/picture insert/delete plus table row/column and cell
   merge/split command flow with table-cell hit testing, selected-cell
   highlighting, object/control hit testing, highlighting, pointer drag move and
   resize handles for selected objects, Delete/Backspace object deletion, object

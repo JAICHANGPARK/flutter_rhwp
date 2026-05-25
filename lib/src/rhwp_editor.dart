@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
@@ -11,6 +12,28 @@ import 'package:flutter/services.dart';
 import 'rhwp_document.dart';
 import 'rhwp_layer_tree.dart';
 import 'rhwp_viewer.dart';
+
+typedef RhwpEditorImagePicker = FutureOr<RhwpEditorImage?> Function();
+
+class RhwpEditorImage {
+  const RhwpEditorImage({
+    required this.bytes,
+    required this.extension,
+    this.width,
+    this.height,
+    this.naturalWidthPx,
+    this.naturalHeightPx,
+    this.description = '',
+  });
+
+  final Uint8List bytes;
+  final String extension;
+  final int? width;
+  final int? height;
+  final int? naturalWidthPx;
+  final int? naturalHeightPx;
+  final String description;
+}
 
 class RhwpCursorPosition {
   const RhwpCursorPosition({
@@ -580,6 +603,26 @@ class _EquationDialogResult {
   final int color;
 }
 
+class _ResolvedEditorImage {
+  const _ResolvedEditorImage({
+    required this.bytes,
+    required this.extension,
+    required this.width,
+    required this.height,
+    required this.naturalWidthPx,
+    required this.naturalHeightPx,
+    required this.description,
+  });
+
+  final Uint8List bytes;
+  final String extension;
+  final int width;
+  final int height;
+  final int naturalWidthPx;
+  final int naturalHeightPx;
+  final String description;
+}
+
 class _EditorSearchMatch {
   const _EditorSearchMatch({
     required this.page,
@@ -795,6 +838,7 @@ class RhwpEditor extends StatefulWidget {
     this.controller,
     this.onChanged,
     this.onOpenRequested,
+    this.onImageRequested,
     this.onExported,
     this.editRefreshDelay = _defaultEditRefreshDelay,
   });
@@ -803,6 +847,7 @@ class RhwpEditor extends StatefulWidget {
   final RhwpEditorController? controller;
   final ValueChanged<RhwpDocument>? onChanged;
   final FutureOr<void> Function()? onOpenRequested;
+  final RhwpEditorImagePicker? onImageRequested;
   final FutureOr<void> Function(RhwpExportedDocument document)? onExported;
 
   /// How long text-like edits wait before refreshing rendered page SVG.
@@ -823,6 +868,7 @@ class RhwpNativeEditor extends StatelessWidget {
     this.controller,
     this.onChanged,
     this.onOpenRequested,
+    this.onImageRequested,
     this.onExported,
     this.editRefreshDelay = _defaultEditRefreshDelay,
   });
@@ -831,6 +877,7 @@ class RhwpNativeEditor extends StatelessWidget {
   final RhwpEditorController? controller;
   final ValueChanged<RhwpDocument>? onChanged;
   final FutureOr<void> Function()? onOpenRequested;
+  final RhwpEditorImagePicker? onImageRequested;
   final FutureOr<void> Function(RhwpExportedDocument document)? onExported;
   final Duration editRefreshDelay;
 
@@ -841,6 +888,7 @@ class RhwpNativeEditor extends StatelessWidget {
       controller: controller,
       onChanged: onChanged,
       onOpenRequested: onOpenRequested,
+      onImageRequested: onImageRequested,
       onExported: onExported,
       editRefreshDelay: editRefreshDelay,
     );
@@ -858,6 +906,7 @@ class RhwpCommandEditor extends StatelessWidget {
     this.controller,
     this.onChanged,
     this.onOpenRequested,
+    this.onImageRequested,
     this.onExported,
     this.editRefreshDelay = _defaultEditRefreshDelay,
   });
@@ -866,6 +915,7 @@ class RhwpCommandEditor extends StatelessWidget {
   final RhwpEditorController? controller;
   final ValueChanged<RhwpDocument>? onChanged;
   final FutureOr<void> Function()? onOpenRequested;
+  final RhwpEditorImagePicker? onImageRequested;
   final FutureOr<void> Function(RhwpExportedDocument document)? onExported;
   final Duration editRefreshDelay;
 
@@ -876,6 +926,7 @@ class RhwpCommandEditor extends StatelessWidget {
       controller: controller,
       onChanged: onChanged,
       onOpenRequested: onOpenRequested,
+      onImageRequested: onImageRequested,
       onExported: onExported,
       editRefreshDelay: editRefreshDelay,
     );
@@ -2017,6 +2068,60 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         color: result.color,
       );
       _controller.cursor = cursor.copyWith(offset: cursor.offset + 1);
+    });
+  }
+
+  Future<void> _insertPicture() async {
+    final onImageRequested = widget.onImageRequested;
+    if (_busy ||
+        onImageRequested == null ||
+        _controller.tableCellSelection != null) {
+      return;
+    }
+
+    final RhwpEditorImage? image;
+    final _ResolvedEditorImage resolvedImage;
+    try {
+      image = await onImageRequested();
+      if (!mounted || image == null || image.bytes.isEmpty) {
+        return;
+      }
+      resolvedImage = await _resolveEditorImage(image);
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+      return;
+    }
+
+    final selection = _controller.selection;
+    final cursor = selection.isCollapsed
+        ? _controller.cursor
+        : selection.normalizedStart;
+    await _runEdit(() async {
+      if (!selection.isCollapsed) {
+        await _deleteSelectedText(selection);
+      }
+      final result = await widget.document.insertPicture(
+        section: cursor.section,
+        paragraph: cursor.paragraph,
+        offset: cursor.offset,
+        imageData: resolvedImage.bytes,
+        width: resolvedImage.width,
+        height: resolvedImage.height,
+        naturalWidthPx: resolvedImage.naturalWidthPx,
+        naturalHeightPx: resolvedImage.naturalHeightPx,
+        extension: resolvedImage.extension,
+        description: resolvedImage.description,
+      );
+      final pictureParagraph =
+          _readIntResult(result, 'paraIdx') ?? cursor.paragraph;
+      _controller.cursor = RhwpCursorPosition(
+        section: cursor.section,
+        paragraph: pictureParagraph + 1,
+      );
     });
   }
 
@@ -5803,6 +5908,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           pageCount: _pageCountValue,
           zoom: _controller.zoom,
           canOpen: widget.onOpenRequested != null,
+          canInsertPicture: widget.onImageRequested != null,
           canExport: widget.onExported != null,
           searchMatchCount: _searchMatches.length,
           activeSearchMatch: _activeSearchMatch,
@@ -5815,6 +5921,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onInsertTable: _insertTable,
           onInsertFootnote: _insertFootnote,
           onInsertEquation: _showInsertEquationDialog,
+          onInsertPicture: _insertPicture,
           onInsertTableRow: _insertTableRow,
           onInsertTableColumn: _insertTableColumn,
           onDeleteTableRow: _deleteTableRow,
@@ -7461,6 +7568,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.pageCount,
     required this.zoom,
     required this.canOpen,
+    required this.canInsertPicture,
     required this.canExport,
     required this.searchMatchCount,
     required this.activeSearchMatch,
@@ -7473,6 +7581,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onInsertTable,
     required this.onInsertFootnote,
     required this.onInsertEquation,
+    required this.onInsertPicture,
     required this.onInsertTableRow,
     required this.onInsertTableColumn,
     required this.onDeleteTableRow,
@@ -7551,6 +7660,7 @@ class _EditorToolbar extends StatefulWidget {
   final int? pageCount;
   final double zoom;
   final bool canOpen;
+  final bool canInsertPicture;
   final bool canExport;
   final int searchMatchCount;
   final int activeSearchMatch;
@@ -7563,6 +7673,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onInsertTable;
   final VoidCallback onInsertFootnote;
   final VoidCallback onInsertEquation;
+  final VoidCallback onInsertPicture;
   final VoidCallback onInsertTableRow;
   final VoidCallback onInsertTableColumn;
   final VoidCallback onDeleteTableRow;
@@ -8018,6 +8129,14 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               buttonKey: const ValueKey('rhwp-editor-insert-equation'),
               icon: Icons.functions,
               onPressed: widget.busy ? null : widget.onInsertEquation,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Insert picture',
+              buttonKey: const ValueKey('rhwp-editor-insert-picture'),
+              icon: Icons.image_outlined,
+              onPressed: widget.busy || !widget.canInsertPicture
+                  ? null
+                  : widget.onInsertPicture,
             ),
           ],
         ),
@@ -8838,6 +8957,74 @@ class _EquationDialogState extends State<_EquationDialog> {
 int _equationColorFromHex(String value) {
   final hex = value.replaceFirst('#', '');
   return int.tryParse(hex, radix: 16) ?? 0;
+}
+
+Future<_ResolvedEditorImage> _resolveEditorImage(RhwpEditorImage image) async {
+  var naturalWidthPx = image.naturalWidthPx;
+  var naturalHeightPx = image.naturalHeightPx;
+
+  if (naturalWidthPx == null || naturalHeightPx == null) {
+    try {
+      final codec = await ui.instantiateImageCodec(image.bytes);
+      try {
+        final frame = await codec.getNextFrame();
+        naturalWidthPx = frame.image.width;
+        naturalHeightPx = frame.image.height;
+        frame.image.dispose();
+      } finally {
+        codec.dispose();
+      }
+    } catch (_) {
+      naturalWidthPx ??= 1;
+      naturalHeightPx ??= 1;
+    }
+  }
+
+  naturalWidthPx = math.max(1, naturalWidthPx);
+  naturalHeightPx = math.max(1, naturalHeightPx);
+
+  var width = image.width;
+  var height = image.height;
+  if (width == null || height == null) {
+    final scaled = _defaultPictureSize(
+      naturalWidthPx: naturalWidthPx,
+      naturalHeightPx: naturalHeightPx,
+    );
+    width ??= scaled.width;
+    height ??= scaled.height;
+  }
+
+  return _ResolvedEditorImage(
+    bytes: image.bytes,
+    extension: _normalizeImageExtension(image.extension),
+    width: math.max(1, width),
+    height: math.max(1, height),
+    naturalWidthPx: naturalWidthPx,
+    naturalHeightPx: naturalHeightPx,
+    description: image.description,
+  );
+}
+
+({int width, int height}) _defaultPictureSize({
+  required int naturalWidthPx,
+  required int naturalHeightPx,
+}) {
+  const hwpUnitsPerPixelAt96Dpi = 75;
+  const maxDefaultExtent = 36000;
+  var width = math.max(1, naturalWidthPx * hwpUnitsPerPixelAt96Dpi);
+  var height = math.max(1, naturalHeightPx * hwpUnitsPerPixelAt96Dpi);
+  final maxExtent = math.max(width, height);
+  if (maxExtent > maxDefaultExtent) {
+    final scale = maxDefaultExtent / maxExtent;
+    width = math.max(1, (width * scale).round());
+    height = math.max(1, (height * scale).round());
+  }
+  return (width: width, height: height);
+}
+
+String _normalizeImageExtension(String extension) {
+  final normalized = extension.trim().toLowerCase().replaceFirst('.', '');
+  return normalized.isEmpty ? 'png' : normalized;
 }
 
 class _PageSetupDialog extends StatefulWidget {
