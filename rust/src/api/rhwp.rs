@@ -1114,6 +1114,13 @@ mod tests {
         let table_paragraph = table_result["paraIdx"]
             .as_u64()
             .expect("table insert result should expose paraIdx");
+        let table_layer_tree = session
+            .page_layer_tree(0)
+            .expect("table layer tree should be available after insert");
+        assert!(table_layer_tree.contains(r#""kind":"table""#));
+        assert!(table_layer_tree.contains("\"paraIndex\":"));
+        assert!(table_layer_tree.contains("\"controlIndex\":"));
+        assert!(table_layer_tree.contains(r#""kind":"tableCell""#));
         session
             .apply_command(
                 format!(

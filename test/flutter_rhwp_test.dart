@@ -740,6 +740,29 @@ void main() {
     );
   });
 
+  test('page layer tree model maps table cell hit context', () {
+    final tree = RhwpLayerTree.fromJsonString(
+      0,
+      jsonEncode(_tableCellLayerTreeJson()),
+    );
+
+    expect(tree.tableCells, hasLength(1));
+    final cell = tree.tableCells.single;
+    expect(cell.bounds, const Rect.fromLTWH(90, 50, 40, 30));
+    expect(cell.section, 0);
+    expect(cell.paragraph, 5);
+    expect(cell.controlIndex, 2);
+    expect(cell.row, 1);
+    expect(cell.column, 3);
+    expect(cell.rowSpan, 2);
+    expect(cell.columnSpan, 1);
+    expect(cell.modelCellIndex, 7);
+    expect(cell.endRow, 2);
+    expect(cell.endColumn, 3);
+    expect(tree.tableCellForPoint(const Offset(100, 60)), same(cell));
+    expect(tree.tableCellForPoint(const Offset(10, 10)), isNull);
+  });
+
   test('page layer tree model maps multi-paragraph selection ranges', () {
     final tree = RhwpLayerTree.fromJsonString(
       0,
@@ -817,6 +840,45 @@ Map<String, Object?> _textRunLayerTreeJson({required int charStart}) {
         'annotations': [],
       },
     ],
+  };
+}
+
+Map<String, Object?> _tableCellLayerTreeJson() {
+  return {
+    'pageWidth': 240,
+    'pageHeight': 180,
+    'root': {
+      'kind': 'group',
+      'bounds': {'x': 0, 'y': 0, 'width': 240, 'height': 180},
+      'children': [
+        {
+          'kind': 'group',
+          'bounds': {'x': 80, 'y': 40, 'width': 100, 'height': 80},
+          'groupKind': {
+            'kind': 'table',
+            'sectionIndex': 0,
+            'paraIndex': 5,
+            'controlIndex': 2,
+            'rowCount': 4,
+            'colCount': 5,
+          },
+          'children': [
+            {
+              'kind': 'group',
+              'bounds': {'x': 90, 'y': 50, 'width': 40, 'height': 30},
+              'groupKind': {
+                'kind': 'tableCell',
+                'row': 1,
+                'col': 3,
+                'rowSpan': 2,
+                'colSpan': 1,
+                'modelCellIndex': 7,
+              },
+            },
+          ],
+        },
+      ],
+    },
   };
 }
 

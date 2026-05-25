@@ -81,6 +81,31 @@ class RhwpLayerTree {
     _parseTextRuns(raw),
   );
 
+  /// Table cell layouts decoded from table/tableCell layer groups.
+  late final List<RhwpTableCellLayout> tableCells = List.unmodifiable(
+    _parseTableCells(raw),
+  );
+
+  /// Maps a page-coordinate point to the smallest table cell containing it.
+  RhwpTableCellLayout? tableCellForPoint(Offset point) {
+    RhwpTableCellLayout? bestHit;
+    var bestArea = double.infinity;
+
+    for (final cell in tableCells) {
+      if (!cell.bounds.contains(point)) {
+        continue;
+      }
+
+      final area = cell.bounds.width * cell.bounds.height;
+      if (area < bestArea) {
+        bestArea = area;
+        bestHit = cell;
+      }
+    }
+
+    return bestHit;
+  }
+
   /// Returns a caret rectangle in page coordinates for a paragraph offset.
   Rect? caretRectFor({
     required int section,
@@ -349,6 +374,55 @@ class RhwpTextHitResult {
 
   /// The text run that produced the hit.
   final RhwpTextRunLayout run;
+}
+
+/// A table cell decoded from a rhwp page layer tree.
+class RhwpTableCellLayout {
+  /// Creates a decoded table cell layout.
+  const RhwpTableCellLayout({
+    required this.bounds,
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.row,
+    required this.column,
+    required this.rowSpan,
+    required this.columnSpan,
+    this.modelCellIndex,
+  });
+
+  /// The cell bounds in page coordinates.
+  final Rect bounds;
+
+  /// The document section index containing the table.
+  final int section;
+
+  /// The parent paragraph index containing the table control.
+  final int paragraph;
+
+  /// The table control index inside [paragraph].
+  final int controlIndex;
+
+  /// The table row coordinate for this cell.
+  final int row;
+
+  /// The table column coordinate for this cell.
+  final int column;
+
+  /// The number of rows spanned by this cell.
+  final int rowSpan;
+
+  /// The number of columns spanned by this cell.
+  final int columnSpan;
+
+  /// The optional model cell index in rhwp's table cell array.
+  final int? modelCellIndex;
+
+  /// The last row covered by this cell.
+  int get endRow => row + _positiveSpan(rowSpan) - 1;
+
+  /// The last column covered by this cell.
+  int get endColumn => column + _positiveSpan(columnSpan) - 1;
 }
 
 /// A single node in a parsed rhwp page layer tree.
@@ -754,12 +828,100 @@ int? _integer(Object? value) {
   return null;
 }
 
+int? _firstInteger(Map<String, Object?> json, List<String> keys) {
+  for (final key in keys) {
+    final value = _integer(json[key]);
+    if (value != null) {
+      return value;
+    }
+  }
+  return null;
+}
+
+int _positiveSpan(int value) {
+  return value < 1 ? 1 : value;
+}
+
 List<RhwpTextRunLayout> _parseTextRuns(Map<String, Object?> raw) {
   final root = _asStringMap(raw['root']) ?? raw;
   final textSources = _parseTextSourceLookup(raw['textSources']);
   final runs = <RhwpTextRunLayout>[];
   _collectTextRuns(root, textSources, runs);
   return runs;
+}
+
+List<RhwpTableCellLayout> _parseTableCells(Map<String, Object?> raw) {
+  final root = _asStringMap(raw['root']) ?? raw;
+  final cells = <RhwpTableCellLayout>[];
+  _collectTableCells(root, null, cells);
+  return cells;
+}
+
+void _collectTableCells(
+  Map<String, Object?> node,
+  _TableLayerContext? context,
+  List<RhwpTableCellLayout> cells,
+) {
+  final groupKind = _asStringMap(node['groupKind']);
+  final kind = _firstString(groupKind ?? const {}, const ['kind']);
+  var nextContext = context;
+
+  if (groupKind != null && kind == 'table') {
+    nextContext = _TableLayerContext.fromJson(groupKind) ?? context;
+  } else if (groupKind != null && kind == 'tableCell' && context != null) {
+    final cell = _parseTableCell(node, groupKind, context);
+    if (cell != null) {
+      cells.add(cell);
+    }
+  }
+
+  for (final child in _childMaps(node)) {
+    _collectTableCells(child, nextContext, cells);
+  }
+}
+
+RhwpTableCellLayout? _parseTableCell(
+  Map<String, Object?> node,
+  Map<String, Object?> groupKind,
+  _TableLayerContext context,
+) {
+  final bounds = _parseBounds(node);
+  final row = _integer(groupKind['row']);
+  final column = _integer(groupKind['col'] ?? groupKind['column']);
+  if (bounds == null || row == null || column == null) {
+    return null;
+  }
+
+  return RhwpTableCellLayout(
+    bounds: bounds,
+    section: context.section,
+    paragraph: context.paragraph,
+    controlIndex: context.controlIndex,
+    row: row,
+    column: column,
+    rowSpan: _integer(groupKind['rowSpan']) ?? 1,
+    columnSpan: _integer(groupKind['colSpan'] ?? groupKind['columnSpan']) ?? 1,
+    modelCellIndex: _integer(groupKind['modelCellIndex']),
+  );
+}
+
+Iterable<Map<String, Object?>> _childMaps(Map<String, Object?> json) sync* {
+  for (final key in _childKeys) {
+    final value = json[key];
+    if (value is List) {
+      for (final item in value) {
+        final child = _asStringMap(item);
+        if (child != null) {
+          yield child;
+        }
+      }
+    } else {
+      final child = _asStringMap(value);
+      if (child != null) {
+        yield child;
+      }
+    }
+  }
 }
 
 Map<int, Map<String, Object?>> _parseTextSourceLookup(Object? value) {
@@ -776,6 +938,50 @@ Map<int, Map<String, Object?>> _parseTextSourceLookup(Object? value) {
     }
   }
   return lookup;
+}
+
+class _TableLayerContext {
+  const _TableLayerContext({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+  });
+
+  static _TableLayerContext? fromJson(Map<String, Object?> json) {
+    final section = _firstInteger(json, const [
+      'sectionIndex',
+      'sectionIdx',
+      'section',
+      'secIdx',
+      'sec',
+    ]);
+    final paragraph = _firstInteger(json, const [
+      'paraIndex',
+      'paragraph',
+      'parentParaIdx',
+      'parentPara',
+      'para',
+    ]);
+    final controlIndex = _firstInteger(json, const [
+      'controlIndex',
+      'controlIdx',
+      'ctrl',
+    ]);
+
+    if (section == null || paragraph == null || controlIndex == null) {
+      return null;
+    }
+
+    return _TableLayerContext(
+      section: section,
+      paragraph: paragraph,
+      controlIndex: controlIndex,
+    );
+  }
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
 }
 
 void _collectTextRuns(

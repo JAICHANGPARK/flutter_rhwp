@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_rhwp/flutter_rhwp.dart';
 import 'package:flutter_rhwp/src/rust/api/rhwp.dart' as rust;
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _pageSvg = '''
@@ -416,6 +417,57 @@ void main() {
         'column': 0,
       },
     ]);
+  });
+
+  testWidgets('RhwpNativeEditor taps table cell to set table edit context', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    await tester.tapAt(
+      pageTopLeft +
+          Offset(pageSize.width * 100 / 240, pageSize.height * 60 / 180),
+    );
+    await tester.pump();
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-split-cell')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-split-cell')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.single), {
+      'type': 'splitTableCell',
+      'section': 0,
+      'paragraph': 5,
+      'controlIndex': 2,
+      'row': 1,
+      'column': 3,
+    });
   });
 
   testWidgets('RhwpCommandEditor paints caret and selection target overlay', (
@@ -1372,6 +1424,78 @@ Map<String, Object?> _editorLayerTreeJson() {
         },
       ],
     },
+  };
+}
+
+Map<String, Object?> _tableCellEditorLayerTreeJson() {
+  return {
+    'pageWidth': 240,
+    'pageHeight': 180,
+    'root': {
+      'kind': 'group',
+      'bounds': {'x': 0, 'y': 0, 'width': 240, 'height': 180},
+      'children': [
+        _editorTextRunLayerNode(paragraph: 0, y: 40),
+        {
+          'kind': 'group',
+          'bounds': {'x': 80, 'y': 40, 'width': 100, 'height': 80},
+          'groupKind': {
+            'kind': 'table',
+            'sectionIndex': 0,
+            'paraIndex': 5,
+            'controlIndex': 2,
+            'rowCount': 4,
+            'colCount': 5,
+          },
+          'children': [
+            {
+              'kind': 'group',
+              'bounds': {'x': 90, 'y': 50, 'width': 40, 'height': 30},
+              'groupKind': {
+                'kind': 'tableCell',
+                'row': 1,
+                'col': 3,
+                'rowSpan': 2,
+                'colSpan': 1,
+                'modelCellIndex': 7,
+              },
+            },
+          ],
+        },
+      ],
+    },
+  };
+}
+
+Map<String, Object?> _editorTextRunLayerNode({
+  required int paragraph,
+  required double y,
+}) {
+  return {
+    'kind': 'leaf',
+    'bounds': {'x': 80, 'y': y, 'width': 80, 'height': 16},
+    'ops': [
+      {
+        'type': 'textRun',
+        'bbox': {'x': 80, 'y': y, 'width': 80, 'height': 16},
+        'text': 'abcd',
+        'source': {
+          'id': paragraph,
+          'utf16Range': {'start': 0, 'end': 4},
+          'stableSourceKey': 'section:0/para:$paragraph/char:0',
+        },
+        'placement': {
+          'runToPage': {'a': 1, 'b': 0, 'c': 0, 'd': 1, 'e': 80, 'f': y + 12},
+          'baselineY': 0,
+        },
+        'clusters': [
+          _editorTextCluster(0, 1, 0),
+          _editorTextCluster(1, 2, 10),
+          _editorTextCluster(2, 3, 20),
+          _editorTextCluster(3, 4, 30),
+        ],
+      },
+    ],
   };
 }
 

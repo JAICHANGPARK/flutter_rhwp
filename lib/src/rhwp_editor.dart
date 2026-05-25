@@ -832,6 +832,16 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _controller.cursor = cursor;
   }
 
+  void _setTableContextFromPage(RhwpTableCellLayout cell) {
+    _setTextIfChanged(_sectionController, cell.section.toString());
+    _setTextIfChanged(_tableParagraphController, cell.paragraph.toString());
+    _setTextIfChanged(_tableControlController, cell.controlIndex.toString());
+    _setTextIfChanged(_tableRowController, cell.row.toString());
+    _setTextIfChanged(_tableColumnController, cell.column.toString());
+    _setTextIfChanged(_tableEndRowController, cell.endRow.toString());
+    _setTextIfChanged(_tableEndColumnController, cell.endColumn.toString());
+  }
+
   void _setSelectionFromPage(RhwpSelectionRange selection) {
     _controller.selection = selection;
   }
@@ -1099,6 +1109,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
                   fallbackEnabled: page == 0,
                   onCursorPosition: _setCursorFromPage,
                   onSelectionRange: _setSelectionFromPage,
+                  onTableCellHit: _setTableContextFromPage,
                   onFocusRequested: _focusEditor,
                 );
               },
@@ -1120,6 +1131,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
     required this.fallbackEnabled,
     required this.onCursorPosition,
     required this.onSelectionRange,
+    required this.onTableCellHit,
     required this.onFocusRequested,
   });
 
@@ -1130,6 +1142,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
   final bool fallbackEnabled;
   final ValueChanged<RhwpCursorPosition> onCursorPosition;
   final ValueChanged<RhwpSelectionRange> onSelectionRange;
+  final ValueChanged<RhwpTableCellLayout> onTableCellHit;
   final VoidCallback onFocusRequested;
 
   @override
@@ -1223,6 +1236,11 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     BoxConstraints constraints,
     RhwpLayerTree? tree,
   ) {
+    final tableCell = _tableCellForPoint(localPosition, constraints, tree);
+    if (tableCell != null) {
+      widget.onTableCellHit(tableCell);
+    }
+
     final cursor = _cursorForPoint(localPosition, constraints, tree);
     if (cursor != null) {
       widget.onFocusRequested();
@@ -1241,6 +1259,23 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     if (anchor != null && cursor != null) {
       widget.onSelectionRange(RhwpSelectionRange(start: anchor, end: cursor));
     }
+  }
+
+  RhwpTableCellLayout? _tableCellForPoint(
+    Offset localPosition,
+    BoxConstraints constraints,
+    RhwpLayerTree? tree,
+  ) {
+    if (tree == null) {
+      return null;
+    }
+
+    final pagePoint = _pagePointFromOverlayPoint(
+      localPosition,
+      constraints,
+      tree,
+    );
+    return tree.tableCellForPoint(pagePoint);
   }
 
   RhwpCursorPosition? _cursorForPoint(

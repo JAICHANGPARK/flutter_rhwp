@@ -1058,9 +1058,19 @@ fn write_group_kind(buf: &mut String, group_kind: &GroupKind) {
         GroupKind::Table(table) => {
             let _ = write!(
                 buf,
-                "{{\"kind\":\"table\",\"rowCount\":{},\"colCount\":{},\"borderFillId\":{}}}",
+                "{{\"kind\":\"table\",\"rowCount\":{},\"colCount\":{},\"borderFillId\":{}",
                 table.row_count, table.col_count, table.border_fill_id
             );
+            if let Some(section_index) = table.section_index {
+                let _ = write!(buf, ",\"sectionIndex\":{}", section_index);
+            }
+            if let Some(para_index) = table.para_index {
+                let _ = write!(buf, ",\"paraIndex\":{}", para_index);
+            }
+            if let Some(control_index) = table.control_index {
+                let _ = write!(buf, ",\"controlIndex\":{}", control_index);
+            }
+            buf.push('}');
         }
         GroupKind::TableCell(cell) => {
             let _ = write!(

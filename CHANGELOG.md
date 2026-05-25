@@ -151,3 +151,5 @@
   with Flutter-native toolbar actions.
 * Added table cell merge and split commands to the Rust bridge surface with
   Flutter-native toolbar actions.
+* Added page-layer table cell hit testing so `RhwpNativeEditor` can fill table
+  edit context from tapped rendered cells.
