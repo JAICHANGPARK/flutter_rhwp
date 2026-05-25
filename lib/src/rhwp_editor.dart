@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -3478,6 +3480,30 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     return connection != null && connection.attached;
   }
 
+  bool get _shouldHoldDeferredRefreshForTextInput {
+    return _focusNode.hasFocus || _hasActiveTextInputConnection;
+  }
+
+  bool get _shouldTreatConnectionClosedAsDesktopInputChurn {
+    if (kIsWeb ||
+        !_focusNode.hasFocus ||
+        !_hasDeferredEditRefresh ||
+        !_deferredEditRefreshAwaitsTextInput) {
+      return false;
+    }
+
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.linux:
+      case TargetPlatform.macOS:
+      case TargetPlatform.windows:
+        return true;
+      case TargetPlatform.android:
+      case TargetPlatform.fuchsia:
+      case TargetPlatform.iOS:
+        return false;
+    }
+  }
+
   void _scheduleDeferredEditRefresh({
     bool awaitTextInputBeforeRefresh = false,
   }) {
@@ -3485,7 +3511,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _deferredEditRefreshTimer?.cancel();
     _deferredEditRefreshAwaitsTextInput =
         _deferredEditRefreshAwaitsTextInput ||
-        (awaitTextInputBeforeRefresh && _hasActiveTextInputConnection);
+        (awaitTextInputBeforeRefresh && _shouldHoldDeferredRefreshForTextInput);
     if (_deferredEditRefreshAwaitsTextInput) {
       return;
     }
@@ -3622,7 +3648,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     if (!_hasDeferredEditRefresh) {
       return;
     }
-    if (_deferredEditRefreshAwaitsTextInput && _hasActiveTextInputConnection) {
+    if (_deferredEditRefreshAwaitsTextInput &&
+        _shouldHoldDeferredRefreshForTextInput) {
       return;
     }
     _deferredEditRefreshAwaitsTextInput = false;
@@ -4252,20 +4279,20 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _releaseDeferredEditRefreshFromTextInput();
   }
 
-  void _resetTextInputValue() {
-    _setInputValue(TextEditingValue.empty);
+  void _resetTextInputValue({bool notify = true}) {
+    _setInputValue(TextEditingValue.empty, notify: notify);
     final connection = _textInputConnection;
     if (connection != null && connection.attached) {
       connection.setEditingState(_inputValue);
     }
   }
 
-  void _setInputValue(TextEditingValue value) {
+  void _setInputValue(TextEditingValue value, {bool notify = true}) {
     if (_inputValue == value) {
       return;
     }
     _inputValue = value;
-    if (mounted) {
+    if (notify && mounted) {
       setState(() {});
     }
   }
@@ -4336,17 +4363,19 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
-    _setInputValue(value);
     if (value.composing.isValid && !value.composing.isCollapsed) {
+      _setInputValue(value);
       return;
     }
 
     final committedText = value.text;
     if (committedText.isEmpty) {
+      _setInputValue(value);
       return;
     }
 
-    _resetTextInputValue();
+    final hadComposingPreview = _composingText != null;
+    _resetTextInputValue(notify: hadComposingPreview);
     _queueCommittedText(committedText);
   }
 
@@ -4369,6 +4398,14 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   void connectionClosed() {
     _textInputConnection?.connectionClosedReceived();
     _textInputConnection = null;
+    if (_shouldTreatConnectionClosedAsDesktopInputChurn) {
+      scheduleMicrotask(() {
+        if (mounted && _focusNode.hasFocus) {
+          _openTextInput();
+        }
+      });
+      return;
+    }
     _releaseDeferredEditRefreshFromTextInput();
   }
 

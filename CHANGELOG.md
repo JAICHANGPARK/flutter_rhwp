@@ -290,3 +290,6 @@
   Flutter-native editor.
 * Added Ctrl/Cmd+Home and Ctrl/Cmd+End document boundary navigation, including
   Shift selection extension, using page layer tree source positions.
+* Kept Flutter-native text input refresh deferred while desktop platforms churn
+  the text input connection, so typing spaces or characters no longer triggers
+  a page SVG refresh while the editor still has focus.
