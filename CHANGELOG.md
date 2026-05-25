@@ -1,6 +1,6 @@
-## 2026.5.25
+## 2026.5.24
 
-* Updated plugin release metadata for the `2026.5.25` release.
+* Updated plugin release metadata for the `2026.5.24` release.
 * Initial flutter_rhwp plugin scaffold.
 * Added flutter_rust_bridge v2 Rust bridge with vendored rhwp v0.7.12.
 * Added Dart APIs for opening bytes, rendering SVG, extracting text/Markdown,
@@ -183,6 +183,8 @@
 * Added selected object z-order commands to the Dart/Rust bridge and exposed
   bring-to-front/send-to-back/forward/backward actions through the
   Flutter-native edit ribbon and object context menu.
+* Added selected object size/position property commands to the Dart/Rust bridge
+  and exposed them through a Flutter-native object properties dialog.
 * Added Arrow and Tab keyboard navigation for selected table cells in the
   Flutter-native editor, including Shift+Arrow range extension.
 * Added Escape handling in the Flutter-native editor to clear composing input,

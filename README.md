@@ -7,7 +7,7 @@ documents.
 - Rust core: [edwardkim/rhwp](https://github.com/edwardkim/rhwp), vendored at
   `rust/vendor/rhwp`
 - Bridge: `flutter_rust_bridge` v2
-- Version: `2026.5.25`
+- Version: `2026.5.24`
 
 ## Features
 
@@ -196,9 +196,10 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   active-match replace, and
   replace-all, and basic text/table insert/delete plus table row/column and cell
   merge/split command flow with table-cell hit testing, selected-cell
-  highlighting, object/control hit testing, highlighting, and Delete/Backspace
-  object deletion plus object z-order actions from the edit ribbon and context
-  menu, and drag range selection for rendered table cells, plus selected-cell
+  highlighting, object/control hit testing, highlighting, Delete/Backspace
+  object deletion, object size/position properties, and object z-order actions
+  from the edit ribbon and context menu, and drag range selection for rendered
+  table cells, plus selected-cell
   text insert/delete,
   cell text offset hit testing, and Arrow/Tab/Enter keyboard handling for
   selected table cells.
