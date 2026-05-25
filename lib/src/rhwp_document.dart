@@ -146,6 +146,49 @@ class RhwpDocumentMetadata {
   final Map<String, Object?>? raw;
 }
 
+class RhwpObjectProperties {
+  const RhwpObjectProperties({
+    this.width,
+    this.height,
+    this.horzOffset,
+    this.vertOffset,
+    required this.rawJson,
+    this.raw,
+  });
+
+  factory RhwpObjectProperties.fromJsonString(String source) {
+    final decoded = RhwpDocument._tryDecodeObject(source);
+    return RhwpObjectProperties(
+      width: _intFromJson(decoded?['width']),
+      height: _intFromJson(decoded?['height']),
+      horzOffset: _intFromJson(decoded?['horzOffset']),
+      vertOffset: _intFromJson(decoded?['vertOffset']),
+      rawJson: source,
+      raw: decoded,
+    );
+  }
+
+  final int? width;
+  final int? height;
+  final int? horzOffset;
+  final int? vertOffset;
+  final String rawJson;
+  final Map<String, Object?>? raw;
+}
+
+int? _intFromJson(Object? value) {
+  if (value is int) {
+    return value;
+  }
+  if (value is num) {
+    return value.toInt();
+  }
+  if (value is String) {
+    return int.tryParse(value.trim());
+  }
+  return null;
+}
+
 abstract class RhwpCommand {
   const RhwpCommand();
 
@@ -269,6 +312,24 @@ abstract class RhwpCommand {
     required String objectType,
     required RhwpObjectZOrderOperation operation,
   }) = RhwpChangeObjectZOrderCommand;
+
+  factory RhwpCommand.getObjectProperties({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required String objectType,
+  }) = RhwpGetObjectPropertiesCommand;
+
+  factory RhwpCommand.setObjectProperties({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required String objectType,
+    int? width,
+    int? height,
+    int? horzOffset,
+    int? vertOffset,
+  }) = RhwpSetObjectPropertiesCommand;
 
   factory RhwpCommand.applyCharFormat({
     required int section,
@@ -725,6 +786,66 @@ class RhwpChangeObjectZOrderCommand extends RhwpCommand {
     'controlIndex': controlIndex,
     'objectType': objectType,
     'operation': operation.commandValue,
+  };
+}
+
+class RhwpGetObjectPropertiesCommand extends RhwpCommand {
+  const RhwpGetObjectPropertiesCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.objectType,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final String objectType;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'getObjectProperties',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'objectType': objectType,
+  };
+}
+
+class RhwpSetObjectPropertiesCommand extends RhwpCommand {
+  const RhwpSetObjectPropertiesCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.objectType,
+    this.width,
+    this.height,
+    this.horzOffset,
+    this.vertOffset,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final String objectType;
+  final int? width;
+  final int? height;
+  final int? horzOffset;
+  final int? vertOffset;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'setObjectProperties',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'objectType': objectType,
+    'properties': {
+      if (width != null) 'width': width,
+      if (height != null) 'height': height,
+      if (horzOffset != null) 'horzOffset': horzOffset,
+      if (vertOffset != null) 'vertOffset': vertOffset,
+    },
   };
 }
 
@@ -1379,6 +1500,47 @@ class RhwpDocument {
         controlIndex: controlIndex,
         objectType: objectType,
         operation: operation,
+      ),
+    );
+  }
+
+  Future<RhwpObjectProperties> objectProperties({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required String objectType,
+  }) async {
+    final json = await apply(
+      RhwpCommand.getObjectProperties(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        objectType: objectType,
+      ),
+    );
+    return RhwpObjectProperties.fromJsonString(json);
+  }
+
+  Future<String> setObjectProperties({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required String objectType,
+    int? width,
+    int? height,
+    int? horzOffset,
+    int? vertOffset,
+  }) {
+    return apply(
+      RhwpCommand.setObjectProperties(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        objectType: objectType,
+        width: width,
+        height: height,
+        horzOffset: horzOffset,
+        vertOffset: vertOffset,
       ),
     );
   }

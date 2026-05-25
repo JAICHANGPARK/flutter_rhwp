@@ -426,6 +426,35 @@ impl RhwpSession {
                 &object_type,
                 &operation,
             ),
+            RhwpCommand::GetObjectProperties {
+                section,
+                paragraph,
+                control_index,
+                object_type,
+            } => get_object_properties(
+                &inner.document,
+                section as usize,
+                paragraph as usize,
+                control_index as usize,
+                &object_type,
+            ),
+            RhwpCommand::SetObjectProperties {
+                section,
+                paragraph,
+                control_index,
+                object_type,
+                properties,
+            } => {
+                let properties_json = properties.to_string();
+                set_object_properties(
+                    &mut inner.document,
+                    section as usize,
+                    paragraph as usize,
+                    control_index as usize,
+                    &object_type,
+                    &properties_json,
+                )
+            }
             RhwpCommand::ApplyCharFormat {
                 section,
                 paragraph,
@@ -706,6 +735,23 @@ enum RhwpCommand {
         object_type: String,
         operation: String,
     },
+    GetObjectProperties {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "objectType")]
+        object_type: String,
+    },
+    SetObjectProperties {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "objectType")]
+        object_type: String,
+        properties: serde_json::Value,
+    },
     ApplyCharFormat {
         section: u32,
         paragraph: u32,
@@ -887,6 +933,145 @@ fn change_object_z_order(
                 error_to_string(error)
             )
         })
+}
+
+fn get_object_properties(
+    document: &HwpDocument,
+    section: usize,
+    paragraph: usize,
+    control_index: usize,
+    object_type: &str,
+) -> Result<String, String> {
+    let kind = object_type.to_ascii_lowercase();
+    if matches!(kind.as_str(), "picture" | "image" | "img") {
+        let picture_error =
+            match document.get_picture_properties_native(section, paragraph, control_index) {
+                Ok(result) => return Ok(result),
+                Err(error) => error_to_string(error),
+            };
+        return document
+            .get_shape_properties_native(section, paragraph, control_index)
+            .map_err(|error| {
+                format!(
+                    "unsupported picture-like object control at section {section}, paragraph {paragraph}, control {control_index}; picture: {picture_error}; shape: {}",
+                    error_to_string(error)
+                )
+            });
+    }
+
+    if matches!(
+        kind.as_str(),
+        "shape"
+            | "textbox"
+            | "text_box"
+            | "text box"
+            | "rect"
+            | "rectangle"
+            | "ellipse"
+            | "line"
+            | "polygon"
+            | "path"
+            | "curve"
+            | "arc"
+            | "group"
+            | "ole"
+            | "chart"
+    ) {
+        return document
+            .get_shape_properties_native(section, paragraph, control_index)
+            .map_err(error_to_string);
+    }
+
+    let shape_error = match document.get_shape_properties_native(section, paragraph, control_index)
+    {
+        Ok(result) => return Ok(result),
+        Err(error) => error_to_string(error),
+    };
+    let picture_error =
+        match document.get_picture_properties_native(section, paragraph, control_index) {
+            Ok(result) => return Ok(result),
+            Err(error) => error_to_string(error),
+        };
+
+    Err(format!(
+        "unsupported object control type '{object_type}' for properties at section {section}, paragraph {paragraph}, control {control_index}; shape: {shape_error}; picture: {picture_error}"
+    ))
+}
+
+fn set_object_properties(
+    document: &mut HwpDocument,
+    section: usize,
+    paragraph: usize,
+    control_index: usize,
+    object_type: &str,
+    properties_json: &str,
+) -> Result<String, String> {
+    let kind = object_type.to_ascii_lowercase();
+    if matches!(kind.as_str(), "picture" | "image" | "img") {
+        let picture_error = match document.set_picture_properties_native(
+            section,
+            paragraph,
+            control_index,
+            properties_json,
+        ) {
+            Ok(result) => return Ok(result),
+            Err(error) => error_to_string(error),
+        };
+        return document
+            .set_shape_properties_native(section, paragraph, control_index, properties_json)
+            .map_err(|error| {
+                format!(
+                    "unsupported picture-like object control at section {section}, paragraph {paragraph}, control {control_index}; picture: {picture_error}; shape: {}",
+                    error_to_string(error)
+                )
+            });
+    }
+
+    if matches!(
+        kind.as_str(),
+        "shape"
+            | "textbox"
+            | "text_box"
+            | "text box"
+            | "rect"
+            | "rectangle"
+            | "ellipse"
+            | "line"
+            | "polygon"
+            | "path"
+            | "curve"
+            | "arc"
+            | "group"
+            | "ole"
+            | "chart"
+    ) {
+        return document
+            .set_shape_properties_native(section, paragraph, control_index, properties_json)
+            .map_err(error_to_string);
+    }
+
+    let shape_error = match document.set_shape_properties_native(
+        section,
+        paragraph,
+        control_index,
+        properties_json,
+    ) {
+        Ok(result) => return Ok(result),
+        Err(error) => error_to_string(error),
+    };
+    let picture_error = match document.set_picture_properties_native(
+        section,
+        paragraph,
+        control_index,
+        properties_json,
+    ) {
+        Ok(result) => return Ok(result),
+        Err(error) => error_to_string(error),
+    };
+
+    Err(format!(
+        "unsupported object control type '{object_type}' for property update at section {section}, paragraph {paragraph}, control {control_index}; shape: {shape_error}; picture: {picture_error}"
+    ))
 }
 
 fn selected_pages(page_count: u32, page: Option<u32>) -> Result<Vec<u32>, String> {
@@ -1507,6 +1692,22 @@ mod tests {
         assert!(
             missing_object_z_order_result.is_err(),
             "object z-order command should route through the Rust facade"
+        );
+        let missing_object_properties_result = session.apply_command(
+            r#"{"type":"getObjectProperties","section":0,"paragraph":0,"controlIndex":99,"objectType":"shape"}"#
+                .to_string(),
+        );
+        assert!(
+            missing_object_properties_result.is_err(),
+            "object properties query should route through the Rust facade"
+        );
+        let missing_set_object_properties_result = session.apply_command(
+            r#"{"type":"setObjectProperties","section":0,"paragraph":0,"controlIndex":99,"objectType":"shape","properties":{"width":1200,"height":2400,"horzOffset":80,"vertOffset":90}}"#
+                .to_string(),
+        );
+        assert!(
+            missing_set_object_properties_result.is_err(),
+            "object properties update should route through the Rust facade"
         );
 
         let hwp = session.export_hwp().expect("HWP export should succeed");

@@ -283,6 +283,56 @@ void main() {
         'operation': 'forward',
       },
     );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.getObjectProperties(
+            section: 0,
+            paragraph: 2,
+            controlIndex: 4,
+            objectType: 'shape',
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'getObjectProperties',
+        'section': 0,
+        'paragraph': 2,
+        'controlIndex': 4,
+        'objectType': 'shape',
+      },
+    );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.setObjectProperties(
+            section: 0,
+            paragraph: 2,
+            controlIndex: 4,
+            objectType: 'shape',
+            width: 1200,
+            height: 2400,
+            horzOffset: 80,
+            vertOffset: 90,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'setObjectProperties',
+        'section': 0,
+        'paragraph': 2,
+        'controlIndex': 4,
+        'objectType': 'shape',
+        'properties': {
+          'width': 1200,
+          'height': 2400,
+          'horzOffset': 80,
+          'vertOffset': 90,
+        },
+      },
+    );
   });
 
   test('delete range command serializes to the Rust command envelope', () {
@@ -857,6 +907,50 @@ void main() {
       'operation': 'front',
     });
 
+    final objectProperties = await document.objectProperties(
+      section: 0,
+      paragraph: 2,
+      controlIndex: 1,
+      objectType: 'shape',
+    );
+
+    expect(objectProperties.width, 1000);
+    expect(objectProperties.height, 2000);
+    expect(objectProperties.horzOffset, 30);
+    expect(objectProperties.vertOffset, 40);
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'getObjectProperties',
+      'section': 0,
+      'paragraph': 2,
+      'controlIndex': 1,
+      'objectType': 'shape',
+    });
+
+    await document.setObjectProperties(
+      section: 0,
+      paragraph: 2,
+      controlIndex: 1,
+      objectType: 'shape',
+      width: 1200,
+      height: 2400,
+      horzOffset: 80,
+      vertOffset: 90,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'setObjectProperties',
+      'section': 0,
+      'paragraph': 2,
+      'controlIndex': 1,
+      'objectType': 'shape',
+      'properties': {
+        'width': 1200,
+        'height': 2400,
+        'horzOffset': 80,
+        'vertOffset': 90,
+      },
+    });
+
     expect(await document.saveSnapshot(), 1);
     expect(jsonDecode(session.lastCommandJson!), {'type': 'saveSnapshot'});
 
@@ -1352,6 +1446,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
       final snapshotId = nextSnapshotId;
       nextSnapshotId += 1;
       return '{"ok":true,"snapshotId":$snapshotId}';
+    }
+    if (command is Map && command['type'] == 'getObjectProperties') {
+      return '{"width":1000,"height":2000,"horzOffset":30,"vertOffset":40}';
     }
     return '{"ok":true}';
   }

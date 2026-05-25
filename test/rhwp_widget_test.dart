@@ -1609,6 +1609,95 @@ void main() {
     });
   });
 
+  testWidgets(
+    'RhwpNativeEditor edit ribbon applies selected object properties',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(_objectEditorLayerTreeJson());
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      final pageFinder = find.byType(SvgPicture);
+      final pageTopLeft = tester.getTopLeft(pageFinder);
+      final pageSize = tester.getSize(pageFinder);
+      await tester.tapAt(
+        pageTopLeft +
+            Offset(pageSize.width * 150 / 240, pageSize.height * 85 / 180),
+      );
+      await tester.pump();
+
+      final propertiesButton = find.byKey(
+        const ValueKey('rhwp-editor-object-properties'),
+      );
+      await tester.ensureVisible(propertiesButton);
+      await tester.tap(propertiesButton);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-object-width-field')),
+        '1200',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-object-height-field')),
+        '2400',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-object-horz-offset-field')),
+        '80',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-object-vert-offset-field')),
+        '90',
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('rhwp-object-properties-apply')),
+      );
+      await _pumpDocumentFrame(tester);
+
+      expect(controller.objectSelection, isNotNull);
+      expect(changedCalls, 1);
+      expect(session.commands.map(jsonDecode).toList(), [
+        {
+          'type': 'getObjectProperties',
+          'section': 0,
+          'paragraph': 2,
+          'controlIndex': 1,
+          'objectType': 'shape',
+        },
+        {
+          'type': 'setObjectProperties',
+          'section': 0,
+          'paragraph': 2,
+          'controlIndex': 1,
+          'objectType': 'shape',
+          'properties': {
+            'width': 1200,
+            'height': 2400,
+            'horzOffset': 80,
+            'vertOffset': 90,
+          },
+        },
+      ]);
+    },
+  );
+
   testWidgets('RhwpNativeEditor context menu changes selected object z order', (
     tester,
   ) async {
@@ -3834,6 +3923,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
         final tableParagraph = offset > 0 ? paragraph + 1 : paragraph;
         return '{"ok":true,"paraIdx":$tableParagraph,"controlIdx":0}';
       }
+    }
+    if (command is Map && command['type'] == 'getObjectProperties') {
+      return '{"width":1000,"height":2000,"horzOffset":30,"vertOffset":40}';
     }
     return '{"ok":true}';
   }

@@ -372,9 +372,24 @@ enum _EditorContextMenuAction {
   sendObjectToBack,
   moveObjectForward,
   moveObjectBackward,
+  objectProperties,
 }
 
 enum _TableCellNavigationDirection { left, right, up, down }
+
+class _ObjectPropertiesDialogResult {
+  const _ObjectPropertiesDialogResult({
+    required this.width,
+    required this.height,
+    required this.horzOffset,
+    required this.vertOffset,
+  });
+
+  final int width;
+  final int height;
+  final int horzOffset;
+  final int vertOffset;
+}
 
 class _CharShapeDialogResult {
   const _CharShapeDialogResult({
@@ -1093,10 +1108,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     await _insertCommittedText('\n');
   }
 
-  Future<void> _deleteSelectedObject() async {
+  ({int section, int paragraph, int controlIndex, String objectType})?
+  _selectedObjectTarget() {
     final selection = _controller.objectSelection;
-    if (selection == null || _busy) {
-      return;
+    if (selection == null) {
+      return null;
     }
 
     final section = selection.section;
@@ -1107,20 +1123,38 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         _error =
             'Selected object is missing section, paragraph, or control index.';
       });
+      return null;
+    }
+
+    return (
+      section: section,
+      paragraph: paragraph,
+      controlIndex: controlIndex,
+      objectType: selection.type,
+    );
+  }
+
+  Future<void> _deleteSelectedObject() async {
+    if (_busy) {
+      return;
+    }
+
+    final target = _selectedObjectTarget();
+    if (target == null) {
       return;
     }
 
     await _runEdit(() async {
       await widget.document.deleteObjectControl(
-        section: section,
-        paragraph: paragraph,
-        controlIndex: controlIndex,
-        objectType: selection.type,
+        section: target.section,
+        paragraph: target.paragraph,
+        controlIndex: target.controlIndex,
+        objectType: target.objectType,
       );
       _controller.clearObjectSelection();
       _controller.cursor = RhwpCursorPosition(
-        section: section,
-        paragraph: paragraph,
+        section: target.section,
+        paragraph: target.paragraph,
         offset: _controller.cursor.offset,
       );
     });
@@ -1129,29 +1163,82 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   Future<void> _changeSelectedObjectZOrder(
     RhwpObjectZOrderOperation operation,
   ) async {
-    final selection = _controller.objectSelection;
-    if (selection == null || _busy) {
+    if (_busy) {
       return;
     }
 
-    final section = selection.section;
-    final paragraph = selection.paragraph;
-    final controlIndex = selection.controlIndex;
-    if (section == null || paragraph == null || controlIndex == null) {
-      setState(() {
-        _error =
-            'Selected object is missing section, paragraph, or control index.';
-      });
+    final target = _selectedObjectTarget();
+    if (target == null) {
       return;
     }
 
     await _runEdit(() async {
       await widget.document.changeObjectZOrder(
-        section: section,
-        paragraph: paragraph,
-        controlIndex: controlIndex,
-        objectType: selection.type,
+        section: target.section,
+        paragraph: target.paragraph,
+        controlIndex: target.controlIndex,
+        objectType: target.objectType,
         operation: operation,
+      );
+    });
+  }
+
+  Future<void> _showObjectPropertiesDialog() async {
+    if (_busy) {
+      return;
+    }
+
+    final target = _selectedObjectTarget();
+    if (target == null) {
+      return;
+    }
+
+    RhwpObjectProperties properties;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      properties = await widget.document.objectProperties(
+        section: target.section,
+        paragraph: target.paragraph,
+        controlIndex: target.controlIndex,
+        objectType: target.objectType,
+      );
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _error = error;
+        });
+      }
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _busy = false;
+    });
+
+    final result = await showDialog<_ObjectPropertiesDialogResult>(
+      context: context,
+      builder: (_) => _ObjectPropertiesDialog(properties: properties),
+    );
+    if (!mounted || result == null) {
+      return;
+    }
+
+    await _runEdit(() async {
+      await widget.document.setObjectProperties(
+        section: target.section,
+        paragraph: target.paragraph,
+        controlIndex: target.controlIndex,
+        objectType: target.objectType,
+        width: result.width,
+        height: result.height,
+        horzOffset: result.horzOffset,
+        vertOffset: result.vertOffset,
       );
     });
   }
@@ -2628,6 +2715,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         await _changeSelectedObjectZOrder(RhwpObjectZOrderOperation.forward);
       case _EditorContextMenuAction.moveObjectBackward:
         await _changeSelectedObjectZOrder(RhwpObjectZOrderOperation.backward);
+      case _EditorContextMenuAction.objectProperties:
+        await _showObjectPropertiesDialog();
     }
   }
 
@@ -2642,6 +2731,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           action: _EditorContextMenuAction.selectAll,
           icon: Icons.select_all,
           label: '모두 선택',
+          enabled: !_busy,
+        ),
+        const PopupMenuDivider(),
+        _contextMenuItem(
+          action: _EditorContextMenuAction.objectProperties,
+          icon: Icons.aspect_ratio,
+          label: '개체 속성',
           enabled: !_busy,
         ),
         const PopupMenuDivider(),
@@ -3929,6 +4025,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
               _changeSelectedObjectZOrder(RhwpObjectZOrderOperation.forward),
           onObjectMoveBackward: () =>
               _changeSelectedObjectZOrder(RhwpObjectZOrderOperation.backward),
+          onObjectProperties: _showObjectPropertiesDialog,
           onCut: _cutSelection,
           onCopy: _copySelection,
           onPaste: _pasteClipboard,
@@ -4754,6 +4851,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onObjectSendToBack,
     required this.onObjectMoveForward,
     required this.onObjectMoveBackward,
+    required this.onObjectProperties,
     required this.onCut,
     required this.onCopy,
     required this.onPaste,
@@ -4831,6 +4929,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onObjectSendToBack;
   final VoidCallback onObjectMoveForward;
   final VoidCallback onObjectMoveBackward;
+  final VoidCallback onObjectProperties;
   final VoidCallback onCut;
   final VoidCallback onCopy;
   final VoidCallback onPaste;
@@ -5060,6 +5159,14 @@ class _EditorToolbarState extends State<_EditorToolbar> {
         label: '개체 배치',
         child: Row(
           children: [
+            _ToolbarIconButton(
+              tooltip: 'Object properties',
+              buttonKey: const ValueKey('rhwp-editor-object-properties'),
+              icon: Icons.aspect_ratio,
+              onPressed: widget.busy || widget.objectSelection == null
+                  ? null
+                  : widget.onObjectProperties,
+            ),
             _ToolbarIconButton(
               tooltip: 'Bring object to front',
               buttonKey: const ValueKey('rhwp-editor-object-front'),
@@ -5820,6 +5927,173 @@ class _CharShapeDialogState extends State<_CharShapeDialog> {
         strikethrough: _strikethrough,
         fontSize: (clampedPoints * 100).round(),
         textColor: _textColor,
+      ),
+    );
+  }
+}
+
+class _ObjectPropertiesDialog extends StatefulWidget {
+  const _ObjectPropertiesDialog({required this.properties});
+
+  final RhwpObjectProperties properties;
+
+  @override
+  State<_ObjectPropertiesDialog> createState() =>
+      _ObjectPropertiesDialogState();
+}
+
+class _ObjectPropertiesDialogState extends State<_ObjectPropertiesDialog> {
+  late final TextEditingController _widthController;
+  late final TextEditingController _heightController;
+  late final TextEditingController _horzOffsetController;
+  late final TextEditingController _vertOffsetController;
+
+  @override
+  void initState() {
+    super.initState();
+    _widthController = TextEditingController(
+      text: _initialValue(widget.properties.width),
+    );
+    _heightController = TextEditingController(
+      text: _initialValue(widget.properties.height),
+    );
+    _horzOffsetController = TextEditingController(
+      text: _initialValue(widget.properties.horzOffset),
+    );
+    _vertOffsetController = TextEditingController(
+      text: _initialValue(widget.properties.vertOffset),
+    );
+  }
+
+  @override
+  void dispose() {
+    _widthController.dispose();
+    _heightController.dispose();
+    _horzOffsetController.dispose();
+    _vertOffsetController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('개체 속성'),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _ObjectPropertiesNumberField(
+                    fieldKey: const ValueKey('rhwp-object-width-field'),
+                    label: '너비',
+                    controller: _widthController,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _ObjectPropertiesNumberField(
+                    fieldKey: const ValueKey('rhwp-object-height-field'),
+                    label: '높이',
+                    controller: _heightController,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _ObjectPropertiesNumberField(
+                    fieldKey: const ValueKey('rhwp-object-horz-offset-field'),
+                    label: '가로 위치',
+                    controller: _horzOffsetController,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _ObjectPropertiesNumberField(
+                    fieldKey: const ValueKey('rhwp-object-vert-offset-field'),
+                    label: '세로 위치',
+                    controller: _vertOffsetController,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const ValueKey('rhwp-object-properties-apply'),
+          onPressed: _apply,
+          child: const Text('Apply'),
+        ),
+      ],
+    );
+  }
+
+  void _apply() {
+    Navigator.of(context).pop(
+      _ObjectPropertiesDialogResult(
+        width: _readNonNegative(
+          _widthController,
+          fallback: widget.properties.width,
+        ),
+        height: _readNonNegative(
+          _heightController,
+          fallback: widget.properties.height,
+        ),
+        horzOffset: _readNonNegative(
+          _horzOffsetController,
+          fallback: widget.properties.horzOffset,
+        ),
+        vertOffset: _readNonNegative(
+          _vertOffsetController,
+          fallback: widget.properties.vertOffset,
+        ),
+      ),
+    );
+  }
+
+  String _initialValue(int? value) {
+    return (value ?? 0).toString();
+  }
+
+  int _readNonNegative(TextEditingController controller, {int? fallback}) {
+    final parsed = int.tryParse(controller.text.trim()) ?? fallback ?? 0;
+    return math.max(0, parsed);
+  }
+}
+
+class _ObjectPropertiesNumberField extends StatelessWidget {
+  const _ObjectPropertiesNumberField({
+    required this.fieldKey,
+    required this.label,
+    required this.controller,
+  });
+
+  final Key fieldKey;
+  final String label;
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      key: fieldKey,
+      controller: controller,
+      keyboardType: TextInputType.number,
+      decoration: InputDecoration(
+        labelText: label,
+        suffixText: 'hwp',
+        border: const OutlineInputBorder(),
+        isDense: true,
       ),
     );
   }
