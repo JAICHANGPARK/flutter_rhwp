@@ -2362,6 +2362,19 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         case LogicalKeyboardKey.keyS:
           _exportFromEditor(RhwpExportFormat.hwp);
           return KeyEventResult.handled;
+        case LogicalKeyboardKey.equal:
+        case LogicalKeyboardKey.add:
+        case LogicalKeyboardKey.numpadAdd:
+          _controller.zoomIn();
+          return KeyEventResult.handled;
+        case LogicalKeyboardKey.minus:
+        case LogicalKeyboardKey.numpadSubtract:
+          _controller.zoomOut();
+          return KeyEventResult.handled;
+        case LogicalKeyboardKey.digit0:
+        case LogicalKeyboardKey.numpad0:
+          _controller.resetZoom();
+          return KeyEventResult.handled;
         case LogicalKeyboardKey.keyB:
           _applyCharFormat(bold: true);
           return KeyEventResult.handled;

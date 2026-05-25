@@ -199,6 +199,8 @@
   upstream Web editor.
 * Added synchronized zoom controls to the Flutter-native editor view ribbon and
   status bar, backed by the shared `RhwpEditorController` zoom state.
+* Added Ctrl/Cmd zoom shortcuts to the Flutter-native editor for zoom in, zoom
+  out, and reset zoom.
 * Added file-open callback support to `RhwpNativeEditor` and wired the example
   app so the native editor file ribbon can launch the same file picker and save
   callbacks as the outer app toolbar.
