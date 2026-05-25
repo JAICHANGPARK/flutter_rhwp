@@ -8,7 +8,8 @@ use crate::model::event::DocumentEvent;
 use super::super::helpers::{
     color_ref_to_css, parse_char_shape_mods, parse_para_shape_mods,
     json_has_border_keys, json_has_tab_keys, build_tab_def_from_json,
-    parse_json_i16_array, border_line_type_to_u8_val,
+    parse_json_i16_array, border_line_type_to_u8_val, json_color, json_i32,
+    json_object, json_str, u8_to_border_line_type, border_fills_equal,
 };
 use crate::renderer::style_resolver::resolve_styles;
 use crate::renderer::composer::reflow_line_segs;
@@ -998,6 +999,128 @@ impl DocumentCore {
         self.rebuild_section(sec_idx);
         self.event_log.push(DocumentEvent::ParaFormatChanged { section: sec_idx, para: parent_para_idx });
         Ok("{\"ok\":true}".to_string())
+    }
+
+    /// 표 셀 테두리/배경 적용 (네이티브) — 셀 자체 border_fill_id 갱신
+    pub fn apply_table_cell_style_native(
+        &mut self,
+        sec_idx: usize,
+        parent_para_idx: usize,
+        control_idx: usize,
+        cell_idx: usize,
+        props_json: &str,
+    ) -> Result<String, HwpError> {
+        if !json_has_border_keys(props_json) && json_color(props_json, "fillColor").is_none() {
+            return Err(HwpError::RenderError("셀 스타일 속성이 비어 있음".to_string()));
+        }
+
+        let current_border_fill_id = {
+            let section = self.document.sections.get(sec_idx)
+                .ok_or_else(|| HwpError::RenderError(format!("구역 {} 범위 초과", sec_idx)))?;
+            let para = section.paragraphs.get(parent_para_idx)
+                .ok_or_else(|| HwpError::RenderError(format!("문단 {} 범위 초과", parent_para_idx)))?;
+            match para.controls.get(control_idx) {
+                Some(Control::Table(table)) => {
+                    let cell = table.cells.get(cell_idx)
+                        .ok_or_else(|| HwpError::RenderError(format!("셀 {} 범위 초과", cell_idx)))?;
+                    cell.border_fill_id
+                }
+                _ => return Err(HwpError::RenderError("표 컨트롤을 찾을 수 없음".to_string())),
+            }
+        };
+
+        let border_fill_id = self.create_border_fill_from_cell_style_json(
+            current_border_fill_id,
+            props_json,
+        );
+
+        {
+            let para = self.document.sections.get_mut(sec_idx)
+                .and_then(|section| section.paragraphs.get_mut(parent_para_idx))
+                .ok_or_else(|| HwpError::RenderError("표 문단을 찾을 수 없음".to_string()))?;
+            match para.controls.get_mut(control_idx) {
+                Some(Control::Table(table)) => {
+                    let cell = table.cells.get_mut(cell_idx)
+                        .ok_or_else(|| HwpError::RenderError(format!("셀 {} 범위 초과", cell_idx)))?;
+                    cell.border_fill_id = border_fill_id;
+                    table.dirty = true;
+                }
+                _ => return Err(HwpError::RenderError("표 컨트롤을 찾을 수 없음".to_string())),
+            }
+        }
+
+        self.document.sections[sec_idx].raw_stream = None;
+        self.rebuild_section(sec_idx);
+        self.event_log.push(DocumentEvent::ParaFormatChanged { section: sec_idx, para: parent_para_idx });
+        Ok(format!("{{\"ok\":true,\"borderFillId\":{}}}", border_fill_id))
+    }
+
+    fn create_border_fill_from_cell_style_json(
+        &mut self,
+        base_border_fill_id: u16,
+        json: &str,
+    ) -> u16 {
+        use crate::model::style::{BorderFill, Fill, FillType, SolidFill};
+
+        let mut border_fill = base_border_fill_id
+            .checked_sub(1)
+            .and_then(|index| self.document.doc_info.border_fills.get(index as usize))
+            .cloned()
+            .unwrap_or_else(BorderFill::default);
+
+        let dir_keys = ["borderLeft", "borderRight", "borderTop", "borderBottom"];
+        for (index, key) in dir_keys.iter().enumerate() {
+            if let Some(obj_str) = json_object(json, key) {
+                let type_val = json_i32(&obj_str, "type").unwrap_or(0);
+                border_fill.borders[index].line_type = u8_to_border_line_type(type_val as u8);
+                border_fill.borders[index].width =
+                    json_i32(&obj_str, "width").unwrap_or(0) as u8;
+                border_fill.borders[index].color =
+                    json_color(&obj_str, "color").unwrap_or(0);
+            }
+        }
+
+        match json_str(json, "fillType").as_deref() {
+            Some("solid") => {
+                let background_color = json_color(json, "fillColor").unwrap_or(0xFFFFFF);
+                border_fill.fill = Fill {
+                    fill_type: FillType::Solid,
+                    solid: Some(SolidFill {
+                        background_color,
+                        pattern_color: json_color(json, "patternColor").unwrap_or(0),
+                        pattern_type: json_i32(json, "patternType").unwrap_or(0),
+                    }),
+                    ..Default::default()
+                };
+            }
+            Some("none") => {
+                border_fill.fill = Fill::default();
+            }
+            _ => {
+                if let Some(background_color) = json_color(json, "fillColor") {
+                    border_fill.fill = Fill {
+                        fill_type: FillType::Solid,
+                        solid: Some(SolidFill {
+                            background_color,
+                            pattern_color: json_color(json, "patternColor").unwrap_or(0),
+                            pattern_type: json_i32(json, "patternType").unwrap_or(0),
+                        }),
+                        ..Default::default()
+                    };
+                }
+            }
+        }
+
+        for (index, existing) in self.document.doc_info.border_fills.iter().enumerate() {
+            if border_fills_equal(existing, &border_fill) {
+                return (index + 1) as u16;
+            }
+        }
+
+        self.document.doc_info.border_fills.push(border_fill);
+        self.document.doc_info.raw_stream_dirty = true;
+        self.styles = resolve_styles(&self.document.doc_info, self.dpi);
+        self.document.doc_info.border_fills.len() as u16
     }
 
     /// 문서 내 동일 style_id를 사용하는 기존 문단의 para_shape_id를 찾는다.

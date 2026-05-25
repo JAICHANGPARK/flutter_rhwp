@@ -851,6 +851,13 @@ const _charColorSwatches = [
   (label: '초록', color: Color(0xff16a34a), value: '#16a34a'),
 ];
 
+const _cellFillSwatches = [
+  (label: '노랑', color: Color(0xfffef08a), value: '#fef08a'),
+  (label: '파랑', color: Color(0xffdbeafe), value: '#dbeafe'),
+  (label: '초록', color: Color(0xffdcfce7), value: '#dcfce7'),
+  (label: '분홍', color: Color(0xffffe4e6), value: '#ffe4e6'),
+];
+
 int _hwpFontSizeFromPointText(String text) {
   final points = double.tryParse(text.trim()) ?? 10.0;
   final clampedPoints = points.clamp(1.0, 200.0);
@@ -2011,6 +2018,45 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         row: ref.row,
         column: ref.column,
       );
+    });
+  }
+
+  Future<void> _applyTableCellStyle({
+    String? fillColor,
+    bool clearFill = false,
+    String? borderColor,
+    int? borderWidth,
+    int? borderType,
+  }) async {
+    if (_busy) {
+      return;
+    }
+
+    final tableSelection = _controller.tableCellSelection;
+    if (tableSelection == null) {
+      return;
+    }
+
+    final targets = await _tableCellStyleTargets(tableSelection);
+    if (!mounted || targets.isEmpty) {
+      return;
+    }
+
+    await _runEdit(() async {
+      for (final target in targets) {
+        await widget.document.applyTableCellStyle(
+          section: target.cell.section,
+          paragraph: target.cell.paragraph,
+          controlIndex: target.cell.controlIndex,
+          cellIndex: target.cell.modelCellIndex!,
+          fillColor: fillColor,
+          clearFill: clearFill,
+          borderColor: borderColor,
+          borderWidth: borderWidth,
+          borderType: borderType,
+        );
+      }
+      _controller.tableCellSelection = tableSelection;
     });
   }
 
@@ -3440,6 +3486,31 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       );
     });
     return cells;
+  }
+
+  Future<List<({RhwpTableCellLayout cell, int page})>> _tableCellStyleTargets(
+    RhwpTableCellSelection selection,
+  ) async {
+    final cells = await _tableCellsForSelection(selection);
+    if (selection.isTextEditing) {
+      final activeCellIndex = selection.activeCellIndex;
+      if (activeCellIndex == null) {
+        return const [];
+      }
+      return [
+        for (final entry in cells)
+          if (entry.cell.modelCellIndex == activeCellIndex) entry,
+      ];
+    }
+
+    final seen = <int>{};
+    return [
+      for (final entry in cells)
+        if (selection.containsCell(entry.cell) &&
+            entry.cell.modelCellIndex != null &&
+            seen.add(entry.cell.modelCellIndex!))
+          entry,
+    ];
   }
 
   ({RhwpTableCellLayout cell, int page})? _activeTableCellForSelection(
@@ -5581,6 +5652,14 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onDeleteTableColumn: _deleteTableColumn,
           onMergeTableCells: _mergeTableCells,
           onSplitTableCell: _splitTableCell,
+          onCellFillColor: (fillColor) =>
+              _applyTableCellStyle(fillColor: fillColor),
+          onCellBorder: () => _applyTableCellStyle(
+            borderColor: '#475569',
+            borderWidth: 1,
+            borderType: 1,
+          ),
+          onClearCellFill: () => _applyTableCellStyle(clearFill: true),
           onDeleteObject: _deleteSelectedObject,
           onObjectBringToFront: () =>
               _changeSelectedObjectZOrder(RhwpObjectZOrderOperation.front),
@@ -7223,6 +7302,9 @@ class _EditorToolbar extends StatefulWidget {
     required this.onDeleteTableColumn,
     required this.onMergeTableCells,
     required this.onSplitTableCell,
+    required this.onCellFillColor,
+    required this.onCellBorder,
+    required this.onClearCellFill,
     required this.onDeleteObject,
     required this.onObjectBringToFront,
     required this.onObjectSendToBack,
@@ -7304,6 +7386,9 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onDeleteTableColumn;
   final VoidCallback onMergeTableCells;
   final VoidCallback onSplitTableCell;
+  final ValueChanged<String> onCellFillColor;
+  final VoidCallback onCellBorder;
+  final VoidCallback onClearCellFill;
   final VoidCallback onDeleteObject;
   final VoidCallback onObjectBringToFront;
   final VoidCallback onObjectSendToBack;
@@ -7919,6 +8004,7 @@ class _EditorToolbarState extends State<_EditorToolbar> {
   }
 
   List<Widget> _tableGroups() {
+    final canStyleCell = !widget.busy && widget.tableCellSelection != null;
     return [
       _RibbonGroup(
         label: '표 위치',
@@ -8046,6 +8132,37 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               buttonKey: const ValueKey('rhwp-editor-split-cell'),
               icon: Icons.call_split_outlined,
               onPressed: widget.busy ? null : widget.onSplitTableCell,
+            ),
+          ],
+        ),
+      ),
+      _RibbonGroup(
+        label: '셀 배경',
+        child: Row(
+          children: [
+            _ToolbarIconButton(
+              tooltip: 'Clear cell fill',
+              buttonKey: const ValueKey('rhwp-editor-clear-cell-fill'),
+              icon: Icons.format_color_reset,
+              onPressed: canStyleCell ? widget.onClearCellFill : null,
+            ),
+            const SizedBox(width: 4),
+            for (final swatch in _cellFillSwatches)
+              _ColorSwatchButton(
+                key: ValueKey('rhwp-editor-cell-fill-${swatch.value}'),
+                tooltip: 'Cell fill ${swatch.label}',
+                color: swatch.color,
+                selected: false,
+                onPressed: canStyleCell
+                    ? () => widget.onCellFillColor(swatch.value)
+                    : null,
+              ),
+            const SizedBox(width: 6),
+            _ToolbarIconButton(
+              tooltip: 'Cell border',
+              buttonKey: const ValueKey('rhwp-editor-cell-border'),
+              icon: Icons.border_all,
+              onPressed: canStyleCell ? widget.onCellBorder : null,
             ),
           ],
         ),

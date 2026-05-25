@@ -573,6 +573,25 @@ impl RhwpSession {
                     )
                     .map_err(error_to_string)
             }
+            RhwpCommand::ApplyTableCellStyle {
+                section,
+                paragraph,
+                control_index,
+                cell_index,
+                properties,
+            } => {
+                let properties_json = properties.to_string();
+                inner
+                    .document
+                    .apply_table_cell_style_native(
+                        section as usize,
+                        paragraph as usize,
+                        control_index as usize,
+                        cell_index as usize,
+                        &properties_json,
+                    )
+                    .map_err(error_to_string)
+            }
             RhwpCommand::CreateHeaderFooter {
                 section,
                 is_header,
@@ -856,6 +875,15 @@ enum RhwpCommand {
         cell_index: u32,
         #[serde(rename = "cellParagraph")]
         cell_paragraph: u32,
+        properties: serde_json::Value,
+    },
+    ApplyTableCellStyle {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "cellIndex")]
+        cell_index: u32,
         properties: serde_json::Value,
     },
     CreateHeaderFooter {
@@ -1715,6 +1743,14 @@ mod tests {
                 ),
             )
             .expect("apply para format in table cell command should be accepted");
+        session
+            .apply_command(
+                format!(
+                    r##"{{"type":"applyTableCellStyle","section":0,"paragraph":{},"controlIndex":0,"cellIndex":0,"properties":{{"fillType":"solid","fillColor":"#fef08a","borderLeft":{{"type":1,"width":1,"color":"#475569"}},"borderRight":{{"type":1,"width":1,"color":"#475569"}},"borderTop":{{"type":1,"width":1,"color":"#475569"}},"borderBottom":{{"type":1,"width":1,"color":"#475569"}}}}}}"##,
+                    table_paragraph
+                ),
+            )
+            .expect("apply table cell style command should be accepted");
         session
             .apply_command(
                 format!(

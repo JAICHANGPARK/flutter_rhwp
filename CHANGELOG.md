@@ -302,3 +302,5 @@
 * Added `applyParaFormatInTableCell` to the Dart/Rust command surface and wired
   Flutter-native paragraph alignment/shape actions to selected table cell
   paragraphs.
+* Added `applyTableCellStyle` to the Dart/Rust command surface and wired
+  Flutter-native table ribbon actions for selected cell fill and border style.

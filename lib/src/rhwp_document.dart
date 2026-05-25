@@ -417,6 +417,18 @@ abstract class RhwpCommand {
     int? spacingAfter,
   }) = RhwpApplyParaFormatInTableCellCommand;
 
+  factory RhwpCommand.applyTableCellStyle({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    String? fillColor,
+    bool clearFill,
+    String? borderColor,
+    int? borderWidth,
+    int? borderType,
+  }) = RhwpApplyTableCellStyleCommand;
+
   factory RhwpCommand.createHeaderFooter({
     required int section,
     required bool isHeader,
@@ -1163,6 +1175,46 @@ class RhwpApplyParaFormatInTableCellCommand extends RhwpCommand {
   };
 }
 
+class RhwpApplyTableCellStyleCommand extends RhwpCommand {
+  const RhwpApplyTableCellStyleCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+    this.fillColor,
+    this.clearFill = false,
+    this.borderColor,
+    this.borderWidth,
+    this.borderType,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+  final String? fillColor;
+  final bool clearFill;
+  final String? borderColor;
+  final int? borderWidth;
+  final int? borderType;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'applyTableCellStyle',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'cellIndex': cellIndex,
+    'properties': _tableCellStyleProperties(
+      fillColor: fillColor,
+      clearFill: clearFill,
+      borderColor: borderColor,
+      borderWidth: borderWidth,
+      borderType: borderType,
+    ),
+  };
+}
+
 Map<String, Object?> _paraFormatProperties({
   String? alignment,
   int? lineSpacing,
@@ -1184,6 +1236,35 @@ Map<String, Object?> _paraFormatProperties({
   if (marginRight != null) properties['marginRight'] = marginRight;
   if (spacingBefore != null) properties['spacingBefore'] = spacingBefore;
   if (spacingAfter != null) properties['spacingAfter'] = spacingAfter;
+  return properties;
+}
+
+Map<String, Object?> _tableCellStyleProperties({
+  String? fillColor,
+  bool clearFill = false,
+  String? borderColor,
+  int? borderWidth,
+  int? borderType,
+}) {
+  final properties = <String, Object?>{};
+  if (clearFill) {
+    properties['fillType'] = 'none';
+  } else if (fillColor != null) {
+    properties['fillType'] = 'solid';
+    properties['fillColor'] = fillColor;
+  }
+
+  if (borderColor != null) {
+    Map<String, Object?> border() => {
+      'type': borderType ?? 1,
+      'width': borderWidth ?? 1,
+      'color': borderColor,
+    };
+    properties['borderLeft'] = border();
+    properties['borderRight'] = border();
+    properties['borderTop'] = border();
+    properties['borderBottom'] = border();
+  }
   return properties;
 }
 
@@ -1861,6 +1942,32 @@ class RhwpDocument {
         marginRight: marginRight,
         spacingBefore: spacingBefore,
         spacingAfter: spacingAfter,
+      ),
+    );
+  }
+
+  Future<String> applyTableCellStyle({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    String? fillColor,
+    bool clearFill = false,
+    String? borderColor,
+    int? borderWidth,
+    int? borderType,
+  }) {
+    return apply(
+      RhwpCommand.applyTableCellStyle(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        cellIndex: cellIndex,
+        fillColor: fillColor,
+        clearFill: clearFill,
+        borderColor: borderColor,
+        borderWidth: borderWidth,
+        borderType: borderType,
       ),
     );
   }

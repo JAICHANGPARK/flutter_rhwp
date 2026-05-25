@@ -4518,6 +4518,79 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor applies table cell fill and border', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    await tester.tapAt(
+      pageTopLeft +
+          Offset(pageSize.width * 100 / 240, pageSize.height * 60 / 180),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('표'));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-cell-fill-#fef08a')),
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-cell-fill-#fef08a')),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.single), {
+      'type': 'applyTableCellStyle',
+      'section': 0,
+      'paragraph': 5,
+      'controlIndex': 2,
+      'cellIndex': 7,
+      'properties': {'fillType': 'solid', 'fillColor': '#fef08a'},
+    });
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-cell-border')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 2);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'applyTableCellStyle',
+      'section': 0,
+      'paragraph': 5,
+      'controlIndex': 2,
+      'cellIndex': 7,
+      'properties': {
+        'borderLeft': {'type': 1, 'width': 1, 'color': '#475569'},
+        'borderRight': {'type': 1, 'width': 1, 'color': '#475569'},
+        'borderTop': {'type': 1, 'width': 1, 'color': '#475569'},
+        'borderBottom': {'type': 1, 'width': 1, 'color': '#475569'},
+      },
+    });
+  });
+
   testWidgets('RhwpNativeEditor applies paragraph alignment shortcuts', (
     tester,
   ) async {

@@ -225,6 +225,35 @@ void main() {
     expect(
       jsonDecode(
         jsonEncode(
+          RhwpCommand.applyTableCellStyle(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            cellIndex: 3,
+            fillColor: '#fef08a',
+            borderColor: '#475569',
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'applyTableCellStyle',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'cellIndex': 3,
+        'properties': {
+          'fillType': 'solid',
+          'fillColor': '#fef08a',
+          'borderLeft': {'type': 1, 'width': 1, 'color': '#475569'},
+          'borderRight': {'type': 1, 'width': 1, 'color': '#475569'},
+          'borderTop': {'type': 1, 'width': 1, 'color': '#475569'},
+          'borderBottom': {'type': 1, 'width': 1, 'color': '#475569'},
+        },
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
           RhwpCommand.mergeTableCells(
             section: 0,
             paragraph: 1,
@@ -902,6 +931,31 @@ void main() {
       'startOffset': 0,
       'endOffset': 4,
       'properties': {'bold': true, 'fontSize': 1100, 'textColor': '#2563eb'},
+    });
+
+    await document.applyTableCellStyle(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      cellIndex: 2,
+      fillColor: '#dbeafe',
+      borderColor: '#475569',
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'applyTableCellStyle',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'cellIndex': 2,
+      'properties': {
+        'fillType': 'solid',
+        'fillColor': '#dbeafe',
+        'borderLeft': {'type': 1, 'width': 1, 'color': '#475569'},
+        'borderRight': {'type': 1, 'width': 1, 'color': '#475569'},
+        'borderTop': {'type': 1, 'width': 1, 'color': '#475569'},
+        'borderBottom': {'type': 1, 'width': 1, 'color': '#475569'},
+      },
     });
 
     await document.insertTableRow(
