@@ -1921,6 +1921,97 @@ void main() {
     },
   );
 
+  testWidgets('RhwpNativeEditor replaces all search matches', (tester) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 3);
+    session.pageLayerTreeJsonByPage[2] = jsonEncode(
+      _editorLayerTreeJson(firstText: 'wxyzxy', secondText: 'xyqr'),
+    );
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('도구'));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-search-field')),
+      'xy',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-find')));
+    await _pumpDocumentFrame(tester);
+    expect(find.text('1 / 3'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-replace-field')),
+      'ABCD',
+    );
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-replace-all')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-replace-all')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+    ]);
+    expect(session.commands.map((json) => jsonDecode(json)['type']), [
+      'deleteText',
+      'insertText',
+      'deleteText',
+      'insertText',
+      'deleteText',
+      'insertText',
+    ]);
+    expect(jsonDecode(session.commands[0]), {
+      'type': 'deleteText',
+      'section': 0,
+      'paragraph': 1,
+      'offset': 0,
+      'count': 2,
+    });
+    expect(jsonDecode(session.commands[2]), {
+      'type': 'deleteText',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 4,
+      'count': 2,
+    });
+    expect(jsonDecode(session.commands[4]), {
+      'type': 'deleteText',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 1,
+      'count': 2,
+    });
+    for (final index in [1, 3, 5]) {
+      expect(jsonDecode(session.commands[index])['text'], 'ABCD');
+    }
+    expect(find.text('0 / 0'), findsOneWidget);
+    expect(
+      controller.selection,
+      const RhwpSelectionRange(
+        start: RhwpCursorPosition(paragraph: 0, offset: 1),
+        end: RhwpCursorPosition(paragraph: 0, offset: 5),
+      ),
+    );
+  });
+
   testWidgets('RhwpNativeEditor commits text input after IME composition', (
     tester,
   ) async {

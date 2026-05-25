@@ -194,3 +194,5 @@
   edit-ribbon undo/redo to rhwp core snapshots.
 * Added active search-match replace to the Flutter-native editor tools ribbon,
   using undo-aware delete/insert commands through the Rust bridge.
+* Added replace-all to the Flutter-native editor tools ribbon, applying all
+  current search matches in one undo-aware edit transaction.

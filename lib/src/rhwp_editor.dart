@@ -1327,6 +1327,72 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
   }
 
+  Future<void> _replaceAllSearchMatches() async {
+    if (_busy || _searchMatches.isEmpty) {
+      return;
+    }
+
+    final replacement = _replaceController.text;
+    final matches = List<_EditorSearchMatch>.of(_searchMatches)
+      ..sort(_compareSearchMatchesDescending);
+    final firstMatch = _searchMatches.first;
+    final replacementStart = RhwpCursorPosition(
+      section: firstMatch.section,
+      paragraph: firstMatch.paragraph,
+      offset: firstMatch.startOffset,
+    );
+    final replacementEnd = replacementStart.copyWith(
+      offset: firstMatch.startOffset + replacement.length,
+    );
+
+    final replaced = await _runEdit(() async {
+      for (final match in matches) {
+        await widget.document.deleteText(
+          section: match.section,
+          paragraph: match.paragraph,
+          offset: match.startOffset,
+          count: match.endOffset - match.startOffset,
+        );
+        if (replacement.isNotEmpty) {
+          await widget.document.insertText(
+            section: match.section,
+            paragraph: match.paragraph,
+            offset: match.startOffset,
+            text: replacement,
+          );
+        }
+      }
+      _controller.selection = RhwpSelectionRange(
+        start: replacementStart,
+        end: replacementEnd,
+      );
+    });
+    if (!replaced || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _searchMatches = const [];
+      _activeSearchMatch = -1;
+    });
+    _focusEditor();
+  }
+
+  int _compareSearchMatchesDescending(
+    _EditorSearchMatch left,
+    _EditorSearchMatch right,
+  ) {
+    final section = right.section.compareTo(left.section);
+    if (section != 0) {
+      return section;
+    }
+    final paragraph = right.paragraph.compareTo(left.paragraph);
+    if (paragraph != 0) {
+      return paragraph;
+    }
+    return right.startOffset.compareTo(left.startOffset);
+  }
+
   _EditorSearchMatch _shiftSearchMatchAfterReplacement(
     _EditorSearchMatch candidate,
     _EditorSearchMatch replaced,
@@ -2270,6 +2336,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onSearchNext: _searchNext,
           onClearSearch: _clearSearch,
           onReplace: _replaceActiveSearchMatch,
+          onReplaceAll: _replaceAllSearchMatches,
           onCreateHeader: () => _createHeaderFooter(isHeader: true),
           onCreateFooter: () => _createHeaderFooter(isHeader: false),
           onPreviousPage: () => unawaited(_controller.previousPage()),
@@ -3003,6 +3070,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onSearchNext,
     required this.onClearSearch,
     required this.onReplace,
+    required this.onReplaceAll,
     required this.onCreateHeader,
     required this.onCreateFooter,
     required this.onPreviousPage,
@@ -3071,6 +3139,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onSearchNext;
   final VoidCallback onClearSearch;
   final VoidCallback onReplace;
+  final VoidCallback onReplaceAll;
   final VoidCallback onCreateHeader;
   final VoidCallback onCreateFooter;
   final VoidCallback onPreviousPage;
@@ -3742,6 +3811,14 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               onPressed: widget.busy || widget.searchMatchCount == 0
                   ? null
                   : widget.onReplace,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Replace all',
+              buttonKey: const ValueKey('rhwp-editor-replace-all'),
+              icon: Icons.done_all,
+              onPressed: widget.busy || widget.searchMatchCount == 0
+                  ? null
+                  : widget.onReplaceAll,
             ),
           ],
         ),
