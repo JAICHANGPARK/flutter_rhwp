@@ -702,6 +702,13 @@ class _PendingTextOverlay {
   }
 }
 
+class _PendingDeletionOverlay {
+  const _PendingDeletionOverlay({required this.page, required this.range});
+
+  final int page;
+  final RhwpSelectionRange range;
+}
+
 class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   late final RhwpEditorController _controller;
   late final bool _ownsController;
@@ -727,6 +734,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   Timer? _deferredEditRefreshTimer;
   List<_PendingTextOverlay> _pendingTextOverlays = const [];
   int? _pendingTextRefreshRevision;
+  List<_PendingDeletionOverlay> _pendingDeletionOverlays = const [];
+  int? _pendingDeletionRefreshRevision;
   int _renderRevision = 0;
   List<_EditorSearchMatch> _searchMatches = const [];
   int _activeSearchMatch = -1;
@@ -1012,6 +1021,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     late RhwpCursorPosition insertCursor;
+    RhwpSelectionRange? deletedRange;
     final edited = await _runEdit(() async {
       final selection = _controller.selection;
       final cursor = selection.isCollapsed
@@ -1019,7 +1029,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           : selection.normalizedStart;
       insertCursor = cursor;
       if (!selection.isCollapsed) {
-        await _deleteSelectedText(selection);
+        if (await _deleteSelectedText(selection)) {
+          deletedRange = selection;
+        }
       }
       await widget.document.insertText(
         section: cursor.section,
@@ -1030,6 +1042,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       _controller.cursor = cursor.copyWith(offset: cursor.offset + text.length);
     }, deferRefresh: true);
     if (edited) {
+      if (deletedRange != null) {
+        _recordPendingDeletionOverlay(deletedRange!);
+      }
       _recordPendingTextOverlay(insertCursor, text);
     }
   }
@@ -2089,14 +2104,21 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
-    await _runEdit(() async {
-      if (await _deleteSelectedText(_controller.selection)) {
+    RhwpSelectionRange? deletedRange;
+    final edited = await _runEdit(() async {
+      final selection = _controller.selection;
+      if (await _deleteSelectedText(selection)) {
+        deletedRange = selection;
         return;
       }
       final cursor = _readCursor();
       if (cursor.offset <= 0) {
         return;
       }
+      deletedRange = RhwpSelectionRange(
+        start: cursor.copyWith(offset: cursor.offset - 1),
+        end: cursor,
+      );
       await widget.document.deleteText(
         section: cursor.section,
         paragraph: cursor.paragraph,
@@ -2105,6 +2127,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       );
       _controller.cursor = cursor.copyWith(offset: cursor.offset - 1);
     }, deferRefresh: true);
+    if (edited && deletedRange != null) {
+      _recordPendingDeletionOverlay(deletedRange!);
+    }
   }
 
   Future<void> _deleteForward() async {
@@ -2118,11 +2143,18 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
-    await _runEdit(() async {
-      if (await _deleteSelectedText(_controller.selection)) {
+    RhwpSelectionRange? deletedRange;
+    final edited = await _runEdit(() async {
+      final selection = _controller.selection;
+      if (await _deleteSelectedText(selection)) {
+        deletedRange = selection;
         return;
       }
       final cursor = _readCursor();
+      deletedRange = RhwpSelectionRange(
+        start: cursor,
+        end: cursor.copyWith(offset: cursor.offset + 1),
+      );
       await widget.document.deleteText(
         section: cursor.section,
         paragraph: cursor.paragraph,
@@ -2131,6 +2163,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       );
       _controller.cursor = cursor;
     }, deferRefresh: true);
+    if (edited && deletedRange != null) {
+      _recordPendingDeletionOverlay(deletedRange!);
+    }
   }
 
   Future<void> _deleteWord({required bool backward}) async {
@@ -2144,8 +2179,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
-    await _runEdit(() async {
-      if (await _deleteSelectedText(_controller.selection)) {
+    RhwpSelectionRange? deletedRange;
+    final edited = await _runEdit(() async {
+      final selection = _controller.selection;
+      if (await _deleteSelectedText(selection)) {
+        deletedRange = selection;
         return;
       }
 
@@ -2164,6 +2202,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         return;
       }
 
+      deletedRange = RhwpSelectionRange(
+        start: cursor.copyWith(offset: deleteOffset),
+        end: cursor.copyWith(offset: deleteOffset + count),
+      );
       await widget.document.deleteText(
         section: cursor.section,
         paragraph: cursor.paragraph,
@@ -2172,6 +2214,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       );
       _controller.cursor = cursor.copyWith(offset: deleteOffset);
     }, deferRefresh: true);
+    if (edited && deletedRange != null) {
+      _recordPendingDeletionOverlay(deletedRange!);
+    }
   }
 
   Future<void> _deleteTextInSelectedTableCell({required bool backward}) async {
@@ -2636,6 +2681,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _hasDeferredEditRefresh = false;
     _pendingTextOverlays = const [];
     _pendingTextRefreshRevision = null;
+    _pendingDeletionOverlays = const [];
+    _pendingDeletionRefreshRevision = null;
   }
 
   void _recordPendingTextOverlay(RhwpCursorPosition cursor, String text) {
@@ -2668,25 +2715,72 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
   }
 
-  void _handlePageRendered(int page, int renderRevision) {
-    final pendingRevision = _pendingTextRefreshRevision;
-    if (pendingRevision == null ||
-        renderRevision != pendingRevision ||
-        _pendingTextOverlays.isEmpty) {
+  void _recordPendingDeletionOverlay(RhwpSelectionRange range) {
+    if (!mounted || range.isCollapsed) {
       return;
     }
 
-    final next = _pendingTextOverlays
-        .where((overlay) => overlay.page != page)
-        .toList(growable: false);
-    if (next.length == _pendingTextOverlays.length) {
+    final start = range.normalizedStart;
+    final end = range.normalizedEnd;
+    if (start.section != end.section) {
+      return;
+    }
+
+    final overlays = List<_PendingDeletionOverlay>.of(_pendingDeletionOverlays)
+      ..add(
+        _PendingDeletionOverlay(
+          page: _controller.currentPage,
+          range: RhwpSelectionRange(start: start, end: end),
+        ),
+      );
+    setState(() {
+      _pendingDeletionOverlays = List.unmodifiable(overlays);
+      _pendingDeletionRefreshRevision = null;
+    });
+  }
+
+  void _handlePageRendered(int page, int renderRevision) {
+    final textRevision = _pendingTextRefreshRevision;
+    var nextTextOverlays = _pendingTextOverlays;
+    var textChanged = false;
+    if (textRevision != null &&
+        renderRevision == textRevision &&
+        _pendingTextOverlays.isNotEmpty) {
+      nextTextOverlays = _pendingTextOverlays
+          .where((overlay) => overlay.page != page)
+          .toList(growable: false);
+      textChanged = nextTextOverlays.length != _pendingTextOverlays.length;
+    }
+
+    final deletionRevision = _pendingDeletionRefreshRevision;
+    var nextDeletionOverlays = _pendingDeletionOverlays;
+    var deletionChanged = false;
+    if (deletionRevision != null &&
+        renderRevision == deletionRevision &&
+        _pendingDeletionOverlays.isNotEmpty) {
+      nextDeletionOverlays = _pendingDeletionOverlays
+          .where((overlay) => overlay.page != page)
+          .toList(growable: false);
+      deletionChanged =
+          nextDeletionOverlays.length != _pendingDeletionOverlays.length;
+    }
+
+    if (!textChanged && !deletionChanged) {
       return;
     }
 
     setState(() {
-      _pendingTextOverlays = next;
-      if (next.isEmpty) {
+      if (textChanged) {
+        _pendingTextOverlays = nextTextOverlays;
+      }
+      if (nextTextOverlays.isEmpty) {
         _pendingTextRefreshRevision = null;
+      }
+      if (deletionChanged) {
+        _pendingDeletionOverlays = nextDeletionOverlays;
+      }
+      if (nextDeletionOverlays.isEmpty) {
+        _pendingDeletionRefreshRevision = null;
       }
     });
   }
@@ -2708,7 +2802,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
     setState(() {
       _renderRevision += 1;
-      _pendingTextRefreshRevision = _renderRevision;
+      _pendingTextRefreshRevision = _pendingTextOverlays.isEmpty
+          ? null
+          : _renderRevision;
+      _pendingDeletionRefreshRevision = _pendingDeletionOverlays.isEmpty
+          ? null
+          : _renderRevision;
     });
     widget.onChanged?.call(widget.document);
   }
@@ -4412,6 +4511,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
                     pendingTextOverlays: _pendingTextOverlays
                         .where((overlay) => overlay.page == page)
                         .toList(growable: false),
+                    pendingDeletionOverlays: _pendingDeletionOverlays
+                        .where((overlay) => overlay.page == page)
+                        .toList(growable: false),
                     searchMatches: _searchMatches
                         .where((match) => match.page == page)
                         .toList(growable: false),
@@ -4500,6 +4602,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
     required this.objectSelection,
     required this.composingText,
     required this.pendingTextOverlays,
+    required this.pendingDeletionOverlays,
     required this.searchMatches,
     required this.layerRevision,
     required this.activeSearchMatch,
@@ -4521,6 +4624,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
   final RhwpObjectSelection? objectSelection;
   final String? composingText;
   final List<_PendingTextOverlay> pendingTextOverlays;
+  final List<_PendingDeletionOverlay> pendingDeletionOverlays;
   final List<_EditorSearchMatch> searchMatches;
   final int layerRevision;
   final _EditorSearchMatch? activeSearchMatch;
@@ -5363,6 +5467,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     final tableSelectionRects = _tableSelectionRects(tree, overlaySize);
     final objectSelectionRects = _objectSelectionRects(tree, overlaySize);
     final searchRects = _searchRects(tree, overlaySize);
+    final pendingDeletionRects = _pendingDeletionRects(tree, overlaySize);
     final pendingTextRects = _pendingTextRects(tree, overlaySize);
     final pendingTextCaretRect = _pendingTextCaretRect(tree, overlaySize);
     final caretRect = tree.caretRectFor(
@@ -5374,6 +5479,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
         tableSelectionRects.isEmpty &&
         objectSelectionRects.isEmpty &&
         searchRects.isEmpty &&
+        pendingDeletionRects.isEmpty &&
         pendingTextRects.isEmpty) {
       return null;
     }
@@ -5439,6 +5545,17 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
                     : null,
                 borderRadius: BorderRadius.circular(3),
               ),
+            ),
+          ),
+        for (final (index, rect) in pendingDeletionRects.indexed)
+          _positionedRect(
+            key: index == 0
+                ? const ValueKey('rhwp-editor-pending-delete-mask')
+                : ValueKey('rhwp-editor-pending-delete-mask-$index'),
+            rect: rect,
+            constraints: constraints,
+            child: const DecoratedBox(
+              decoration: BoxDecoration(color: Colors.white),
             ),
           ),
         if (!widget.selection.isCollapsed)
@@ -5511,9 +5628,20 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     final selectionWidth = _selectionWidth(start, end);
     final boundedTop = _bound(top, constraints.maxHeight, height);
     final boundedCaretLeft = _bound(caretLeft, constraints.maxWidth, 2);
+    final fallbackDeletionRects = _fallbackDeletionRects(constraints, height);
 
     return Stack(
       children: [
+        for (final (index, rect) in fallbackDeletionRects.indexed)
+          Positioned.fromRect(
+            key: index == 0
+                ? const ValueKey('rhwp-editor-pending-delete-mask')
+                : ValueKey('rhwp-editor-pending-delete-mask-$index'),
+            rect: rect,
+            child: const DecoratedBox(
+              decoration: BoxDecoration(color: Colors.white),
+            ),
+          ),
         if (!widget.selection.isCollapsed)
           Positioned(
             key: const ValueKey('rhwp-editor-selection'),
@@ -5625,6 +5753,29 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     return [_scalePageRect(objectSelection.bounds, tree, overlaySize)];
   }
 
+  List<Rect> _pendingDeletionRects(RhwpLayerTree tree, Size overlaySize) {
+    if (widget.pendingDeletionOverlays.isEmpty) {
+      return const [];
+    }
+
+    final rects = <Rect>[];
+    for (final overlay in widget.pendingDeletionOverlays) {
+      final start = overlay.range.normalizedStart;
+      final end = overlay.range.normalizedEnd;
+      for (final rect in tree.selectionRectsForRange(
+        startSection: start.section,
+        startParagraph: start.paragraph,
+        startOffset: start.offset,
+        endSection: end.section,
+        endParagraph: end.paragraph,
+        endOffset: end.offset,
+      )) {
+        rects.add(_scalePageRect(rect.inflate(1), tree, overlaySize));
+      }
+    }
+    return rects;
+  }
+
   List<({String text, Rect rect})> _pendingTextRects(
     RhwpLayerTree tree,
     Size overlaySize,
@@ -5684,6 +5835,43 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
       12.0,
       text.length.toDouble() * math.max(8.0, height * 0.55),
     );
+  }
+
+  List<Rect> _fallbackDeletionRects(BoxConstraints constraints, double height) {
+    if (widget.pendingDeletionOverlays.isEmpty) {
+      return const [];
+    }
+
+    final rects = <Rect>[];
+    for (final overlay in widget.pendingDeletionOverlays) {
+      final start = overlay.range.normalizedStart;
+      final end = overlay.range.normalizedEnd;
+      if (start.section != end.section || start.paragraph != end.paragraph) {
+        continue;
+      }
+
+      final width = math.max(
+        8.0,
+        (end.offset - start.offset) * _characterWidth,
+      );
+      rects.add(
+        Rect.fromLTWH(
+          _bound(
+            _pageInset + start.offset * _characterWidth,
+            constraints.maxWidth,
+            width,
+          ),
+          _bound(
+            _pageInset + start.paragraph * _lineHeight,
+            constraints.maxHeight,
+            height,
+          ),
+          width,
+          height,
+        ),
+      );
+    }
+    return rects;
   }
 
   List<({Rect rect, bool active})> _searchRects(

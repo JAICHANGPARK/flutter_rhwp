@@ -204,6 +204,9 @@
   newly typed text remains visible until the refreshed page SVG finishes
   rendering, including table cell input and a temporary caret at the end of the
   pending text.
+* Added pending delete masks for Flutter-native body text deletion and
+  selection replacement so removed text is hidden until the refreshed page SVG
+  finishes rendering.
 * Added Flutter-native double-click word selection based on page-layer text run
   hit testing.
 * Added Flutter-native triple-click paragraph selection using the same

@@ -4418,6 +4418,79 @@ void main() {
     },
   );
 
+  testWidgets(
+    'RhwpNativeEditor masks deleted body text until refresh completes',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      await tester.tapAt(
+        tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+            const Offset(1, 6),
+      );
+      await tester.pump();
+
+      controller.cursor = const RhwpCursorPosition(offset: 3);
+      await tester.pump();
+      session.renderedPages.clear();
+      final pendingSvg = Completer<String>();
+      session.pendingRenderedSvgs.add(pendingSvg);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      await tester.pump();
+      await tester.pump();
+
+      expect(jsonDecode(session.commands.single), {
+        'type': 'deleteText',
+        'section': 0,
+        'paragraph': 0,
+        'offset': 2,
+        'count': 1,
+      });
+      expect(changedCalls, 0);
+      expect(session.renderedPages, isEmpty);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-pending-delete-mask')),
+        findsOneWidget,
+      );
+
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+
+      expect(changedCalls, 1);
+      expect(session.renderedPages, [0]);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-pending-delete-mask')),
+        findsOneWidget,
+      );
+
+      pendingSvg.complete(_pageSvg);
+      await _pumpDocumentFrame(tester);
+
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-pending-delete-mask')),
+        findsNothing,
+      );
+    },
+  );
+
   testWidgets('RhwpNativeEditor copies cuts and pastes selected text', (
     tester,
   ) async {
