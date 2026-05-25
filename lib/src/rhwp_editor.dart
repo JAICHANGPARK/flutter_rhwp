@@ -2402,6 +2402,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       case LogicalKeyboardKey.arrowDown:
         unawaited(_moveCursorVertically(1, extendSelection: extendSelection));
         return KeyEventResult.handled;
+      case LogicalKeyboardKey.pageUp:
+        unawaited(_moveCursorByPage(-1, extendSelection: extendSelection));
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.pageDown:
+        unawaited(_moveCursorByPage(1, extendSelection: extendSelection));
+        return KeyEventResult.handled;
       case LogicalKeyboardKey.home:
         unawaited(_moveCursorToLineStart(extendSelection: extendSelection));
         return KeyEventResult.handled;
@@ -2550,29 +2556,79 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
   }
 
+  Future<void> _moveCursorByPage(
+    int delta, {
+    required bool extendSelection,
+  }) async {
+    if (delta == 0) {
+      return;
+    }
+
+    final current = _controller.selection;
+    final cursor = current.end;
+    try {
+      final target = await _pageTextPositionFrom(cursor, delta);
+      if (!mounted || target == null) {
+        return;
+      }
+
+      _setCursorOrSelection(
+        current,
+        target.position,
+        extendSelection: extendSelection,
+      );
+      unawaited(_controller.goToPage(target.page));
+      _focusEditor();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    }
+  }
+
+  Future<({RhwpCursorPosition position, int page})?> _pageTextPositionFrom(
+    RhwpCursorPosition cursor,
+    int delta,
+  ) async {
+    final pageCount = await widget.document.pageCount;
+    if (pageCount <= 0) {
+      return null;
+    }
+
+    final currentRun = await _textRunContaining(cursor);
+    final currentPage = currentRun?.page ?? _controller.currentPage;
+    final targetPage = (currentPage + delta).clamp(0, pageCount - 1).toInt();
+    if (targetPage == currentPage) {
+      return null;
+    }
+
+    final targetX = currentRun?.run.pagePointForOffset(cursor.offset).dx ?? 0;
+    var page = targetPage;
+    while (page >= 0 && page < pageCount) {
+      final tree = await widget.document.pageLayerTreeModel(page);
+      final target = _nearestVerticalRun(
+        tree,
+        page: page,
+        targetX: targetX,
+        direction: delta,
+      );
+      if (target != null) {
+        return _positionOnRun(target, targetX);
+      }
+      page += delta.sign;
+    }
+
+    return null;
+  }
+
   Future<({RhwpCursorPosition position, int page})?> _verticalTextPositionFrom(
     RhwpCursorPosition cursor,
     int delta,
   ) async {
     final pageCount = await widget.document.pageCount;
-    ({RhwpLayerTree tree, RhwpTextRunLayout run, int page})? currentRun;
-
-    for (var page = 0; page < pageCount; page += 1) {
-      final tree = await widget.document.pageLayerTreeModel(page);
-      for (final run in _bodyTextRuns(tree)) {
-        if (run.containsPosition(
-          section: cursor.section,
-          paragraph: cursor.paragraph,
-          offset: cursor.offset,
-        )) {
-          currentRun = (tree: tree, run: run, page: page);
-          break;
-        }
-      }
-      if (currentRun != null) {
-        break;
-      }
-    }
+    final currentRun = await _textRunContaining(cursor);
 
     if (currentRun == null) {
       return null;
@@ -2606,6 +2662,24 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       page += delta.sign;
     }
 
+    return null;
+  }
+
+  Future<({RhwpLayerTree tree, RhwpTextRunLayout run, int page})?>
+  _textRunContaining(RhwpCursorPosition cursor) async {
+    final pageCount = await widget.document.pageCount;
+    for (var page = 0; page < pageCount; page += 1) {
+      final tree = await widget.document.pageLayerTreeModel(page);
+      for (final run in _bodyTextRuns(tree)) {
+        if (run.containsPosition(
+          section: cursor.section,
+          paragraph: cursor.paragraph,
+          offset: cursor.offset,
+        )) {
+          return (tree: tree, run: run, page: page);
+        }
+      }
+    }
     return null;
   }
 

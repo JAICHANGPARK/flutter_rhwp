@@ -1732,6 +1732,79 @@ void main() {
     expect(controller.currentPage, 0);
   });
 
+  testWidgets('RhwpNativeEditor handles page up and page down keys', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 3);
+    session.pageLayerTreeJsonByPage[0] = jsonEncode(
+      _editorLayerTreeJson(firstParagraph: 0, secondParagraph: 1),
+    );
+    session.pageLayerTreeJsonByPage[1] = jsonEncode(
+      _editorLayerTreeJson(firstParagraph: 2, secondParagraph: 3),
+    );
+    session.pageLayerTreeJsonByPage[2] = jsonEncode(
+      _editorLayerTreeJson(firstParagraph: 4, secondParagraph: 5),
+    );
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 1, offset: 2);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+    await _pumpDocumentFrame(tester);
+
+    expect(
+      controller.cursor,
+      const RhwpCursorPosition(paragraph: 2, offset: 2),
+    );
+    expect(controller.currentPage, 1);
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 2, offset: 3);
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(
+      controller.selection,
+      const RhwpSelectionRange(
+        start: RhwpCursorPosition(paragraph: 2, offset: 3),
+        end: RhwpCursorPosition(paragraph: 4, offset: 3),
+      ),
+    );
+    expect(controller.currentPage, 2);
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 4, offset: 2);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.pageUp);
+    await _pumpDocumentFrame(tester);
+
+    expect(
+      controller.cursor,
+      const RhwpCursorPosition(paragraph: 3, offset: 2),
+    );
+    expect(controller.currentPage, 1);
+    expect(session.commands, isEmpty);
+  });
+
   testWidgets('RhwpNativeEditor uses page geometry for home and end', (
     tester,
   ) async {
