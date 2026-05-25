@@ -4315,6 +4315,8 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
   RhwpCursorPosition? _dragAnchor;
   RhwpTableCellLayout? _tableDragAnchor;
   _ObjectDragSession? _objectDrag;
+  Duration? _lastPrimaryClickTime;
+  Offset? _lastPrimaryClickPosition;
 
   static const _pageInset = 24.0;
   static const _lineHeight = 24.0;
@@ -4322,6 +4324,8 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
   static const _objectHandleSize = 10.0;
   static const _objectHandleHitSize = 18.0;
   static const _minimumObjectExtent = 8.0;
+  static const _doubleClickTimeout = Duration(milliseconds: 500);
+  static const _doubleClickDistance = 18.0;
 
   @override
   void initState() {
@@ -4387,7 +4391,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
                   widget.onContextMenuRequested(event.position);
                   return;
                 }
-                _handlePointerDown(event.localPosition, constraints, tree);
+                _handlePointerDown(event, constraints, tree);
               },
               onPointerMove: (event) {
                 _handlePointerMove(event.localPosition, constraints, tree);
@@ -4411,10 +4415,11 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
   }
 
   void _handlePointerDown(
-    Offset localPosition,
+    PointerDownEvent event,
     BoxConstraints constraints,
     RhwpLayerTree? tree,
   ) {
+    final localPosition = event.localPosition;
     final objectDragHandle = _objectDragHandleForPoint(
       localPosition,
       constraints,
@@ -4456,12 +4461,121 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     widget.onTableCellSelection(null);
     widget.onObjectSelection(null);
 
-    final cursor = _cursorForPoint(localPosition, constraints, tree);
+    final textHit = _textHitForPoint(localPosition, constraints, tree);
+    if (_isDoubleClick(event, textHit)) {
+      _lastPrimaryClickTime = null;
+      _lastPrimaryClickPosition = null;
+      final wordSelection = _wordSelectionForHit(textHit);
+      if (wordSelection != null) {
+        widget.onFocusRequested();
+        _dragAnchor = null;
+        widget.onSelectionRange(wordSelection);
+        return;
+      }
+    } else {
+      _lastPrimaryClickTime = event.timeStamp;
+      _lastPrimaryClickPosition = localPosition;
+    }
+
+    final cursor = _cursorForTextHitOrPoint(
+      textHit,
+      localPosition,
+      constraints,
+      tree,
+    );
     if (cursor != null) {
       widget.onFocusRequested();
       _dragAnchor = cursor;
       widget.onCursorPosition(cursor);
     }
+  }
+
+  bool _isDoubleClick(PointerDownEvent event, RhwpTextHitResult? hit) {
+    if (hit == null || hit.cellContext != null) {
+      return false;
+    }
+
+    final lastTime = _lastPrimaryClickTime;
+    final lastPosition = _lastPrimaryClickPosition;
+    if (lastTime == null || lastPosition == null) {
+      return false;
+    }
+
+    return event.timeStamp - lastTime <= _doubleClickTimeout &&
+        (event.localPosition - lastPosition).distance <= _doubleClickDistance;
+  }
+
+  RhwpSelectionRange? _wordSelectionForHit(RhwpTextHitResult? hit) {
+    if (hit == null || hit.cellContext != null) {
+      return null;
+    }
+
+    final run = hit.run;
+    if (run.text.isEmpty) {
+      return null;
+    }
+
+    var localOffset = (hit.offset - run.charStart)
+        .clamp(0, run.text.length)
+        .toInt();
+    if (localOffset == run.text.length && localOffset > 0) {
+      localOffset -= 1;
+    } else if (localOffset < run.text.length &&
+        !_isWordCodeUnit(run.text.codeUnitAt(localOffset)) &&
+        localOffset > 0 &&
+        _isWordCodeUnit(run.text.codeUnitAt(localOffset - 1))) {
+      localOffset -= 1;
+    }
+
+    if (localOffset < 0 ||
+        localOffset >= run.text.length ||
+        !_isWordCodeUnit(run.text.codeUnitAt(localOffset))) {
+      return null;
+    }
+
+    var start = localOffset;
+    while (start > 0 && _isWordCodeUnit(run.text.codeUnitAt(start - 1))) {
+      start -= 1;
+    }
+
+    var end = localOffset + 1;
+    while (end < run.text.length && _isWordCodeUnit(run.text.codeUnitAt(end))) {
+      end += 1;
+    }
+
+    return RhwpSelectionRange(
+      start: RhwpCursorPosition(
+        section: hit.section,
+        paragraph: hit.paragraph,
+        offset: run.charStart + start,
+      ),
+      end: RhwpCursorPosition(
+        section: hit.section,
+        paragraph: hit.paragraph,
+        offset: run.charStart + end,
+      ),
+    );
+  }
+
+  bool _isWordCodeUnit(int codeUnit) {
+    if (codeUnit >= 0x30 && codeUnit <= 0x39) {
+      return true;
+    }
+    if (codeUnit >= 0x41 && codeUnit <= 0x5a) {
+      return true;
+    }
+    if (codeUnit >= 0x61 && codeUnit <= 0x7a) {
+      return true;
+    }
+    if (codeUnit == 0x5f) {
+      return true;
+    }
+
+    // Treat Hangul and common CJK ranges as word text for Korean HWP documents.
+    return (codeUnit >= 0x1100 && codeUnit <= 0x11ff) ||
+        (codeUnit >= 0x3130 && codeUnit <= 0x318f) ||
+        (codeUnit >= 0xac00 && codeUnit <= 0xd7af) ||
+        (codeUnit >= 0x3400 && codeUnit <= 0x9fff);
   }
 
   void _handleSecondaryPointerDown(
@@ -4795,6 +4909,27 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     RhwpLayerTree? tree,
   ) {
     final hit = _textHitForPoint(localPosition, constraints, tree);
+    if (hit != null) {
+      return RhwpCursorPosition(
+        section: hit.section,
+        paragraph: hit.paragraph,
+        offset: hit.offset,
+      );
+    }
+
+    if (widget.fallbackEnabled) {
+      return _fallbackCursorFor(localPosition);
+    }
+
+    return null;
+  }
+
+  RhwpCursorPosition? _cursorForTextHitOrPoint(
+    RhwpTextHitResult? hit,
+    Offset localPosition,
+    BoxConstraints constraints,
+    RhwpLayerTree? tree,
+  ) {
     if (hit != null) {
       return RhwpCursorPosition(
         section: hit.section,

@@ -191,6 +191,8 @@
   position while refreshing rendered page content.
 * Changed page SVG refreshes to keep showing the previous render until the next
   render completes, reducing edit-time flicker in the native editor.
+* Added Flutter-native double-click word selection based on page-layer text run
+  hit testing.
 * Added Arrow and Tab keyboard navigation for selected table cells in the
   Flutter-native editor, including Shift+Arrow range extension.
 * Added Escape handling in the Flutter-native editor to clear composing input,

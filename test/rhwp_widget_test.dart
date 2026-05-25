@@ -2322,6 +2322,47 @@ void main() {
     );
   });
 
+  testWidgets('RhwpNativeEditor selects a word on double click', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1)
+      ..pageLayerTreeJson = jsonEncode(
+        _editorLayerTreeJson(firstText: 'hello world'),
+      );
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.cursor = const RhwpCursorPosition(offset: 7);
+    await tester.pump();
+    final wordPoint =
+        tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+        const Offset(1, 6);
+
+    await tester.tapAt(wordPoint);
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tapAt(wordPoint);
+    await tester.pump();
+
+    expect(
+      controller.selection,
+      const RhwpSelectionRange(
+        start: RhwpCursorPosition(offset: 6),
+        end: RhwpCursorPosition(offset: 11),
+      ),
+    );
+  });
+
   testWidgets('RhwpNativeEditor handles keyboard navigation and delete', (
     tester,
   ) async {
