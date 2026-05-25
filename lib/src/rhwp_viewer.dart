@@ -51,6 +51,7 @@ class RhwpViewer extends StatefulWidget {
     this.backgroundColor = const Color(0xfff2f4f7),
     this.svgBuilder = _defaultRhwpSvgBuilder,
     this.pageOverlayBuilder,
+    this.ignorePageOverlayPointer = true,
   });
 
   final RhwpDocument document;
@@ -60,6 +61,12 @@ class RhwpViewer extends StatefulWidget {
   final Color backgroundColor;
   final RhwpSvgBuilder svgBuilder;
   final RhwpPageOverlayBuilder? pageOverlayBuilder;
+
+  /// Whether page overlays should ignore pointer events.
+  ///
+  /// Viewers usually keep this true so overlays do not block scrolling. Native
+  /// editor surfaces set it to false so page overlays can handle hit testing.
+  final bool ignorePageOverlayPointer;
 
   @override
   State<RhwpViewer> createState() => _RhwpViewerState();
@@ -136,6 +143,8 @@ class _RhwpViewerState extends State<RhwpViewer> {
                         page: index,
                         svgBuilder: widget.svgBuilder,
                         pageOverlayBuilder: widget.pageOverlayBuilder,
+                        ignorePageOverlayPointer:
+                            widget.ignorePageOverlayPointer,
                       );
                     },
                   ),
@@ -155,12 +164,14 @@ class _RhwpSvgPage extends StatefulWidget {
     required this.page,
     required this.svgBuilder,
     required this.pageOverlayBuilder,
+    required this.ignorePageOverlayPointer,
   });
 
   final RhwpDocument document;
   final int page;
   final RhwpSvgBuilder svgBuilder;
   final RhwpPageOverlayBuilder? pageOverlayBuilder;
+  final bool ignorePageOverlayPointer;
 
   @override
   State<_RhwpSvgPage> createState() => _RhwpSvgPageState();
@@ -223,7 +234,11 @@ class _RhwpSvgPageState extends State<_RhwpSvgPage>
                   fit: StackFit.passthrough,
                   children: [
                     page,
-                    Positioned.fill(child: IgnorePointer(child: overlay)),
+                    Positioned.fill(
+                      child: widget.ignorePageOverlayPointer
+                          ? IgnorePointer(child: overlay)
+                          : overlay,
+                    ),
                   ],
                 );
 

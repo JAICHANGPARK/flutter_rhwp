@@ -124,3 +124,6 @@
   page viewport, caret/selection overlay, status bar, and basic insert/delete
   command flow.
 * Updated the example editor toggle from `Commands` to `Native editor`.
+* Added page-layer text hit testing so the Flutter-native editor can move the
+  caret by tapping rendered document text.
+* Wired Flutter-native drag selection to the same page-layer hit-test model.

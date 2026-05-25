@@ -291,6 +291,71 @@ void main() {
     },
   );
 
+  testWidgets('RhwpNativeEditor moves caret from page tap hit testing', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final firstCaretTopLeft = tester.getTopLeft(
+      find.byKey(const ValueKey('rhwp-editor-caret')),
+    );
+
+    controller.cursor = const RhwpCursorPosition(offset: 1);
+    await tester.pump();
+    final secondCaretTopLeft = tester.getTopLeft(
+      find.byKey(const ValueKey('rhwp-editor-caret')),
+    );
+    final caretAdvance = secondCaretTopLeft.dx - firstCaretTopLeft.dx;
+
+    controller.cursor = const RhwpCursorPosition(offset: 1);
+    await tester.pump();
+    await tester.tapAt(firstCaretTopLeft + Offset(caretAdvance * 2.1, 6));
+    await tester.pump();
+
+    expect(controller.cursor, const RhwpCursorPosition(offset: 2));
+
+    controller.cursor = const RhwpCursorPosition(offset: 1);
+    await tester.pump();
+    final dragStart = tester.getTopLeft(
+      find.byKey(const ValueKey('rhwp-editor-caret')),
+    );
+    controller.cursor = const RhwpCursorPosition(offset: 3);
+    await tester.pump();
+    final dragEnd = tester.getTopLeft(
+      find.byKey(const ValueKey('rhwp-editor-caret')),
+    );
+    controller.cursor = const RhwpCursorPosition(offset: 1);
+    await tester.pump();
+
+    final drag = await tester.startGesture(dragStart + const Offset(1, 6));
+    await tester.pump();
+    await drag.moveTo(dragEnd + const Offset(1, 6));
+    await tester.pump(const Duration(milliseconds: 16));
+    await drag.up();
+    await tester.pump();
+
+    expect(
+      controller.selection,
+      const RhwpSelectionRange(
+        start: RhwpCursorPosition(offset: 1),
+        end: RhwpCursorPosition(offset: 3),
+      ),
+    );
+  });
+
   testWidgets(
     'RhwpCommandEditor paints page-local selection across paragraphs',
     (tester) async {

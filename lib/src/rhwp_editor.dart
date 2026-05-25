@@ -49,6 +49,11 @@ class RhwpCursorPosition {
 
   @override
   int get hashCode => Object.hash(section, paragraph, offset);
+
+  @override
+  String toString() {
+    return 'RhwpCursorPosition(section: $section, paragraph: $paragraph, offset: $offset)';
+  }
 }
 
 class RhwpSelectionRange {
@@ -78,6 +83,11 @@ class RhwpSelectionRange {
 
   @override
   int get hashCode => Object.hash(start, end);
+
+  @override
+  String toString() {
+    return 'RhwpSelectionRange(start: $start, end: $end)';
+  }
 }
 
 /// Controller for the Flutter-native command editor overlay.
@@ -331,6 +341,14 @@ class _RhwpEditorState extends State<RhwpEditor> {
     return parsed;
   }
 
+  void _setCursorFromPage(RhwpCursorPosition cursor) {
+    _controller.cursor = cursor;
+  }
+
+  void _setSelectionFromPage(RhwpSelectionRange selection) {
+    _controller.selection = selection;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -352,12 +370,15 @@ class _RhwpEditorState extends State<RhwpEditor> {
             key: _viewerKey,
             document: widget.document,
             controller: _controller,
+            ignorePageOverlayPointer: false,
             pageOverlayBuilder: (context, page, _) {
               return _EditorSelectionOverlay(
                 document: widget.document,
                 page: page,
                 selection: _controller.selection,
                 fallbackEnabled: page == 0,
+                onCursorPosition: _setCursorFromPage,
+                onSelectionRange: _setSelectionFromPage,
               );
             },
           ),
@@ -374,12 +395,16 @@ class _EditorSelectionOverlay extends StatefulWidget {
     required this.page,
     required this.selection,
     required this.fallbackEnabled,
+    required this.onCursorPosition,
+    required this.onSelectionRange,
   });
 
   final RhwpDocument document;
   final int page;
   final RhwpSelectionRange selection;
   final bool fallbackEnabled;
+  final ValueChanged<RhwpCursorPosition> onCursorPosition;
+  final ValueChanged<RhwpSelectionRange> onSelectionRange;
 
   @override
   State<_EditorSelectionOverlay> createState() =>
@@ -388,6 +413,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
 
 class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
   late Future<RhwpLayerTree?> _layerTree;
+  RhwpCursorPosition? _dragAnchor;
 
   static const _pageInset = 24.0;
   static const _lineHeight = 24.0;
@@ -424,6 +450,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
         return LayoutBuilder(
           builder: (context, constraints) {
             final tree = snapshot.data;
+            Widget child;
             if (tree != null) {
               final layerOverlay = _buildLayerOverlay(
                 context,
@@ -431,18 +458,102 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
                 tree,
               );
               if (layerOverlay != null) {
-                return layerOverlay;
+                child = layerOverlay;
+              } else if (widget.fallbackEnabled) {
+                child = _buildFallbackOverlay(context, constraints);
+              } else {
+                child = const SizedBox.expand();
               }
+            } else if (widget.fallbackEnabled) {
+              child = _buildFallbackOverlay(context, constraints);
+            } else {
+              child = const SizedBox.expand();
             }
 
-            if (widget.fallbackEnabled) {
-              return _buildFallbackOverlay(context, constraints);
-            }
-            return const SizedBox.expand();
+            return Listener(
+              behavior: HitTestBehavior.translucent,
+              onPointerDown: (event) {
+                _handlePointerDown(event.localPosition, constraints, tree);
+              },
+              onPointerMove: (event) {
+                _handlePointerMove(event.localPosition, constraints, tree);
+              },
+              onPointerUp: (_) {
+                _dragAnchor = null;
+              },
+              onPointerCancel: (_) {
+                _dragAnchor = null;
+              },
+              child: child,
+            );
           },
         );
       },
     );
+  }
+
+  void _handlePointerDown(
+    Offset localPosition,
+    BoxConstraints constraints,
+    RhwpLayerTree? tree,
+  ) {
+    final cursor = _cursorForPoint(localPosition, constraints, tree);
+    if (cursor != null) {
+      _dragAnchor = cursor;
+      widget.onCursorPosition(cursor);
+    }
+  }
+
+  void _handlePointerMove(
+    Offset localPosition,
+    BoxConstraints constraints,
+    RhwpLayerTree? tree,
+  ) {
+    final anchor = _dragAnchor;
+    final cursor = _cursorForPoint(localPosition, constraints, tree);
+    if (anchor != null && cursor != null) {
+      widget.onSelectionRange(RhwpSelectionRange(start: anchor, end: cursor));
+    }
+  }
+
+  RhwpCursorPosition? _cursorForPoint(
+    Offset localPosition,
+    BoxConstraints constraints,
+    RhwpLayerTree? tree,
+  ) {
+    if (tree != null) {
+      final pagePoint = _pagePointFromOverlayPoint(
+        localPosition,
+        constraints,
+        tree,
+      );
+      final hit = tree.textPositionForPoint(pagePoint, verticalTolerance: 12);
+      if (hit != null) {
+        return RhwpCursorPosition(
+          section: hit.section,
+          paragraph: hit.paragraph,
+          offset: hit.offset,
+        );
+      }
+    }
+
+    if (widget.fallbackEnabled) {
+      return _fallbackCursorFor(localPosition);
+    }
+
+    return null;
+  }
+
+  RhwpCursorPosition _fallbackCursorFor(Offset localPosition) {
+    final paragraph = math.max(
+      0,
+      ((localPosition.dy - _pageInset) / _lineHeight).round(),
+    );
+    final offset = math.max(
+      0,
+      ((localPosition.dx - _pageInset) / _characterWidth).round(),
+    );
+    return RhwpCursorPosition(paragraph: paragraph, offset: offset);
   }
 
   Widget? _buildLayerOverlay(
@@ -580,6 +691,27 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
       constraints.maxHeight.isFinite
           ? constraints.maxHeight
           : fallbackSize.height,
+    );
+  }
+
+  Offset _pagePointFromOverlayPoint(
+    Offset point,
+    BoxConstraints constraints,
+    RhwpLayerTree tree,
+  ) {
+    final pageSize = tree.pageSize;
+    if (pageSize == null || pageSize.width <= 0 || pageSize.height <= 0) {
+      return point;
+    }
+
+    final overlaySize = _overlaySize(constraints, tree);
+    if (overlaySize.width <= 0 || overlaySize.height <= 0) {
+      return point;
+    }
+
+    return Offset(
+      point.dx * pageSize.width / overlaySize.width,
+      point.dy * pageSize.height / overlaySize.height,
     );
   }
 

@@ -256,6 +256,16 @@ void main() {
       endOffset: 7,
     );
     expect(selection.single, const Rect.fromLTRB(30, 30, 60, 42));
+
+    final hit = tree.textPositionForPoint(const Offset(52, 36));
+    expect(hit, isNotNull);
+    expect(hit!.section, 0);
+    expect(hit.paragraph, 0);
+    expect(hit.offset, 6);
+    expect(
+      tree.textPositionForPoint(const Offset(52, 80), verticalTolerance: 2),
+      isNull,
+    );
   });
 
   test('page layer tree model maps multi-paragraph selection ranges', () {

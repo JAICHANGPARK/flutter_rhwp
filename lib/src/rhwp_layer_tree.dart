@@ -189,6 +189,75 @@ class RhwpLayerTree {
 
     return rects;
   }
+
+  /// Maps a page-coordinate point to the nearest text source position.
+  ///
+  /// This is used by Flutter-native editor hit testing. The returned offset is
+  /// the closest caret position on a text run whose vertical bounds are within
+  /// [verticalTolerance] of [point].
+  RhwpTextHitResult? textPositionForPoint(
+    Offset point, {
+    double verticalTolerance = 8.0,
+  }) {
+    RhwpTextHitResult? bestHit;
+    var bestScore = double.infinity;
+
+    for (final run in textRuns) {
+      final section = run.section;
+      final paragraph = run.paragraph;
+      if (section == null || paragraph == null) {
+        continue;
+      }
+
+      final verticalDistance = _distanceToRange(
+        point.dy,
+        run.bounds.top,
+        run.bounds.bottom,
+      );
+      if (verticalDistance > verticalTolerance) {
+        continue;
+      }
+
+      final offset = run.closestOffsetForPoint(point);
+      final caretPoint = run.pagePointForOffset(offset);
+      final horizontalDistance = (caretPoint.dx - point.dx).abs();
+      final score = verticalDistance * 10000 + horizontalDistance;
+      if (score < bestScore) {
+        bestScore = score;
+        bestHit = RhwpTextHitResult(
+          section: section,
+          paragraph: paragraph,
+          offset: offset,
+          run: run,
+        );
+      }
+    }
+
+    return bestHit;
+  }
+}
+
+/// A document text position returned from page hit testing.
+class RhwpTextHitResult {
+  /// Creates a text hit result.
+  const RhwpTextHitResult({
+    required this.section,
+    required this.paragraph,
+    required this.offset,
+    required this.run,
+  });
+
+  /// The document section index.
+  final int section;
+
+  /// The document paragraph index.
+  final int paragraph;
+
+  /// The UTF-16 paragraph offset nearest to the hit point.
+  final int offset;
+
+  /// The text run that produced the hit.
+  final RhwpTextRunLayout run;
 }
 
 /// A single node in a parsed rhwp page layer tree.
@@ -313,6 +382,21 @@ class RhwpTextRunLayout {
     final point = Offset(localX, 0);
     return transform?.transform(point) ??
         Offset(bounds.left + localX, bounds.top);
+  }
+
+  /// Returns the closest paragraph offset to [point] in page coordinates.
+  int closestOffsetForPoint(Offset point) {
+    var bestOffset = charStart;
+    var bestDistance = double.infinity;
+    for (var offset = charStart; offset <= charEnd; offset += 1) {
+      final caretPoint = pagePointForOffset(offset);
+      final distance = (caretPoint.dx - point.dx).abs();
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestOffset = offset;
+      }
+    }
+    return bestOffset;
   }
 
   /// Returns the selected area for the overlap of [startOffset] and [endOffset].
@@ -853,4 +937,14 @@ int _selectionEndForRun(RhwpTextRunLayout run, _TextPosition rangeEnd) {
     return math.min(run.charEnd, rangeEnd.offset);
   }
   return run.charEnd;
+}
+
+double _distanceToRange(double value, double start, double end) {
+  if (value < start) {
+    return start - value;
+  }
+  if (value > end) {
+    return value - end;
+  }
+  return 0;
 }
