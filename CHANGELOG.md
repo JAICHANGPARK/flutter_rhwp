@@ -47,6 +47,8 @@
   and Android/iOS example builds.
 * Added a custom `RhwpViewer` SVG builder hook and Flutter widget paint tests
   for viewer rendering, zoom, and editor overlay command flows.
+* Isolated rendered SVG pages behind a repaint boundary so native editor typing
+  overlays do not force the HWP page raster layer to repaint.
 * Added a `RhwpViewer` page virtualization regression test for lazy SVG page
   rendering during scroll.
 * Added a Flutter-drawn `RhwpEditor` command-target caret and selection marker

@@ -255,6 +255,10 @@ void main() {
     expect(session.renderedPages, [0]);
     expect(find.text('overlay 1'), findsOneWidget);
     expect(find.byKey(const ValueKey('rhwp-cached-svg-page')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('rhwp-rendered-svg-repaint-boundary')),
+      findsOneWidget,
+    );
   });
 
   testWidgets(

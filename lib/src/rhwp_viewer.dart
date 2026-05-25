@@ -416,7 +416,10 @@ class _RhwpSvgPageState extends State<_RhwpSvgPage>
       return cachedPage;
     }
 
-    final page = widget.svgBuilder(context, svg);
+    final page = RepaintBoundary(
+      key: const ValueKey('rhwp-rendered-svg-repaint-boundary'),
+      child: widget.svgBuilder(context, svg),
+    );
     _cachedSvg = svg;
     _cachedSvgBuilder = widget.svgBuilder;
     _cachedSvgPage = page;
