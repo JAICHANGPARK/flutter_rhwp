@@ -175,6 +175,8 @@
   and wired `RhwpNativeEditor` text input to the active cell.
 * Added table cell text source parsing and hit testing so tapping rendered cell
   text sets the active cell edit offset.
+* Added Arrow and Tab keyboard navigation for selected table cells in the
+  Flutter-native editor, including Shift+Arrow range extension.
 * Split the Flutter-native editor toolbar into HWP-style ribbon tabs for file,
   edit, view, input, format, page, table, and tools, with table cell selection
   opening the table ribbon context.

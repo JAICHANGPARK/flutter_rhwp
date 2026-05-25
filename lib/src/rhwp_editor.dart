@@ -293,6 +293,8 @@ enum _EditorContextMenuAction {
   splitCell,
 }
 
+enum _TableCellNavigationDirection { left, right, up, down }
+
 class _CharShapeDialogResult {
   const _CharShapeDialogResult({
     required this.bold,
@@ -1704,6 +1706,338 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
   }
 
+  Future<void> _moveTableCellSelection(
+    _TableCellNavigationDirection direction, {
+    required bool extendSelection,
+  }) async {
+    final selection = _controller.tableCellSelection;
+    if (selection == null || _busy) {
+      return;
+    }
+
+    try {
+      final cells = await _tableCellsForSelection(selection);
+      if (!mounted || cells.isEmpty) {
+        return;
+      }
+
+      final active = _activeTableCellForSelection(selection, cells);
+      if (active == null) {
+        return;
+      }
+
+      final target = _tableCellNeighbor(cells, active.cell, direction);
+      if (target == null) {
+        return;
+      }
+
+      final nextSelection = extendSelection
+          ? _tableSelectionFromAnchorAndActive(
+              _anchorTableCellForSelection(selection, cells, active.cell) ??
+                  active.cell,
+              target.cell,
+            )
+          : RhwpTableCellSelection.fromCell(target.cell);
+      _setKeyboardTableCellSelection(nextSelection, page: target.page);
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    }
+  }
+
+  Future<void> _moveTableCellSelectionByTab({required bool backward}) async {
+    final selection = _controller.tableCellSelection;
+    if (selection == null || _busy) {
+      return;
+    }
+
+    try {
+      final cells = await _tableCellsForSelection(selection);
+      if (!mounted || cells.isEmpty) {
+        return;
+      }
+
+      final active = _activeTableCellForSelection(selection, cells);
+      if (active == null) {
+        return;
+      }
+
+      final currentIndex = cells.indexWhere((entry) {
+        return _sameTableCell(entry.cell, active.cell);
+      });
+      if (currentIndex < 0) {
+        return;
+      }
+
+      final targetIndex = backward ? currentIndex - 1 : currentIndex + 1;
+      if (targetIndex < 0 || targetIndex >= cells.length) {
+        return;
+      }
+
+      final target = cells[targetIndex];
+      _setKeyboardTableCellSelection(
+        RhwpTableCellSelection.fromCell(target.cell),
+        page: target.page,
+      );
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    }
+  }
+
+  Future<List<({RhwpTableCellLayout cell, int page})>> _tableCellsForSelection(
+    RhwpTableCellSelection selection,
+  ) async {
+    final pageCount = await widget.document.pageCount;
+    final cells = <({RhwpTableCellLayout cell, int page})>[];
+
+    for (var page = 0; page < pageCount; page += 1) {
+      final tree = await widget.document.pageLayerTreeModel(page);
+      for (final cell in tree.tableCells) {
+        if (selection.isSameTableAs(cell)) {
+          cells.add((cell: cell, page: page));
+        }
+      }
+    }
+
+    cells.sort((left, right) {
+      final row = left.cell.row.compareTo(right.cell.row);
+      if (row != 0) {
+        return row;
+      }
+      final column = left.cell.column.compareTo(right.cell.column);
+      if (column != 0) {
+        return column;
+      }
+      return (left.cell.modelCellIndex ?? -1).compareTo(
+        right.cell.modelCellIndex ?? -1,
+      );
+    });
+    return cells;
+  }
+
+  ({RhwpTableCellLayout cell, int page})? _activeTableCellForSelection(
+    RhwpTableCellSelection selection,
+    List<({RhwpTableCellLayout cell, int page})> cells,
+  ) {
+    final activeCellIndex = selection.activeCellIndex;
+    if (activeCellIndex != null) {
+      for (final entry in cells) {
+        if (entry.cell.modelCellIndex == activeCellIndex) {
+          return entry;
+        }
+      }
+    }
+
+    return _tableCellAt(cells, selection.startRow, selection.startColumn);
+  }
+
+  RhwpTableCellLayout? _anchorTableCellForSelection(
+    RhwpTableCellSelection selection,
+    List<({RhwpTableCellLayout cell, int page})> cells,
+    RhwpTableCellLayout active,
+  ) {
+    final start = _tableCellAt(
+      cells,
+      selection.startRow,
+      selection.startColumn,
+    );
+    final end = _tableCellAt(cells, selection.endRow, selection.endColumn);
+    if (start != null &&
+        end != null &&
+        !_sameTableCell(start.cell, end.cell) &&
+        _sameTableCell(start.cell, active)) {
+      return end.cell;
+    }
+    return start?.cell;
+  }
+
+  ({RhwpTableCellLayout cell, int page})? _tableCellAt(
+    List<({RhwpTableCellLayout cell, int page})> cells,
+    int row,
+    int column,
+  ) {
+    for (final entry in cells) {
+      if (entry.cell.row <= row &&
+          entry.cell.endRow >= row &&
+          entry.cell.column <= column &&
+          entry.cell.endColumn >= column) {
+        return entry;
+      }
+    }
+    return null;
+  }
+
+  ({RhwpTableCellLayout cell, int page})? _tableCellNeighbor(
+    List<({RhwpTableCellLayout cell, int page})> cells,
+    RhwpTableCellLayout active,
+    _TableCellNavigationDirection direction,
+  ) {
+    final candidates = cells.where((entry) {
+      final cell = entry.cell;
+      if (_sameTableCell(cell, active)) {
+        return false;
+      }
+
+      return switch (direction) {
+        _TableCellNavigationDirection.left =>
+          _rowRangesOverlap(cell, active) && cell.endColumn < active.column,
+        _TableCellNavigationDirection.right =>
+          _rowRangesOverlap(cell, active) && cell.column > active.endColumn,
+        _TableCellNavigationDirection.up =>
+          _columnRangesOverlap(cell, active) && cell.endRow < active.row,
+        _TableCellNavigationDirection.down =>
+          _columnRangesOverlap(cell, active) && cell.row > active.endRow,
+      };
+    }).toList();
+
+    if (candidates.isEmpty) {
+      return null;
+    }
+
+    candidates.sort((left, right) {
+      return switch (direction) {
+        _TableCellNavigationDirection.left => _compareLeftTableCellCandidate(
+          active,
+          left.cell,
+          right.cell,
+        ),
+        _TableCellNavigationDirection.right => _compareRightTableCellCandidate(
+          active,
+          left.cell,
+          right.cell,
+        ),
+        _TableCellNavigationDirection.up => _compareUpTableCellCandidate(
+          active,
+          left.cell,
+          right.cell,
+        ),
+        _TableCellNavigationDirection.down => _compareDownTableCellCandidate(
+          active,
+          left.cell,
+          right.cell,
+        ),
+      };
+    });
+    return candidates.first;
+  }
+
+  int _compareLeftTableCellCandidate(
+    RhwpTableCellLayout active,
+    RhwpTableCellLayout left,
+    RhwpTableCellLayout right,
+  ) {
+    final column = right.endColumn.compareTo(left.endColumn);
+    if (column != 0) {
+      return column;
+    }
+    return _compareTableCellDistance(active, left, right);
+  }
+
+  int _compareRightTableCellCandidate(
+    RhwpTableCellLayout active,
+    RhwpTableCellLayout left,
+    RhwpTableCellLayout right,
+  ) {
+    final column = left.column.compareTo(right.column);
+    if (column != 0) {
+      return column;
+    }
+    return _compareTableCellDistance(active, left, right);
+  }
+
+  int _compareUpTableCellCandidate(
+    RhwpTableCellLayout active,
+    RhwpTableCellLayout left,
+    RhwpTableCellLayout right,
+  ) {
+    final row = right.endRow.compareTo(left.endRow);
+    if (row != 0) {
+      return row;
+    }
+    return _compareTableCellDistance(active, left, right);
+  }
+
+  int _compareDownTableCellCandidate(
+    RhwpTableCellLayout active,
+    RhwpTableCellLayout left,
+    RhwpTableCellLayout right,
+  ) {
+    final row = left.row.compareTo(right.row);
+    if (row != 0) {
+      return row;
+    }
+    return _compareTableCellDistance(active, left, right);
+  }
+
+  int _compareTableCellDistance(
+    RhwpTableCellLayout active,
+    RhwpTableCellLayout left,
+    RhwpTableCellLayout right,
+  ) {
+    final leftDistance = (left.bounds.center - active.bounds.center).distance;
+    final rightDistance = (right.bounds.center - active.bounds.center).distance;
+    final distance = leftDistance.compareTo(rightDistance);
+    if (distance != 0) {
+      return distance;
+    }
+    final row = left.row.compareTo(right.row);
+    if (row != 0) {
+      return row;
+    }
+    return left.column.compareTo(right.column);
+  }
+
+  bool _rowRangesOverlap(RhwpTableCellLayout a, RhwpTableCellLayout b) {
+    return a.row <= b.endRow && b.row <= a.endRow;
+  }
+
+  bool _columnRangesOverlap(RhwpTableCellLayout a, RhwpTableCellLayout b) {
+    return a.column <= b.endColumn && b.column <= a.endColumn;
+  }
+
+  bool _sameTableCell(RhwpTableCellLayout a, RhwpTableCellLayout b) {
+    return a.section == b.section &&
+        a.paragraph == b.paragraph &&
+        a.controlIndex == b.controlIndex &&
+        a.row == b.row &&
+        a.column == b.column &&
+        a.modelCellIndex == b.modelCellIndex;
+  }
+
+  RhwpTableCellSelection _tableSelectionFromAnchorAndActive(
+    RhwpTableCellLayout anchor,
+    RhwpTableCellLayout active,
+  ) {
+    return RhwpTableCellSelection(
+      section: anchor.section,
+      paragraph: anchor.paragraph,
+      controlIndex: anchor.controlIndex,
+      startRow: math.min(anchor.row, active.row),
+      startColumn: math.min(anchor.column, active.column),
+      endRow: math.max(anchor.endRow, active.endRow),
+      endColumn: math.max(anchor.endColumn, active.endColumn),
+      activeCellIndex: active.modelCellIndex,
+    );
+  }
+
+  void _setKeyboardTableCellSelection(
+    RhwpTableCellSelection selection, {
+    required int page,
+  }) {
+    _controller.clearSelection();
+    _syncTableSelectionFields(selection);
+    _controller.tableCellSelection = selection;
+    unawaited(_controller.goToPage(page));
+    _focusEditor();
+  }
+
   Future<bool> _deleteSelectedText(RhwpSelectionRange selection) async {
     if (selection.isCollapsed) {
       return false;
@@ -2396,6 +2730,15 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         }
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowLeft:
+        if (_controller.tableCellSelection != null && !wordNavigationPressed) {
+          unawaited(
+            _moveTableCellSelection(
+              _TableCellNavigationDirection.left,
+              extendSelection: extendSelection,
+            ),
+          );
+          return KeyEventResult.handled;
+        }
         if (wordNavigationPressed) {
           unawaited(_moveCursorByWord(-1, extendSelection: extendSelection));
         } else {
@@ -2403,6 +2746,15 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         }
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowRight:
+        if (_controller.tableCellSelection != null && !wordNavigationPressed) {
+          unawaited(
+            _moveTableCellSelection(
+              _TableCellNavigationDirection.right,
+              extendSelection: extendSelection,
+            ),
+          );
+          return KeyEventResult.handled;
+        }
         if (wordNavigationPressed) {
           unawaited(_moveCursorByWord(1, extendSelection: extendSelection));
         } else {
@@ -2410,9 +2762,27 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         }
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowUp:
+        if (_controller.tableCellSelection != null && !wordNavigationPressed) {
+          unawaited(
+            _moveTableCellSelection(
+              _TableCellNavigationDirection.up,
+              extendSelection: extendSelection,
+            ),
+          );
+          return KeyEventResult.handled;
+        }
         unawaited(_moveCursorVertically(-1, extendSelection: extendSelection));
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowDown:
+        if (_controller.tableCellSelection != null && !wordNavigationPressed) {
+          unawaited(
+            _moveTableCellSelection(
+              _TableCellNavigationDirection.down,
+              extendSelection: extendSelection,
+            ),
+          );
+          return KeyEventResult.handled;
+        }
         unawaited(_moveCursorVertically(1, extendSelection: extendSelection));
         return KeyEventResult.handled;
       case LogicalKeyboardKey.pageUp:
@@ -2428,6 +2798,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         unawaited(_moveCursorToLineEnd(extendSelection: extendSelection));
         return KeyEventResult.handled;
       case LogicalKeyboardKey.tab:
+        if (_controller.tableCellSelection != null) {
+          unawaited(_moveTableCellSelectionByTab(backward: extendSelection));
+          return KeyEventResult.handled;
+        }
         if (!_busy && !extendSelection) {
           unawaited(_insertCommittedText('\t'));
         }
