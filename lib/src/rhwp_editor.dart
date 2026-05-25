@@ -2312,6 +2312,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       case LogicalKeyboardKey.home:
         _moveCursorToLineStart(extendSelection: extendSelection);
         return KeyEventResult.handled;
+      case LogicalKeyboardKey.end:
+        unawaited(_moveCursorToParagraphEnd(extendSelection: extendSelection));
+        return KeyEventResult.handled;
       case LogicalKeyboardKey.enter:
       case LogicalKeyboardKey.numpadEnter:
         if (!_busy) {
@@ -2348,6 +2351,56 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     final current = _controller.selection;
     final next = current.end.copyWith(offset: 0);
     _setCursorOrSelection(current, next, extendSelection: extendSelection);
+  }
+
+  Future<void> _moveCursorToParagraphEnd({
+    required bool extendSelection,
+  }) async {
+    final current = _controller.selection;
+    final cursor = current.end;
+    try {
+      final end = await _paragraphEndFor(cursor);
+      if (!mounted || end == null) {
+        return;
+      }
+      _setCursorOrSelection(current, end, extendSelection: extendSelection);
+      _focusEditor();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    }
+  }
+
+  Future<RhwpCursorPosition?> _paragraphEndFor(
+    RhwpCursorPosition cursor,
+  ) async {
+    final pageCount = await widget.document.pageCount;
+    int? endOffset;
+    var endPage = _controller.currentPage;
+
+    for (var page = 0; page < pageCount; page += 1) {
+      final tree = await widget.document.pageLayerTreeModel(page);
+      for (final run in tree.textRuns) {
+        if (run.cellContext != null ||
+            run.section != cursor.section ||
+            run.paragraph != cursor.paragraph) {
+          continue;
+        }
+        if (endOffset == null || run.charEnd > endOffset) {
+          endOffset = run.charEnd;
+          endPage = page;
+        }
+      }
+    }
+
+    if (endOffset == null) {
+      return null;
+    }
+    unawaited(_controller.goToPage(endPage));
+    return cursor.copyWith(offset: endOffset);
   }
 
   void _setCursorOrSelection(

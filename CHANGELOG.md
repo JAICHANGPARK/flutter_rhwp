@@ -198,3 +198,5 @@
   current search matches in one undo-aware edit transaction.
 * Added Flutter-native select-all through the edit ribbon, context menu, and
   Ctrl/Cmd+A shortcut using page layer tree source positions.
+* Added End and Shift+End keyboard navigation to move or extend selection to
+  the current paragraph end from page layer tree source positions.
