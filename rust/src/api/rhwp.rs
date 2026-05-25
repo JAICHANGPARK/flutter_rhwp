@@ -480,6 +480,18 @@ impl RhwpSession {
                 .document
                 .create_header_footer_native(section as usize, is_header, apply_to as u8)
                 .map_err(error_to_string),
+            RhwpCommand::SaveSnapshot => {
+                let snapshot_id = inner.document.save_snapshot_native();
+                Ok(format!("{{\"ok\":true,\"snapshotId\":{snapshot_id}}}"))
+            }
+            RhwpCommand::RestoreSnapshot { snapshot_id } => inner
+                .document
+                .restore_snapshot_native(snapshot_id)
+                .map_err(error_to_string),
+            RhwpCommand::DiscardSnapshot { snapshot_id } => {
+                inner.document.discard_snapshot_native(snapshot_id);
+                Ok("{\"ok\":true}".to_string())
+            }
             RhwpCommand::SetFileName { name } => {
                 inner.document.set_file_name(&name);
                 inner.file_name = Some(name);
@@ -691,6 +703,15 @@ enum RhwpCommand {
         is_header: bool,
         #[serde(rename = "applyTo")]
         apply_to: u32,
+    },
+    SaveSnapshot,
+    RestoreSnapshot {
+        #[serde(rename = "snapshotId")]
+        snapshot_id: u32,
+    },
+    DiscardSnapshot {
+        #[serde(rename = "snapshotId")]
+        snapshot_id: u32,
     },
     SetFileName {
         name: String,
@@ -1141,6 +1162,30 @@ mod tests {
                     .to_string(),
             )
             .expect("insert text command should be accepted");
+        let snapshot_result = session
+            .apply_command(r#"{"type":"saveSnapshot"}"#.to_string())
+            .expect("save snapshot command should be accepted");
+        let snapshot_result: Value =
+            serde_json::from_str(&snapshot_result).expect("snapshot result should be JSON");
+        let snapshot_id = snapshot_result["snapshotId"]
+            .as_u64()
+            .expect("snapshot result should include snapshotId");
+        session
+            .apply_command(
+                r#"{"type":"insertText","section":0,"paragraph":0,"offset":4,"text":" temp"}"#
+                    .to_string(),
+            )
+            .expect("temporary insert should be accepted");
+        session
+            .apply_command(format!(
+                r#"{{"type":"restoreSnapshot","snapshotId":{snapshot_id}}}"#
+            ))
+            .expect("restore snapshot command should be accepted");
+        session
+            .apply_command(format!(
+                r#"{{"type":"discardSnapshot","snapshotId":{snapshot_id}}}"#
+            ))
+            .expect("discard snapshot command should be accepted");
         session
             .apply_command(
                 r##"{"type":"applyCharFormat","section":0,"paragraph":0,"startOffset":0,"endOffset":2,"properties":{"bold":true,"italic":true,"underline":true,"strikethrough":true,"fontSize":1250,"textColor":"#dc2626"}}"##

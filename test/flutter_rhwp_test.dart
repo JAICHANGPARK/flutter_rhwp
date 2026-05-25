@@ -423,6 +423,20 @@ void main() {
     );
   });
 
+  test('snapshot commands serialize to the Rust command envelope', () {
+    expect(jsonDecode(jsonEncode(RhwpCommand.saveSnapshot().toJson())), {
+      'type': 'saveSnapshot',
+    });
+    expect(jsonDecode(jsonEncode(RhwpCommand.restoreSnapshot(7).toJson())), {
+      'type': 'restoreSnapshot',
+      'snapshotId': 7,
+    });
+    expect(jsonDecode(jsonEncode(RhwpCommand.discardSnapshot(8).toJson())), {
+      'type': 'discardSnapshot',
+      'snapshotId': 8,
+    });
+  });
+
   test('closed exception has a stable message', () {
     expect(
       const RhwpClosedException().toString(),
@@ -765,6 +779,21 @@ void main() {
       'controlIndex': 0,
       'row': 0,
       'column': 0,
+    });
+
+    expect(await document.saveSnapshot(), 1);
+    expect(jsonDecode(session.lastCommandJson!), {'type': 'saveSnapshot'});
+
+    await document.restoreSnapshot(1);
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'restoreSnapshot',
+      'snapshotId': 1,
+    });
+
+    await document.discardSnapshot(1);
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'discardSnapshot',
+      'snapshotId': 1,
     });
   });
 
@@ -1232,11 +1261,18 @@ class _FakeRhwpSession implements rust.RhwpSession {
   final renderedSvgPages = <int>[];
   final pageLayerTreePages = <int>[];
   String pageLayerTreeJson = '{"type":"page"}';
+  int nextSnapshotId = 1;
   bool _disposed = false;
 
   @override
   Future<String> applyCommand({required String commandJson}) async {
     lastCommandJson = commandJson;
+    final command = jsonDecode(commandJson);
+    if (command is Map && command['type'] == 'saveSnapshot') {
+      final snapshotId = nextSnapshotId;
+      nextSnapshotId += 1;
+      return '{"ok":true,"snapshotId":$snapshotId}';
+    }
     return '{"ok":true}';
   }
 

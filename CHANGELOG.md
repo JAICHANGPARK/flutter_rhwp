@@ -190,3 +190,5 @@
   callbacks as the outer app toolbar.
 * Added header/footer creation commands to the Dart/Rust bridge and enabled the
   Flutter-native editor page ribbon Header/Footer buttons.
+* Added snapshot commands to the Dart/Rust bridge and wired `RhwpNativeEditor`
+  edit-ribbon undo/redo to rhwp core snapshots.

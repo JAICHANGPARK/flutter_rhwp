@@ -538,9 +538,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   List<_EditorSearchMatch> _searchMatches = const [];
   int _activeSearchMatch = -1;
   int? _pageCountValue;
+  final _undoSnapshots = <int>[];
+  final _redoSnapshots = <int>[];
   bool _busy = false;
   bool _searching = false;
   Object? _error;
+
+  static const _maxUndoSnapshots = 100;
 
   @override
   void initState() {
@@ -1463,8 +1467,17 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       _error = null;
     });
 
+    int? undoSnapshot;
     try {
+      undoSnapshot = await widget.document.saveSnapshot();
       await edit();
+      await _discardSnapshots(_redoSnapshots);
+      _redoSnapshots.clear();
+      _undoSnapshots.add(undoSnapshot);
+      if (_undoSnapshots.length > _maxUndoSnapshots) {
+        final stale = _undoSnapshots.removeAt(0);
+        await widget.document.discardSnapshot(stale);
+      }
       if (!mounted) {
         return;
       }
@@ -1474,6 +1487,88 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       });
       widget.onChanged?.call(widget.document);
     } catch (error) {
+      if (undoSnapshot != null) {
+        try {
+          await widget.document.discardSnapshot(undoSnapshot);
+        } catch (_) {
+          // Keep the original edit failure visible.
+        }
+      }
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _busy = false;
+        _error = error;
+      });
+    }
+  }
+
+  Future<void> _discardSnapshots(List<int> snapshotIds) async {
+    for (final snapshotId in snapshotIds) {
+      await widget.document.discardSnapshot(snapshotId);
+    }
+  }
+
+  Future<void> _undoEdit() async {
+    if (_busy || _undoSnapshots.isEmpty) {
+      return;
+    }
+
+    final targetSnapshot = _undoSnapshots.removeLast();
+    await _restoreHistorySnapshot(
+      targetSnapshot: targetSnapshot,
+      destinationStack: _redoSnapshots,
+      rollbackStack: _undoSnapshots,
+    );
+  }
+
+  Future<void> _redoEdit() async {
+    if (_busy || _redoSnapshots.isEmpty) {
+      return;
+    }
+
+    final targetSnapshot = _redoSnapshots.removeLast();
+    await _restoreHistorySnapshot(
+      targetSnapshot: targetSnapshot,
+      destinationStack: _undoSnapshots,
+      rollbackStack: _redoSnapshots,
+    );
+  }
+
+  Future<void> _restoreHistorySnapshot({
+    required int targetSnapshot,
+    required List<int> destinationStack,
+    required List<int> rollbackStack,
+  }) async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+
+    int? currentSnapshot;
+    try {
+      currentSnapshot = await widget.document.saveSnapshot();
+      await widget.document.restoreSnapshot(targetSnapshot);
+      await widget.document.discardSnapshot(targetSnapshot);
+      destinationStack.add(currentSnapshot);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _busy = false;
+        _viewerKey = UniqueKey();
+      });
+      widget.onChanged?.call(widget.document);
+    } catch (error) {
+      rollbackStack.add(targetSnapshot);
+      if (currentSnapshot != null) {
+        try {
+          await widget.document.discardSnapshot(currentSnapshot);
+        } catch (_) {
+          // Keep the original restore failure visible.
+        }
+      }
       if (!mounted) {
         return;
       }
@@ -1922,6 +2017,16 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         case LogicalKeyboardKey.keyV:
           _pasteClipboard();
           return KeyEventResult.handled;
+        case LogicalKeyboardKey.keyZ:
+          if (HardwareKeyboard.instance.isShiftPressed) {
+            _redoEdit();
+          } else {
+            _undoEdit();
+          }
+          return KeyEventResult.handled;
+        case LogicalKeyboardKey.keyY:
+          _redoEdit();
+          return KeyEventResult.handled;
         case LogicalKeyboardKey.keyO:
           _requestOpenFromEditor();
           return KeyEventResult.handled;
@@ -2047,6 +2152,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onCut: _cutSelection,
           onCopy: _copySelection,
           onPaste: _pasteClipboard,
+          canUndo: _undoSnapshots.isNotEmpty,
+          canRedo: _redoSnapshots.isNotEmpty,
+          onUndo: _undoEdit,
+          onRedo: _redoEdit,
           onBold: () => _applyCharFormat(bold: true),
           onItalic: () => _applyCharFormat(italic: true),
           onUnderline: () => _applyCharFormat(underline: true),
@@ -2774,6 +2883,10 @@ class _EditorToolbar extends StatefulWidget {
     required this.onCut,
     required this.onCopy,
     required this.onPaste,
+    required this.canUndo,
+    required this.canRedo,
+    required this.onUndo,
+    required this.onRedo,
     required this.onBold,
     required this.onItalic,
     required this.onUnderline,
@@ -2836,6 +2949,10 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onCut;
   final VoidCallback onCopy;
   final VoidCallback onPaste;
+  final bool canUndo;
+  final bool canRedo;
+  final VoidCallback onUndo;
+  final VoidCallback onRedo;
   final VoidCallback onBold;
   final VoidCallback onItalic;
   final VoidCallback onUnderline;
@@ -2987,6 +3104,25 @@ class _EditorToolbarState extends State<_EditorToolbar> {
 
   List<Widget> _editGroups() {
     return [
+      _RibbonGroup(
+        label: '실행',
+        child: Row(
+          children: [
+            _ToolbarIconButton(
+              tooltip: 'Undo',
+              buttonKey: const ValueKey('rhwp-editor-undo'),
+              icon: Icons.undo,
+              onPressed: widget.busy || !widget.canUndo ? null : widget.onUndo,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Redo',
+              buttonKey: const ValueKey('rhwp-editor-redo'),
+              icon: Icons.redo,
+              onPressed: widget.busy || !widget.canRedo ? null : widget.onRedo,
+            ),
+          ],
+        ),
+      ),
       _RibbonGroup(
         label: '클립보드',
         child: Row(

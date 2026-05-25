@@ -301,6 +301,14 @@ abstract class RhwpCommand {
     int applyTo,
   }) = RhwpCreateHeaderFooterCommand;
 
+  factory RhwpCommand.saveSnapshot() = RhwpSaveSnapshotCommand;
+
+  factory RhwpCommand.restoreSnapshot(int snapshotId) =
+      RhwpRestoreSnapshotCommand;
+
+  factory RhwpCommand.discardSnapshot(int snapshotId) =
+      RhwpDiscardSnapshotCommand;
+
   factory RhwpCommand.setFileName(String name) = RhwpSetFileNameCommand;
 }
 
@@ -875,6 +883,37 @@ class RhwpCreateHeaderFooterCommand extends RhwpCommand {
   };
 }
 
+class RhwpSaveSnapshotCommand extends RhwpCommand {
+  const RhwpSaveSnapshotCommand();
+
+  @override
+  Map<String, Object?> toJson() => {'type': 'saveSnapshot'};
+}
+
+class RhwpRestoreSnapshotCommand extends RhwpCommand {
+  const RhwpRestoreSnapshotCommand(this.snapshotId);
+
+  final int snapshotId;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'restoreSnapshot',
+    'snapshotId': snapshotId,
+  };
+}
+
+class RhwpDiscardSnapshotCommand extends RhwpCommand {
+  const RhwpDiscardSnapshotCommand(this.snapshotId);
+
+  final int snapshotId;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'discardSnapshot',
+    'snapshotId': snapshotId,
+  };
+}
+
 class RhwpDocument {
   RhwpDocument.fromSession(this._session);
 
@@ -1376,6 +1415,24 @@ class RhwpDocument {
       isHeader: false,
       applyTo: applyTo,
     );
+  }
+
+  Future<int> saveSnapshot() async {
+    final result = await apply(RhwpCommand.saveSnapshot());
+    final decoded = _tryDecodeObject(result);
+    final snapshotId = decoded?['snapshotId'];
+    if (snapshotId is num) {
+      return snapshotId.toInt();
+    }
+    throw RhwpException('Snapshot command did not return a snapshotId.');
+  }
+
+  Future<String> restoreSnapshot(int snapshotId) {
+    return apply(RhwpCommand.restoreSnapshot(snapshotId));
+  }
+
+  Future<String> discardSnapshot(int snapshotId) {
+    return apply(RhwpCommand.discardSnapshot(snapshotId));
   }
 
   Future<String> setFileName(String name) {

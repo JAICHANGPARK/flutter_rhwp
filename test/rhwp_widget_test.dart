@@ -251,6 +251,82 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor edit ribbon restores undo and redo snapshots', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-text-field')),
+      'abc',
+    );
+    await tester.tap(find.byTooltip('Insert'));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.single), {
+      'type': 'insertText',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 0,
+      'text': 'abc',
+    });
+
+    await tester.tap(find.text('편집'));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-undo')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 2);
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+      'saveSnapshot',
+      'restoreSnapshot',
+      'discardSnapshot',
+    ]);
+    expect(jsonDecode(session.historyCommands[2]), {
+      'type': 'restoreSnapshot',
+      'snapshotId': 1,
+    });
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-redo')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 3);
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+      'saveSnapshot',
+      'restoreSnapshot',
+      'discardSnapshot',
+      'saveSnapshot',
+      'restoreSnapshot',
+      'discardSnapshot',
+    ]);
+    expect(jsonDecode(session.historyCommands[5]), {
+      'type': 'restoreSnapshot',
+      'snapshotId': 2,
+    });
+    expect(session.commands, hasLength(1));
+  });
+
   testWidgets('RhwpNativeEditor file ribbon exports save artifacts', (
     tester,
   ) async {
@@ -2098,19 +2174,36 @@ class _FakeRhwpSession implements rust.RhwpSession {
 
   final int pageCountValue;
   final commands = <String>[];
+  final historyCommands = <String>[];
   final renderedPages = <int>[];
   final layerTreePages = <int>[];
   int exportHwpCalls = 0;
   int exportHwpxCalls = 0;
   int exportPdfCalls = 0;
+  int nextSnapshotId = 1;
   String pageLayerTreeJson = jsonEncode(_editorLayerTreeJson());
   final pageLayerTreeJsonByPage = <int, String>{};
   bool _disposed = false;
 
   @override
   Future<String> applyCommand({required String commandJson}) async {
-    commands.add(commandJson);
     final command = jsonDecode(commandJson);
+    if (command is Map &&
+        const {
+          'saveSnapshot',
+          'restoreSnapshot',
+          'discardSnapshot',
+        }.contains(command['type'])) {
+      historyCommands.add(commandJson);
+      if (command['type'] == 'saveSnapshot') {
+        final snapshotId = nextSnapshotId;
+        nextSnapshotId += 1;
+        return '{"ok":true,"snapshotId":$snapshotId}';
+      }
+      return '{"ok":true}';
+    }
+
+    commands.add(commandJson);
     if (command is Map && command['type'] == 'insertTable') {
       final paragraph = command['paragraph'];
       final offset = command['offset'];
