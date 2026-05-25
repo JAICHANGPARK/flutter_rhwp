@@ -202,3 +202,5 @@
   the current paragraph end from page layer tree source positions.
 * Added Ctrl/Cmd+F handling in `RhwpNativeEditor` to open the tools ribbon and
   focus the Flutter-native search field.
+* Added F3 and Shift+F3 search result navigation shortcuts for the
+  Flutter-native editor.

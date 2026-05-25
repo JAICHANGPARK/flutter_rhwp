@@ -188,7 +188,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   alignment commands, a paragraph shape dialog for line spacing, indent, and
   paragraph margins, header/footer creation from the page ribbon,
   snapshot-backed undo/redo from the edit ribbon, layer-tree text search with
-  Ctrl/Cmd+F focus, result highlighting, active-match replace, and
+  Ctrl/Cmd+F focus, F3/Shift+F3 result navigation, result highlighting,
+  active-match replace, and
   replace-all, and basic text/table insert/delete plus table row/column and cell
   merge/split command flow with table-cell hit testing, selected-cell
   highlighting, and drag range selection for rendered table cells, plus

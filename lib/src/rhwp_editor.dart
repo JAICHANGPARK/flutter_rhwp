@@ -2319,6 +2319,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     switch (event.logicalKey) {
+      case LogicalKeyboardKey.f3:
+        if (HardwareKeyboard.instance.isShiftPressed) {
+          _searchPrevious();
+        } else {
+          _searchNext();
+        }
+        return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowLeft:
         _moveCursorHorizontally(-1, extendSelection: extendSelection);
         return KeyEventResult.handled;

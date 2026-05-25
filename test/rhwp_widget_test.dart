@@ -1951,6 +1951,74 @@ void main() {
     );
   });
 
+  testWidgets('RhwpNativeEditor cycles search matches with F3 shortcuts', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 3);
+    session.pageLayerTreeJsonByPage[2] = jsonEncode(
+      _editorLayerTreeJson(firstText: 'wxyz', secondText: 'xyqr'),
+    );
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('도구'));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-search-field')),
+      'xy',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-find')));
+    await _pumpDocumentFrame(tester);
+
+    expect(find.text('1 / 2'), findsOneWidget);
+    expect(
+      controller.selection,
+      const RhwpSelectionRange(
+        start: RhwpCursorPosition(paragraph: 0, offset: 1),
+        end: RhwpCursorPosition(paragraph: 0, offset: 3),
+      ),
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.f3);
+    await _pumpDocumentFrame(tester);
+
+    expect(find.text('2 / 2'), findsOneWidget);
+    expect(
+      controller.selection,
+      const RhwpSelectionRange(
+        start: RhwpCursorPosition(paragraph: 1),
+        end: RhwpCursorPosition(paragraph: 1, offset: 2),
+      ),
+    );
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.f3);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(find.text('1 / 2'), findsOneWidget);
+    expect(
+      controller.selection,
+      const RhwpSelectionRange(
+        start: RhwpCursorPosition(paragraph: 0, offset: 1),
+        end: RhwpCursorPosition(paragraph: 0, offset: 3),
+      ),
+    );
+    expect(session.commands, isEmpty);
+    expect(session.historyCommands, isEmpty);
+  });
+
   testWidgets('RhwpNativeEditor replaces the active search match', (
     tester,
   ) async {
