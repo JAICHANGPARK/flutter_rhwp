@@ -147,6 +147,29 @@ class RhwpTableCellSelection {
     );
   }
 
+  /// Extends an existing table selection to include [extent].
+  factory RhwpTableCellSelection.fromSelectionAndCell(
+    RhwpTableCellSelection selection,
+    RhwpTableCellLayout extent,
+  ) {
+    if (!selection.isSameTableAs(extent)) {
+      return RhwpTableCellSelection.fromCell(extent);
+    }
+
+    return RhwpTableCellSelection(
+      section: selection.section,
+      paragraph: selection.paragraph,
+      controlIndex: selection.controlIndex,
+      startRow: math.min(selection.startRow, extent.row),
+      startColumn: math.min(selection.startColumn, extent.column),
+      endRow: math.max(selection.endRow, extent.endRow),
+      endColumn: math.max(selection.endColumn, extent.endColumn),
+      activeCellIndex: selection.activeCellIndex ?? extent.modelCellIndex,
+      activeCellParagraph: selection.activeCellParagraph,
+      activeOffset: selection.activeOffset,
+    );
+  }
+
   /// Creates a selection from a table cell and text hit inside that cell.
   factory RhwpTableCellSelection.fromCellTextHit(
     RhwpTableCellLayout cell,
@@ -4455,8 +4478,25 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     if (tableCell != null) {
       final textHit = _textHitForPoint(localPosition, constraints, tree);
       final tableTextHit = textHit?.cellContext == null ? null : textHit;
+      final currentSelection = widget.tableCellSelection;
       _tableDragAnchor = tableCell;
       _dragAnchor = null;
+      if (HardwareKeyboard.instance.isShiftPressed &&
+          currentSelection != null) {
+        _tableDragAnchor = null;
+        _primaryClickCount = 0;
+        _lastPrimaryClickTime = null;
+        _lastPrimaryClickPosition = null;
+        widget.onTableCellSelection(
+          RhwpTableCellSelection.fromSelectionAndCell(
+            currentSelection,
+            tableCell,
+          ),
+        );
+        widget.onFocusRequested();
+        return;
+      }
+
       widget.onTableCellSelection(
         tableTextHit == null
             ? RhwpTableCellSelection.fromCell(tableCell)

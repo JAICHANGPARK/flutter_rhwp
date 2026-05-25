@@ -1059,6 +1059,77 @@ void main() {
     });
   });
 
+  testWidgets(
+    'RhwpNativeEditor extends selected table cells with shift click',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+      final document = RhwpDocument.fromSession(session);
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 720,
+            child: RhwpNativeEditor(document: document, controller: controller),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      controller.tableCellSelection = const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+      );
+      await tester.pump();
+      final firstCellFinder = find.byKey(
+        const ValueKey('rhwp-editor-table-cell-selection'),
+      );
+      final firstCellTopLeft = tester.getTopLeft(firstCellFinder);
+      final firstCellSize = tester.getSize(firstCellFinder);
+      final secondCellPoint =
+          firstCellTopLeft +
+          Offset(firstCellSize.width * 1.75, firstCellSize.height * 1.5);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      final shiftClick = await tester.startGesture(secondCellPoint);
+      await tester.pump();
+      await shiftClick.up();
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pump();
+
+      expect(
+        controller.tableCellSelection,
+        const RhwpTableCellSelection(
+          section: 0,
+          paragraph: 5,
+          controlIndex: 2,
+          startRow: 1,
+          startColumn: 3,
+          endRow: 2,
+          endColumn: 4,
+          activeCellIndex: 7,
+        ),
+      );
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-table-cell-selection')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-table-cell-selection-1')),
+        findsOneWidget,
+      );
+      expect(session.commands, isEmpty);
+    },
+  );
+
   testWidgets('RhwpNativeEditor moves selected table cells with keyboard', (
     tester,
   ) async {

@@ -202,7 +202,7 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   resize handles for selected objects, Delete/Backspace object deletion, object
   size/position properties, and object z-order actions from the edit ribbon and
   context menu, scroll-preserving page refresh after edits, and drag range
-  selection for rendered table cells, plus
+  selection and Shift+click range extension for rendered table cells, plus
   selected-cell
   text insert/delete,
   cell text offset hit testing, and Arrow/Tab/Enter keyboard handling for

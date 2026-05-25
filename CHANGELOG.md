@@ -171,6 +171,8 @@
   for tapped rendered cells.
 * Added drag-based table cell range selection in `RhwpNativeEditor`, including
   multi-cell overlay highlighting and merge command context updates.
+* Added Shift+click range extension for selected table cells in the
+  Flutter-native editor.
 * Added selected table cell text insert/delete commands through the Rust bridge
   and wired `RhwpNativeEditor` text input to the active cell.
 * Added table cell text source parsing and hit testing so tapping rendered cell
