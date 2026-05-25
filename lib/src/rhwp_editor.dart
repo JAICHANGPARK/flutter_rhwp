@@ -1085,6 +1085,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   Future<void> _textInputEditQueue = Future<void>.value();
   TextEditingValue _inputValue = TextEditingValue.empty;
   Timer? _textInputActionIgnoreTimer;
+  Timer? _textInputFocusReleaseTimer;
   Timer? _deferredEditRefreshTimer;
   List<_PendingTextOverlay> _pendingTextOverlays = const [];
   final _pendingTextOverlaysListenable =
@@ -1111,6 +1112,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
   static const _maxUndoSnapshots = 100;
   static const _textInputActionIgnoreWindow = Duration(milliseconds: 800);
+  static const _desktopTextInputFocusReleaseDelay = Duration(milliseconds: 160);
   @override
   void initState() {
     super.initState();
@@ -1138,6 +1140,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _controller.removeListener(_handleControllerChanged);
     _focusNode.removeListener(_handleFocusChanged);
     _textInputActionIgnoreTimer?.cancel();
+    _textInputFocusReleaseTimer?.cancel();
     _cancelDeferredEditRefresh();
     _closeTextInput();
     _pendingTextOverlaysListenable.dispose();
@@ -1250,9 +1253,15 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
   void _handleFocusChanged() {
     if (_focusNode.hasFocus) {
+      _textInputFocusReleaseTimer?.cancel();
+      _textInputFocusReleaseTimer = null;
       _openTextInput();
     } else {
-      _closeTextInput();
+      if (_shouldDelayDesktopTextInputFocusRelease) {
+        _scheduleDesktopTextInputFocusRelease();
+      } else {
+        _closeTextInput();
+      }
     }
   }
 
@@ -4237,6 +4246,31 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     return connection != null && connection.attached;
   }
 
+  bool get _isDesktopTextInputPlatform {
+    if (kIsWeb) {
+      return false;
+    }
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.linux ||
+      TargetPlatform.macOS ||
+      TargetPlatform.windows => true,
+      TargetPlatform.android ||
+      TargetPlatform.fuchsia ||
+      TargetPlatform.iOS => false,
+    };
+  }
+
+  bool get _hasPendingDesktopTextInputFocusRelease {
+    final timer = _textInputFocusReleaseTimer;
+    return timer != null && timer.isActive;
+  }
+
+  bool get _shouldDelayDesktopTextInputFocusRelease {
+    return _isDesktopTextInputPlatform &&
+        _hasDeferredEditRefresh &&
+        _deferredEditRefreshAwaitsTextInput;
+  }
+
   bool get _shouldHoldDeferredRefreshForTextInput {
     return _focusNode.hasFocus || _hasActiveTextInputConnection;
   }
@@ -4254,44 +4288,41 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
   }
 
+  void _scheduleDesktopTextInputFocusRelease() {
+    _textInputFocusReleaseTimer?.cancel();
+    _textInputFocusReleaseTimer = Timer(_desktopTextInputFocusReleaseDelay, () {
+      _textInputFocusReleaseTimer = null;
+      if (!mounted) {
+        return;
+      }
+      if (_focusNode.hasFocus) {
+        _openTextInput();
+        return;
+      }
+      _closeTextInput();
+    });
+  }
+
   bool get _shouldTreatConnectionClosedAsDesktopInputChurn {
-    if (kIsWeb ||
-        !_focusNode.hasFocus ||
+    if (!_isDesktopTextInputPlatform ||
         !_hasDeferredEditRefresh ||
         !_deferredEditRefreshAwaitsTextInput) {
       return false;
     }
 
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.linux:
-      case TargetPlatform.macOS:
-      case TargetPlatform.windows:
-        return true;
-      case TargetPlatform.android:
-      case TargetPlatform.fuchsia:
-      case TargetPlatform.iOS:
-        return false;
-    }
+    return _focusNode.hasFocus || _hasPendingDesktopTextInputFocusRelease;
   }
 
   bool get _shouldTreatTextInputActionAsDesktopInputChurn {
-    if (kIsWeb ||
-        !_focusNode.hasFocus ||
+    if (!_isDesktopTextInputPlatform ||
         !_hasDeferredEditRefresh ||
         !_deferredEditRefreshAwaitsTextInput) {
       return false;
     }
 
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.linux:
-      case TargetPlatform.macOS:
-      case TargetPlatform.windows:
-        return true;
-      case TargetPlatform.android:
-      case TargetPlatform.fuchsia:
-      case TargetPlatform.iOS:
-        return false;
-    }
+    return _focusNode.hasFocus ||
+        _hasPendingDesktopTextInputFocusRelease ||
+        _hasActiveTextInputConnection;
   }
 
   void _scheduleDeferredEditRefresh({
@@ -5086,6 +5117,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   }
 
   void _closeTextInput() {
+    _textInputFocusReleaseTimer?.cancel();
+    _textInputFocusReleaseTimer = null;
     final connection = _textInputConnection;
     if (connection != null && connection.attached) {
       connection.close();
@@ -5202,6 +5235,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         _shouldTreatTextInputActionAsDesktopInputChurn) {
       return;
     }
+    if (_shouldDelayDesktopTextInputFocusRelease) {
+      _scheduleDesktopTextInputFocusRelease();
+      return;
+    }
     _releaseDeferredEditRefreshFromTextInput();
   }
 
@@ -5224,6 +5261,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           _openTextInput();
         }
       });
+      return;
+    }
+    if (_shouldDelayDesktopTextInputFocusRelease) {
+      _scheduleDesktopTextInputFocusRelease();
       return;
     }
     _releaseDeferredEditRefreshFromTextInput();

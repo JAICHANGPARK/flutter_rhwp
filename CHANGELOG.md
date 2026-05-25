@@ -236,6 +236,8 @@
 * Changed Flutter-native text input previews to update through a scoped
   notifier and suppressed root editor rebuilds for pending typing cursor moves,
   reducing visible page refresh while entering spaces or text.
+* Added a short desktop text-input focus grace window so transient IME/focus
+  churn while typing does not release the deferred page refresh immediately.
 * Added a Flutter-native paragraph mark view toggle that paints paragraph-end
   markers from page layer tree text runs without changing rendered document
   output.
