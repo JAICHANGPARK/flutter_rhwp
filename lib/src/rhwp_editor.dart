@@ -1028,6 +1028,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   TextInputConnection? _textInputConnection;
   Future<void> _textInputEditQueue = Future<void>.value();
   TextEditingValue _inputValue = TextEditingValue.empty;
+  Timer? _textInputActionIgnoreTimer;
   Timer? _deferredEditRefreshTimer;
   List<_PendingTextOverlay> _pendingTextOverlays = const [];
   int? _pendingTextRefreshRevision;
@@ -1043,11 +1044,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   bool _busy = false;
   bool _visibleBusy = false;
   bool _searching = false;
+  bool _ignoreTextInputActions = false;
   bool _hasDeferredEditRefresh = false;
   bool _deferredEditRefreshAwaitsTextInput = false;
   Object? _error;
 
   static const _maxUndoSnapshots = 100;
+  static const _textInputActionIgnoreWindow = Duration(milliseconds: 800);
   @override
   void initState() {
     super.initState();
@@ -1074,6 +1077,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   void dispose() {
     _controller.removeListener(_handleControllerChanged);
     _focusNode.removeListener(_handleFocusChanged);
+    _textInputActionIgnoreTimer?.cancel();
     _cancelDeferredEditRefresh();
     _closeTextInput();
     if (_ownsController) {
@@ -3926,6 +3930,19 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     return _focusNode.hasFocus || _hasActiveTextInputConnection;
   }
 
+  bool get _shouldIgnoreTextInputActionAfterCommit {
+    return _ignoreTextInputActions;
+  }
+
+  void _startTextInputActionIgnoreWindow() {
+    _textInputActionIgnoreTimer?.cancel();
+    _ignoreTextInputActions = true;
+    _textInputActionIgnoreTimer = Timer(_textInputActionIgnoreWindow, () {
+      _ignoreTextInputActions = false;
+      _textInputActionIgnoreTimer = null;
+    });
+  }
+
   bool get _shouldTreatConnectionClosedAsDesktopInputChurn {
     if (kIsWeb ||
         !_focusNode.hasFocus ||
@@ -4817,6 +4834,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     final hadComposingPreview = _composingText != null;
+    _startTextInputActionIgnoreWindow();
     _resetTextInputValue(notify: hadComposingPreview);
     _queueCommittedText(committedText);
   }
@@ -4824,6 +4842,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   @override
   void performAction(TextInputAction action) {
     _resetTextInputValue();
+    if (_shouldIgnoreTextInputActionAfterCommit) {
+      return;
+    }
     _releaseDeferredEditRefreshFromTextInput();
   }
 

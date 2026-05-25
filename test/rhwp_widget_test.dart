@@ -19,6 +19,8 @@ const _pageSvg = '''
 </svg>
 ''';
 
+const _textInputActionIgnoreTestWindow = Duration(milliseconds: 850);
+
 void main() {
   testWidgets('RhwpViewer paints SVG content through its builder', (
     tester,
@@ -1604,7 +1606,7 @@ void main() {
       'text': 'Z',
     });
 
-    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await _releaseTextInputAction(tester);
     await _pumpDocumentFrame(tester);
 
     expect(changedCalls, 1);
@@ -1684,7 +1686,7 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await _releaseTextInputAction(tester);
       await _pumpDocumentFrame(tester);
 
       expect(changedCalls, 1);
@@ -4261,7 +4263,7 @@ void main() {
         },
       ]);
 
-      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await _releaseTextInputAction(tester);
       await _pumpDocumentFrame(tester);
 
       expect(changedCalls, 1);
@@ -4347,7 +4349,7 @@ void main() {
       },
     ]);
 
-    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await _releaseTextInputAction(tester);
     await _pumpDocumentFrame(tester);
 
     expect(changedCalls, 1);
@@ -5360,7 +5362,7 @@ void main() {
       findsNothing,
     );
 
-    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await _releaseTextInputAction(tester);
     await _pumpDocumentFrame(tester);
 
     expect(changedCalls, 1);
@@ -5423,12 +5425,75 @@ void main() {
     expect(changedCalls, 0);
     expect(session.renderedPages, isEmpty);
 
-    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await _releaseTextInputAction(tester);
     await _pumpDocumentFrame(tester);
 
     expect(changedCalls, 1);
     expect(session.renderedPages, [0]);
   });
+
+  testWidgets(
+    'RhwpNativeEditor ignores immediate text input action after commit',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              editRefreshDelay: const Duration(milliseconds: 120),
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      await tester.tapAt(
+        tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+            const Offset(1, 6),
+      );
+      await tester.pump();
+
+      controller.cursor = const RhwpCursorPosition(offset: 2);
+      session.renderedPages.clear();
+
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: ' ',
+          selection: TextSelection.collapsed(offset: 1),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump();
+
+      expect(changedCalls, 0);
+      expect(session.renderedPages, isEmpty);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
+        findsOneWidget,
+      );
+
+      await tester.pump(const Duration(milliseconds: 400));
+      await _releaseTextInputAction(tester);
+      await tester.pump(const Duration(milliseconds: 120));
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+      expect(session.renderedPages, [0]);
+    },
+  );
 
   testWidgets(
     'RhwpNativeEditor holds text refresh across desktop input connection churn',
@@ -5486,7 +5551,7 @@ void main() {
           findsOneWidget,
         );
 
-        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await _releaseTextInputAction(tester);
         await _pumpDocumentFrame(tester);
 
         expect(changedCalls, 1);
@@ -5570,7 +5635,7 @@ void main() {
     );
     expect(find.text('AB'), findsOneWidget);
 
-    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await _releaseTextInputAction(tester);
     await _pumpDocumentFrame(tester);
 
     expect(changedCalls, 1);
@@ -5628,7 +5693,7 @@ void main() {
     expect(changedCalls, 0);
     expect(session.renderedPages, isEmpty);
 
-    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await _releaseTextInputAction(tester);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 700));
 
@@ -5711,7 +5776,7 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await _releaseTextInputAction(tester);
       await _pumpDocumentFrame(tester);
 
       expect(changedCalls, 1);
@@ -5960,7 +6025,7 @@ void main() {
       },
     ]);
 
-    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await _releaseTextInputAction(tester);
     await _pumpDocumentFrame(tester);
 
     expect(changedCalls, 1);
@@ -6551,4 +6616,9 @@ Future<void> _pumpDocumentFrame(WidgetTester tester) async {
   for (var i = 0; i < 8; i += 1) {
     await tester.pump(const Duration(milliseconds: 50));
   }
+}
+
+Future<void> _releaseTextInputAction(WidgetTester tester) async {
+  await tester.pump(_textInputActionIgnoreTestWindow);
+  await tester.testTextInput.receiveAction(TextInputAction.done);
 }
