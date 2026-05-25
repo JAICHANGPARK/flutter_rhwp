@@ -185,6 +185,23 @@ impl RhwpSession {
                     count as usize,
                 )
                 .map_err(error_to_string),
+            RhwpCommand::DeleteRange {
+                section,
+                start_paragraph,
+                start_offset,
+                end_paragraph,
+                end_offset,
+            } => inner
+                .document
+                .delete_range_native(
+                    section as usize,
+                    start_paragraph as usize,
+                    start_offset as usize,
+                    end_paragraph as usize,
+                    end_offset as usize,
+                    None,
+                )
+                .map_err(error_to_string),
             RhwpCommand::SplitParagraph {
                 section,
                 paragraph,
@@ -264,6 +281,17 @@ enum RhwpCommand {
         paragraph: u32,
         offset: u32,
         count: u32,
+    },
+    DeleteRange {
+        section: u32,
+        #[serde(rename = "startParagraph")]
+        start_paragraph: u32,
+        #[serde(rename = "startOffset")]
+        start_offset: u32,
+        #[serde(rename = "endParagraph")]
+        end_paragraph: u32,
+        #[serde(rename = "endOffset")]
+        end_offset: u32,
     },
     SplitParagraph {
         section: u32,
@@ -724,6 +752,18 @@ mod tests {
                 r#"{"type":"splitParagraph","section":0,"paragraph":0,"offset":4}"#.to_string(),
             )
             .expect("split paragraph command should be accepted");
+        session
+            .apply_command(
+                r#"{"type":"insertText","section":0,"paragraph":1,"offset":0,"text":"next"}"#
+                    .to_string(),
+            )
+            .expect("second paragraph insert should be accepted");
+        session
+            .apply_command(
+                r#"{"type":"deleteRange","section":0,"startParagraph":0,"startOffset":2,"endParagraph":1,"endOffset":2}"#
+                    .to_string(),
+            )
+            .expect("delete range command should be accepted");
 
         let hwp = session.export_hwp().expect("HWP export should succeed");
         assert!(!hwp.is_empty());

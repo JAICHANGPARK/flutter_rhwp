@@ -469,20 +469,36 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
     final start = selection.normalizedStart;
     final end = selection.normalizedEnd;
-    if (start.section != end.section || start.paragraph != end.paragraph) {
+    if (start.section != end.section) {
       return false;
     }
 
-    final count = end.offset - start.offset;
-    if (count <= 0) {
+    if (start.paragraph == end.paragraph) {
+      final count = end.offset - start.offset;
+      if (count <= 0) {
+        return false;
+      }
+
+      await widget.document.deleteText(
+        section: start.section,
+        paragraph: start.paragraph,
+        offset: start.offset,
+        count: count,
+      );
+      _controller.cursor = start;
+      return true;
+    }
+
+    if (start.paragraph > end.paragraph) {
       return false;
     }
 
-    await widget.document.deleteText(
+    await widget.document.deleteRange(
       section: start.section,
-      paragraph: start.paragraph,
-      offset: start.offset,
-      count: count,
+      startParagraph: start.paragraph,
+      startOffset: start.offset,
+      endParagraph: end.paragraph,
+      endOffset: end.offset,
     );
     _controller.cursor = start;
     return true;

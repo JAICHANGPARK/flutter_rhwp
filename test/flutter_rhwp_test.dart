@@ -40,6 +40,25 @@ void main() {
     });
   });
 
+  test('delete range command serializes to the Rust command envelope', () {
+    final command = RhwpCommand.deleteRange(
+      section: 0,
+      startParagraph: 1,
+      startOffset: 2,
+      endParagraph: 3,
+      endOffset: 4,
+    );
+
+    expect(jsonDecode(jsonEncode(command.toJson())), {
+      'type': 'deleteRange',
+      'section': 0,
+      'startParagraph': 1,
+      'startOffset': 2,
+      'endParagraph': 3,
+      'endOffset': 4,
+    });
+  });
+
   test('closed exception has a stable message', () {
     expect(
       const RhwpClosedException().toString(),
@@ -98,6 +117,23 @@ void main() {
       'paragraph': 1,
       'offset': 2,
       'count': 3,
+    });
+
+    await document.deleteRange(
+      section: 0,
+      startParagraph: 1,
+      startOffset: 2,
+      endParagraph: 3,
+      endOffset: 4,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'deleteRange',
+      'section': 0,
+      'startParagraph': 1,
+      'startOffset': 2,
+      'endParagraph': 3,
+      'endOffset': 4,
     });
 
     await document.splitParagraph(section: 0, paragraph: 1, offset: 2);

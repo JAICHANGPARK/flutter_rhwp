@@ -137,3 +137,5 @@
   copy/cut/paste shortcuts and toolbar actions.
 * Added `splitParagraph` to the Rust bridge command surface and wired
   Flutter-native Enter/Shift+Enter handling.
+* Added `deleteRange` to the Rust bridge command surface and wired
+  Flutter-native multi-paragraph selection replacement.

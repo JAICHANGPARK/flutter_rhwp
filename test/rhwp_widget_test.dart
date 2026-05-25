@@ -665,6 +665,72 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor replaces multi-paragraph selection', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    expect(tester.testTextInput.hasAnyClients, isTrue);
+
+    controller.selection = const RhwpSelectionRange(
+      start: RhwpCursorPosition(paragraph: 0, offset: 2),
+      end: RhwpCursorPosition(paragraph: 1, offset: 2),
+    );
+    await tester.pump();
+
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'Z',
+        selection: TextSelection.collapsed(offset: 1),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(controller.cursor, const RhwpCursorPosition(offset: 3));
+    expect(session.commands.map(jsonDecode), [
+      {
+        'type': 'deleteRange',
+        'section': 0,
+        'startParagraph': 0,
+        'startOffset': 2,
+        'endParagraph': 1,
+        'endOffset': 2,
+      },
+      {
+        'type': 'insertText',
+        'section': 0,
+        'paragraph': 0,
+        'offset': 2,
+        'text': 'Z',
+      },
+    ]);
+  });
+
   testWidgets(
     'RhwpCommandEditor paints page-local selection across paragraphs',
     (tester) async {

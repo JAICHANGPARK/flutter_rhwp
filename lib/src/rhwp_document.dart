@@ -151,6 +151,14 @@ abstract class RhwpCommand {
     required int count,
   }) = RhwpDeleteTextCommand;
 
+  factory RhwpCommand.deleteRange({
+    required int section,
+    required int startParagraph,
+    required int startOffset,
+    required int endParagraph,
+    required int endOffset,
+  }) = RhwpDeleteRangeCommand;
+
   factory RhwpCommand.splitParagraph({
     required int section,
     required int paragraph,
@@ -203,6 +211,32 @@ class RhwpDeleteTextCommand extends RhwpCommand {
     'paragraph': paragraph,
     'offset': offset,
     'count': count,
+  };
+}
+
+class RhwpDeleteRangeCommand extends RhwpCommand {
+  const RhwpDeleteRangeCommand({
+    required this.section,
+    required this.startParagraph,
+    required this.startOffset,
+    required this.endParagraph,
+    required this.endOffset,
+  });
+
+  final int section;
+  final int startParagraph;
+  final int startOffset;
+  final int endParagraph;
+  final int endOffset;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'deleteRange',
+    'section': section,
+    'startParagraph': startParagraph,
+    'startOffset': startOffset,
+    'endParagraph': endParagraph,
+    'endOffset': endOffset,
   };
 }
 
@@ -386,6 +420,24 @@ class RhwpDocument {
         paragraph: paragraph,
         offset: offset,
         count: count,
+      ),
+    );
+  }
+
+  Future<String> deleteRange({
+    required int section,
+    required int startParagraph,
+    required int startOffset,
+    required int endParagraph,
+    required int endOffset,
+  }) {
+    return apply(
+      RhwpCommand.deleteRange(
+        section: section,
+        startParagraph: startParagraph,
+        startOffset: startOffset,
+        endParagraph: endParagraph,
+        endOffset: endOffset,
       ),
     );
   }
