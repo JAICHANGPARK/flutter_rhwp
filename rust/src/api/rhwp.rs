@@ -604,6 +604,7 @@ const STYLES_XML: &str = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::Value;
     use std::io::Read;
     use zip::ZipArchive;
 
@@ -647,6 +648,51 @@ mod tests {
         session
             .extract_markdown(Some(0))
             .expect("first page markdown extraction should not fail");
+    }
+
+    #[test]
+    fn page_layer_tree_json_exposes_editor_geometry_contract() {
+        let session = open_bytes(
+            EXAMPLE_ASSET_HWP.to_vec(),
+            Some("korea_ai_action_plan_2026_2028.hwp".to_string()),
+        )
+        .expect("example asset should open");
+
+        let layer_tree = session
+            .page_layer_tree(0)
+            .expect("first page layer tree should be available");
+        let json: Value =
+            serde_json::from_str(&layer_tree).expect("layer tree should be valid JSON");
+
+        assert!(json["schemaVersion"].as_u64().is_some());
+        assert!(json["pageWidth"].as_f64().unwrap_or_default() > 0.0);
+        assert!(json["pageHeight"].as_f64().unwrap_or_default() > 0.0);
+        assert_bbox(&json["root"]["bounds"]);
+
+        let text_sources = json["textSources"]
+            .as_array()
+            .expect("layer tree should expose textSources");
+        assert!(
+            text_sources.iter().any(|source| {
+                source["stableSourceKey"]
+                    .as_str()
+                    .is_some_and(is_stable_text_source_key)
+            }),
+            "at least one text source should map back to section/paragraph/char"
+        );
+
+        let text_run = find_text_run(&json["root"]).expect("layer tree should include textRun ops");
+        assert_bbox(&text_run["bbox"]);
+        assert!(text_run["text"].as_str().is_some());
+        assert_text_range(&text_run["source"]["utf16Range"]);
+        assert!(text_run["source"]["stableSourceKey"]
+            .as_str()
+            .is_some_and(is_stable_text_source_key));
+        assert_transform(&text_run["placement"]["runToPage"]);
+        assert!(
+            text_run["clusters"].as_array().is_some(),
+            "textRun should expose clusters as an array"
+        );
     }
 
     #[test]
@@ -814,5 +860,54 @@ mod tests {
   <rect x="24" y="24" width="192" height="132" fill="{fill}"/>
 </svg>"##
         )
+    }
+
+    fn find_text_run(node: &Value) -> Option<&Value> {
+        if let Some(ops) = node["ops"].as_array() {
+            if let Some(op) = ops.iter().find(|op| op["type"].as_str() == Some("textRun")) {
+                return Some(op);
+            }
+        }
+
+        if let Some(children) = node["children"].as_array() {
+            for child in children {
+                if let Some(op) = find_text_run(child) {
+                    return Some(op);
+                }
+            }
+        }
+
+        if node["child"].is_object() {
+            return find_text_run(&node["child"]);
+        }
+
+        None
+    }
+
+    fn assert_bbox(value: &Value) {
+        for key in ["x", "y", "width", "height"] {
+            assert!(
+                value[key].as_f64().is_some(),
+                "bbox should include numeric {key}"
+            );
+        }
+    }
+
+    fn assert_text_range(value: &Value) {
+        assert!(value["start"].as_u64().is_some());
+        assert!(value["end"].as_u64().is_some());
+    }
+
+    fn assert_transform(value: &Value) {
+        for key in ["a", "b", "c", "d", "e", "f"] {
+            assert!(
+                value[key].as_f64().is_some(),
+                "runToPage should include numeric {key}"
+            );
+        }
+    }
+
+    fn is_stable_text_source_key(value: &str) -> bool {
+        value.starts_with("section:") && value.contains("/para:") && value.contains("/char:")
     }
 }

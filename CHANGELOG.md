@@ -76,3 +76,5 @@
   overlays stay aligned with viewer scrolling and page layout.
 * Extended page layer tree selection geometry to span multiple paragraphs and
   wired `RhwpEditor` page overlays to render those page-local selection rects.
+* Added a Rust facade regression test for the page layer tree JSON contract that
+  Flutter editor geometry depends on.

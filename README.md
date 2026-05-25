@@ -191,7 +191,8 @@ generated bridge, and dependency notices.
 
 GitHub Actions runs the same checks in `.github/workflows/ci.yml`:
 
-- Rust facade tests and Flutter analyze/unit tests.
+- Rust facade tests, including the page layer tree JSON contract used by the
+  Flutter editor overlay, and Flutter analyze/unit tests.
 - Dart unit tests include a generated FRB bridge mock smoke test.
 - Example Linux, macOS, and Windows desktop integration tests for bundled asset
   open/render/export scenarios.
