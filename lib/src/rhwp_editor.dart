@@ -368,6 +368,10 @@ enum _EditorContextMenuAction {
   mergeCells,
   splitCell,
   deleteObject,
+  bringObjectToFront,
+  sendObjectToBack,
+  moveObjectForward,
+  moveObjectBackward,
 }
 
 enum _TableCellNavigationDirection { left, right, up, down }
@@ -1118,6 +1122,36 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         section: section,
         paragraph: paragraph,
         offset: _controller.cursor.offset,
+      );
+    });
+  }
+
+  Future<void> _changeSelectedObjectZOrder(
+    RhwpObjectZOrderOperation operation,
+  ) async {
+    final selection = _controller.objectSelection;
+    if (selection == null || _busy) {
+      return;
+    }
+
+    final section = selection.section;
+    final paragraph = selection.paragraph;
+    final controlIndex = selection.controlIndex;
+    if (section == null || paragraph == null || controlIndex == null) {
+      setState(() {
+        _error =
+            'Selected object is missing section, paragraph, or control index.';
+      });
+      return;
+    }
+
+    await _runEdit(() async {
+      await widget.document.changeObjectZOrder(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        objectType: selection.type,
+        operation: operation,
       );
     });
   }
@@ -2586,6 +2620,14 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         await _splitTableCell();
       case _EditorContextMenuAction.deleteObject:
         await _deleteSelectedObject();
+      case _EditorContextMenuAction.bringObjectToFront:
+        await _changeSelectedObjectZOrder(RhwpObjectZOrderOperation.front);
+      case _EditorContextMenuAction.sendObjectToBack:
+        await _changeSelectedObjectZOrder(RhwpObjectZOrderOperation.back);
+      case _EditorContextMenuAction.moveObjectForward:
+        await _changeSelectedObjectZOrder(RhwpObjectZOrderOperation.forward);
+      case _EditorContextMenuAction.moveObjectBackward:
+        await _changeSelectedObjectZOrder(RhwpObjectZOrderOperation.backward);
     }
   }
 
@@ -2600,6 +2642,31 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           action: _EditorContextMenuAction.selectAll,
           icon: Icons.select_all,
           label: '모두 선택',
+          enabled: !_busy,
+        ),
+        const PopupMenuDivider(),
+        _contextMenuItem(
+          action: _EditorContextMenuAction.bringObjectToFront,
+          icon: Icons.flip_to_front,
+          label: '맨 앞으로',
+          enabled: !_busy,
+        ),
+        _contextMenuItem(
+          action: _EditorContextMenuAction.moveObjectForward,
+          icon: Icons.arrow_upward,
+          label: '앞으로',
+          enabled: !_busy,
+        ),
+        _contextMenuItem(
+          action: _EditorContextMenuAction.moveObjectBackward,
+          icon: Icons.arrow_downward,
+          label: '뒤로',
+          enabled: !_busy,
+        ),
+        _contextMenuItem(
+          action: _EditorContextMenuAction.sendObjectToBack,
+          icon: Icons.flip_to_back,
+          label: '맨 뒤로',
           enabled: !_busy,
         ),
         const PopupMenuDivider(),
@@ -3854,6 +3921,14 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onMergeTableCells: _mergeTableCells,
           onSplitTableCell: _splitTableCell,
           onDeleteObject: _deleteSelectedObject,
+          onObjectBringToFront: () =>
+              _changeSelectedObjectZOrder(RhwpObjectZOrderOperation.front),
+          onObjectSendToBack: () =>
+              _changeSelectedObjectZOrder(RhwpObjectZOrderOperation.back),
+          onObjectMoveForward: () =>
+              _changeSelectedObjectZOrder(RhwpObjectZOrderOperation.forward),
+          onObjectMoveBackward: () =>
+              _changeSelectedObjectZOrder(RhwpObjectZOrderOperation.backward),
           onCut: _cutSelection,
           onCopy: _copySelection,
           onPaste: _pasteClipboard,
@@ -4675,6 +4750,10 @@ class _EditorToolbar extends StatefulWidget {
     required this.onMergeTableCells,
     required this.onSplitTableCell,
     required this.onDeleteObject,
+    required this.onObjectBringToFront,
+    required this.onObjectSendToBack,
+    required this.onObjectMoveForward,
+    required this.onObjectMoveBackward,
     required this.onCut,
     required this.onCopy,
     required this.onPaste,
@@ -4748,6 +4827,10 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onMergeTableCells;
   final VoidCallback onSplitTableCell;
   final VoidCallback onDeleteObject;
+  final VoidCallback onObjectBringToFront;
+  final VoidCallback onObjectSendToBack;
+  final VoidCallback onObjectMoveForward;
+  final VoidCallback onObjectMoveBackward;
   final VoidCallback onCut;
   final VoidCallback onCopy;
   final VoidCallback onPaste;
@@ -4969,6 +5052,45 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               buttonKey: const ValueKey('rhwp-editor-select-all'),
               icon: Icons.select_all,
               onPressed: widget.busy ? null : widget.onSelectAll,
+            ),
+          ],
+        ),
+      ),
+      _RibbonGroup(
+        label: '개체 배치',
+        child: Row(
+          children: [
+            _ToolbarIconButton(
+              tooltip: 'Bring object to front',
+              buttonKey: const ValueKey('rhwp-editor-object-front'),
+              icon: Icons.flip_to_front,
+              onPressed: widget.busy || widget.objectSelection == null
+                  ? null
+                  : widget.onObjectBringToFront,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Move object forward',
+              buttonKey: const ValueKey('rhwp-editor-object-forward'),
+              icon: Icons.arrow_upward,
+              onPressed: widget.busy || widget.objectSelection == null
+                  ? null
+                  : widget.onObjectMoveForward,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Move object backward',
+              buttonKey: const ValueKey('rhwp-editor-object-backward'),
+              icon: Icons.arrow_downward,
+              onPressed: widget.busy || widget.objectSelection == null
+                  ? null
+                  : widget.onObjectMoveBackward,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Send object to back',
+              buttonKey: const ValueKey('rhwp-editor-object-back'),
+              icon: Icons.flip_to_back,
+              onPressed: widget.busy || widget.objectSelection == null
+                  ? null
+                  : widget.onObjectSendToBack,
             ),
           ],
         ),

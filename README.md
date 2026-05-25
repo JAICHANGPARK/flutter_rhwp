@@ -197,8 +197,9 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   replace-all, and basic text/table insert/delete plus table row/column and cell
   merge/split command flow with table-cell hit testing, selected-cell
   highlighting, object/control hit testing, highlighting, and Delete/Backspace
-  object deletion, and drag range selection for rendered table cells, plus
-  selected-cell text insert/delete,
+  object deletion plus object z-order actions from the edit ribbon and context
+  menu, and drag range selection for rendered table cells, plus selected-cell
+  text insert/delete,
   cell text offset hit testing, and Arrow/Tab/Enter keyboard handling for
   selected table cells.
 - `rust/vendor/rhwp` should be committed. `rust/target` should stay ignored.

@@ -116,6 +116,20 @@ class RhwpExportedDocument {
   }
 }
 
+/// Z-order operations for selected object/control editing.
+enum RhwpObjectZOrderOperation { front, back, forward, backward }
+
+extension RhwpObjectZOrderOperationMetadata on RhwpObjectZOrderOperation {
+  String get commandValue {
+    return switch (this) {
+      RhwpObjectZOrderOperation.front => 'front',
+      RhwpObjectZOrderOperation.back => 'back',
+      RhwpObjectZOrderOperation.forward => 'forward',
+      RhwpObjectZOrderOperation.backward => 'backward',
+    };
+  }
+}
+
 class RhwpDocumentMetadata {
   const RhwpDocumentMetadata({
     required this.pageCount,
@@ -247,6 +261,14 @@ abstract class RhwpCommand {
     required int controlIndex,
     required String objectType,
   }) = RhwpDeleteObjectControlCommand;
+
+  factory RhwpCommand.changeObjectZOrder({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required String objectType,
+    required RhwpObjectZOrderOperation operation,
+  }) = RhwpChangeObjectZOrderCommand;
 
   factory RhwpCommand.applyCharFormat({
     required int section,
@@ -677,6 +699,32 @@ class RhwpDeleteObjectControlCommand extends RhwpCommand {
     'paragraph': paragraph,
     'controlIndex': controlIndex,
     'objectType': objectType,
+  };
+}
+
+class RhwpChangeObjectZOrderCommand extends RhwpCommand {
+  const RhwpChangeObjectZOrderCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.objectType,
+    required this.operation,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final String objectType;
+  final RhwpObjectZOrderOperation operation;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'changeObjectZOrder',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'objectType': objectType,
+    'operation': operation.commandValue,
   };
 }
 
@@ -1313,6 +1361,24 @@ class RhwpDocument {
         paragraph: paragraph,
         controlIndex: controlIndex,
         objectType: objectType,
+      ),
+    );
+  }
+
+  Future<String> changeObjectZOrder({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required String objectType,
+    required RhwpObjectZOrderOperation operation,
+  }) {
+    return apply(
+      RhwpCommand.changeObjectZOrder(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        objectType: objectType,
+        operation: operation,
       ),
     );
   }

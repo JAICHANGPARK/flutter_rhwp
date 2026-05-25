@@ -180,6 +180,9 @@
 * Added a `deleteObjectControl` Dart/Rust command and wired selected object
   deletion through `RhwpNativeEditor` Delete/Backspace handling and context
   menu actions.
+* Added selected object z-order commands to the Dart/Rust bridge and exposed
+  bring-to-front/send-to-back/forward/backward actions through the
+  Flutter-native edit ribbon and object context menu.
 * Added Arrow and Tab keyboard navigation for selected table cells in the
   Flutter-native editor, including Shift+Arrow range extension.
 * Added Escape handling in the Flutter-native editor to clear composing input,

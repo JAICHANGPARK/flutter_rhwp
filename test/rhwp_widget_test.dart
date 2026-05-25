@@ -1559,6 +1559,102 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor edit ribbon changes selected object z order', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_objectEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    await tester.tapAt(
+      pageTopLeft +
+          Offset(pageSize.width * 150 / 240, pageSize.height * 85 / 180),
+    );
+    await tester.pump();
+
+    final frontButton = find.byKey(const ValueKey('rhwp-editor-object-front'));
+    await tester.ensureVisible(frontButton);
+    await tester.tap(frontButton);
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.objectSelection, isNotNull);
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.single), {
+      'type': 'changeObjectZOrder',
+      'section': 0,
+      'paragraph': 2,
+      'controlIndex': 1,
+      'objectType': 'shape',
+      'operation': 'front',
+    });
+  });
+
+  testWidgets('RhwpNativeEditor context menu changes selected object z order', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_objectEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    final objectPoint =
+        pageTopLeft +
+        Offset(pageSize.width * 150 / 240, pageSize.height * 85 / 180);
+
+    await tester.tapAt(objectPoint, buttons: kSecondaryMouseButton);
+    await tester.pumpAndSettle();
+
+    expect(controller.objectSelection, isNotNull);
+    expect(find.text('앞으로'), findsOneWidget);
+
+    await tester.tap(find.text('앞으로'));
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.objectSelection, isNotNull);
+    expect(jsonDecode(session.commands.single), {
+      'type': 'changeObjectZOrder',
+      'section': 0,
+      'paragraph': 2,
+      'controlIndex': 1,
+      'objectType': 'shape',
+      'operation': 'forward',
+    });
+  });
+
   testWidgets('RhwpNativeEditor context menu copies selected text', (
     tester,
   ) async {

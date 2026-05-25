@@ -412,6 +412,20 @@ impl RhwpSession {
                 control_index as usize,
                 &object_type,
             ),
+            RhwpCommand::ChangeObjectZOrder {
+                section,
+                paragraph,
+                control_index,
+                object_type,
+                operation,
+            } => change_object_z_order(
+                &mut inner.document,
+                section as usize,
+                paragraph as usize,
+                control_index as usize,
+                &object_type,
+                &operation,
+            ),
             RhwpCommand::ApplyCharFormat {
                 section,
                 paragraph,
@@ -683,6 +697,15 @@ enum RhwpCommand {
         #[serde(rename = "objectType")]
         object_type: String,
     },
+    ChangeObjectZOrder {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "objectType")]
+        object_type: String,
+        operation: String,
+    },
     ApplyCharFormat {
         section: u32,
         paragraph: u32,
@@ -810,6 +833,60 @@ fn delete_object_control(
     Err(format!(
         "unsupported object control type '{object_type}' at section {section}, paragraph {paragraph}, control {control_index}; shape: {shape_error}; picture: {picture_error}; equation: {equation_error}"
     ))
+}
+
+fn change_object_z_order(
+    document: &mut HwpDocument,
+    section: usize,
+    paragraph: usize,
+    control_index: usize,
+    object_type: &str,
+    operation: &str,
+) -> Result<String, String> {
+    match operation {
+        "front" | "back" | "forward" | "backward" => {}
+        _ => {
+            return Err(format!(
+                "unsupported object z-order operation '{operation}'"
+            ));
+        }
+    }
+
+    let kind = object_type.to_ascii_lowercase();
+    if matches!(
+        kind.as_str(),
+        "shape"
+            | "textbox"
+            | "text_box"
+            | "text box"
+            | "rect"
+            | "rectangle"
+            | "ellipse"
+            | "line"
+            | "polygon"
+            | "path"
+            | "curve"
+            | "arc"
+            | "group"
+            | "ole"
+            | "chart"
+            | "picture"
+            | "image"
+            | "img"
+    ) {
+        return document
+            .change_shape_z_order_native(section, paragraph, control_index, operation)
+            .map_err(error_to_string);
+    }
+
+    document
+        .change_shape_z_order_native(section, paragraph, control_index, operation)
+        .map_err(|error| {
+            format!(
+                "unsupported object control type '{object_type}' for z-order at section {section}, paragraph {paragraph}, control {control_index}; shape: {}",
+                error_to_string(error)
+            )
+        })
 }
 
 fn selected_pages(page_count: u32, page: Option<u32>) -> Result<Vec<u32>, String> {
@@ -1422,6 +1499,14 @@ mod tests {
         assert!(
             missing_object_result.is_err(),
             "delete object command should route through the Rust facade"
+        );
+        let missing_object_z_order_result = session.apply_command(
+            r#"{"type":"changeObjectZOrder","section":0,"paragraph":0,"controlIndex":99,"objectType":"shape","operation":"front"}"#
+                .to_string(),
+        );
+        assert!(
+            missing_object_z_order_result.is_err(),
+            "object z-order command should route through the Rust facade"
         );
 
         let hwp = session.export_hwp().expect("HWP export should succeed");

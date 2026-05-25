@@ -242,20 +242,47 @@ void main() {
   });
 
   test('object control commands serialize to Rust envelopes', () {
-    final command = RhwpCommand.deleteObjectControl(
-      section: 0,
-      paragraph: 2,
-      controlIndex: 4,
-      objectType: 'shape',
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.deleteObjectControl(
+            section: 0,
+            paragraph: 2,
+            controlIndex: 4,
+            objectType: 'shape',
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'deleteObjectControl',
+        'section': 0,
+        'paragraph': 2,
+        'controlIndex': 4,
+        'objectType': 'shape',
+      },
     );
 
-    expect(jsonDecode(jsonEncode(command.toJson())), {
-      'type': 'deleteObjectControl',
-      'section': 0,
-      'paragraph': 2,
-      'controlIndex': 4,
-      'objectType': 'shape',
-    });
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.changeObjectZOrder(
+            section: 0,
+            paragraph: 2,
+            controlIndex: 4,
+            objectType: 'shape',
+            operation: RhwpObjectZOrderOperation.forward,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'changeObjectZOrder',
+        'section': 0,
+        'paragraph': 2,
+        'controlIndex': 4,
+        'objectType': 'shape',
+        'operation': 'forward',
+      },
+    );
   });
 
   test('delete range command serializes to the Rust command envelope', () {
@@ -811,6 +838,23 @@ void main() {
       'paragraph': 2,
       'controlIndex': 1,
       'objectType': 'shape',
+    });
+
+    await document.changeObjectZOrder(
+      section: 0,
+      paragraph: 2,
+      controlIndex: 1,
+      objectType: 'shape',
+      operation: RhwpObjectZOrderOperation.front,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'changeObjectZOrder',
+      'section': 0,
+      'paragraph': 2,
+      'controlIndex': 1,
+      'objectType': 'shape',
+      'operation': 'front',
     });
 
     expect(await document.saveSnapshot(), 1);
