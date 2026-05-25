@@ -554,6 +554,26 @@ impl RhwpSession {
                     &properties_json,
                 )
             }
+            RhwpCommand::MoveLineEndpoint {
+                section,
+                paragraph,
+                control_index,
+                start_x,
+                start_y,
+                end_x,
+                end_y,
+            } => inner
+                .document
+                .move_line_endpoint_native(
+                    section as usize,
+                    paragraph as usize,
+                    control_index as usize,
+                    start_x,
+                    start_y,
+                    end_x,
+                    end_y,
+                )
+                .map_err(error_to_string),
             RhwpCommand::ApplyCharFormat {
                 section,
                 paragraph,
@@ -987,6 +1007,20 @@ enum RhwpCommand {
         #[serde(rename = "objectType")]
         object_type: String,
         properties: serde_json::Value,
+    },
+    MoveLineEndpoint {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "startX")]
+        start_x: i32,
+        #[serde(rename = "startY")]
+        start_y: i32,
+        #[serde(rename = "endX")]
+        end_x: i32,
+        #[serde(rename = "endY")]
+        end_y: i32,
     },
     ApplyCharFormat {
         section: u32,
@@ -2089,6 +2123,38 @@ mod tests {
             assert_eq!(result["paraIdx"], 0);
             assert!(result["controlIdx"].as_u64().is_some());
         }
+    }
+
+    #[test]
+    fn applies_move_line_endpoint_command() {
+        let session =
+            open_bytes(BLANK_2010_HWP.to_vec(), None).expect("vendored sample should open");
+
+        let result = session
+            .apply_command(
+                r#"{"type":"insertShape","section":0,"paragraph":0,"offset":0,"width":9000,"height":3000,"horzOffset":0,"vertOffset":0,"shapeType":"line","treatAsChar":false,"textWrap":"InFrontOfText","lineFlipX":false,"lineFlipY":false}"#
+                    .to_string(),
+            )
+            .expect("line shape insert should be accepted");
+        let result: Value = serde_json::from_str(&result).expect("shape result should be JSON");
+        let control_idx = result["controlIdx"]
+            .as_u64()
+            .expect("shape insert should expose controlIdx");
+
+        let move_result = session
+            .apply_command(format!(
+                r#"{{"type":"moveLineEndpoint","section":0,"paragraph":0,"controlIndex":{},"startX":10,"startY":20,"endX":3010,"endY":2020}}"#,
+                control_idx
+            ))
+            .expect("line endpoint move should be accepted");
+        let move_result: Value =
+            serde_json::from_str(&move_result).expect("move result should be JSON");
+        assert_eq!(move_result["ok"], true);
+
+        let hwp = session.export_hwp().expect("HWP export should succeed");
+        assert!(!hwp.is_empty());
+        open_bytes(hwp, Some("line-endpoint-roundtrip.hwp".to_string()))
+            .expect("line endpoint document should reopen");
     }
 
     #[test]

@@ -94,6 +94,8 @@
   the Rust shape-control command bridge.
 * Expanded Flutter-native shape insertion into a preset menu for rectangle,
   ellipse, line, and text box controls.
+* Added a `moveLineEndpoint` Dart/Rust command and Flutter-native line endpoint
+  drag handles for selected line objects.
 * Added Flutter-native page break and column break insertion from the insert
   ribbon and Ctrl/Cmd+Enter shortcuts through the Rust command bridge.
 * Added a Flutter-native document information dialog from the file ribbon,

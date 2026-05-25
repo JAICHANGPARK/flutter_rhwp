@@ -493,6 +493,8 @@ class RhwpObjectLayout {
     this.paragraph,
     this.controlIndex,
     this.objectIndex,
+    this.lineStart,
+    this.lineEnd,
   });
 
   /// The object bounds in page coordinates.
@@ -512,6 +514,12 @@ class RhwpObjectLayout {
 
   /// A best-effort object/model index when emitted by rhwp.
   final int? objectIndex;
+
+  /// The rendered line start point in page coordinates, when available.
+  final Offset? lineStart;
+
+  /// The rendered line end point in page coordinates, when available.
+  final Offset? lineEnd;
 
   /// The original layer JSON object.
   final Map<String, Object?> raw;
@@ -839,6 +847,29 @@ String? _firstString(Map<String, Object?> json, List<String> keys) {
   return null;
 }
 
+Object? _firstValue(Map<String, Object?> json, List<String> keys) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value != null) {
+      return value;
+    }
+  }
+  return null;
+}
+
+Iterable<Map<String, Object?>> _mapList(Object? value) sync* {
+  if (value is! List) {
+    return;
+  }
+
+  for (final item in value) {
+    final map = _asStringMap(item);
+    if (map != null) {
+      yield map;
+    }
+  }
+}
+
 List<RhwpLayerNode> _parseChildren(Map<String, Object?> json) {
   final children = <RhwpLayerNode>[];
   for (final key in _childKeys) {
@@ -1007,6 +1038,7 @@ RhwpObjectLayout? _parseObjectLayout(Map<String, Object?> node) {
   if (bounds == null) {
     return null;
   }
+  final lineEndpoints = _parseLineEndpoints(node);
 
   return RhwpObjectLayout(
     bounds: bounds,
@@ -1044,7 +1076,71 @@ RhwpObjectLayout? _parseObjectLayout(Map<String, Object?> node) {
           'modelIndex',
           'id',
         ]),
+    lineStart: lineEndpoints?.start,
+    lineEnd: lineEndpoints?.end,
   );
+}
+
+({Offset start, Offset end})? _parseLineEndpoints(Map<String, Object?> node) {
+  final direct = _parseLineEndpointsFromMap(node);
+  if (direct != null) {
+    return direct;
+  }
+
+  for (final op in _mapList(node['ops'])) {
+    final fromOp = _parseLineEndpointsFromMap(op);
+    if (fromOp != null) {
+      return fromOp;
+    }
+  }
+
+  for (final child in _childMaps(node)) {
+    final fromChild = _parseLineEndpoints(child);
+    if (fromChild != null) {
+      return fromChild;
+    }
+  }
+
+  return null;
+}
+
+({Offset start, Offset end})? _parseLineEndpointsFromMap(
+  Map<String, Object?> json,
+) {
+  final connector = _asStringMap(json['connectorEndpoints']);
+  if (connector != null) {
+    final endpoint = _parseLineEndpointsFromCoordinates(connector);
+    if (endpoint != null) {
+      return endpoint;
+    }
+  }
+
+  final start =
+      _parsePoint(
+        _firstValue(json, const ['lineStart', 'startPoint', 'start']),
+      ) ??
+      _parsePoint(_asStringMap(json['line'])?['start']);
+  final end =
+      _parsePoint(_firstValue(json, const ['lineEnd', 'endPoint', 'end'])) ??
+      _parsePoint(_asStringMap(json['line'])?['end']);
+  if (start != null && end != null) {
+    return (start: start, end: end);
+  }
+
+  return _parseLineEndpointsFromCoordinates(json);
+}
+
+({Offset start, Offset end})? _parseLineEndpointsFromCoordinates(
+  Map<String, Object?> json,
+) {
+  final x1 = _number(_firstValue(json, const ['x1', 'startX']));
+  final y1 = _number(_firstValue(json, const ['y1', 'startY']));
+  final x2 = _number(_firstValue(json, const ['x2', 'endX']));
+  final y2 = _number(_firstValue(json, const ['y2', 'endY']));
+  if (x1 == null || y1 == null || x2 == null || y2 == null) {
+    return null;
+  }
+  return (start: Offset(x1, y1), end: Offset(x2, y2));
 }
 
 void _collectTableCells(

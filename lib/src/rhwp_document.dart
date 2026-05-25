@@ -471,6 +471,16 @@ abstract class RhwpCommand {
     int? vertOffset,
   }) = RhwpSetObjectPropertiesCommand;
 
+  factory RhwpCommand.moveLineEndpoint({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int startX,
+    required int startY,
+    required int endX,
+    required int endY,
+  }) = RhwpMoveLineEndpointCommand;
+
   factory RhwpCommand.applyCharFormat({
     required int section,
     required int paragraph,
@@ -1262,6 +1272,38 @@ class RhwpSetObjectPropertiesCommand extends RhwpCommand {
       if (horzOffset != null) 'horzOffset': horzOffset,
       if (vertOffset != null) 'vertOffset': vertOffset,
     },
+  };
+}
+
+class RhwpMoveLineEndpointCommand extends RhwpCommand {
+  const RhwpMoveLineEndpointCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.startX,
+    required this.startY,
+    required this.endX,
+    required this.endY,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int startX;
+  final int startY;
+  final int endX;
+  final int endY;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'moveLineEndpoint',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'startX': startX,
+    'startY': startY,
+    'endX': endX,
+    'endY': endY,
   };
 }
 
@@ -2325,6 +2367,28 @@ class RhwpDocument {
         height: height,
         horzOffset: horzOffset,
         vertOffset: vertOffset,
+      ),
+    );
+  }
+
+  Future<String> moveLineEndpoint({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int startX,
+    required int startY,
+    required int endX,
+    required int endY,
+  }) {
+    return apply(
+      RhwpCommand.moveLineEndpoint(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        startX: startX,
+        startY: startY,
+        endX: endX,
+        endY: endY,
       ),
     );
   }

@@ -2960,6 +2960,98 @@ void main() {
     ]);
   });
 
+  testWidgets('RhwpNativeEditor drags selected line endpoints', (tester) async {
+    tester.view.physicalSize = const Size(1000, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_lineObjectEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 720,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    Offset pagePoint(double x, double y) {
+      return pageTopLeft +
+          Offset(pageSize.width * x / 240, pageSize.height * y / 180);
+    }
+
+    await tester.tapAt(pagePoint(150, 85));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-object-line-start')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-object-line-end')),
+      findsOneWidget,
+    );
+
+    final selectedPageTopLeft = tester.getTopLeft(pageFinder);
+    final selectedPageSize = tester.getSize(pageFinder);
+    Offset selectedPagePoint(double x, double y) {
+      return selectedPageTopLeft +
+          Offset(
+            selectedPageSize.width * x / 240,
+            selectedPageSize.height * y / 180,
+          );
+    }
+
+    final drag = await tester.startGesture(selectedPagePoint(180, 110));
+    await drag.moveTo(selectedPagePoint(192, 116));
+    await drag.up();
+    await _pumpDocumentFrame(tester);
+
+    _expectRectClose(
+      controller.objectSelection!.bounds,
+      const Rect.fromLTRB(120, 60, 192, 116),
+    );
+    expect(controller.objectSelection!.lineStart!.dx, closeTo(120, 0.01));
+    expect(controller.objectSelection!.lineStart!.dy, closeTo(60, 0.01));
+    expect(controller.objectSelection!.lineEnd!.dx, closeTo(192, 0.01));
+    expect(controller.objectSelection!.lineEnd!.dy, closeTo(116, 0.01));
+    expect(changedCalls, 1);
+    expect(session.commands.map(jsonDecode).toList(), [
+      {
+        'type': 'getObjectProperties',
+        'section': 0,
+        'paragraph': 2,
+        'controlIndex': 1,
+        'objectType': 'line',
+      },
+      {
+        'type': 'moveLineEndpoint',
+        'section': 0,
+        'paragraph': 2,
+        'controlIndex': 1,
+        'startX': 120,
+        'startY': 60,
+        'endX': 192,
+        'endY': 116,
+      },
+    ]);
+  });
+
   testWidgets('RhwpNativeEditor nudges selected objects with keyboard', (
     tester,
   ) async {
@@ -7425,6 +7517,44 @@ Map<String, Object?> _objectEditorLayerTreeJson() {
           'paraIndex': 2,
           'controlIndex': 1,
           'objectIndex': 9,
+        },
+      ],
+    },
+  };
+}
+
+Map<String, Object?> _lineObjectEditorLayerTreeJson() {
+  return {
+    'pageWidth': 240,
+    'pageHeight': 180,
+    'root': {
+      'kind': 'group',
+      'bounds': {'x': 0, 'y': 0, 'width': 240, 'height': 180},
+      'children': [
+        _editorTextRunLayerNode(paragraph: 0, y: 40),
+        {
+          'type': 'line',
+          'rect': {'left': 120, 'top': 60, 'right': 180, 'bottom': 110},
+          'sectionIndex': 0,
+          'paraIndex': 2,
+          'controlIndex': 1,
+          'objectIndex': 9,
+          'children': [
+            {
+              'kind': 'leaf',
+              'bounds': {'x': 120, 'y': 60, 'width': 60, 'height': 50},
+              'ops': [
+                {
+                  'type': 'line',
+                  'bbox': {'x': 120, 'y': 60, 'width': 60, 'height': 50},
+                  'x1': 120,
+                  'y1': 60,
+                  'x2': 180,
+                  'y2': 110,
+                },
+              ],
+            },
+          ],
         },
       ],
     },

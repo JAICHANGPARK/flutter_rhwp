@@ -323,6 +323,8 @@ class RhwpObjectSelection {
     this.paragraph,
     this.controlIndex,
     this.objectIndex,
+    this.lineStart,
+    this.lineEnd,
   });
 
   /// Creates a selection from a decoded page layer tree object/control.
@@ -335,6 +337,8 @@ class RhwpObjectSelection {
       paragraph: object.paragraph,
       controlIndex: object.controlIndex,
       objectIndex: object.objectIndex,
+      lineStart: object.lineStart,
+      lineEnd: object.lineEnd,
     );
   }
 
@@ -359,6 +363,17 @@ class RhwpObjectSelection {
   /// The object/model index when available.
   final int? objectIndex;
 
+  /// Rendered start point for line-like objects, in page coordinates.
+  final Offset? lineStart;
+
+  /// Rendered end point for line-like objects, in page coordinates.
+  final Offset? lineEnd;
+
+  /// Whether this selected object should use line endpoint editing handles.
+  bool get isLineObject {
+    return (lineStart != null && lineEnd != null) || _isLineObjectType(type);
+  }
+
   /// Creates a copy with selected fields changed.
   RhwpObjectSelection copyWith({
     int? page,
@@ -368,6 +383,8 @@ class RhwpObjectSelection {
     int? paragraph,
     int? controlIndex,
     int? objectIndex,
+    Offset? lineStart,
+    Offset? lineEnd,
   }) {
     return RhwpObjectSelection(
       page: page ?? this.page,
@@ -377,6 +394,8 @@ class RhwpObjectSelection {
       paragraph: paragraph ?? this.paragraph,
       controlIndex: controlIndex ?? this.controlIndex,
       objectIndex: objectIndex ?? this.objectIndex,
+      lineStart: lineStart ?? this.lineStart,
+      lineEnd: lineEnd ?? this.lineEnd,
     );
   }
 
@@ -389,7 +408,9 @@ class RhwpObjectSelection {
         other.section == section &&
         other.paragraph == paragraph &&
         other.controlIndex == controlIndex &&
-        other.objectIndex == objectIndex;
+        other.objectIndex == objectIndex &&
+        other.lineStart == lineStart &&
+        other.lineEnd == lineEnd;
   }
 
   @override
@@ -401,12 +422,38 @@ class RhwpObjectSelection {
     paragraph,
     controlIndex,
     objectIndex,
+    lineStart,
+    lineEnd,
   );
 
   @override
   String toString() {
-    return 'RhwpObjectSelection(page: $page, bounds: $bounds, type: $type, section: $section, paragraph: $paragraph, controlIndex: $controlIndex, objectIndex: $objectIndex)';
+    return 'RhwpObjectSelection(page: $page, bounds: $bounds, type: $type, section: $section, paragraph: $paragraph, controlIndex: $controlIndex, objectIndex: $objectIndex, lineStart: $lineStart, lineEnd: $lineEnd)';
   }
+}
+
+bool _isLineObjectType(String type) {
+  final normalized = type.toLowerCase().replaceAll(RegExp(r'[\s_-]+'), '');
+  return normalized == 'line' ||
+      normalized == 'connector' ||
+      normalized == 'straightline';
+}
+
+Offset _lineStartForSelection(RhwpObjectSelection selection) {
+  return selection.lineStart ?? selection.bounds.topLeft;
+}
+
+Offset _lineEndForSelection(RhwpObjectSelection selection) {
+  return selection.lineEnd ?? selection.bounds.bottomRight;
+}
+
+Rect _lineBoundsFromEndpoints(Offset start, Offset end) {
+  return Rect.fromLTRB(
+    math.min(start.dx, end.dx),
+    math.min(start.dy, end.dy),
+    math.max(start.dx, end.dx),
+    math.max(start.dy, end.dy),
+  );
 }
 
 class _TableReference {
@@ -2129,7 +2176,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     RhwpObjectSelection original,
     RhwpObjectSelection updated,
   ) async {
-    if (_busy || original.bounds == updated.bounds) {
+    if (_busy || original == updated) {
       return;
     }
 
@@ -2152,6 +2199,30 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         controlIndex: controlIndex,
         objectType: original.type,
       );
+      if (original.isLineObject) {
+        final mapped = _mapLineEndpointsToProperties(
+          original: original,
+          updated: updated,
+          currentProperties: properties,
+        );
+        await widget.document.moveLineEndpoint(
+          section: section,
+          paragraph: paragraph,
+          controlIndex: controlIndex,
+          startX: mapped.startX,
+          startY: mapped.startY,
+          endX: mapped.endX,
+          endY: mapped.endY,
+        );
+        _controller.objectSelection = updated;
+        return;
+      }
+
+      if (original.bounds == updated.bounds) {
+        _controller.objectSelection = updated;
+        return;
+      }
+
       final mapped = _mapObjectBoundsToProperties(
         currentBounds: original.bounds,
         updatedBounds: updated.bounds,
@@ -2191,12 +2262,50 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return true;
     }
 
-    final updated = selection.copyWith(
-      bounds: selection.bounds.shift(appliedDelta),
-    );
+    final updated = selection.isLineObject
+        ? selection.copyWith(
+            bounds: selection.bounds.shift(appliedDelta),
+            lineStart: _lineStartForSelection(selection) + appliedDelta,
+            lineEnd: _lineEndForSelection(selection) + appliedDelta,
+          )
+        : selection.copyWith(bounds: selection.bounds.shift(appliedDelta));
     _controller.objectSelection = updated;
     unawaited(_commitObjectBoundsChange(selection, updated));
     return true;
+  }
+
+  ({int startX, int startY, int endX, int endY}) _mapLineEndpointsToProperties({
+    required RhwpObjectSelection original,
+    required RhwpObjectSelection updated,
+    required RhwpObjectProperties currentProperties,
+  }) {
+    final currentBounds = original.bounds;
+    final currentWidth = math.max(1.0, currentBounds.width);
+    final currentHeight = math.max(1.0, currentBounds.height);
+    final widthBase = currentProperties.width ?? currentBounds.width.round();
+    final heightBase = currentProperties.height ?? currentBounds.height.round();
+    final horizontalScale = widthBase / currentWidth;
+    final verticalScale = heightBase / currentHeight;
+    final horzOffsetBase =
+        currentProperties.horzOffset ?? currentBounds.left.round();
+    final vertOffsetBase =
+        currentProperties.vertOffset ?? currentBounds.top.round();
+
+    Offset mapPoint(Offset point) {
+      return Offset(
+        horzOffsetBase + (point.dx - currentBounds.left) * horizontalScale,
+        vertOffsetBase + (point.dy - currentBounds.top) * verticalScale,
+      );
+    }
+
+    final start = mapPoint(_lineStartForSelection(updated));
+    final end = mapPoint(_lineEndForSelection(updated));
+    return (
+      startX: math.max(0, start.dx.round()),
+      startY: math.max(0, start.dy.round()),
+      endX: math.max(0, end.dx.round()),
+      endY: math.max(0, end.dy.round()),
+    );
   }
 
   ({int width, int height, int horzOffset, int vertOffset})
@@ -6585,6 +6694,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
 enum _ObjectDragHandle {
   move,
+  lineStart,
+  lineEnd,
   northWest,
   north,
   northEast,
@@ -7160,6 +7271,26 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
       tree,
     );
     final delta = pagePoint - drag.startPagePoint;
+    if (drag.handle == _ObjectDragHandle.lineStart ||
+        drag.handle == _ObjectDragHandle.lineEnd) {
+      final originalStart = _lineStartForSelection(drag.originalSelection);
+      final originalEnd = _lineEndForSelection(drag.originalSelection);
+      final start = drag.handle == _ObjectDragHandle.lineStart
+          ? _clampPointToPage(originalStart + delta, tree.pageSize)
+          : originalStart;
+      final end = drag.handle == _ObjectDragHandle.lineEnd
+          ? _clampPointToPage(originalEnd + delta, tree.pageSize)
+          : originalEnd;
+      final updated = drag.originalSelection.copyWith(
+        bounds: _lineBoundsFromEndpoints(start, end),
+        lineStart: start,
+        lineEnd: end,
+      );
+      drag.currentSelection = updated;
+      widget.onObjectSelection(updated);
+      return;
+    }
+
     final bounds = _objectBoundsForDrag(
       original: drag.originalSelection.bounds,
       handle: drag.handle,
@@ -7167,7 +7298,17 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
       pageSize: tree.pageSize,
       preserveAspectRatio: HardwareKeyboard.instance.isShiftPressed,
     );
-    final updated = drag.originalSelection.copyWith(bounds: bounds);
+    final updated = drag.originalSelection.isLineObject
+        ? drag.originalSelection.copyWith(
+            bounds: bounds,
+            lineStart:
+                _lineStartForSelection(drag.originalSelection) +
+                (bounds.topLeft - drag.originalSelection.bounds.topLeft),
+            lineEnd:
+                _lineEndForSelection(drag.originalSelection) +
+                (bounds.topLeft - drag.originalSelection.bounds.topLeft),
+          )
+        : drag.originalSelection.copyWith(bounds: bounds);
     drag.currentSelection = updated;
     widget.onObjectSelection(updated);
   }
@@ -7179,7 +7320,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     }
 
     _objectDrag = null;
-    if (drag.currentSelection.bounds != drag.originalSelection.bounds) {
+    if (drag.currentSelection != drag.originalSelection) {
       unawaited(
         widget.onObjectBoundsChange(
           drag.originalSelection,
@@ -7202,6 +7343,31 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     final overlaySize = _overlaySize(constraints, tree);
     final rect = _scalePageRect(selection.bounds, tree, overlaySize);
     final hitRadius = _objectHandleHitSize / 2;
+    if (selection.isLineObject) {
+      final start = _scalePagePoint(
+        _lineStartForSelection(selection),
+        tree,
+        overlaySize,
+      );
+      if ((start - localPosition).distance <= hitRadius) {
+        return _ObjectDragHandle.lineStart;
+      }
+
+      final end = _scalePagePoint(
+        _lineEndForSelection(selection),
+        tree,
+        overlaySize,
+      );
+      if ((end - localPosition).distance <= hitRadius) {
+        return _ObjectDragHandle.lineEnd;
+      }
+
+      if (rect.inflate(hitRadius).contains(localPosition)) {
+        return _ObjectDragHandle.move;
+      }
+      return null;
+    }
+
     for (final anchor in _objectHandleAnchors(rect)) {
       if ((anchor.center - localPosition).distance <= hitRadius) {
         return anchor.handle;
@@ -7235,6 +7401,9 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     var bottom = original.bottom;
 
     switch (handle) {
+      case _ObjectDragHandle.lineStart:
+      case _ObjectDragHandle.lineEnd:
+        break;
       case _ObjectDragHandle.northWest:
         left += delta.dx;
         top += delta.dy;
@@ -7353,6 +7522,16 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
       ),
       _ => Rect.fromLTRB(left, top, right, bottom),
     };
+  }
+
+  Offset _clampPointToPage(Offset point, Size? pageSize) {
+    if (pageSize == null) {
+      return Offset(math.max(0, point.dx), math.max(0, point.dy));
+    }
+    return Offset(
+      point.dx.clamp(0.0, pageSize.width).toDouble(),
+      point.dy.clamp(0.0, pageSize.height).toDouble(),
+    );
   }
 
   Rect _clampMovedObjectBounds(Rect bounds, Size size, Size? pageSize) {
@@ -7581,7 +7760,13 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
                 : ValueKey('rhwp-editor-object-selection-$index'),
             rect: rect,
             constraints: constraints,
-            child: _ObjectSelectionBox(color: color),
+            child: _objectSelectionOverlayForRect(
+              context,
+              tree,
+              overlaySize,
+              rect,
+              color,
+            ),
           ),
         for (final (index, rect) in tableSelectionRects.indexed)
           _positionedRect(
@@ -7846,6 +8031,35 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     return [_scalePageRect(objectSelection.bounds, tree, overlaySize)];
   }
 
+  Widget _objectSelectionOverlayForRect(
+    BuildContext context,
+    RhwpLayerTree tree,
+    Size overlaySize,
+    Rect rect,
+    Color color,
+  ) {
+    final selection = widget.objectSelection;
+    if (selection == null || !selection.isLineObject) {
+      return _ObjectSelectionBox(color: color);
+    }
+
+    final start = _scalePagePoint(
+      _lineStartForSelection(selection),
+      tree,
+      overlaySize,
+    );
+    final end = _scalePagePoint(
+      _lineEndForSelection(selection),
+      tree,
+      overlaySize,
+    );
+    return _LineObjectSelectionBox(
+      color: color,
+      start: start - rect.topLeft,
+      end: end - rect.topLeft,
+    );
+  }
+
   List<Rect> _pendingDeletionRects(RhwpLayerTree tree, Size overlaySize) {
     if (widget.pendingDeletionOverlays.isEmpty) {
       return const [];
@@ -8095,6 +8309,17 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     );
   }
 
+  Offset _scalePagePoint(Offset point, RhwpLayerTree tree, Size overlaySize) {
+    final pageSize = tree.pageSize;
+    final scaleX = pageSize == null || pageSize.width <= 0
+        ? 1.0
+        : overlaySize.width / pageSize.width;
+    final scaleY = pageSize == null || pageSize.height <= 0
+        ? 1.0
+        : overlaySize.height / pageSize.height;
+    return Offset(point.dx * scaleX, point.dy * scaleY);
+  }
+
   Positioned _positionedRect({
     required Key key,
     required Rect rect,
@@ -8176,6 +8401,106 @@ class _ObjectSelectionBox extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+class _LineObjectSelectionBox extends StatelessWidget {
+  const _LineObjectSelectionBox({
+    required this.color,
+    required this.start,
+    required this.end,
+  });
+
+  final Color color;
+  final Offset start;
+  final Offset end;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned.fill(
+          child: CustomPaint(
+            painter: _LineObjectSelectionPainter(
+              color: color,
+              start: start,
+              end: end,
+            ),
+          ),
+        ),
+        _lineHandle(
+          context,
+          key: const ValueKey('rhwp-editor-object-line-start'),
+          center: start,
+        ),
+        _lineHandle(
+          context,
+          key: const ValueKey('rhwp-editor-object-line-end'),
+          center: end,
+        ),
+      ],
+    );
+  }
+
+  Widget _lineHandle(
+    BuildContext context, {
+    required Key key,
+    required Offset center,
+  }) {
+    return Positioned(
+      key: key,
+      left: center.dx - _EditorSelectionOverlayState._objectHandleSize / 2,
+      top: center.dy - _EditorSelectionOverlayState._objectHandleSize / 2,
+      width: _EditorSelectionOverlayState._objectHandleSize,
+      height: _EditorSelectionOverlayState._objectHandleSize,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Theme.of(context).colorScheme.surface,
+          border: Border.all(color: color.withValues(alpha: 0.95), width: 1.5),
+        ),
+      ),
+    );
+  }
+}
+
+class _LineObjectSelectionPainter extends CustomPainter {
+  const _LineObjectSelectionPainter({
+    required this.color,
+    required this.start,
+    required this.end,
+  });
+
+  final Color color;
+  final Offset start;
+  final Offset end;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final fillPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = color.withValues(alpha: 0.04);
+    final borderPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = color.withValues(alpha: 0.40);
+    final linePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..color = color.withValues(alpha: 0.95);
+
+    canvas.drawRect(rect, fillPaint);
+    canvas.drawRect(rect, borderPaint);
+    canvas.drawLine(start, end, linePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _LineObjectSelectionPainter oldDelegate) {
+    return oldDelegate.color != color ||
+        oldDelegate.start != start ||
+        oldDelegate.end != end;
   }
 }
 

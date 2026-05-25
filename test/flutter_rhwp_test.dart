@@ -491,6 +491,32 @@ void main() {
         },
       },
     );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.moveLineEndpoint(
+            section: 0,
+            paragraph: 2,
+            controlIndex: 4,
+            startX: 120,
+            startY: 60,
+            endX: 192,
+            endY: 116,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'moveLineEndpoint',
+        'section': 0,
+        'paragraph': 2,
+        'controlIndex': 4,
+        'startX': 120,
+        'startY': 60,
+        'endX': 192,
+        'endY': 116,
+      },
+    );
   });
 
   test('delete range command serializes to the Rust command envelope', () {
@@ -1407,6 +1433,27 @@ void main() {
         'horzOffset': 80,
         'vertOffset': 90,
       },
+    });
+
+    await document.moveLineEndpoint(
+      section: 0,
+      paragraph: 2,
+      controlIndex: 1,
+      startX: 120,
+      startY: 60,
+      endX: 192,
+      endY: 116,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'moveLineEndpoint',
+      'section': 0,
+      'paragraph': 2,
+      'controlIndex': 1,
+      'startX': 120,
+      'startY': 60,
+      'endX': 192,
+      'endY': 116,
     });
 
     final pageSetup = await document.pageSetup(section: 0);
