@@ -188,3 +188,5 @@
 * Added file-open callback support to `RhwpNativeEditor` and wired the example
   app so the native editor file ribbon can launch the same file picker and save
   callbacks as the outer app toolbar.
+* Added header/footer creation commands to the Dart/Rust bridge and enabled the
+  Flutter-native editor page ribbon Header/Footer buttons.

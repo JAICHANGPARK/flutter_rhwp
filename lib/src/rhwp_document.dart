@@ -295,6 +295,12 @@ abstract class RhwpCommand {
     int? spacingAfter,
   }) = RhwpApplyParaFormatRangeCommand;
 
+  factory RhwpCommand.createHeaderFooter({
+    required int section,
+    required bool isHeader,
+    int applyTo,
+  }) = RhwpCreateHeaderFooterCommand;
+
   factory RhwpCommand.setFileName(String name) = RhwpSetFileNameCommand;
 }
 
@@ -847,6 +853,28 @@ class RhwpSetFileNameCommand extends RhwpCommand {
   Map<String, Object?> toJson() => {'type': 'setFileName', 'name': name};
 }
 
+class RhwpCreateHeaderFooterCommand extends RhwpCommand {
+  const RhwpCreateHeaderFooterCommand({
+    required this.section,
+    required this.isHeader,
+    this.applyTo = 0,
+  });
+
+  final int section;
+  final bool isHeader;
+
+  /// 0 applies to both pages, 1 to even pages, and 2 to odd pages.
+  final int applyTo;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'createHeaderFooter',
+    'section': section,
+    'isHeader': isHeader,
+    'applyTo': applyTo,
+  };
+}
+
 class RhwpDocument {
   RhwpDocument.fromSession(this._session);
 
@@ -1317,6 +1345,36 @@ class RhwpDocument {
         spacingBefore: spacingBefore,
         spacingAfter: spacingAfter,
       ),
+    );
+  }
+
+  Future<String> createHeaderFooter({
+    required int section,
+    required bool isHeader,
+    int applyTo = 0,
+  }) {
+    return apply(
+      RhwpCommand.createHeaderFooter(
+        section: section,
+        isHeader: isHeader,
+        applyTo: applyTo,
+      ),
+    );
+  }
+
+  Future<String> createHeader({required int section, int applyTo = 0}) {
+    return createHeaderFooter(
+      section: section,
+      isHeader: true,
+      applyTo: applyTo,
+    );
+  }
+
+  Future<String> createFooter({required int section, int applyTo = 0}) {
+    return createHeaderFooter(
+      section: section,
+      isHeader: false,
+      applyTo: applyTo,
     );
   }
 

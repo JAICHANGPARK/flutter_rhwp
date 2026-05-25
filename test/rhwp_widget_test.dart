@@ -407,6 +407,55 @@ void main() {
     );
   });
 
+  testWidgets('RhwpNativeEditor page ribbon creates header and footer', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('쪽'));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-create-header')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.single), {
+      'type': 'createHeaderFooter',
+      'section': 0,
+      'isHeader': true,
+      'applyTo': 0,
+    });
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-create-footer')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 2);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'createHeaderFooter',
+      'section': 0,
+      'isHeader': false,
+      'applyTo': 0,
+    });
+  });
+
   testWidgets('RhwpNativeEditor toolbar inserts a table', (tester) async {
     final controller = RhwpEditorController();
     final session = _FakeRhwpSession(pageCountValue: 0);

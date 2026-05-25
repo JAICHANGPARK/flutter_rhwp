@@ -128,6 +128,9 @@ await document.insertTableRow(
   row: 0,
 );
 
+await document.createHeader(section: 0);
+await document.createFooter(section: 0);
+
 await document.mergeTableCells(
   section: 0,
   paragraph: 0,
@@ -179,11 +182,12 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   replacement, multi-paragraph selected-text bold/italic/underline/strike
   formatting, a character shape dialog for font size and text color, paragraph
   alignment commands, a paragraph shape dialog for line spacing, indent, and
-  paragraph margins, layer-tree text search with result highlighting, and basic
-  text/table insert/delete plus table row/column and cell merge/split command
-  flow with table-cell hit testing, selected-cell highlighting, and drag range
-  selection for rendered table cells, plus selected-cell text insert/delete and
-  cell text offset hit testing.
+  paragraph margins, header/footer creation from the page ribbon, layer-tree
+  text search with result highlighting, and basic text/table insert/delete plus
+  table row/column and cell merge/split command flow with table-cell hit
+  testing, selected-cell highlighting, and drag range selection for rendered
+  table cells, plus selected-cell text insert/delete and cell text offset hit
+  testing.
 - `rust/vendor/rhwp` should be committed. `rust/target` should stay ignored.
 
 ## License

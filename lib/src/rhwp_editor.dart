@@ -1025,6 +1025,21 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
   }
 
+  Future<void> _createHeaderFooter({required bool isHeader}) async {
+    if (_busy) {
+      return;
+    }
+
+    final section = _parseNonNegative(_sectionController.text);
+    await _runEdit(() async {
+      await widget.document.createHeaderFooter(
+        section: section,
+        isHeader: isHeader,
+      );
+      _controller.cursor = _controller.cursor.copyWith(section: section);
+    });
+  }
+
   Future<void> _applyCharFormat({
     bool? bold,
     bool? italic,
@@ -2046,6 +2061,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onSearchPrevious: _searchPrevious,
           onSearchNext: _searchNext,
           onClearSearch: _clearSearch,
+          onCreateHeader: () => _createHeaderFooter(isHeader: true),
+          onCreateFooter: () => _createHeaderFooter(isHeader: false),
           onPreviousPage: () => unawaited(_controller.previousPage()),
           onNextPage: () => unawaited(_controller.nextPage()),
           onZoomOut: _controller.zoomOut,
@@ -2771,6 +2788,8 @@ class _EditorToolbar extends StatefulWidget {
     required this.onSearchPrevious,
     required this.onSearchNext,
     required this.onClearSearch,
+    required this.onCreateHeader,
+    required this.onCreateFooter,
     required this.onPreviousPage,
     required this.onNextPage,
     required this.onZoomOut,
@@ -2831,6 +2850,8 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onSearchPrevious;
   final VoidCallback onSearchNext;
   final VoidCallback onClearSearch;
+  final VoidCallback onCreateHeader;
+  final VoidCallback onCreateFooter;
   final VoidCallback onPreviousPage;
   final VoidCallback onNextPage;
   final VoidCallback onZoomOut;
@@ -3231,13 +3252,15 @@ class _EditorToolbarState extends State<_EditorToolbar> {
             ),
             _ToolbarIconButton(
               tooltip: 'Header',
+              buttonKey: const ValueKey('rhwp-editor-create-header'),
               icon: Icons.vertical_align_top,
-              onPressed: null,
+              onPressed: widget.busy ? null : widget.onCreateHeader,
             ),
             _ToolbarIconButton(
               tooltip: 'Footer',
+              buttonKey: const ValueKey('rhwp-editor-create-footer'),
               icon: Icons.vertical_align_bottom,
-              onPressed: null,
+              onPressed: widget.busy ? null : widget.onCreateFooter,
             ),
           ],
         ),

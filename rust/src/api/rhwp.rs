@@ -472,6 +472,14 @@ impl RhwpSession {
                     )
                     .map_err(error_to_string)
             }
+            RhwpCommand::CreateHeaderFooter {
+                section,
+                is_header,
+                apply_to,
+            } => inner
+                .document
+                .create_header_footer_native(section as usize, is_header, apply_to as u8)
+                .map_err(error_to_string),
             RhwpCommand::SetFileName { name } => {
                 inner.document.set_file_name(&name);
                 inner.file_name = Some(name);
@@ -676,6 +684,13 @@ enum RhwpCommand {
         #[serde(rename = "endParagraph")]
         end_paragraph: u32,
         properties: serde_json::Value,
+    },
+    CreateHeaderFooter {
+        section: u32,
+        #[serde(rename = "isHeader")]
+        is_header: bool,
+        #[serde(rename = "applyTo")]
+        apply_to: u32,
     },
     SetFileName {
         name: String,
@@ -1167,6 +1182,18 @@ mod tests {
                     .to_string(),
             )
             .expect("delete range command should be accepted");
+        session
+            .apply_command(
+                r#"{"type":"createHeaderFooter","section":0,"isHeader":true,"applyTo":0}"#
+                    .to_string(),
+            )
+            .expect("create header command should be accepted");
+        session
+            .apply_command(
+                r#"{"type":"createHeaderFooter","section":0,"isHeader":false,"applyTo":0}"#
+                    .to_string(),
+            )
+            .expect("create footer command should be accepted");
         let table_result = session
             .apply_command(
                 r#"{"type":"insertTable","section":0,"paragraph":0,"offset":0,"rows":2,"columns":3}"#

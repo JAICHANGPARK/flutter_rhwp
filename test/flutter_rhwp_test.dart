@@ -390,6 +390,39 @@ void main() {
     },
   );
 
+  test('create header and footer commands serialize to the Rust envelope', () {
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.createHeaderFooter(
+            section: 1,
+            isHeader: true,
+            applyTo: 2,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'createHeaderFooter',
+        'section': 1,
+        'isHeader': true,
+        'applyTo': 2,
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.createHeaderFooter(section: 0, isHeader: false).toJson(),
+        ),
+      ),
+      {
+        'type': 'createHeaderFooter',
+        'section': 0,
+        'isHeader': false,
+        'applyTo': 0,
+      },
+    );
+  });
+
   test('closed exception has a stable message', () {
     expect(
       const RhwpClosedException().toString(),
