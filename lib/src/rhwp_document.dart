@@ -165,6 +165,16 @@ abstract class RhwpCommand {
     required int offset,
   }) = RhwpSplitParagraphCommand;
 
+  factory RhwpCommand.applyCharFormat({
+    required int section,
+    required int paragraph,
+    required int startOffset,
+    required int endOffset,
+    bool? bold,
+    bool? italic,
+    bool? underline,
+  }) = RhwpApplyCharFormatCommand;
+
   factory RhwpCommand.setFileName(String name) = RhwpSetFileNameCommand;
 }
 
@@ -257,6 +267,40 @@ class RhwpSplitParagraphCommand extends RhwpCommand {
     'section': section,
     'paragraph': paragraph,
     'offset': offset,
+  };
+}
+
+class RhwpApplyCharFormatCommand extends RhwpCommand {
+  const RhwpApplyCharFormatCommand({
+    required this.section,
+    required this.paragraph,
+    required this.startOffset,
+    required this.endOffset,
+    this.bold,
+    this.italic,
+    this.underline,
+  });
+
+  final int section;
+  final int paragraph;
+  final int startOffset;
+  final int endOffset;
+  final bool? bold;
+  final bool? italic;
+  final bool? underline;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'applyCharFormat',
+    'section': section,
+    'paragraph': paragraph,
+    'startOffset': startOffset,
+    'endOffset': endOffset,
+    'properties': {
+      if (bold != null) 'bold': bold,
+      if (italic != null) 'italic': italic,
+      if (underline != null) 'underline': underline,
+    },
   };
 }
 
@@ -452,6 +496,28 @@ class RhwpDocument {
         section: section,
         paragraph: paragraph,
         offset: offset,
+      ),
+    );
+  }
+
+  Future<String> applyCharFormat({
+    required int section,
+    required int paragraph,
+    required int startOffset,
+    required int endOffset,
+    bool? bold,
+    bool? italic,
+    bool? underline,
+  }) {
+    return apply(
+      RhwpCommand.applyCharFormat(
+        section: section,
+        paragraph: paragraph,
+        startOffset: startOffset,
+        endOffset: endOffset,
+        bold: bold,
+        italic: italic,
+        underline: underline,
       ),
     );
   }

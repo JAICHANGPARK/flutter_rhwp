@@ -210,6 +210,25 @@ impl RhwpSession {
                 .document
                 .split_paragraph_native(section as usize, paragraph as usize, offset as usize)
                 .map_err(error_to_string),
+            RhwpCommand::ApplyCharFormat {
+                section,
+                paragraph,
+                start_offset,
+                end_offset,
+                properties,
+            } => {
+                let properties_json = properties.to_string();
+                inner
+                    .document
+                    .apply_char_format_native(
+                        section as usize,
+                        paragraph as usize,
+                        start_offset as usize,
+                        end_offset as usize,
+                        &properties_json,
+                    )
+                    .map_err(error_to_string)
+            }
             RhwpCommand::SetFileName { name } => {
                 inner.document.set_file_name(&name);
                 inner.file_name = Some(name);
@@ -297,6 +316,15 @@ enum RhwpCommand {
         section: u32,
         paragraph: u32,
         offset: u32,
+    },
+    ApplyCharFormat {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "startOffset")]
+        start_offset: u32,
+        #[serde(rename = "endOffset")]
+        end_offset: u32,
+        properties: serde_json::Value,
     },
     SetFileName {
         name: String,
@@ -747,6 +775,12 @@ mod tests {
                     .to_string(),
             )
             .expect("insert text command should be accepted");
+        session
+            .apply_command(
+                r#"{"type":"applyCharFormat","section":0,"paragraph":0,"startOffset":0,"endOffset":2,"properties":{"bold":true,"italic":true,"underline":true}}"#
+                    .to_string(),
+            )
+            .expect("apply char format command should be accepted");
         session
             .apply_command(
                 r#"{"type":"splitParagraph","section":0,"paragraph":0,"offset":4}"#.to_string(),

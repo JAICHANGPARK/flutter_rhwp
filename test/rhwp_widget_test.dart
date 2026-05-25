@@ -499,6 +499,83 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor applies character formatting', (tester) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    controller.selection = const RhwpSelectionRange(
+      start: RhwpCursorPosition(offset: 1),
+      end: RhwpCursorPosition(offset: 3),
+    );
+    await tester.pump();
+
+    await tester.ensureVisible(find.byTooltip('Bold'));
+    await tester.pump();
+    await tester.tap(find.byTooltip('Bold'));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.single), {
+      'type': 'applyCharFormat',
+      'section': 0,
+      'paragraph': 0,
+      'startOffset': 1,
+      'endOffset': 3,
+      'properties': {'bold': true},
+    });
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyI);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await _pumpDocumentFrame(tester);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyU);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 3);
+    expect(jsonDecode(session.commands[1]), {
+      'type': 'applyCharFormat',
+      'section': 0,
+      'paragraph': 0,
+      'startOffset': 1,
+      'endOffset': 3,
+      'properties': {'italic': true},
+    });
+    expect(jsonDecode(session.commands[2]), {
+      'type': 'applyCharFormat',
+      'section': 0,
+      'paragraph': 0,
+      'startOffset': 1,
+      'endOffset': 3,
+      'properties': {'underline': true},
+    });
+  });
+
   testWidgets('RhwpNativeEditor commits text input after IME composition', (
     tester,
   ) async {

@@ -392,6 +392,40 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
   }
 
+  Future<void> _applyCharFormat({
+    bool? bold,
+    bool? italic,
+    bool? underline,
+  }) async {
+    if (_busy) {
+      return;
+    }
+
+    final selection = _controller.selection;
+    if (selection.isCollapsed) {
+      return;
+    }
+
+    final start = selection.normalizedStart;
+    final end = selection.normalizedEnd;
+    if (start.section != end.section || start.paragraph != end.paragraph) {
+      return;
+    }
+
+    await _runEdit(() async {
+      await widget.document.applyCharFormat(
+        section: start.section,
+        paragraph: start.paragraph,
+        startOffset: start.offset,
+        endOffset: end.offset,
+        bold: bold,
+        italic: italic,
+        underline: underline,
+      );
+      _controller.selection = RhwpSelectionRange(start: start, end: end);
+    });
+  }
+
   Future<String?> _selectedText() async {
     final selection = _controller.selection;
     if (selection.isCollapsed) {
@@ -686,6 +720,15 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         case LogicalKeyboardKey.keyV:
           _pasteClipboard();
           return KeyEventResult.handled;
+        case LogicalKeyboardKey.keyB:
+          _applyCharFormat(bold: true);
+          return KeyEventResult.handled;
+        case LogicalKeyboardKey.keyI:
+          _applyCharFormat(italic: true);
+          return KeyEventResult.handled;
+        case LogicalKeyboardKey.keyU:
+          _applyCharFormat(underline: true);
+          return KeyEventResult.handled;
       }
     }
 
@@ -768,6 +811,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onCut: _cutSelection,
           onCopy: _copySelection,
           onPaste: _pasteClipboard,
+          onBold: () => _applyCharFormat(bold: true),
+          onItalic: () => _applyCharFormat(italic: true),
+          onUnderline: () => _applyCharFormat(underline: true),
           onZoomOut: _controller.zoomOut,
           onZoomIn: _controller.zoomIn,
         ),
@@ -1216,6 +1262,9 @@ class _EditorToolbar extends StatefulWidget {
     required this.onCut,
     required this.onCopy,
     required this.onPaste,
+    required this.onBold,
+    required this.onItalic,
+    required this.onUnderline,
     required this.onZoomOut,
     required this.onZoomIn,
   });
@@ -1231,6 +1280,9 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onCut;
   final VoidCallback onCopy;
   final VoidCallback onPaste;
+  final VoidCallback onBold;
+  final VoidCallback onItalic;
+  final VoidCallback onUnderline;
   final VoidCallback onZoomOut;
   final VoidCallback onZoomIn;
 
@@ -1355,17 +1407,17 @@ class _EditorToolbarState extends State<_EditorToolbar> {
                   _ToolbarIconButton(
                     tooltip: 'Bold',
                     icon: Icons.format_bold,
-                    onPressed: null,
+                    onPressed: widget.busy ? null : widget.onBold,
                   ),
                   _ToolbarIconButton(
                     tooltip: 'Italic',
                     icon: Icons.format_italic,
-                    onPressed: null,
+                    onPressed: widget.busy ? null : widget.onItalic,
                   ),
                   _ToolbarIconButton(
                     tooltip: 'Underline',
                     icon: Icons.format_underlined,
-                    onPressed: null,
+                    onPressed: widget.busy ? null : widget.onUnderline,
                   ),
                   const _ToolbarDivider(),
                   _ToolbarIconButton(

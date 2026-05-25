@@ -139,3 +139,5 @@
   Flutter-native Enter/Shift+Enter handling.
 * Added `deleteRange` to the Rust bridge command surface and wired
   Flutter-native multi-paragraph selection replacement.
+* Added `applyCharFormat` to the Rust bridge command surface and wired
+  Flutter-native bold, italic, and underline toolbar/shortcut actions.
