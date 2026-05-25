@@ -171,8 +171,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   breaks, multi-paragraph selection replacement, multi-paragraph selected-text
   bold/italic/underline formatting, paragraph alignment commands, and basic
   text/table insert/delete plus table row/column and cell merge/split command
-  flow with table-cell hit testing and selected-cell highlighting for tapped
-  rendered cells.
+  flow with table-cell hit testing, selected-cell highlighting, and drag range
+  selection for rendered table cells.
 - `rust/vendor/rhwp` should be committed. `rust/target` should stay ignored.
 
 ## License

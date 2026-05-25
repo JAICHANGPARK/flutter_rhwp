@@ -487,6 +487,86 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor drags table cells to extend table edit range', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    Offset pagePoint(double x, double y) {
+      return pageTopLeft +
+          Offset(pageSize.width * x / 240, pageSize.height * y / 180);
+    }
+
+    final drag = await tester.startGesture(pagePoint(100, 60));
+    await tester.pump();
+    await drag.moveTo(pagePoint(150, 95));
+    await tester.pump();
+    await drag.up();
+    await tester.pump();
+
+    expect(
+      controller.tableCellSelection,
+      const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 4,
+      ),
+    );
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-table-cell-selection')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-table-cell-selection-1')),
+      findsOneWidget,
+    );
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-merge-cells')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-merge-cells')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.single), {
+      'type': 'mergeTableCells',
+      'section': 0,
+      'paragraph': 5,
+      'controlIndex': 2,
+      'startRow': 1,
+      'startColumn': 3,
+      'endRow': 2,
+      'endColumn': 4,
+    });
+  });
+
   testWidgets('RhwpCommandEditor paints caret and selection target overlay', (
     tester,
   ) async {
@@ -1475,6 +1555,18 @@ Map<String, Object?> _tableCellEditorLayerTreeJson() {
                 'rowSpan': 2,
                 'colSpan': 1,
                 'modelCellIndex': 7,
+              },
+            },
+            {
+              'kind': 'group',
+              'bounds': {'x': 140, 'y': 80, 'width': 40, 'height': 30},
+              'groupKind': {
+                'kind': 'tableCell',
+                'row': 2,
+                'col': 4,
+                'rowSpan': 1,
+                'colSpan': 1,
+                'modelCellIndex': 8,
               },
             },
           ],

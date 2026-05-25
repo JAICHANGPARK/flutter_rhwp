@@ -118,6 +118,28 @@ class RhwpTableCellSelection {
     );
   }
 
+  /// Creates a rectangular selection from two decoded page layer tree cells.
+  factory RhwpTableCellSelection.fromCells(
+    RhwpTableCellLayout anchor,
+    RhwpTableCellLayout extent,
+  ) {
+    if (anchor.section != extent.section ||
+        anchor.paragraph != extent.paragraph ||
+        anchor.controlIndex != extent.controlIndex) {
+      return RhwpTableCellSelection.fromCell(extent);
+    }
+
+    return RhwpTableCellSelection(
+      section: anchor.section,
+      paragraph: anchor.paragraph,
+      controlIndex: anchor.controlIndex,
+      startRow: math.min(anchor.row, extent.row),
+      startColumn: math.min(anchor.column, extent.column),
+      endRow: math.max(anchor.endRow, extent.endRow),
+      endColumn: math.max(anchor.endColumn, extent.endColumn),
+    );
+  }
+
   /// The document section index containing the table.
   final int section;
 
@@ -141,9 +163,7 @@ class RhwpTableCellSelection {
 
   /// Whether this selection intersects [cell].
   bool containsCell(RhwpTableCellLayout cell) {
-    if (cell.section != section ||
-        cell.paragraph != paragraph ||
-        cell.controlIndex != controlIndex) {
+    if (!isSameTableAs(cell)) {
       return false;
     }
 
@@ -151,6 +171,13 @@ class RhwpTableCellSelection {
         cell.endRow >= startRow &&
         cell.column <= endColumn &&
         cell.endColumn >= startColumn;
+  }
+
+  /// Whether [cell] belongs to the same table control as this selection.
+  bool isSameTableAs(RhwpTableCellLayout cell) {
+    return cell.section == section &&
+        cell.paragraph == paragraph &&
+        cell.controlIndex == controlIndex;
   }
 
   @override
@@ -247,6 +274,14 @@ class RhwpEditorController extends RhwpViewerController {
   /// Selects the table cell decoded from the page layer tree.
   void selectTableCell(RhwpTableCellLayout cell) {
     tableCellSelection = RhwpTableCellSelection.fromCell(cell);
+  }
+
+  /// Selects the rectangular cell range between two page layer tree cells.
+  void selectTableCellRange(
+    RhwpTableCellLayout anchor,
+    RhwpTableCellLayout extent,
+  ) {
+    tableCellSelection = RhwpTableCellSelection.fromCells(anchor, extent);
   }
 
   /// Clears the active table cell selection.
@@ -944,20 +979,29 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _controller.cursor = cursor;
   }
 
-  void _setTableContextFromPage(RhwpTableCellLayout? cell) {
-    if (cell == null) {
+  void _setTableSelectionFromPage(RhwpTableCellSelection? selection) {
+    if (selection == null) {
       _controller.clearTableCellSelection();
       return;
     }
 
-    _setTextIfChanged(_sectionController, cell.section.toString());
-    _setTextIfChanged(_tableParagraphController, cell.paragraph.toString());
-    _setTextIfChanged(_tableControlController, cell.controlIndex.toString());
-    _setTextIfChanged(_tableRowController, cell.row.toString());
-    _setTextIfChanged(_tableColumnController, cell.column.toString());
-    _setTextIfChanged(_tableEndRowController, cell.endRow.toString());
-    _setTextIfChanged(_tableEndColumnController, cell.endColumn.toString());
-    _controller.selectTableCell(cell);
+    _setTextIfChanged(_sectionController, selection.section.toString());
+    _setTextIfChanged(
+      _tableParagraphController,
+      selection.paragraph.toString(),
+    );
+    _setTextIfChanged(
+      _tableControlController,
+      selection.controlIndex.toString(),
+    );
+    _setTextIfChanged(_tableRowController, selection.startRow.toString());
+    _setTextIfChanged(_tableColumnController, selection.startColumn.toString());
+    _setTextIfChanged(_tableEndRowController, selection.endRow.toString());
+    _setTextIfChanged(
+      _tableEndColumnController,
+      selection.endColumn.toString(),
+    );
+    _controller.tableCellSelection = selection;
   }
 
   void _setSelectionFromPage(RhwpSelectionRange selection) {
@@ -1228,7 +1272,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
                   fallbackEnabled: page == 0,
                   onCursorPosition: _setCursorFromPage,
                   onSelectionRange: _setSelectionFromPage,
-                  onTableCellHit: _setTableContextFromPage,
+                  onTableCellSelection: _setTableSelectionFromPage,
                   onFocusRequested: _focusEditor,
                 );
               },
@@ -1251,7 +1295,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
     required this.fallbackEnabled,
     required this.onCursorPosition,
     required this.onSelectionRange,
-    required this.onTableCellHit,
+    required this.onTableCellSelection,
     required this.onFocusRequested,
   });
 
@@ -1263,7 +1307,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
   final bool fallbackEnabled;
   final ValueChanged<RhwpCursorPosition> onCursorPosition;
   final ValueChanged<RhwpSelectionRange> onSelectionRange;
-  final ValueChanged<RhwpTableCellLayout?> onTableCellHit;
+  final ValueChanged<RhwpTableCellSelection?> onTableCellSelection;
   final VoidCallback onFocusRequested;
 
   @override
@@ -1274,6 +1318,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
 class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
   late Future<RhwpLayerTree?> _layerTree;
   RhwpCursorPosition? _dragAnchor;
+  RhwpTableCellLayout? _tableDragAnchor;
 
   static const _pageInset = 24.0;
   static const _lineHeight = 24.0;
@@ -1340,9 +1385,11 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
               },
               onPointerUp: (_) {
                 _dragAnchor = null;
+                _tableDragAnchor = null;
               },
               onPointerCancel: (_) {
                 _dragAnchor = null;
+                _tableDragAnchor = null;
               },
               child: child,
             );
@@ -1357,7 +1404,17 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     BoxConstraints constraints,
     RhwpLayerTree? tree,
   ) {
-    widget.onTableCellHit(_tableCellForPoint(localPosition, constraints, tree));
+    final tableCell = _tableCellForPoint(localPosition, constraints, tree);
+    if (tableCell != null) {
+      _tableDragAnchor = tableCell;
+      _dragAnchor = null;
+      widget.onTableCellSelection(RhwpTableCellSelection.fromCell(tableCell));
+      widget.onFocusRequested();
+      return;
+    }
+
+    _tableDragAnchor = null;
+    widget.onTableCellSelection(null);
 
     final cursor = _cursorForPoint(localPosition, constraints, tree);
     if (cursor != null) {
@@ -1372,6 +1429,17 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     BoxConstraints constraints,
     RhwpLayerTree? tree,
   ) {
+    final tableAnchor = _tableDragAnchor;
+    if (tableAnchor != null) {
+      final tableCell = _tableCellForPoint(localPosition, constraints, tree);
+      if (tableCell != null) {
+        widget.onTableCellSelection(
+          RhwpTableCellSelection.fromCells(tableAnchor, tableCell),
+        );
+      }
+      return;
+    }
+
     final anchor = _dragAnchor;
     final cursor = _cursorForPoint(localPosition, constraints, tree);
     if (anchor != null && cursor != null) {

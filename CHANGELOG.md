@@ -155,3 +155,5 @@
   edit context from tapped rendered cells.
 * Added Flutter-native table cell selection state and page overlay highlighting
   for tapped rendered cells.
+* Added drag-based table cell range selection in `RhwpNativeEditor`, including
+  multi-cell overlay highlighting and merge command context updates.
