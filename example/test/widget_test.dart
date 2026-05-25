@@ -9,6 +9,7 @@ void main() {
     await tester.pumpWidget(const RhwpExampleApp(autoOpenSample: false));
 
     expect(find.text('flutter_rhwp'), findsOneWidget);
+    expect(find.text('Native editor'), findsOneWidget);
     expect(find.text('Full editor'), findsOneWidget);
   });
 

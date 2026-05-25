@@ -114,12 +114,13 @@ class RhwpEditorController extends RhwpViewerController {
 /// Explicit controller name for [RhwpCommandEditor].
 typedef RhwpCommandEditorController = RhwpEditorController;
 
-/// Flutter-native command editor overlay.
+/// Flutter-native HWP editor surface.
 ///
-/// This is not the full upstream WYSIWYG editor. It renders pages through
-/// [RhwpViewer], draws a command-target caret/selection overlay, and applies
-/// explicit `insertText`/`deleteText` commands through the Rust bridge. Use
-/// `RhwpFullEditor` when the application needs the full upstream editor UI.
+/// This widget is the Flutter-native editor track. It renders pages through
+/// [RhwpViewer], draws caret/selection overlays with Flutter widgets, shows a
+/// native toolbar/status bar, and applies explicit edit commands through the
+/// Rust bridge. It is intentionally separate from [RhwpFullEditor], which hosts
+/// the upstream Web editor.
 class RhwpEditor extends StatefulWidget {
   const RhwpEditor({
     super.key,
@@ -136,11 +137,33 @@ class RhwpEditor extends StatefulWidget {
   State<RhwpEditor> createState() => _RhwpEditorState();
 }
 
-/// Explicit name for the Flutter-native command editor overlay.
+/// Public name for the Flutter-native editor track.
+class RhwpNativeEditor extends StatelessWidget {
+  const RhwpNativeEditor({
+    super.key,
+    required this.document,
+    this.controller,
+    this.onChanged,
+  });
+
+  final RhwpDocument document;
+  final RhwpEditorController? controller;
+  final ValueChanged<RhwpDocument>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return RhwpEditor(
+      document: document,
+      controller: controller,
+      onChanged: onChanged,
+    );
+  }
+}
+
+/// Compatibility name for the Flutter-native command editor surface.
 ///
-/// Prefer this name when you want the lightweight command API surface. It
-/// intentionally does not provide the full toolbar/menu editor from upstream
-/// `@rhwp/editor`.
+/// Prefer [RhwpNativeEditor] for new code. This wrapper remains for apps that
+/// adopted the earlier command-editor API name.
 class RhwpCommandEditor extends StatelessWidget {
   const RhwpCommandEditor({
     super.key,
@@ -155,7 +178,7 @@ class RhwpCommandEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return RhwpEditor(
+    return RhwpNativeEditor(
       document: document,
       controller: controller,
       onChanged: onChanged,
@@ -310,36 +333,36 @@ class _RhwpEditorState extends State<RhwpEditor> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
+    return Column(
       children: [
-        RhwpViewer(
-          key: _viewerKey,
-          document: widget.document,
-          controller: _controller,
-          pageOverlayBuilder: (context, page, _) {
-            return _EditorSelectionOverlay(
-              document: widget.document,
-              page: page,
-              selection: _controller.selection,
-              fallbackEnabled: page == 0,
-            );
-          },
+        _EditorToolbar(
+          busy: _busy,
+          error: _error,
+          textController: _textController,
+          sectionController: _sectionController,
+          paragraphController: _paragraphController,
+          offsetController: _offsetController,
+          onInsert: _insertText,
+          onDeleteBackward: _deleteBackward,
+          onZoomOut: _controller.zoomOut,
+          onZoomIn: _controller.zoomIn,
         ),
-        Positioned(
-          left: 16,
-          right: 16,
-          bottom: 16,
-          child: _EditorOverlay(
-            busy: _busy,
-            error: _error,
-            textController: _textController,
-            sectionController: _sectionController,
-            paragraphController: _paragraphController,
-            offsetController: _offsetController,
-            onInsert: _insertText,
-            onDeleteBackward: _deleteBackward,
+        Expanded(
+          child: RhwpViewer(
+            key: _viewerKey,
+            document: widget.document,
+            controller: _controller,
+            pageOverlayBuilder: (context, page, _) {
+              return _EditorSelectionOverlay(
+                document: widget.document,
+                page: page,
+                selection: _controller.selection,
+                fallbackEnabled: page == 0,
+              );
+            },
           ),
         ),
+        _EditorStatusBar(selection: _controller.selection, busy: _busy),
       ],
     );
   }
@@ -606,8 +629,10 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
   }
 }
 
-class _EditorOverlay extends StatelessWidget {
-  const _EditorOverlay({
+enum _EditorTab { file, edit, view, insert, format, page, table, tools }
+
+class _EditorToolbar extends StatefulWidget {
+  const _EditorToolbar({
     required this.busy,
     required this.error,
     required this.textController,
@@ -616,6 +641,8 @@ class _EditorOverlay extends StatelessWidget {
     required this.offsetController,
     required this.onInsert,
     required this.onDeleteBackward,
+    required this.onZoomOut,
+    required this.onZoomIn,
   });
 
   final bool busy;
@@ -626,69 +653,331 @@ class _EditorOverlay extends StatelessWidget {
   final TextEditingController offsetController;
   final VoidCallback onInsert;
   final VoidCallback onDeleteBackward;
+  final VoidCallback onZoomOut;
+  final VoidCallback onZoomIn;
+
+  @override
+  State<_EditorToolbar> createState() => _EditorToolbarState();
+}
+
+class _EditorToolbarState extends State<_EditorToolbar> {
+  var _activeTab = _EditorTab.edit;
 
   @override
   Widget build(BuildContext context) {
-    final borderRadius = BorderRadius.circular(8);
     return Material(
-      elevation: 4,
       color: Theme.of(context).colorScheme.surface,
-      borderRadius: borderRadius,
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: Theme.of(context).dividerColor),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _NumberField(label: 'Sec', controller: sectionController),
-            _NumberField(label: 'Para', controller: paragraphController),
-            _NumberField(label: 'Offset', controller: offsetController),
             SizedBox(
-              width: 240,
-              child: TextField(
-                controller: textController,
-                minLines: 1,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  isDense: true,
-                  border: OutlineInputBorder(),
-                  labelText: 'Text',
-                ),
-                onSubmitted: (_) {
-                  if (!busy) {
-                    onInsert();
-                  }
-                },
+              height: 36,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                children: [
+                  for (final tab in _EditorTab.values)
+                    _EditorTabButton(
+                      tab: tab,
+                      selected: tab == _activeTab,
+                      onPressed: () {
+                        setState(() {
+                          _activeTab = tab;
+                        });
+                      },
+                    ),
+                ],
               ),
             ),
-            IconButton.filled(
-              tooltip: 'Insert',
-              onPressed: busy ? null : onInsert,
-              icon: const Icon(Icons.keyboard_return),
-            ),
-            IconButton(
-              tooltip: 'Delete backward',
-              onPressed: busy ? null : onDeleteBackward,
-              icon: const Icon(Icons.backspace_outlined),
-            ),
-            if (busy)
-              const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
+            const Divider(height: 1),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              child: Row(
+                children: [
+                  _NumberField(
+                    label: 'Sec',
+                    controller: widget.sectionController,
+                  ),
+                  const SizedBox(width: 6),
+                  _NumberField(
+                    label: 'Para',
+                    controller: widget.paragraphController,
+                  ),
+                  const SizedBox(width: 6),
+                  _NumberField(
+                    label: 'Offset',
+                    controller: widget.offsetController,
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 180,
+                    child: TextField(
+                      controller: widget.textController,
+                      minLines: 1,
+                      maxLines: 1,
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        border: OutlineInputBorder(),
+                        labelText: 'Text',
+                      ),
+                      onSubmitted: (_) {
+                        if (!widget.busy) {
+                          widget.onInsert();
+                        }
+                      },
+                    ),
+                  ),
+                  _ToolbarIconButton(
+                    tooltip: 'Insert',
+                    icon: Icons.keyboard_return,
+                    filled: true,
+                    onPressed: widget.busy ? null : widget.onInsert,
+                  ),
+                  _ToolbarIconButton(
+                    tooltip: 'Delete backward',
+                    icon: Icons.backspace_outlined,
+                    onPressed: widget.busy ? null : widget.onDeleteBackward,
+                  ),
+                  const _ToolbarDivider(),
+                  _ToolbarIconButton(
+                    tooltip: 'Open',
+                    icon: Icons.folder_open,
+                    onPressed: null,
+                  ),
+                  _ToolbarIconButton(
+                    tooltip: 'Save',
+                    icon: Icons.save_outlined,
+                    onPressed: null,
+                  ),
+                  const _ToolbarDivider(),
+                  _ToolbarIconButton(
+                    tooltip: 'Cut',
+                    icon: Icons.content_cut,
+                    onPressed: null,
+                  ),
+                  _ToolbarIconButton(
+                    tooltip: 'Copy',
+                    icon: Icons.copy,
+                    onPressed: null,
+                  ),
+                  _ToolbarIconButton(
+                    tooltip: 'Paste',
+                    icon: Icons.content_paste,
+                    onPressed: null,
+                  ),
+                  const _ToolbarDivider(),
+                  _ToolbarIconButton(
+                    tooltip: 'Bold',
+                    icon: Icons.format_bold,
+                    onPressed: null,
+                  ),
+                  _ToolbarIconButton(
+                    tooltip: 'Italic',
+                    icon: Icons.format_italic,
+                    onPressed: null,
+                  ),
+                  _ToolbarIconButton(
+                    tooltip: 'Underline',
+                    icon: Icons.format_underlined,
+                    onPressed: null,
+                  ),
+                  const _ToolbarDivider(),
+                  _ToolbarIconButton(
+                    tooltip: 'Zoom out',
+                    icon: Icons.zoom_out,
+                    onPressed: widget.onZoomOut,
+                  ),
+                  _ToolbarIconButton(
+                    tooltip: 'Zoom in',
+                    icon: Icons.zoom_in,
+                    onPressed: widget.onZoomIn,
+                  ),
+                  if (widget.busy) ...[
+                    const SizedBox(width: 10),
+                    const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ],
+                  if (widget.error != null) ...[
+                    const SizedBox(width: 10),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 320),
+                      child: Text(
+                        widget.error.toString(),
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
-            if (error != null)
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 260),
-                child: Text(
-                  error.toString(),
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
-              ),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EditorTabButton extends StatelessWidget {
+  const _EditorTabButton({
+    required this.tab,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final _EditorTab tab;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      style: TextButton.styleFrom(
+        foregroundColor: selected
+            ? Theme.of(context).colorScheme.onPrimaryContainer
+            : Theme.of(context).colorScheme.onSurface,
+        backgroundColor: selected
+            ? Theme.of(context).colorScheme.primaryContainer
+            : Colors.transparent,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+      ),
+      onPressed: onPressed,
+      child: Text(_tabLabel(tab)),
+    );
+  }
+
+  String _tabLabel(_EditorTab tab) {
+    return switch (tab) {
+      _EditorTab.file => 'File',
+      _EditorTab.edit => 'Edit',
+      _EditorTab.view => 'View',
+      _EditorTab.insert => 'Insert',
+      _EditorTab.format => 'Format',
+      _EditorTab.page => 'Page',
+      _EditorTab.table => 'Table',
+      _EditorTab.tools => 'Tools',
+    };
+  }
+}
+
+class _ToolbarIconButton extends StatelessWidget {
+  const _ToolbarIconButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    this.filled = false,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    final button = IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: Icon(icon),
+      style: IconButton.styleFrom(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        minimumSize: const Size.square(36),
+        fixedSize: const Size.square(36),
+        padding: EdgeInsets.zero,
+      ),
+    );
+
+    if (!filled) {
+      return button;
+    }
+
+    return IconButton.filled(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: Icon(icon),
+      style: IconButton.styleFrom(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        minimumSize: const Size.square(36),
+        fixedSize: const Size.square(36),
+        padding: EdgeInsets.zero,
+      ),
+    );
+  }
+}
+
+class _ToolbarDivider extends StatelessWidget {
+  const _ToolbarDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 32,
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      color: Theme.of(context).dividerColor,
+    );
+  }
+}
+
+class _EditorStatusBar extends StatelessWidget {
+  const _EditorStatusBar({required this.selection, required this.busy});
+
+  final RhwpSelectionRange selection;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    final cursor = selection.end;
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(color: Theme.of(context).dividerColor),
+          ),
+        ),
+        child: SizedBox(
+          height: 28,
+          child: Row(
+            children: [
+              const SizedBox(width: 12),
+              Text(
+                'Sec ${cursor.section} / Para ${cursor.paragraph} / Offset ${cursor.offset}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const VerticalDivider(width: 24),
+              Text(
+                selection.isCollapsed ? 'Insert' : 'Selection',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const Spacer(),
+              if (busy)
+                const Padding(
+                  padding: EdgeInsets.only(right: 8),
+                  child: SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              const Text('100%'),
+              const SizedBox(width: 12),
+            ],
+          ),
         ),
       ),
     );
@@ -704,7 +993,7 @@ class _NumberField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 72,
+      width: 64,
       child: TextField(
         controller: controller,
         keyboardType: TextInputType.number,

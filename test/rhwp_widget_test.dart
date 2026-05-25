@@ -162,7 +162,7 @@ void main() {
     expect(overlaySvgs.single, contains('#dc2626'));
   });
 
-  testWidgets('RhwpCommandEditor overlay applies insert and delete commands', (
+  testWidgets('RhwpNativeEditor toolbar applies insert and delete commands', (
     tester,
   ) async {
     final controller = RhwpEditorController();
@@ -175,7 +175,7 @@ void main() {
         child: SizedBox(
           width: 720,
           height: 420,
-          child: RhwpCommandEditor(
+          child: RhwpNativeEditor(
             document: document,
             controller: controller,
             onChanged: (_) => changedCalls += 1,
@@ -231,6 +231,9 @@ void main() {
     );
     await _pumpDocumentFrame(tester);
 
+    expect(find.text('File'), findsOneWidget);
+    expect(find.text('Edit'), findsOneWidget);
+    expect(find.text('Format'), findsOneWidget);
     expect(find.byKey(const ValueKey('rhwp-editor-caret')), findsOneWidget);
     expect(find.byKey(const ValueKey('rhwp-editor-selection')), findsNothing);
 

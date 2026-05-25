@@ -16,8 +16,9 @@ documents.
 - Extract text and Markdown.
 - Export HWP, HWPX, PDF, DOCX, text, Markdown, and page SVG.
 - Use `RhwpViewer` for Flutter-native viewing.
-- Use `RhwpFullEditor` for the upstream full editor UI.
-- Use `RhwpCommandEditor` for explicit Flutter/Rust edit commands.
+- Use `RhwpFullEditor` for the upstream Web editor UI.
+- Use `RhwpNativeEditor` for the Flutter widget editor track.
+- Use `RhwpCommandEditor` for the earlier command-editor compatibility name.
 
 ## Installation
 
@@ -85,10 +86,10 @@ RhwpFullEditor(
 final editedHwp = await controller.exportHwp();
 ```
 
-Command editor:
+Flutter-native editor:
 
 ```dart
-RhwpCommandEditor(document: document)
+RhwpNativeEditor(document: document)
 ```
 
 Edit with Rust bridge commands:
@@ -131,6 +132,9 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
 - On Web it embeds the editor directly.
 - On Android, iOS, macOS, Windows, and Linux it uses `webview_all`.
 - Initial full-editor file loading uses `editor.loadFile(data, fileName)`.
+- `RhwpNativeEditor` is the 100% Flutter widget editor path and currently
+  includes a Flutter toolbar, page viewport, caret/selection overlay, and basic
+  insert/delete command flow.
 - `rust/vendor/rhwp` should be committed. `rust/target` should stay ignored.
 
 ## License

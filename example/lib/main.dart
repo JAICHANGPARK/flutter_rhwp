@@ -63,7 +63,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
   String? _status;
   _EditorMode _editorMode = _supportsFullEditorHost
       ? _EditorMode.fullEditor
-      : _EditorMode.commands;
+      : _EditorMode.nativeEditor;
   bool _busy = false;
 
   bool get _usesFullEditor => _editorMode == _EditorMode.fullEditor;
@@ -266,10 +266,10 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
     }
 
     final sourceBytes = _sourceBytes;
-    if (mode == _EditorMode.commands &&
+    if (mode == _EditorMode.nativeEditor &&
         _document == null &&
         sourceBytes != null) {
-      await _run('Open Flutter bridge', () async {
+      await _run('Open native editor', () async {
         final next = await Rhwp.open(
           sourceBytes,
           fileName: _fileName ?? 'document.hwp',
@@ -282,13 +282,13 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
         setState(() {
           _editorMode = mode;
         });
-        return 'Switched to Flutter bridge';
+        return 'Switched to native editor';
       });
       return;
     }
 
-    if (mode == _EditorMode.commands && _document == null) {
-      _showStatus('Open a HWP/HWPX file before switching to commands');
+    if (mode == _EditorMode.nativeEditor && _document == null) {
+      _showStatus('Open a HWP/HWPX file before switching to native editor');
       return;
     }
 
@@ -436,7 +436,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
                     )
                   : document == null
                   ? const SizedBox.shrink()
-                  : RhwpCommandEditor(
+                  : RhwpNativeEditor(
                       key: _viewerKey,
                       document: document,
                       controller: _editorController,
@@ -530,9 +530,9 @@ class _StatusBar extends StatelessWidget {
                   ),
                   segments: const [
                     ButtonSegment(
-                      value: _EditorMode.commands,
+                      value: _EditorMode.nativeEditor,
                       icon: Icon(Icons.integration_instructions_outlined),
-                      label: Text('Commands'),
+                      label: Text('Native editor'),
                     ),
                     ButtonSegment(
                       value: _EditorMode.fullEditor,
@@ -573,4 +573,4 @@ enum _ExportKind {
   String get extension => format.fileExtension;
 }
 
-enum _EditorMode { commands, fullEditor }
+enum _EditorMode { nativeEditor, fullEditor }
