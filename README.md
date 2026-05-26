@@ -241,7 +241,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   creation from the page ribbon,
   snapshot-backed undo/redo from the edit ribbon with continuous text-input
   undo batching, layer-tree text search with
-  Ctrl/Cmd+F focus and search-text selection, F3/Shift+F3 and search-field
+  Ctrl/Cmd+F focus and search-text selection, Ctrl/Cmd+H replace-field focus,
+  F3/Shift+F3 and search-field
   Enter/Shift+Enter result navigation, debounced live search field input,
   search-field Escape clearing, result highlighting, active-match replace,
   replace-all, table-cell find/replace, and a tools-ribbon compare dialog

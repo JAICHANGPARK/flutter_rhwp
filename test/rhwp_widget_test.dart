@@ -6972,6 +6972,74 @@ void main() {
     expect(session.historyCommands, isEmpty);
   });
 
+  testWidgets('RhwpNativeEditor focuses replace with replace shortcut', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-replace-field')),
+      findsNothing,
+    );
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyH);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    await tester.pump();
+
+    final replaceField = tester.widget<TextField>(
+      find.byKey(const ValueKey('rhwp-editor-replace-field')),
+    );
+    expect(replaceField.focusNode?.hasFocus, isTrue);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-replace-field')),
+      'replacement',
+    );
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyH);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    await tester.pump();
+
+    final focusedReplaceField = tester.widget<TextField>(
+      find.byKey(const ValueKey('rhwp-editor-replace-field')),
+    );
+    expect(focusedReplaceField.focusNode?.hasFocus, isTrue);
+    expect(
+      focusedReplaceField.controller?.selection,
+      const TextSelection(baseOffset: 0, extentOffset: 11),
+    );
+    expect(session.commands, isEmpty);
+    expect(session.historyCommands, isEmpty);
+  });
+
   testWidgets('RhwpNativeEditor finds and highlights text from layer tree', (
     tester,
   ) async {

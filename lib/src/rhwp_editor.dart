@@ -1413,6 +1413,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   final _toolbarKey = GlobalKey<_EditorToolbarState>();
   final _focusNode = FocusNode(debugLabel: 'RhwpNativeEditor');
   final _searchFocusNode = FocusNode(debugLabel: 'RhwpNativeEditorSearch');
+  final _replaceFocusNode = FocusNode(debugLabel: 'RhwpNativeEditorReplace');
   final _textController = TextEditingController();
   final _sectionController = TextEditingController(text: '0');
   final _paragraphController = TextEditingController(text: '0');
@@ -1528,6 +1529,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
     _focusNode.dispose();
     _searchFocusNode.dispose();
+    _replaceFocusNode.dispose();
     _textController.dispose();
     _sectionController.dispose();
     _paragraphController.dispose();
@@ -3986,6 +3988,20 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
   }
 
+  void _focusReplaceField() {
+    _toolbarKey.currentState?.activateTab(_EditorTab.tools);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _replaceController.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _replaceController.text.length,
+      );
+      _replaceFocusNode.requestFocus();
+    });
+  }
+
   List<_EditorSearchMatch> _searchTree(RhwpLayerTree tree, String query) {
     final foldedQuery = query.toLowerCase();
     final matches = <_EditorSearchMatch>[];
@@ -5569,7 +5585,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     final primaryFocus = FocusManager.instance.primaryFocus;
     if (primaryFocus == null ||
         primaryFocus == _focusNode ||
-        primaryFocus == _searchFocusNode) {
+        primaryFocus == _searchFocusNode ||
+        primaryFocus == _replaceFocusNode) {
       return false;
     }
 
@@ -6906,6 +6923,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         case LogicalKeyboardKey.keyF:
           _focusSearchField();
           return KeyEventResult.handled;
+        case LogicalKeyboardKey.keyH:
+          _focusReplaceField();
+          return KeyEventResult.handled;
         case LogicalKeyboardKey.keyG:
           unawaited(_showGoToPageDialog());
           return KeyEventResult.handled;
@@ -7847,6 +7867,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           searchController: _searchController,
           searchFocusNode: _searchFocusNode,
           replaceController: _replaceController,
+          replaceFocusNode: _replaceFocusNode,
           tableCellSelection: _controller.tableCellSelection,
           objectSelection: _controller.objectSelection,
           pendingCharFormat: _pendingCharFormat,
@@ -10039,6 +10060,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.searchController,
     required this.searchFocusNode,
     required this.replaceController,
+    required this.replaceFocusNode,
     required this.tableCellSelection,
     required this.objectSelection,
     required this.pendingCharFormat,
@@ -10156,6 +10178,7 @@ class _EditorToolbar extends StatefulWidget {
   final TextEditingController searchController;
   final FocusNode searchFocusNode;
   final TextEditingController replaceController;
+  final FocusNode replaceFocusNode;
   final RhwpTableCellSelection? tableCellSelection;
   final RhwpObjectSelection? objectSelection;
   final _PendingCharFormat pendingCharFormat;
@@ -11376,6 +11399,7 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               child: TextField(
                 key: const ValueKey('rhwp-editor-replace-field'),
                 controller: widget.replaceController,
+                focusNode: widget.replaceFocusNode,
                 minLines: 1,
                 maxLines: 1,
                 decoration: const InputDecoration(

@@ -1,6 +1,8 @@
 ## 2026.5.24
 
 * Updated plugin release metadata for the `2026.5.24` release.
+* Added a Flutter-native replace shortcut so Ctrl/Cmd+H opens the tools ribbon
+  and focuses the replace field without invoking the WebView editor.
 * Added `holdTextRefreshWhileFocused` for the Flutter-native editor and enabled
   it in the example app so desktop Space/text input does not release a page SVG
   refresh until focus moves outside the editor.
