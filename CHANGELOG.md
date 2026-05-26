@@ -29,6 +29,8 @@
   borders from the page layer tree.
 * Added the upstream-style `Alt+L` shortcut to open the Flutter-native character
   shape dialog.
+* Changed the Flutter-native caret overlay to blink on the same 500ms cadence as
+  the upstream web editor while keeping the caret hit-test widget mounted.
 * Kept Flutter-native editor deferred page refresh blocked when desktop text
   input focus briefly drops and returns during typing.
 * Initial flutter_rhwp plugin scaffold.

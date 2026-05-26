@@ -3950,6 +3950,43 @@ void main() {
     expect(find.byKey(const ValueKey('rhwp-editor-selection')), findsOneWidget);
   });
 
+  testWidgets('RhwpNativeEditor blinks caret without removing hit target', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final caretFinder = find.byKey(const ValueKey('rhwp-editor-caret'));
+    final opacityFinder = find.byKey(
+      const ValueKey('rhwp-editor-caret-opacity'),
+    );
+    expect(caretFinder, findsOneWidget);
+    expect(tester.widget<Opacity>(opacityFinder).opacity, 1);
+
+    await tester.pump(const Duration(milliseconds: 150));
+
+    expect(caretFinder, findsOneWidget);
+    expect(tester.widget<Opacity>(opacityFinder).opacity, 0);
+
+    controller.cursor = const RhwpCursorPosition(offset: 2);
+    await tester.pump();
+
+    expect(caretFinder, findsOneWidget);
+    expect(tester.widget<Opacity>(opacityFinder).opacity, 1);
+  });
+
   testWidgets(
     'RhwpCommandEditor positions caret from page layer tree text runs',
     (tester) async {

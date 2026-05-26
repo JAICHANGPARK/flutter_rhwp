@@ -7472,6 +7472,8 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
   RhwpCursorPosition? _dragAnchor;
   RhwpTableCellLayout? _tableDragAnchor;
   _ObjectDragSession? _objectDrag;
+  Timer? _caretBlinkTimer;
+  bool _caretVisible = true;
   Duration? _lastPrimaryClickTime;
   Offset? _lastPrimaryClickPosition;
   int _primaryClickCount = 0;
@@ -7484,6 +7486,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
   static const _minimumObjectExtent = 8.0;
   static const _doubleClickTimeout = Duration(milliseconds: 500);
   static const _doubleClickDistance = 18.0;
+  static const _caretBlinkInterval = Duration(milliseconds: 500);
 
   @override
   void initState() {
@@ -7492,6 +7495,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     widget.pendingTextOverlaysListenable.addListener(
       _handlePendingTextOverlaysChanged,
     );
+    _restartCaretBlink();
   }
 
   @override
@@ -7511,6 +7515,12 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
         _handlePendingTextOverlaysChanged,
       );
     }
+    if (oldWidget.selection.end != widget.selection.end ||
+        oldWidget.composingText != widget.composingText ||
+        oldWidget.page != widget.page ||
+        oldWidget.layerRevision != widget.layerRevision) {
+      _restartCaretBlink();
+    }
   }
 
   @override
@@ -7518,6 +7528,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     widget.pendingTextOverlaysListenable.removeListener(
       _handlePendingTextOverlaysChanged,
     );
+    _caretBlinkTimer?.cancel();
     super.dispose();
   }
 
@@ -7530,8 +7541,24 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
 
   void _handlePendingTextOverlaysChanged() {
     if (mounted) {
-      setState(() {});
+      setState(() {
+        _restartCaretBlink();
+      });
     }
+  }
+
+  void _restartCaretBlink() {
+    _caretBlinkTimer?.cancel();
+    _caretVisible = true;
+    _caretBlinkTimer = Timer.periodic(_caretBlinkInterval, (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() {
+        _caretVisible = !_caretVisible;
+      });
+    });
   }
 
   Future<RhwpLayerTree?> _loadLayerTree() async {
@@ -8543,12 +8570,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
             key: const ValueKey('rhwp-editor-caret'),
             rect: displayedCaretRect,
             constraints: constraints,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(1),
-              ),
-            ),
+            child: _EditorCaret(color: color, visible: _caretVisible),
           ),
         if (widget.composingText != null && scaledCaretRect != null)
           _positionedRect(
@@ -8615,12 +8637,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
           top: boundedTop,
           width: 2,
           height: height,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(1),
-            ),
-          ),
+          child: _EditorCaret(color: color, visible: _caretVisible),
         ),
         for (final (index, overlay) in _pendingTextOverlays.indexed)
           Positioned(
@@ -12501,6 +12518,27 @@ class _PendingTextPreview extends StatelessWidget {
             fontSize: math.max(10, height * 0.78),
             height: 1,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EditorCaret extends StatelessWidget {
+  const _EditorCaret({required this.color, required this.visible});
+
+  final Color color;
+  final bool visible;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      key: const ValueKey('rhwp-editor-caret-opacity'),
+      opacity: visible ? 1 : 0,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(1),
         ),
       ),
     );
