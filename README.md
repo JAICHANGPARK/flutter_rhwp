@@ -209,9 +209,9 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   ribbon, page navigation
   controls, scroll-tracked current page reporting in the view ribbon and status
   bar, transparent table border overlays, synchronized view/status zoom controls
-  using the upstream web editor's 25%, 50%, 75%, 100%, 125%, 150%, 200%, and
-  300% preset steps, Ctrl/Cmd zoom shortcuts, Ctrl/Cmd+mouse-wheel zoom, Escape
-  state clearing, text commit, select-all,
+  and preset menus using the upstream web editor's 25%, 50%, 75%, 100%, 125%,
+  150%, 200%, and 300% steps, Ctrl/Cmd zoom shortcuts, Ctrl/Cmd+mouse-wheel
+  zoom, Escape state clearing, text commit, select-all,
   copy/cut/paste, Enter paragraph splitting, Shift+Enter soft line breaks,
   Tab text insertion, multiline clipboard paste as paragraph insertion,
   multi-paragraph selection

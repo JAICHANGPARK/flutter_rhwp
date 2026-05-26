@@ -7720,6 +7720,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onZoomOut: _controller.zoomOut,
           onZoomIn: _controller.zoomIn,
           onResetZoom: _controller.resetZoom,
+          onZoomPreset: (zoom) => _controller.zoom = zoom,
           onToggleParagraphMarks: _toggleParagraphMarks,
           onToggleTransparentTableBorders: _toggleTransparentTableBorders,
         ),
@@ -7784,6 +7785,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           zoom: _controller.zoom,
           onZoomOut: _controller.zoomOut,
           onZoomIn: _controller.zoomIn,
+          onZoomPreset: (zoom) => _controller.zoom = zoom,
         ),
       ],
     );
@@ -9875,6 +9877,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onZoomOut,
     required this.onZoomIn,
     required this.onResetZoom,
+    required this.onZoomPreset,
     required this.onToggleParagraphMarks,
     required this.onToggleTransparentTableBorders,
   });
@@ -9990,6 +9993,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onZoomOut;
   final VoidCallback onZoomIn;
   final VoidCallback onResetZoom;
+  final ValueChanged<double> onZoomPreset;
   final VoidCallback onToggleParagraphMarks;
   final VoidCallback onToggleTransparentTableBorders;
 
@@ -10365,13 +10369,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
                   : widget.onZoomOut,
             ),
             SizedBox(
-              width: 52,
-              child: Center(
-                child: Text(
-                  _formatEditorZoom(widget.zoom),
-                  key: const ValueKey('rhwp-editor-toolbar-zoom'),
-                  textAlign: TextAlign.center,
-                ),
+              width: 64,
+              child: _ZoomPresetMenuButton(
+                buttonKey: const ValueKey('rhwp-editor-toolbar-zoom-menu'),
+                textKey: const ValueKey('rhwp-editor-toolbar-zoom'),
+                zoom: widget.zoom,
+                onSelected: widget.onZoomPreset,
               ),
             ),
             _ToolbarIconButton(
@@ -13505,6 +13508,7 @@ class _EditorStatusBar extends StatelessWidget {
     required this.zoom,
     required this.onZoomOut,
     required this.onZoomIn,
+    required this.onZoomPreset,
   });
 
   final RhwpSelectionRange selection;
@@ -13517,6 +13521,7 @@ class _EditorStatusBar extends StatelessWidget {
   final double zoom;
   final VoidCallback onZoomOut;
   final VoidCallback onZoomIn;
+  final ValueChanged<double> onZoomPreset;
 
   @override
   Widget build(BuildContext context) {
@@ -13575,14 +13580,13 @@ class _EditorStatusBar extends StatelessWidget {
                     : onZoomOut,
               ),
               SizedBox(
-                width: 48,
-                child: Center(
-                  child: Text(
-                    _formatEditorZoom(zoom),
-                    key: const ValueKey('rhwp-editor-status-zoom'),
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
+                width: 58,
+                child: _ZoomPresetMenuButton(
+                  buttonKey: const ValueKey('rhwp-editor-status-zoom-menu'),
+                  textKey: const ValueKey('rhwp-editor-status-zoom'),
+                  zoom: zoom,
+                  onSelected: onZoomPreset,
+                  textStyle: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
               _StatusBarIconButton(
@@ -13666,6 +13670,62 @@ class _StatusBarIconButton extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ZoomPresetMenuButton extends StatelessWidget {
+  const _ZoomPresetMenuButton({
+    required this.buttonKey,
+    required this.textKey,
+    required this.zoom,
+    required this.onSelected,
+    this.textStyle,
+  });
+
+  final Key buttonKey;
+  final Key textKey;
+  final double zoom;
+  final ValueChanged<double> onSelected;
+  final TextStyle? textStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<double>(
+      key: buttonKey,
+      tooltip: 'Zoom presets',
+      padding: EdgeInsets.zero,
+      onSelected: onSelected,
+      itemBuilder: (context) => [
+        for (final preset in RhwpViewerController.zoomSteps)
+          PopupMenuItem<double>(
+            key: ValueKey('rhwp-editor-zoom-preset-${(preset * 100).round()}'),
+            value: preset,
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 20,
+                  child: _isSelectedZoomPreset(zoom, preset)
+                      ? const Icon(Icons.check, size: 16)
+                      : null,
+                ),
+                Text(_formatEditorZoom(preset)),
+              ],
+            ),
+          ),
+      ],
+      child: Center(
+        child: Text(
+          _formatEditorZoom(zoom),
+          key: textKey,
+          textAlign: TextAlign.center,
+          style: textStyle,
+        ),
+      ),
+    );
+  }
+}
+
+bool _isSelectedZoomPreset(double zoom, double preset) {
+  return (zoom - preset).abs() < 0.0001;
 }
 
 String _formatEditorZoom(double zoom) => '${(zoom * 100).round()}%';

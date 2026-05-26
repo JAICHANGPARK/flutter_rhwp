@@ -1,6 +1,8 @@
 ## 2026.5.24
 
 * Updated plugin release metadata for the `2026.5.24` release.
+* Added Flutter-native zoom preset menus to the view ribbon and status bar,
+  matching the upstream web editor's direct percentage selection.
 * Matched Flutter-native viewer/editor zoom controls to the upstream web editor
   preset steps from 25% through 300%.
 * Tracked the visible page while scrolling `RhwpViewer` and surfaced that page

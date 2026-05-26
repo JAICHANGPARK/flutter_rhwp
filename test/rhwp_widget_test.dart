@@ -1134,15 +1134,45 @@ void main() {
       '125%',
     );
 
-    await tester.tap(find.byKey(const ValueKey('rhwp-editor-status-zoom-out')));
-    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-toolbar-zoom-menu')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-zoom-preset-150')));
+    await tester.pumpAndSettle();
 
-    expect(controller.zoom, 1.0);
+    expect(controller.zoom, 1.5);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('rhwp-editor-toolbar-zoom')))
+          .data,
+      '150%',
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-status-zoom-menu')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-zoom-preset-75')));
+    await tester.pumpAndSettle();
+
+    expect(controller.zoom, 0.75);
     expect(
       tester
           .widget<Text>(find.byKey(const ValueKey('rhwp-editor-status-zoom')))
           .data,
-      '100%',
+      '75%',
+    );
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-status-zoom-out')));
+    await tester.pump();
+
+    expect(controller.zoom, 0.5);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('rhwp-editor-status-zoom')))
+          .data,
+      '50%',
     );
 
     controller.zoom = 1.5;
