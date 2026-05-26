@@ -5425,6 +5425,16 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
             _pendingTextInputCommits > 0);
   }
 
+  bool get _shouldHoldFocusedTextInputRefresh {
+    return _hasDeferredEditRefresh &&
+        _deferredEditRefreshAwaitsTextInput &&
+        !_hasExternalPrimaryFocusEndingTextInput &&
+        (_focusNode.hasFocus ||
+            _hasActiveTextInputConnection ||
+            _hasPendingDesktopTextInputFocusRelease ||
+            _desktopTextInputCommitHoldActive);
+  }
+
   bool get _shouldHoldDeferredRefreshForTextInput {
     return _pendingTextInputCommits > 0 ||
         _focusNode.hasFocus ||
@@ -5614,7 +5624,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     if (!_hasDeferredEditRefresh || !_deferredEditRefreshAwaitsTextInput) {
       return;
     }
-    if (_isDesktopTextInputPlatform && _shouldHoldDeferredRefreshForTextInput) {
+    if (_shouldHoldFocusedTextInputRefresh ||
+        (_isDesktopTextInputPlatform &&
+            _shouldHoldDeferredRefreshForTextInput)) {
       return;
     }
 

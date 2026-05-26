@@ -255,12 +255,12 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   text through Rust delete/insert commands. Text input, paste, tab input, and
   keyboard delete
   defer page SVG refresh so normal typing does not reload the rendered page
-  after every keystroke. Text-input commits wait for the active input action or
-  connection close before `editRefreshDelay` starts; on desktop, automatic
-  delayed `TextInputAction.done` events are ignored while the editor still has
-  focus, and transient desktop focus/IME churn, including temporary external
-  primary-focus changes during a text commit, gets a short grace window before
-  deferred page refresh is released. Rapid input commits are queued while
+  after every keystroke. Text-input commits stay in a Flutter overlay while the
+  editor still has focus, even if `TextInputAction.done` or connection-close
+  events arrive; `editRefreshDelay` starts only after the active input session
+  is released. On desktop, transient focus/IME churn, including temporary
+  external primary-focus changes during a text commit, gets a short grace window
+  before deferred page refresh is released. Rapid input commits are queued while
   previous edit commands finish.
   Committed text is shown through a
   temporary Flutter overlay with a pending caret until the refreshed page render

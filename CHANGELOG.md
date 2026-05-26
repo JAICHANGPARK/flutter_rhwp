@@ -1,6 +1,9 @@
 ## 2026.5.24
 
 * Updated plugin release metadata for the `2026.5.24` release.
+* Kept focused Flutter-native text input from releasing deferred page refresh
+  after `TextInputAction.done`, so Space/text commits stay in the overlay until
+  the editor actually loses focus.
 * Changed the Flutter-native character shape dialog to preload the current
   caret character's font, style toggles, and colors.
 * Changed the Flutter-native paragraph shape dialog to preload the current

@@ -7575,6 +7575,69 @@ void main() {
   });
 
   testWidgets(
+    'RhwpNativeEditor keeps focused text refresh held after input action',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              editRefreshDelay: const Duration(milliseconds: 120),
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      await tester.tapAt(
+        tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+            const Offset(1, 6),
+      );
+      await tester.pump();
+
+      controller.cursor = const RhwpCursorPosition(offset: 2);
+      session.renderedPages.clear();
+
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: ' ',
+          selection: TextSelection.collapsed(offset: 1),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      await tester.pump(_textInputActionIgnoreTestWindow);
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump(const Duration(milliseconds: 240));
+      await tester.pump();
+
+      expect(changedCalls, 0);
+      expect(session.renderedPages, isEmpty);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
+        findsOneWidget,
+      );
+
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pump();
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+      expect(session.renderedPages, [0]);
+    },
+  );
+
+  testWidgets(
     'RhwpNativeEditor ignores immediate text input action after commit',
     (tester) async {
       final controller = RhwpEditorController();
@@ -9685,6 +9748,8 @@ Future<void> _releaseTextInputAction(WidgetTester tester) async {
   debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
   try {
     await tester.testTextInput.receiveAction(TextInputAction.done);
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pump();
   } finally {
     debugDefaultTargetPlatformOverride = previousPlatform;
   }
