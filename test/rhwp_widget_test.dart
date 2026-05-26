@@ -120,6 +120,9 @@ void main() {
 
     controller.zoom = 9.0;
     expect(controller.zoom, 3.0);
+
+    controller.fitWidth();
+    expect(controller.zoom, 1.0);
   });
 
   testWidgets(
@@ -1255,6 +1258,21 @@ void main() {
       '150%',
     );
 
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-fit-width')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-fit-width')));
+    await tester.pump();
+
+    expect(controller.zoom, 1.0);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('rhwp-editor-toolbar-zoom')))
+          .data,
+      '100%',
+    );
+
     await tester.tap(
       find.byKey(const ValueKey('rhwp-editor-status-zoom-menu')),
     );
@@ -1290,6 +1308,21 @@ void main() {
     expect(
       tester
           .widget<Text>(find.byKey(const ValueKey('rhwp-editor-toolbar-zoom')))
+          .data,
+      '100%',
+    );
+
+    controller.zoom = 1.5;
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-status-fit-width')),
+    );
+    await tester.pump();
+
+    expect(controller.zoom, 1.0);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('rhwp-editor-status-zoom')))
           .data,
       '100%',
     );

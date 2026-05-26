@@ -55,6 +55,12 @@ class RhwpViewerController extends ChangeNotifier {
 
   void resetZoom() => zoom = 1.0;
 
+  /// Fits the page width to the current viewport.
+  ///
+  /// `RhwpViewer` treats 100% as page-width fit because the base layout is
+  /// constrained to the available viewport width.
+  void fitWidth() => zoom = 1.0;
+
   double _nextZoomStep() {
     for (final step in zoomSteps) {
       if (step > _zoom + _zoomEpsilon) {

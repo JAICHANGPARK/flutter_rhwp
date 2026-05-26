@@ -255,7 +255,7 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   ribbon, page navigation controls, direct go-to-page from the view ribbon and
   Ctrl/Cmd+G, scroll-tracked current page reporting in the view ribbon and status
   bar, page setup from the page ribbon and F7, transparent table border overlays,
-  synchronized view/status zoom controls
+  synchronized view/status zoom controls with explicit fit-width commands
   and preset menus using the upstream web editor's 25%, 50%, 75%, 100%, 125%,
   150%, 200%, and 300% steps, Ctrl/Cmd zoom shortcuts, Ctrl/Cmd+mouse-wheel
   zoom, Escape state clearing, text commit, select-all,

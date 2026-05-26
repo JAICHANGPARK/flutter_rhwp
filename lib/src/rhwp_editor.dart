@@ -8257,6 +8257,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onZoomOut: _controller.zoomOut,
           onZoomIn: _controller.zoomIn,
           onResetZoom: _controller.resetZoom,
+          onFitWidth: _controller.fitWidth,
           onZoomPreset: (zoom) => _controller.zoom = zoom,
           onToggleParagraphMarks: _toggleParagraphMarks,
           onToggleTransparentTableBorders: _toggleTransparentTableBorders,
@@ -8322,6 +8323,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           zoom: _controller.zoom,
           onZoomOut: _controller.zoomOut,
           onZoomIn: _controller.zoomIn,
+          onFitWidth: _controller.fitWidth,
           onZoomPreset: (zoom) => _controller.zoom = zoom,
         ),
       ],
@@ -10436,6 +10438,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onZoomOut,
     required this.onZoomIn,
     required this.onResetZoom,
+    required this.onFitWidth,
     required this.onZoomPreset,
     required this.onToggleParagraphMarks,
     required this.onToggleTransparentTableBorders,
@@ -10557,6 +10560,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onZoomOut;
   final VoidCallback onZoomIn;
   final VoidCallback onResetZoom;
+  final VoidCallback onFitWidth;
   final ValueChanged<double> onZoomPreset;
   final VoidCallback onToggleParagraphMarks;
   final VoidCallback onToggleTransparentTableBorders;
@@ -10957,6 +10961,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               buttonKey: const ValueKey('rhwp-editor-reset-zoom'),
               icon: Icons.center_focus_strong,
               onPressed: widget.zoom == 1.0 ? null : widget.onResetZoom,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Fit width',
+              buttonKey: const ValueKey('rhwp-editor-fit-width'),
+              icon: Icons.fit_screen,
+              onPressed: widget.zoom == 1.0 ? null : widget.onFitWidth,
             ),
             _ToolbarIconButton(
               tooltip: 'Zoom in',
@@ -14729,6 +14739,7 @@ class _EditorStatusBar extends StatelessWidget {
     required this.zoom,
     required this.onZoomOut,
     required this.onZoomIn,
+    required this.onFitWidth,
     required this.onZoomPreset,
   });
 
@@ -14742,6 +14753,7 @@ class _EditorStatusBar extends StatelessWidget {
   final double zoom;
   final VoidCallback onZoomOut;
   final VoidCallback onZoomIn;
+  final VoidCallback onFitWidth;
   final ValueChanged<double> onZoomPreset;
 
   @override
@@ -14792,6 +14804,12 @@ class _EditorStatusBar extends StatelessWidget {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
                 ),
+              _StatusBarIconButton(
+                tooltip: 'Fit width',
+                buttonKey: const ValueKey('rhwp-editor-status-fit-width'),
+                icon: Icons.fit_screen,
+                onPressed: zoom == 1.0 ? null : onFitWidth,
+              ),
               _StatusBarIconButton(
                 tooltip: 'Zoom out',
                 buttonKey: const ValueKey('rhwp-editor-status-zoom-out'),
