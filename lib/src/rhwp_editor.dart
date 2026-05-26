@@ -1234,6 +1234,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   bool _deferredEditRefreshAwaitsTextInput = false;
   bool _suppressControllerChangedSetState = false;
   bool _showParagraphMarks = false;
+  bool _showTransparentTableBorders = false;
   bool _overwriteMode = false;
   Object? _error;
 
@@ -1380,6 +1381,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   void _toggleParagraphMarks() {
     setState(() {
       _showParagraphMarks = !_showParagraphMarks;
+    });
+    _focusEditor();
+  }
+
+  void _toggleTransparentTableBorders() {
+    setState(() {
+      _showTransparentTableBorders = !_showTransparentTableBorders;
     });
     _focusEditor();
   }
@@ -7173,6 +7181,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           pageCount: _pageCountValue,
           zoom: _controller.zoom,
           showParagraphMarks: _showParagraphMarks,
+          showTransparentTableBorders: _showTransparentTableBorders,
           canOpen: widget.onOpenRequested != null,
           canInsertPicture: widget.onImageRequested != null,
           canExport: widget.onExported != null,
@@ -7270,6 +7279,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onZoomIn: _controller.zoomIn,
           onResetZoom: _controller.resetZoom,
           onToggleParagraphMarks: _toggleParagraphMarks,
+          onToggleTransparentTableBorders: _toggleTransparentTableBorders,
         ),
         Expanded(
           child: Listener(
@@ -7292,6 +7302,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
                     tableCellSelection: _controller.tableCellSelection,
                     objectSelection: _controller.objectSelection,
                     showParagraphMarks: _showParagraphMarks,
+                    showTransparentTableBorders: _showTransparentTableBorders,
                     composingText: _composingText,
                     pendingTextOverlaysListenable:
                         _pendingTextOverlaysListenable,
@@ -7390,6 +7401,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
     required this.tableCellSelection,
     required this.objectSelection,
     required this.showParagraphMarks,
+    required this.showTransparentTableBorders,
     required this.composingText,
     required this.pendingTextOverlaysListenable,
     required this.pendingDeletionOverlays,
@@ -7413,6 +7425,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
   final RhwpTableCellSelection? tableCellSelection;
   final RhwpObjectSelection? objectSelection;
   final bool showParagraphMarks;
+  final bool showTransparentTableBorders;
   final String? composingText;
   final ValueListenable<List<_PendingTextOverlay>>
   pendingTextOverlaysListenable;
@@ -8363,6 +8376,9 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     final pendingDeletionRects = _pendingDeletionRects(tree, overlaySize);
     final pendingTextRects = _pendingTextRects(tree, overlaySize);
     final pendingTextCaretRect = _pendingTextCaretRect(tree, overlaySize);
+    final transparentTableBorderRects = widget.showTransparentTableBorders
+        ? _transparentTableBorderRects(tree, overlaySize)
+        : const <Rect>[];
     final paragraphMarkRects = widget.showParagraphMarks
         ? _paragraphMarkRects(tree, overlaySize)
         : const <Rect>[];
@@ -8377,6 +8393,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
         searchRects.isEmpty &&
         pendingDeletionRects.isEmpty &&
         pendingTextRects.isEmpty &&
+        transparentTableBorderRects.isEmpty &&
         paragraphMarkRects.isEmpty) {
       return null;
     }
@@ -8396,6 +8413,15 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     return Stack(
       fit: StackFit.expand,
       children: [
+        for (final (index, rect) in transparentTableBorderRects.indexed)
+          _positionedRect(
+            key: index == 0
+                ? const ValueKey('rhwp-editor-transparent-table-border')
+                : ValueKey('rhwp-editor-transparent-table-border-$index'),
+            rect: rect,
+            constraints: constraints,
+            child: _TransparentTableBorder(color: color),
+          ),
         for (final (index, rect) in objectSelectionRects.indexed)
           _positionedRect(
             key: index == 0
@@ -8662,6 +8688,16 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
       for (final cell in tree.tableCells)
         if (tableSelection.containsCell(cell))
           _scalePageRect(cell.bounds, tree, overlaySize),
+    ];
+  }
+
+  List<Rect> _transparentTableBorderRects(
+    RhwpLayerTree tree,
+    Size overlaySize,
+  ) {
+    return [
+      for (final cell in tree.tableCells)
+        _scalePageRect(cell.bounds, tree, overlaySize),
     ];
   }
 
@@ -9147,6 +9183,65 @@ class _LineObjectSelectionPainter extends CustomPainter {
   }
 }
 
+class _TransparentTableBorder extends StatelessWidget {
+  const _TransparentTableBorder({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: CustomPaint(painter: _TransparentTableBorderPainter(color: color)),
+    );
+  }
+}
+
+class _TransparentTableBorderPainter extends CustomPainter {
+  const _TransparentTableBorderPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = color.withValues(alpha: 0.44);
+    final rect = (Offset.zero & size).deflate(0.5);
+    const dash = 4.0;
+    const gap = 3.0;
+
+    void drawDashedLine(Offset start, Offset end) {
+      final delta = end - start;
+      final distance = delta.distance;
+      if (distance <= 0) {
+        return;
+      }
+      final direction = delta / distance;
+      var traveled = 0.0;
+      while (traveled < distance) {
+        final segmentEnd = math.min(traveled + dash, distance);
+        canvas.drawLine(
+          start + direction * traveled,
+          start + direction * segmentEnd,
+          paint,
+        );
+        traveled += dash + gap;
+      }
+    }
+
+    drawDashedLine(rect.topLeft, rect.topRight);
+    drawDashedLine(rect.topRight, rect.bottomRight);
+    drawDashedLine(rect.bottomRight, rect.bottomLeft);
+    drawDashedLine(rect.bottomLeft, rect.topLeft);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TransparentTableBorderPainter oldDelegate) {
+    return oldDelegate.color != color;
+  }
+}
+
 enum _EditorTab { file, edit, view, insert, format, page, table, tools }
 
 enum _EditorShapePreset {
@@ -9232,6 +9327,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.pageCount,
     required this.zoom,
     required this.showParagraphMarks,
+    required this.showTransparentTableBorders,
     required this.canOpen,
     required this.canInsertPicture,
     required this.canExport,
@@ -9314,6 +9410,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onZoomIn,
     required this.onResetZoom,
     required this.onToggleParagraphMarks,
+    required this.onToggleTransparentTableBorders,
   });
 
   final bool busy;
@@ -9340,6 +9437,7 @@ class _EditorToolbar extends StatefulWidget {
   final int? pageCount;
   final double zoom;
   final bool showParagraphMarks;
+  final bool showTransparentTableBorders;
   final bool canOpen;
   final bool canInsertPicture;
   final bool canExport;
@@ -9422,6 +9520,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onZoomIn;
   final VoidCallback onResetZoom;
   final VoidCallback onToggleParagraphMarks;
+  final VoidCallback onToggleTransparentTableBorders;
 
   @override
   State<_EditorToolbar> createState() => _EditorToolbarState();
@@ -9788,6 +9887,15 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               icon: Icons.keyboard_return,
               selected: widget.showParagraphMarks,
               onPressed: widget.onToggleParagraphMarks,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Transparent table borders',
+              buttonKey: const ValueKey(
+                'rhwp-editor-toggle-transparent-table-borders',
+              ),
+              icon: Icons.border_clear_outlined,
+              selected: widget.showTransparentTableBorders,
+              onPressed: widget.onToggleTransparentTableBorders,
             ),
           ],
         ),

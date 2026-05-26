@@ -25,6 +25,8 @@
   format ribbon, pending input, and character-shape dialog.
 * Added Flutter-native emboss/engrave character formatting from the format
   ribbon, pending input, and character-shape dialog.
+* Added a Flutter-native view-ribbon toggle that overlays transparent table cell
+  borders from the page layer tree.
 * Kept Flutter-native editor deferred page refresh blocked when desktop text
   input focus briefly drops and returns during typing.
 * Initial flutter_rhwp plugin scaffold.

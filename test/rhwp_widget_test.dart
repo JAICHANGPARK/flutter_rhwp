@@ -1142,6 +1142,68 @@ void main() {
     );
   });
 
+  testWidgets(
+    'RhwpNativeEditor view ribbon toggles transparent table borders',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+      final document = RhwpDocument.fromSession(session);
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(document: document, controller: controller),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-transparent-table-border')),
+        findsNothing,
+      );
+
+      await tester.tap(find.text('보기'));
+      await tester.pump();
+      await tester.ensureVisible(
+        find.byKey(
+          const ValueKey('rhwp-editor-toggle-transparent-table-borders'),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(
+        find.byKey(
+          const ValueKey('rhwp-editor-toggle-transparent-table-borders'),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-transparent-table-border')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-transparent-table-border-1')),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.byKey(
+          const ValueKey('rhwp-editor-toggle-transparent-table-borders'),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-transparent-table-border')),
+        findsNothing,
+      );
+    },
+  );
+
   testWidgets('RhwpNativeEditor page ribbon creates header and footer', (
     tester,
   ) async {
