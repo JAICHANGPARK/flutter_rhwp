@@ -6901,6 +6901,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return KeyEventResult.handled;
     }
     if (!shortcutPressed &&
+        HardwareKeyboard.instance.isAltPressed &&
+        event is KeyDownEvent &&
+        _isParaShapeShortcut(event)) {
+      unawaited(_showParaShapeDialog());
+      return KeyEventResult.handled;
+    }
+    if (!shortcutPressed &&
         event is KeyDownEvent &&
         event.logicalKey == LogicalKeyboardKey.insert) {
       _toggleOverwriteMode();
@@ -7167,6 +7174,14 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         character == 'l' ||
         character == 'L' ||
         character == 'ㄹ';
+  }
+
+  bool _isParaShapeShortcut(KeyEvent event) {
+    final character = event.character;
+    return event.logicalKey == LogicalKeyboardKey.keyT ||
+        character == 't' ||
+        character == 'T' ||
+        character == 'ㅅ';
   }
 
   void _moveCursorHorizontally(int delta, {required bool extendSelection}) {

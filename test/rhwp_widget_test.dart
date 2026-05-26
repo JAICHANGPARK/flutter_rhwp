@@ -6426,6 +6426,47 @@ void main() {
     expect(session.commands, isEmpty);
   });
 
+  testWidgets('RhwpNativeEditor opens paragraph shape dialog with Alt+T', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    controller.selection = const RhwpSelectionRange(
+      start: RhwpCursorPosition(paragraph: 0, offset: 1),
+      end: RhwpCursorPosition(paragraph: 1, offset: 2),
+    );
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyT);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('rhwp-para-shape-line-spacing-field')),
+      findsOneWidget,
+    );
+    expect(session.commands, isEmpty);
+  });
+
   testWidgets('RhwpNativeEditor applies paragraph shape dialog values', (
     tester,
   ) async {

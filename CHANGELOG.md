@@ -1,6 +1,8 @@
 ## 2026.5.24
 
 * Updated plugin release metadata for the `2026.5.24` release.
+* Added the upstream-style `Alt+T` shortcut to open the Flutter-native paragraph
+  shape dialog.
 * Matched the upstream page setup shortcut by opening the Flutter-native page
   setup dialog with F7.
 * Added a Flutter-native replace shortcut so Ctrl/Cmd+H opens the tools ribbon
