@@ -292,7 +292,7 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   text/table/picture/shape
   insert/delete, with shape presets for rectangle, ellipse, line, and text box,
   page/column break insertion, plus table
-  row/column and cell
+  row above/below, column left/right, and cell
   merge/split/split-into-grid command flow, table properties editing, and
   selected-cell properties editing with table-cell hit testing, selected-cell
   highlighting, object/control hit testing, highlighting, pointer drag move and

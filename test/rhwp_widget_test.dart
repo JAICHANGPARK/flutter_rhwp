@@ -1964,7 +1964,9 @@ void main() {
     await tester.pump();
 
     for (final key in [
+      'rhwp-editor-insert-row-above',
       'rhwp-editor-insert-row-below',
+      'rhwp-editor-insert-column-left',
       'rhwp-editor-insert-column-right',
       'rhwp-editor-delete-table-row',
       'rhwp-editor-delete-table-column',
@@ -1975,7 +1977,7 @@ void main() {
       await _pumpDocumentFrame(tester);
     }
 
-    expect(changedCalls, 5);
+    expect(changedCalls, 7);
     expect(session.commands.map(jsonDecode), [
       {
         'type': 'insertTable',
@@ -1991,7 +1993,23 @@ void main() {
         'paragraph': 1,
         'controlIndex': 0,
         'row': 0,
+        'below': false,
+      },
+      {
+        'type': 'insertTableRow',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 0,
+        'row': 0,
         'below': true,
+      },
+      {
+        'type': 'insertTableColumn',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 0,
+        'column': 0,
+        'right': false,
       },
       {
         'type': 'insertTableColumn',
@@ -4554,6 +4572,10 @@ void main() {
     await tester.tapAt(tablePoint, buttons: kSecondaryMouseButton);
     await tester.pumpAndSettle();
 
+    expect(find.text('위에 줄 삽입'), findsOneWidget);
+    expect(find.text('아래에 줄 삽입'), findsOneWidget);
+    expect(find.text('왼쪽에 칸 삽입'), findsOneWidget);
+    expect(find.text('오른쪽에 칸 삽입'), findsOneWidget);
     expect(find.text('셀 나누기'), findsOneWidget);
     await tester.tap(find.text('셀 나누기'));
     await _pumpDocumentFrame(tester);

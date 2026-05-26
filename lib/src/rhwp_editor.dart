@@ -521,8 +521,10 @@ enum _EditorContextMenuAction {
   alignRight,
   alignJustify,
   insertTable,
-  insertTableRow,
-  insertTableColumn,
+  insertTableRowAbove,
+  insertTableRowBelow,
+  insertTableColumnLeft,
+  insertTableColumnRight,
   mergeCells,
   splitCell,
   splitCellInto,
@@ -3288,7 +3290,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
   }
 
-  Future<void> _insertTableRow() async {
+  Future<void> _insertTableRow({bool below = true}) async {
     if (_busy) {
       return;
     }
@@ -3300,11 +3302,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         paragraph: ref.paragraph,
         controlIndex: ref.controlIndex,
         row: ref.row,
+        below: below,
       );
     });
   }
 
-  Future<void> _insertTableColumn() async {
+  Future<void> _insertTableColumn({bool right = true}) async {
     if (_busy) {
       return;
     }
@@ -3316,6 +3319,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         paragraph: ref.paragraph,
         controlIndex: ref.controlIndex,
         column: ref.column,
+        right: right,
       );
     });
   }
@@ -6650,9 +6654,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         await _applyParagraphAlignment('justify');
       case _EditorContextMenuAction.insertTable:
         await _insertTable();
-      case _EditorContextMenuAction.insertTableRow:
+      case _EditorContextMenuAction.insertTableRowAbove:
+        await _insertTableRow(below: false);
+      case _EditorContextMenuAction.insertTableRowBelow:
         await _insertTableRow();
-      case _EditorContextMenuAction.insertTableColumn:
+      case _EditorContextMenuAction.insertTableColumnLeft:
+        await _insertTableColumn(right: false);
+      case _EditorContextMenuAction.insertTableColumnRight:
         await _insertTableColumn();
       case _EditorContextMenuAction.mergeCells:
         await _mergeTableCells();
@@ -6782,15 +6790,27 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         ),
         const PopupMenuDivider(),
         _contextMenuItem(
-          action: _EditorContextMenuAction.insertTableRow,
+          action: _EditorContextMenuAction.insertTableRowAbove,
           icon: Icons.table_rows_outlined,
-          label: '줄 삽입',
+          label: '위에 줄 삽입',
           enabled: !_busy,
         ),
         _contextMenuItem(
-          action: _EditorContextMenuAction.insertTableColumn,
+          action: _EditorContextMenuAction.insertTableRowBelow,
+          icon: Icons.table_rows_outlined,
+          label: '아래에 줄 삽입',
+          enabled: !_busy,
+        ),
+        _contextMenuItem(
+          action: _EditorContextMenuAction.insertTableColumnLeft,
           icon: Icons.view_column_outlined,
-          label: '칸 삽입',
+          label: '왼쪽에 칸 삽입',
+          enabled: !_busy,
+        ),
+        _contextMenuItem(
+          action: _EditorContextMenuAction.insertTableColumnRight,
+          icon: Icons.view_column_outlined,
+          label: '오른쪽에 칸 삽입',
           enabled: !_busy,
         ),
         _contextMenuItem(
@@ -8186,8 +8206,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onInsertShape: _insertShape,
           onInsertPageBreak: _insertPageBreak,
           onInsertColumnBreak: _insertColumnBreak,
-          onInsertTableRow: _insertTableRow,
-          onInsertTableColumn: _insertTableColumn,
+          onInsertTableRowAbove: () => _insertTableRow(below: false),
+          onInsertTableRowBelow: _insertTableRow,
+          onInsertTableColumnLeft: () => _insertTableColumn(right: false),
+          onInsertTableColumnRight: _insertTableColumn,
           onDeleteTableRow: _deleteTableRow,
           onDeleteTableColumn: _deleteTableColumn,
           onMergeTableCells: _mergeTableCells,
@@ -10386,8 +10408,10 @@ class _EditorToolbar extends StatefulWidget {
     required this.onInsertShape,
     required this.onInsertPageBreak,
     required this.onInsertColumnBreak,
-    required this.onInsertTableRow,
-    required this.onInsertTableColumn,
+    required this.onInsertTableRowAbove,
+    required this.onInsertTableRowBelow,
+    required this.onInsertTableColumnLeft,
+    required this.onInsertTableColumnRight,
     required this.onDeleteTableRow,
     required this.onDeleteTableColumn,
     required this.onMergeTableCells,
@@ -10510,8 +10534,10 @@ class _EditorToolbar extends StatefulWidget {
   final ValueChanged<_EditorShapePreset> onInsertShape;
   final VoidCallback onInsertPageBreak;
   final VoidCallback onInsertColumnBreak;
-  final VoidCallback onInsertTableRow;
-  final VoidCallback onInsertTableColumn;
+  final VoidCallback onInsertTableRowAbove;
+  final VoidCallback onInsertTableRowBelow;
+  final VoidCallback onInsertTableColumnLeft;
+  final VoidCallback onInsertTableColumnRight;
   final VoidCallback onDeleteTableRow;
   final VoidCallback onDeleteTableColumn;
   final VoidCallback onMergeTableCells;
@@ -11564,16 +11590,28 @@ class _EditorToolbarState extends State<_EditorToolbar> {
         child: Row(
           children: [
             _ToolbarIconButton(
+              tooltip: 'Insert row above',
+              buttonKey: const ValueKey('rhwp-editor-insert-row-above'),
+              icon: Icons.table_rows_outlined,
+              onPressed: widget.busy ? null : widget.onInsertTableRowAbove,
+            ),
+            _ToolbarIconButton(
               tooltip: 'Insert row below',
               buttonKey: const ValueKey('rhwp-editor-insert-row-below'),
               icon: Icons.table_rows_outlined,
-              onPressed: widget.busy ? null : widget.onInsertTableRow,
+              onPressed: widget.busy ? null : widget.onInsertTableRowBelow,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Insert column left',
+              buttonKey: const ValueKey('rhwp-editor-insert-column-left'),
+              icon: Icons.view_column_outlined,
+              onPressed: widget.busy ? null : widget.onInsertTableColumnLeft,
             ),
             _ToolbarIconButton(
               tooltip: 'Insert column right',
               buttonKey: const ValueKey('rhwp-editor-insert-column-right'),
               icon: Icons.view_column_outlined,
-              onPressed: widget.busy ? null : widget.onInsertTableColumn,
+              onPressed: widget.busy ? null : widget.onInsertTableColumnRight,
             ),
             _ToolbarIconButton(
               tooltip: 'Delete table row',
