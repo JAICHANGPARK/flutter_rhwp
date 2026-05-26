@@ -545,6 +545,56 @@ void main() {
         'mergeFirst': true,
       },
     );
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.getTableProperties(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'getTableProperties',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.setTableProperties(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            cellSpacing: 10,
+            paddingLeft: 100,
+            paddingRight: 110,
+            paddingTop: 120,
+            paddingBottom: 130,
+            pageBreak: 2,
+            repeatHeader: true,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'setTableProperties',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'properties': {
+          'cellSpacing': 10,
+          'paddingLeft': 100,
+          'paddingRight': 110,
+          'paddingTop': 120,
+          'paddingBottom': 130,
+          'pageBreak': 2,
+          'repeatHeader': true,
+        },
+      },
+    );
   });
 
   test('object control commands serialize to Rust envelopes', () {
@@ -1866,6 +1916,55 @@ void main() {
       'mergeFirst': true,
     });
 
+    final tableProperties = await document.tableProperties(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+    );
+
+    expect(tableProperties.cellSpacing, 10);
+    expect(tableProperties.paddingLeft, 100);
+    expect(tableProperties.paddingRight, 110);
+    expect(tableProperties.paddingTop, 120);
+    expect(tableProperties.paddingBottom, 130);
+    expect(tableProperties.pageBreak, 1);
+    expect(tableProperties.repeatHeader, isFalse);
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'getTableProperties',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+    });
+
+    await document.setTableProperties(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      cellSpacing: 20,
+      paddingLeft: 210,
+      paddingRight: 220,
+      paddingTop: 230,
+      paddingBottom: 240,
+      pageBreak: 2,
+      repeatHeader: true,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'setTableProperties',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'properties': {
+        'cellSpacing': 20,
+        'paddingLeft': 210,
+        'paddingRight': 220,
+        'paddingTop': 230,
+        'paddingBottom': 240,
+        'pageBreak': 2,
+        'repeatHeader': true,
+      },
+    });
+
     await document.deleteObjectControl(
       section: 0,
       paragraph: 2,
@@ -2544,6 +2643,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'getObjectProperties') {
       return '{"width":1000,"height":2000,"horzOffset":30,"vertOffset":40}';
+    }
+    if (command is Map && command['type'] == 'getTableProperties') {
+      return '{"cellSpacing":10,"paddingLeft":100,"paddingRight":110,"paddingTop":120,"paddingBottom":130,"pageBreak":1,"repeatHeader":false}';
     }
     if (command is Map && command['type'] == 'clipboardHasObjectControl') {
       return '{"ok":true,"hasControl":true}';

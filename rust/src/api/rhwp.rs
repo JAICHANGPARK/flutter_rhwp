@@ -551,6 +551,23 @@ impl RhwpSession {
                     )
                     .map_err(error_to_string)
             }
+            RhwpCommand::GetTableProperties {
+                section,
+                paragraph,
+                control_index,
+            } => inner
+                .document
+                .get_table_properties(section, paragraph, control_index)
+                .map_err(|error| format!("{error:?}")),
+            RhwpCommand::SetTableProperties {
+                section,
+                paragraph,
+                control_index,
+                properties,
+            } => inner
+                .document
+                .set_table_properties(section, paragraph, control_index, &properties.to_string())
+                .map_err(|error| format!("{error:?}")),
             RhwpCommand::DeleteObjectControl {
                 section,
                 paragraph,
@@ -1190,6 +1207,19 @@ enum RhwpCommand {
         equal_row_height: bool,
         #[serde(rename = "mergeFirst")]
         merge_first: bool,
+    },
+    GetTableProperties {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+    },
+    SetTableProperties {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        properties: serde_json::Value,
     },
     DeleteObjectControl {
         section: u32,
@@ -2342,6 +2372,23 @@ mod tests {
         assert!(table_layer_tree.contains("\"paraIndex\":"));
         assert!(table_layer_tree.contains("\"controlIndex\":"));
         assert!(table_layer_tree.contains(r#""kind":"tableCell""#));
+        let table_properties = session
+            .apply_command(format!(
+                r#"{{"type":"getTableProperties","section":0,"paragraph":{},"controlIndex":0}}"#,
+                table_paragraph
+            ))
+            .expect("table properties query should be accepted");
+        let table_properties: Value =
+            serde_json::from_str(&table_properties).expect("table properties should be JSON");
+        assert!(table_properties["cellSpacing"].is_number());
+        session
+            .apply_command(
+                format!(
+                    r#"{{"type":"setTableProperties","section":0,"paragraph":{},"controlIndex":0,"properties":{{"cellSpacing":10,"paddingLeft":100,"paddingRight":110,"paddingTop":120,"paddingBottom":130,"pageBreak":1,"repeatHeader":true}}}}"#,
+                    table_paragraph
+                ),
+            )
+            .expect("set table properties command should be accepted");
         session
             .apply_command(
                 format!(

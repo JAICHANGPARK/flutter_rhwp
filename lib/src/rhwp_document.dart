@@ -176,6 +176,47 @@ class RhwpObjectProperties {
   final Map<String, Object?>? raw;
 }
 
+class RhwpTableProperties {
+  const RhwpTableProperties({
+    this.cellSpacing,
+    this.paddingLeft,
+    this.paddingRight,
+    this.paddingTop,
+    this.paddingBottom,
+    this.pageBreak,
+    this.repeatHeader,
+    required this.rawJson,
+    this.raw,
+  });
+
+  factory RhwpTableProperties.fromJsonString(String source) {
+    final decoded = RhwpDocument._tryDecodeObject(source);
+    return RhwpTableProperties(
+      cellSpacing: _intFromJson(decoded?['cellSpacing']),
+      paddingLeft: _intFromJson(decoded?['paddingLeft']),
+      paddingRight: _intFromJson(decoded?['paddingRight']),
+      paddingTop: _intFromJson(decoded?['paddingTop']),
+      paddingBottom: _intFromJson(decoded?['paddingBottom']),
+      pageBreak: _intFromJson(decoded?['pageBreak']),
+      repeatHeader: decoded?['repeatHeader'] is bool
+          ? decoded!['repeatHeader'] as bool
+          : null,
+      rawJson: source,
+      raw: decoded,
+    );
+  }
+
+  final int? cellSpacing;
+  final int? paddingLeft;
+  final int? paddingRight;
+  final int? paddingTop;
+  final int? paddingBottom;
+  final int? pageBreak;
+  final bool? repeatHeader;
+  final String rawJson;
+  final Map<String, Object?>? raw;
+}
+
 class RhwpStyleInfo {
   const RhwpStyleInfo({
     required this.id,
@@ -648,6 +689,25 @@ abstract class RhwpCommand {
     required bool equalRowHeight,
     required bool mergeFirst,
   }) = RhwpSplitTableCellIntoCommand;
+
+  factory RhwpCommand.getTableProperties({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+  }) = RhwpGetTablePropertiesCommand;
+
+  factory RhwpCommand.setTableProperties({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    int? cellSpacing,
+    int? paddingLeft,
+    int? paddingRight,
+    int? paddingTop,
+    int? paddingBottom,
+    int? pageBreak,
+    bool? repeatHeader,
+  }) = RhwpSetTablePropertiesCommand;
 
   factory RhwpCommand.deleteObjectControl({
     required int section,
@@ -1549,6 +1609,69 @@ class RhwpSplitTableCellIntoCommand extends RhwpCommand {
     'columns': columns,
     'equalRowHeight': equalRowHeight,
     'mergeFirst': mergeFirst,
+  };
+}
+
+class RhwpGetTablePropertiesCommand extends RhwpCommand {
+  const RhwpGetTablePropertiesCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'getTableProperties',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+  };
+}
+
+class RhwpSetTablePropertiesCommand extends RhwpCommand {
+  const RhwpSetTablePropertiesCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    this.cellSpacing,
+    this.paddingLeft,
+    this.paddingRight,
+    this.paddingTop,
+    this.paddingBottom,
+    this.pageBreak,
+    this.repeatHeader,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int? cellSpacing;
+  final int? paddingLeft;
+  final int? paddingRight;
+  final int? paddingTop;
+  final int? paddingBottom;
+  final int? pageBreak;
+  final bool? repeatHeader;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'setTableProperties',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'properties': {
+      if (cellSpacing != null) 'cellSpacing': cellSpacing,
+      if (paddingLeft != null) 'paddingLeft': paddingLeft,
+      if (paddingRight != null) 'paddingRight': paddingRight,
+      if (paddingTop != null) 'paddingTop': paddingTop,
+      if (paddingBottom != null) 'paddingBottom': paddingBottom,
+      if (pageBreak != null) 'pageBreak': pageBreak,
+      if (repeatHeader != null) 'repeatHeader': repeatHeader,
+    },
   };
 }
 
@@ -3047,6 +3170,49 @@ class RhwpDocument {
         columns: columns,
         equalRowHeight: equalRowHeight,
         mergeFirst: mergeFirst,
+      ),
+    );
+  }
+
+  Future<RhwpTableProperties> tableProperties({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+  }) async {
+    final json = await apply(
+      RhwpCommand.getTableProperties(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+      ),
+    );
+    return RhwpTableProperties.fromJsonString(json);
+  }
+
+  Future<String> setTableProperties({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    int? cellSpacing,
+    int? paddingLeft,
+    int? paddingRight,
+    int? paddingTop,
+    int? paddingBottom,
+    int? pageBreak,
+    bool? repeatHeader,
+  }) {
+    return apply(
+      RhwpCommand.setTableProperties(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        cellSpacing: cellSpacing,
+        paddingLeft: paddingLeft,
+        paddingRight: paddingRight,
+        paddingTop: paddingTop,
+        paddingBottom: paddingBottom,
+        pageBreak: pageBreak,
+        repeatHeader: repeatHeader,
       ),
     );
   }

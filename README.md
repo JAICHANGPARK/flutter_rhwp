@@ -181,6 +181,19 @@ await document.splitTableCellInto(
   rows: 2,
   columns: 2,
 );
+
+await document.setTableProperties(
+  section: 0,
+  paragraph: 0,
+  controlIndex: 0,
+  cellSpacing: 10,
+  paddingLeft: 100,
+  paddingRight: 100,
+  paddingTop: 80,
+  paddingBottom: 80,
+  pageBreak: 1,
+  repeatHeader: true,
+);
 ```
 
 Export with save metadata:
@@ -263,7 +276,7 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   insert/delete, with shape presets for rectangle, ellipse, line, and text box,
   page/column break insertion, plus table
   row/column and cell
-  merge/split/split-into-grid command flow with table-cell hit testing, selected-cell
+  merge/split/split-into-grid command flow and table properties editing with table-cell hit testing, selected-cell
   highlighting, object/control hit testing, highlighting, pointer drag move and
   resize handles for selected objects, Delete/Backspace object deletion, object
   size/position properties, and object z-order actions from the edit ribbon and

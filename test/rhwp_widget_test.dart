@@ -2134,6 +2134,107 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor edits table properties from table ribbon', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    await tester.tapAt(
+      pageTopLeft +
+          Offset(pageSize.width * 100 / 240, pageSize.height * 60 / 180),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('표'));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-table-properties')),
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-table-properties')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('표 속성'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-table-cell-spacing-field')),
+      '20',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-table-padding-left-field')),
+      '210',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-table-padding-right-field')),
+      '220',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-table-padding-top-field')),
+      '230',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-table-padding-bottom-field')),
+      '240',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-table-repeat-header-field')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-table-properties-apply')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+    ]);
+    expect(session.commands.map(jsonDecode), [
+      {
+        'type': 'getTableProperties',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+      },
+      {
+        'type': 'setTableProperties',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'properties': {
+          'cellSpacing': 20,
+          'paddingLeft': 210,
+          'paddingRight': 220,
+          'paddingTop': 230,
+          'paddingBottom': 240,
+          'pageBreak': 1,
+          'repeatHeader': true,
+        },
+      },
+    ]);
+  });
+
   testWidgets('RhwpNativeEditor taps table cell to set table edit context', (
     tester,
   ) async {
@@ -9929,6 +10030,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'getObjectProperties') {
       return '{"width":60,"height":50,"horzOffset":120,"vertOffset":60}';
+    }
+    if (command is Map && command['type'] == 'getTableProperties') {
+      return '{"cellSpacing":10,"paddingLeft":100,"paddingRight":110,"paddingTop":120,"paddingBottom":130,"pageBreak":1,"repeatHeader":false}';
     }
     if (command is Map && command['type'] == 'getPageSetup') {
       return '{"width":59528,"height":84189,"marginLeft":8504,"marginRight":8504,"marginTop":5669,"marginBottom":4252,"marginHeader":4252,"marginFooter":4252,"marginGutter":0,"landscape":false,"binding":0}';

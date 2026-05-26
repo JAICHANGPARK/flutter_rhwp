@@ -526,6 +526,7 @@ enum _EditorContextMenuAction {
   mergeCells,
   splitCell,
   splitCellInto,
+  tableProperties,
   deleteObject,
   bringObjectToFront,
   sendObjectToBack,
@@ -922,6 +923,26 @@ class _SplitTableCellIntoDialogResult {
   final int columns;
   final bool equalRowHeight;
   final bool mergeFirst;
+}
+
+class _TablePropertiesDialogResult {
+  const _TablePropertiesDialogResult({
+    required this.cellSpacing,
+    required this.paddingLeft,
+    required this.paddingRight,
+    required this.paddingTop,
+    required this.paddingBottom,
+    required this.pageBreak,
+    required this.repeatHeader,
+  });
+
+  final int cellSpacing;
+  final int paddingLeft;
+  final int paddingRight;
+  final int paddingTop;
+  final int paddingBottom;
+  final int pageBreak;
+  final bool repeatHeader;
 }
 
 class _ResolvedEditorImage {
@@ -3364,6 +3385,68 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         columns: result.columns,
         equalRowHeight: result.equalRowHeight,
         mergeFirst: result.mergeFirst,
+      );
+    });
+  }
+
+  Future<void> _showTablePropertiesDialog() async {
+    if (_busy) {
+      return;
+    }
+
+    final ref = _readTableReference();
+    RhwpTableProperties properties;
+    setState(() {
+      _busy = true;
+      _visibleBusy = true;
+      _error = null;
+    });
+    try {
+      properties = await widget.document.tableProperties(
+        section: ref.section,
+        paragraph: ref.paragraph,
+        controlIndex: ref.controlIndex,
+      );
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _visibleBusy = false;
+          _error = error;
+        });
+      }
+      _focusEditor();
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _busy = false;
+      _visibleBusy = false;
+    });
+
+    final result = await showDialog<_TablePropertiesDialogResult>(
+      context: context,
+      builder: (context) => _TablePropertiesDialog(properties: properties),
+    );
+    if (result == null) {
+      _focusEditor();
+      return;
+    }
+
+    await _runEdit(() async {
+      await widget.document.setTableProperties(
+        section: ref.section,
+        paragraph: ref.paragraph,
+        controlIndex: ref.controlIndex,
+        cellSpacing: result.cellSpacing,
+        paddingLeft: result.paddingLeft,
+        paddingRight: result.paddingRight,
+        paddingTop: result.paddingTop,
+        paddingBottom: result.paddingBottom,
+        pageBreak: result.pageBreak,
+        repeatHeader: result.repeatHeader,
       );
     });
   }
@@ -6462,6 +6545,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         await _splitTableCell();
       case _EditorContextMenuAction.splitCellInto:
         await _splitTableCellInto();
+      case _EditorContextMenuAction.tableProperties:
+        await _showTablePropertiesDialog();
       case _EditorContextMenuAction.deleteObject:
         await _deleteSelectedObject();
       case _EditorContextMenuAction.bringObjectToFront:
@@ -6607,6 +6692,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           action: _EditorContextMenuAction.splitCellInto,
           icon: Icons.grid_4x4_outlined,
           label: '셀 나누기...',
+          enabled: !_busy,
+        ),
+        _contextMenuItem(
+          action: _EditorContextMenuAction.tableProperties,
+          icon: Icons.tune,
+          label: '표 속성',
           enabled: !_busy,
         ),
       ];
@@ -7978,6 +8069,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onMergeTableCells: _mergeTableCells,
           onSplitTableCell: _splitTableCell,
           onSplitTableCellInto: _splitTableCellInto,
+          onTableProperties: _showTablePropertiesDialog,
           onCellFillColor: (fillColor) =>
               _applyTableCellStyle(fillColor: fillColor),
           onCellBorder: () => _applyTableCellStyle(
@@ -10172,6 +10264,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onMergeTableCells,
     required this.onSplitTableCell,
     required this.onSplitTableCellInto,
+    required this.onTableProperties,
     required this.onCellFillColor,
     required this.onCellBorder,
     required this.onClearCellFill,
@@ -10291,6 +10384,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onMergeTableCells;
   final VoidCallback onSplitTableCell;
   final VoidCallback onSplitTableCellInto;
+  final VoidCallback onTableProperties;
   final ValueChanged<String> onCellFillColor;
   final VoidCallback onCellBorder;
   final VoidCallback onClearCellFill;
@@ -11338,6 +11432,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               icon: Icons.grid_4x4_outlined,
               onPressed: widget.busy ? null : widget.onSplitTableCellInto,
             ),
+            _ToolbarIconButton(
+              tooltip: 'Table properties',
+              buttonKey: const ValueKey('rhwp-editor-table-properties'),
+              icon: Icons.tune,
+              onPressed: widget.busy ? null : widget.onTableProperties,
+            ),
           ],
         ),
       ),
@@ -11719,6 +11819,197 @@ class _SplitTableCellIntoDialogState extends State<_SplitTableCellIntoDialog> {
       return 1;
     }
     return math.min(parsed, max);
+  }
+}
+
+class _TablePropertiesDialog extends StatefulWidget {
+  const _TablePropertiesDialog({required this.properties});
+
+  final RhwpTableProperties properties;
+
+  @override
+  State<_TablePropertiesDialog> createState() => _TablePropertiesDialogState();
+}
+
+class _TablePropertiesDialogState extends State<_TablePropertiesDialog> {
+  late final TextEditingController _cellSpacingController;
+  late final TextEditingController _paddingLeftController;
+  late final TextEditingController _paddingRightController;
+  late final TextEditingController _paddingTopController;
+  late final TextEditingController _paddingBottomController;
+  late int _pageBreak;
+  late bool _repeatHeader;
+
+  @override
+  void initState() {
+    super.initState();
+    final properties = widget.properties;
+    _cellSpacingController = TextEditingController(
+      text: _initialValue(properties.cellSpacing),
+    );
+    _paddingLeftController = TextEditingController(
+      text: _initialValue(properties.paddingLeft),
+    );
+    _paddingRightController = TextEditingController(
+      text: _initialValue(properties.paddingRight),
+    );
+    _paddingTopController = TextEditingController(
+      text: _initialValue(properties.paddingTop),
+    );
+    _paddingBottomController = TextEditingController(
+      text: _initialValue(properties.paddingBottom),
+    );
+    _pageBreak = (properties.pageBreak ?? 0).clamp(0, 2);
+    _repeatHeader = properties.repeatHeader ?? false;
+  }
+
+  @override
+  void dispose() {
+    _cellSpacingController.dispose();
+    _paddingLeftController.dispose();
+    _paddingRightController.dispose();
+    _paddingTopController.dispose();
+    _paddingBottomController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('표 속성'),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _numberField(
+                key: const ValueKey('rhwp-table-cell-spacing-field'),
+                label: 'Cell spacing',
+                controller: _cellSpacingController,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _numberField(
+                      key: const ValueKey('rhwp-table-padding-left-field'),
+                      label: 'Padding left',
+                      controller: _paddingLeftController,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _numberField(
+                      key: const ValueKey('rhwp-table-padding-right-field'),
+                      label: 'Padding right',
+                      controller: _paddingRightController,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _numberField(
+                      key: const ValueKey('rhwp-table-padding-top-field'),
+                      label: 'Padding top',
+                      controller: _paddingTopController,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _numberField(
+                      key: const ValueKey('rhwp-table-padding-bottom-field'),
+                      label: 'Padding bottom',
+                      controller: _paddingBottomController,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int>(
+                key: const ValueKey('rhwp-table-page-break-field'),
+                initialValue: _pageBreak,
+                decoration: const InputDecoration(
+                  labelText: 'Page break',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                items: const [
+                  DropdownMenuItem(value: 0, child: Text('None')),
+                  DropdownMenuItem(value: 1, child: Text('Cell break')),
+                  DropdownMenuItem(value: 2, child: Text('Row break')),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _pageBreak = value);
+                  }
+                },
+              ),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                key: const ValueKey('rhwp-table-repeat-header-field'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Repeat header row'),
+                value: _repeatHeader,
+                onChanged: (value) => setState(() => _repeatHeader = value),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const ValueKey('rhwp-table-properties-apply'),
+          onPressed: _apply,
+          child: const Text('Apply'),
+        ),
+      ],
+    );
+  }
+
+  Widget _numberField({
+    required Key key,
+    required String label,
+    required TextEditingController controller,
+  }) {
+    return TextField(
+      key: key,
+      controller: controller,
+      keyboardType: TextInputType.number,
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+        isDense: true,
+      ),
+    );
+  }
+
+  void _apply() {
+    Navigator.of(context).pop(
+      _TablePropertiesDialogResult(
+        cellSpacing: _readNonNegative(_cellSpacingController),
+        paddingLeft: _readNonNegative(_paddingLeftController),
+        paddingRight: _readNonNegative(_paddingRightController),
+        paddingTop: _readNonNegative(_paddingTopController),
+        paddingBottom: _readNonNegative(_paddingBottomController),
+        pageBreak: _pageBreak,
+        repeatHeader: _repeatHeader,
+      ),
+    );
+  }
+
+  String _initialValue(int? value) => (value ?? 0).toString();
+
+  int _readNonNegative(TextEditingController controller) {
+    final parsed = int.tryParse(controller.text.trim()) ?? 0;
+    return math.max(0, math.min(parsed, 32767));
   }
 }
 
