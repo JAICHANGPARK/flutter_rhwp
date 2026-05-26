@@ -2030,7 +2030,7 @@ mod tests {
             .expect("discard snapshot command should be accepted");
         session
             .apply_command(
-                r##"{"type":"applyCharFormat","section":0,"paragraph":0,"startOffset":0,"endOffset":2,"properties":{"bold":true,"italic":true,"underline":true,"strikethrough":true,"fontSize":1250,"textColor":"#dc2626"}}"##
+                r##"{"type":"applyCharFormat","section":0,"paragraph":0,"startOffset":0,"endOffset":2,"properties":{"bold":true,"italic":true,"underline":true,"strikethrough":true,"fontSize":1250,"textColor":"#dc2626","shadeColor":"#fef08a"}}"##
                     .to_string(),
             )
             .expect("apply char format command should be accepted");

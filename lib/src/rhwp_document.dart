@@ -398,6 +398,7 @@ abstract class RhwpCommand {
     bool? strikethrough,
     int? fontSize,
     String? textColor,
+    String? shadeColor,
   }) = RhwpApplyCharFormatInTableCellCommand;
 
   factory RhwpCommand.deleteRange({
@@ -601,6 +602,7 @@ abstract class RhwpCommand {
     bool? strikethrough,
     int? fontSize,
     String? textColor,
+    String? shadeColor,
   }) = RhwpApplyCharFormatCommand;
 
   factory RhwpCommand.applyCharFormatRange({
@@ -615,6 +617,7 @@ abstract class RhwpCommand {
     bool? strikethrough,
     int? fontSize,
     String? textColor,
+    String? shadeColor,
   }) = RhwpApplyCharFormatRangeCommand;
 
   factory RhwpCommand.applyParaFormat({
@@ -874,6 +877,7 @@ class RhwpApplyCharFormatInTableCellCommand extends RhwpCommand {
     this.strikethrough,
     this.fontSize,
     this.textColor,
+    this.shadeColor,
   });
 
   final int section;
@@ -889,6 +893,7 @@ class RhwpApplyCharFormatInTableCellCommand extends RhwpCommand {
   final bool? strikethrough;
   final int? fontSize;
   final String? textColor;
+  final String? shadeColor;
 
   @override
   Map<String, Object?> toJson() => {
@@ -907,6 +912,7 @@ class RhwpApplyCharFormatInTableCellCommand extends RhwpCommand {
       if (strikethrough != null) 'strikethrough': strikethrough,
       if (fontSize != null) 'fontSize': fontSize,
       if (textColor != null) 'textColor': textColor,
+      if (shadeColor != null) 'shadeColor': shadeColor,
     },
   };
 }
@@ -1539,6 +1545,7 @@ class RhwpApplyCharFormatCommand extends RhwpCommand {
     this.strikethrough,
     this.fontSize,
     this.textColor,
+    this.shadeColor,
   });
 
   final int section;
@@ -1551,6 +1558,7 @@ class RhwpApplyCharFormatCommand extends RhwpCommand {
   final bool? strikethrough;
   final int? fontSize;
   final String? textColor;
+  final String? shadeColor;
 
   @override
   Map<String, Object?> toJson() => {
@@ -1566,6 +1574,7 @@ class RhwpApplyCharFormatCommand extends RhwpCommand {
       if (strikethrough != null) 'strikethrough': strikethrough,
       if (fontSize != null) 'fontSize': fontSize,
       if (textColor != null) 'textColor': textColor,
+      if (shadeColor != null) 'shadeColor': shadeColor,
     },
   };
 }
@@ -1583,6 +1592,7 @@ class RhwpApplyCharFormatRangeCommand extends RhwpCommand {
     this.strikethrough,
     this.fontSize,
     this.textColor,
+    this.shadeColor,
   });
 
   final int section;
@@ -1596,6 +1606,7 @@ class RhwpApplyCharFormatRangeCommand extends RhwpCommand {
   final bool? strikethrough;
   final int? fontSize;
   final String? textColor;
+  final String? shadeColor;
 
   @override
   Map<String, Object?> toJson() => {
@@ -1612,6 +1623,7 @@ class RhwpApplyCharFormatRangeCommand extends RhwpCommand {
       if (strikethrough != null) 'strikethrough': strikethrough,
       if (fontSize != null) 'fontSize': fontSize,
       if (textColor != null) 'textColor': textColor,
+      if (shadeColor != null) 'shadeColor': shadeColor,
     },
   };
 }
@@ -2356,6 +2368,7 @@ class RhwpDocument {
     bool? strikethrough,
     int? fontSize,
     String? textColor,
+    String? shadeColor,
   }) {
     return apply(
       RhwpCommand.applyCharFormatInTableCell(
@@ -2372,6 +2385,7 @@ class RhwpDocument {
         strikethrough: strikethrough,
         fontSize: fontSize,
         textColor: textColor,
+        shadeColor: shadeColor,
       ),
     );
   }
@@ -2817,6 +2831,7 @@ class RhwpDocument {
     bool? strikethrough,
     int? fontSize,
     String? textColor,
+    String? shadeColor,
   }) {
     return apply(
       RhwpCommand.applyCharFormat(
@@ -2830,6 +2845,7 @@ class RhwpDocument {
         strikethrough: strikethrough,
         fontSize: fontSize,
         textColor: textColor,
+        shadeColor: shadeColor,
       ),
     );
   }
@@ -2846,6 +2862,7 @@ class RhwpDocument {
     bool? strikethrough,
     int? fontSize,
     String? textColor,
+    String? shadeColor,
   }) {
     return apply(
       RhwpCommand.applyCharFormatRange(
@@ -2860,6 +2877,7 @@ class RhwpDocument {
         strikethrough: strikethrough,
         fontSize: fontSize,
         textColor: textColor,
+        shadeColor: shadeColor,
       ),
     );
   }

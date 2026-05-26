@@ -305,6 +305,7 @@ void main() {
             bold: true,
             fontSize: 1100,
             textColor: '#2563eb',
+            shadeColor: '#fef08a',
           ).toJson(),
         ),
       ),
@@ -317,7 +318,12 @@ void main() {
         'cellParagraph': 0,
         'startOffset': 1,
         'endOffset': 4,
-        'properties': {'bold': true, 'fontSize': 1100, 'textColor': '#2563eb'},
+        'properties': {
+          'bold': true,
+          'fontSize': 1100,
+          'textColor': '#2563eb',
+          'shadeColor': '#fef08a',
+        },
       },
     );
     expect(
@@ -620,6 +626,7 @@ void main() {
       strikethrough: true,
       fontSize: 1250,
       textColor: '#dc2626',
+      shadeColor: '#fef08a',
     );
 
     expect(jsonDecode(jsonEncode(command.toJson())), {
@@ -635,6 +642,7 @@ void main() {
         'strikethrough': true,
         'fontSize': 1250,
         'textColor': '#dc2626',
+        'shadeColor': '#fef08a',
       },
     });
   });
@@ -652,6 +660,7 @@ void main() {
         strikethrough: true,
         fontSize: 1100,
         textColor: '#2563eb',
+        shadeColor: '#dbeafe',
       );
 
       expect(jsonDecode(jsonEncode(command.toJson())), {
@@ -666,6 +675,7 @@ void main() {
           'strikethrough': true,
           'fontSize': 1100,
           'textColor': '#2563eb',
+          'shadeColor': '#dbeafe',
         },
       });
     },
@@ -1037,6 +1047,7 @@ void main() {
       bold: true,
       fontSize: 1200,
       textColor: '#16a34a',
+      shadeColor: '#dcfce7',
     );
 
     expect(jsonDecode(session.lastCommandJson!), {
@@ -1045,7 +1056,12 @@ void main() {
       'paragraph': 1,
       'startOffset': 2,
       'endOffset': 4,
-      'properties': {'bold': true, 'fontSize': 1200, 'textColor': '#16a34a'},
+      'properties': {
+        'bold': true,
+        'fontSize': 1200,
+        'textColor': '#16a34a',
+        'shadeColor': '#dcfce7',
+      },
     });
 
     await document.applyCharFormatRange(

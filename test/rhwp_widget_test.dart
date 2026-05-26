@@ -5031,6 +5031,22 @@ void main() {
       'endOffset': 3,
       'properties': {'textColor': '#2563eb'},
     });
+
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-shade-color-#fef08a')),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 3);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'applyCharFormatRange',
+      'section': 0,
+      'startParagraph': 0,
+      'startOffset': 1,
+      'endParagraph': 0,
+      'endOffset': 3,
+      'properties': {'shadeColor': '#fef08a'},
+    });
   });
 
   testWidgets(
@@ -5133,6 +5149,9 @@ void main() {
       await tester.tap(
         find.byKey(const ValueKey('rhwp-editor-text-color-#2563eb')),
       );
+      await tester.tap(
+        find.byKey(const ValueKey('rhwp-editor-shade-color-#fef08a')),
+      );
       await tester.pump();
 
       expect(changedCalls, 0);
@@ -5178,6 +5197,7 @@ void main() {
             'bold': true,
             'fontSize': 1450,
             'textColor': '#2563eb',
+            'shadeColor': '#fef08a',
           },
         },
       ]);
@@ -5228,6 +5248,9 @@ void main() {
     await tester.tap(
       find.byKey(const ValueKey('rhwp-editor-text-color-#2563eb')),
     );
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-shade-color-#fef08a')),
+    );
     await tester.pump();
 
     expect(changedCalls, 0);
@@ -5264,7 +5287,12 @@ void main() {
         'startOffset': 2,
         'endParagraph': 0,
         'endOffset': 3,
-        'properties': {'bold': true, 'fontSize': 1450, 'textColor': '#2563eb'},
+        'properties': {
+          'bold': true,
+          'fontSize': 1450,
+          'textColor': '#2563eb',
+          'shadeColor': '#fef08a',
+        },
       },
     ]);
 
@@ -5320,6 +5348,13 @@ void main() {
     await tester.tap(
       find.byKey(const ValueKey('rhwp-char-shape-color-#dc2626')),
     );
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-char-shape-shade-#dbeafe')),
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-char-shape-shade-#dbeafe')),
+    );
     await tester.tap(find.byKey(const ValueKey('rhwp-char-shape-apply')));
     await _pumpDocumentFrame(tester);
 
@@ -5338,6 +5373,7 @@ void main() {
         'strikethrough': true,
         'fontSize': 1250,
         'textColor': '#dc2626',
+        'shadeColor': '#dbeafe',
       },
     });
   });

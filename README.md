@@ -212,8 +212,9 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   Tab text insertion, multiline clipboard paste as paragraph insertion,
   multi-paragraph selection
   replacement, multi-paragraph selected-text bold/italic/underline/strike
-  formatting, inline font size and text color controls, a character shape dialog
-  for font size and text color, collapsed-selection pending character
+  formatting, inline font size, text color, and text background controls, a
+  character shape dialog for font size, text color, and text background,
+  collapsed-selection pending character
   formatting for the next inserted body text, paragraph alignment commands and
   Ctrl/Cmd+L/E/R/J alignment shortcuts, a paragraph
   shape dialog for line spacing, indent, and paragraph margins, header/footer

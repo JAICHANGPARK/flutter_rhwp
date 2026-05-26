@@ -530,6 +530,7 @@ class _CharShapeDialogResult {
     required this.strikethrough,
     required this.fontSize,
     required this.textColor,
+    required this.shadeColor,
   });
 
   final bool bold;
@@ -538,6 +539,7 @@ class _CharShapeDialogResult {
   final bool strikethrough;
   final int fontSize;
   final String textColor;
+  final String shadeColor;
 }
 
 class _PendingCharFormat {
@@ -548,6 +550,7 @@ class _PendingCharFormat {
     this.strikethrough,
     this.fontSize,
     this.textColor,
+    this.shadeColor,
   });
 
   final bool? bold;
@@ -556,6 +559,7 @@ class _PendingCharFormat {
   final bool? strikethrough;
   final int? fontSize;
   final String? textColor;
+  final String? shadeColor;
 
   bool get isEmpty =>
       bold == null &&
@@ -563,7 +567,8 @@ class _PendingCharFormat {
       underline == null &&
       strikethrough == null &&
       fontSize == null &&
-      textColor == null;
+      textColor == null &&
+      shadeColor == null;
 
   _PendingCharFormat merge({
     bool? bold,
@@ -572,6 +577,7 @@ class _PendingCharFormat {
     bool? strikethrough,
     int? fontSize,
     String? textColor,
+    String? shadeColor,
   }) {
     return _PendingCharFormat(
       bold: bold == null ? this.bold : _toggleBool(this.bold, bold),
@@ -584,6 +590,7 @@ class _PendingCharFormat {
           : _toggleBool(this.strikethrough, strikethrough),
       fontSize: fontSize ?? this.fontSize,
       textColor: textColor ?? this.textColor,
+      shadeColor: shadeColor ?? this.shadeColor,
     );
   }
 
@@ -1016,6 +1023,14 @@ const _charColorSwatches = [
   (label: '빨강', color: Color(0xffdc2626), value: '#dc2626'),
   (label: '파랑', color: Color(0xff2563eb), value: '#2563eb'),
   (label: '초록', color: Color(0xff16a34a), value: '#16a34a'),
+];
+
+const _charShadeSwatches = [
+  (label: '없음', color: Color(0xffffffff), value: '#ffffff'),
+  (label: '노랑', color: Color(0xfffef08a), value: '#fef08a'),
+  (label: '파랑', color: Color(0xffdbeafe), value: '#dbeafe'),
+  (label: '초록', color: Color(0xffdcfce7), value: '#dcfce7'),
+  (label: '분홍', color: Color(0xffffe4e6), value: '#ffe4e6'),
 ];
 
 const _cellFillSwatches = [
@@ -1682,6 +1697,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       strikethrough: pending.strikethrough,
       fontSize: pending.fontSize,
       textColor: pending.textColor,
+      shadeColor: pending.shadeColor,
     );
   }
 
@@ -1715,6 +1731,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       strikethrough: pending.strikethrough,
       fontSize: pending.fontSize,
       textColor: pending.textColor,
+      shadeColor: pending.shadeColor,
     );
   }
 
@@ -3056,6 +3073,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     bool? strikethrough,
     int? fontSize,
     String? textColor,
+    String? shadeColor,
   }) async {
     if (_busy) {
       return;
@@ -3071,6 +3089,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           strikethrough: strikethrough,
           fontSize: fontSize,
           textColor: textColor,
+          shadeColor: shadeColor,
         );
         return;
       }
@@ -3091,6 +3110,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           strikethrough: strikethrough,
           fontSize: fontSize,
           textColor: textColor,
+          shadeColor: shadeColor,
         );
         return;
       }
@@ -3111,6 +3131,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
             strikethrough: strikethrough,
             fontSize: fontSize,
             textColor: textColor,
+            shadeColor: shadeColor,
           );
         }
         _controller.tableCellSelection = tableSelection;
@@ -3127,6 +3148,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         strikethrough: strikethrough,
         fontSize: fontSize,
         textColor: textColor,
+        shadeColor: shadeColor,
       );
       return;
     }
@@ -3150,6 +3172,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         strikethrough: strikethrough,
         fontSize: fontSize,
         textColor: textColor,
+        shadeColor: shadeColor,
       );
       _controller.selection = RhwpSelectionRange(start: start, end: end);
     });
@@ -3162,6 +3185,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     bool? strikethrough,
     int? fontSize,
     String? textColor,
+    String? shadeColor,
   }) {
     setState(() {
       _pendingCharFormat = _pendingCharFormat.merge(
@@ -3171,6 +3195,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         strikethrough: strikethrough,
         fontSize: fontSize,
         textColor: textColor,
+        shadeColor: shadeColor,
       );
     });
   }
@@ -3197,6 +3222,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       strikethrough: result.strikethrough,
       fontSize: result.fontSize,
       textColor: result.textColor,
+      shadeColor: result.shadeColor,
     );
   }
 
@@ -7129,6 +7155,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onStrikethrough: () => _applyCharFormat(strikethrough: true),
           onFontSize: (fontSize) => _applyCharFormat(fontSize: fontSize),
           onTextColor: (textColor) => _applyCharFormat(textColor: textColor),
+          onShadeColor: (shadeColor) =>
+              _applyCharFormat(shadeColor: shadeColor),
           onCharShape: _showCharShapeDialog,
           onParaShape: _showParaShapeDialog,
           onStylePicker: _showStylePicker,
@@ -9169,6 +9197,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onStrikethrough,
     required this.onFontSize,
     required this.onTextColor,
+    required this.onShadeColor,
     required this.onCharShape,
     required this.onParaShape,
     required this.onStylePicker,
@@ -9272,6 +9301,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onStrikethrough;
   final ValueChanged<int> onFontSize;
   final ValueChanged<String> onTextColor;
+  final ValueChanged<String> onShadeColor;
   final VoidCallback onCharShape;
   final VoidCallback onParaShape;
   final VoidCallback onStylePicker;
@@ -9307,6 +9337,7 @@ class _EditorToolbarState extends State<_EditorToolbar> {
   var _activeTab = _EditorTab.insert;
   final _toolbarFontSizeController = TextEditingController(text: '10.0');
   var _toolbarTextColor = '#000000';
+  var _toolbarShadeColor = '#ffffff';
 
   void activateTab(_EditorTab tab) {
     if (_activeTab == tab) {
@@ -9855,6 +9886,20 @@ class _EditorToolbarState extends State<_EditorToolbar> {
                     ? null
                     : () => _applyToolbarTextColor(swatch.value),
               ),
+            const SizedBox(width: 8),
+            for (final swatch in _charShadeSwatches)
+              _ColorSwatchButton(
+                key: ValueKey('rhwp-editor-shade-color-${swatch.value}'),
+                tooltip: 'Text background ${swatch.label}',
+                color: swatch.color,
+                selected:
+                    (widget.pendingCharFormat.shadeColor ??
+                        _toolbarShadeColor) ==
+                    swatch.value,
+                onPressed: widget.busy
+                    ? null
+                    : () => _applyToolbarShadeColor(swatch.value),
+              ),
             _ToolbarIconButton(
               tooltip: 'Character shape',
               buttonKey: const ValueKey('rhwp-editor-character-shape'),
@@ -9911,6 +9956,13 @@ class _EditorToolbarState extends State<_EditorToolbar> {
       _toolbarTextColor = value;
     });
     widget.onTextColor(value);
+  }
+
+  void _applyToolbarShadeColor(String value) {
+    setState(() {
+      _toolbarShadeColor = value;
+    });
+    widget.onShadeColor(value);
   }
 
   List<Widget> _pageGroups() {
@@ -10757,6 +10809,7 @@ class _CharShapeDialogState extends State<_CharShapeDialog> {
   var _underline = false;
   var _strikethrough = false;
   var _textColor = '#000000';
+  var _shadeColor = '#ffffff';
 
   @override
   void dispose() {
@@ -10770,98 +10823,146 @@ class _CharShapeDialogState extends State<_CharShapeDialog> {
       title: const Text('글자 모양'),
       content: SizedBox(
         width: 360,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              key: const ValueKey('rhwp-char-shape-font-size-field'),
-              controller: _fontSizeController,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                key: const ValueKey('rhwp-char-shape-font-size-field'),
+                controller: _fontSizeController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'Font size',
+                  suffixText: 'pt',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
               ),
-              decoration: const InputDecoration(
-                labelText: 'Font size',
-                suffixText: 'pt',
-                border: OutlineInputBorder(),
-                isDense: true,
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  FilterChip(
+                    key: const ValueKey('rhwp-char-shape-bold'),
+                    selected: _bold,
+                    label: const Text('Bold'),
+                    avatar: const Icon(Icons.format_bold),
+                    onSelected: (value) => setState(() => _bold = value),
+                  ),
+                  FilterChip(
+                    key: const ValueKey('rhwp-char-shape-italic'),
+                    selected: _italic,
+                    label: const Text('Italic'),
+                    avatar: const Icon(Icons.format_italic),
+                    onSelected: (value) => setState(() => _italic = value),
+                  ),
+                  FilterChip(
+                    key: const ValueKey('rhwp-char-shape-underline'),
+                    selected: _underline,
+                    label: const Text('Underline'),
+                    avatar: const Icon(Icons.format_underlined),
+                    onSelected: (value) => setState(() => _underline = value),
+                  ),
+                  FilterChip(
+                    key: const ValueKey('rhwp-char-shape-strikethrough'),
+                    selected: _strikethrough,
+                    label: const Text('Strike'),
+                    avatar: const Icon(Icons.format_strikethrough),
+                    onSelected: (value) =>
+                        setState(() => _strikethrough = value),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: [
-                FilterChip(
-                  key: const ValueKey('rhwp-char-shape-bold'),
-                  selected: _bold,
-                  label: const Text('Bold'),
-                  avatar: const Icon(Icons.format_bold),
-                  onSelected: (value) => setState(() => _bold = value),
-                ),
-                FilterChip(
-                  key: const ValueKey('rhwp-char-shape-italic'),
-                  selected: _italic,
-                  label: const Text('Italic'),
-                  avatar: const Icon(Icons.format_italic),
-                  onSelected: (value) => setState(() => _italic = value),
-                ),
-                FilterChip(
-                  key: const ValueKey('rhwp-char-shape-underline'),
-                  selected: _underline,
-                  label: const Text('Underline'),
-                  avatar: const Icon(Icons.format_underlined),
-                  onSelected: (value) => setState(() => _underline = value),
-                ),
-                FilterChip(
-                  key: const ValueKey('rhwp-char-shape-strikethrough'),
-                  selected: _strikethrough,
-                  label: const Text('Strike'),
-                  avatar: const Icon(Icons.format_strikethrough),
-                  onSelected: (value) => setState(() => _strikethrough = value),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text('Text color', style: Theme.of(context).textTheme.labelMedium),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [
-                for (final swatch in _charColorSwatches)
-                  Tooltip(
-                    message: swatch.label,
-                    child: InkWell(
-                      key: ValueKey('rhwp-char-shape-color-${swatch.value}'),
-                      borderRadius: BorderRadius.circular(18),
-                      onTap: () {
-                        setState(() {
-                          _textColor = swatch.value;
-                        });
-                      },
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: _textColor == swatch.value
-                                ? Theme.of(context).colorScheme.primary
-                                : Theme.of(context).dividerColor,
-                            width: _textColor == swatch.value ? 3 : 1,
+              const SizedBox(height: 16),
+              Text(
+                'Text color',
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  for (final swatch in _charColorSwatches)
+                    Tooltip(
+                      message: swatch.label,
+                      child: InkWell(
+                        key: ValueKey('rhwp-char-shape-color-${swatch.value}'),
+                        borderRadius: BorderRadius.circular(18),
+                        onTap: () {
+                          setState(() {
+                            _textColor = swatch.value;
+                          });
+                        },
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: _textColor == swatch.value
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(context).dividerColor,
+                              width: _textColor == swatch.value ? 3 : 1,
+                            ),
                           ),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: CircleAvatar(
-                            radius: 12,
-                            backgroundColor: swatch.color,
+                          child: Padding(
+                            padding: const EdgeInsets.all(4),
+                            child: CircleAvatar(
+                              radius: 12,
+                              backgroundColor: swatch.color,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-              ],
-            ),
-          ],
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Text background',
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  for (final swatch in _charShadeSwatches)
+                    Tooltip(
+                      message: swatch.label,
+                      child: InkWell(
+                        key: ValueKey('rhwp-char-shape-shade-${swatch.value}'),
+                        borderRadius: BorderRadius.circular(18),
+                        onTap: () {
+                          setState(() {
+                            _shadeColor = swatch.value;
+                          });
+                        },
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: _shadeColor == swatch.value
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(context).dividerColor,
+                              width: _shadeColor == swatch.value ? 3 : 1,
+                            ),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(4),
+                            child: CircleAvatar(
+                              radius: 12,
+                              backgroundColor: swatch.color,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
       actions: [
@@ -10887,6 +10988,7 @@ class _CharShapeDialogState extends State<_CharShapeDialog> {
         strikethrough: _strikethrough,
         fontSize: _hwpFontSizeFromPointText(_fontSizeController.text),
         textColor: _textColor,
+        shadeColor: _shadeColor,
       ),
     );
   }
