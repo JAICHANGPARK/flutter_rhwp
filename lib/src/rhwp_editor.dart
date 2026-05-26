@@ -561,6 +561,7 @@ class _CharShapeDialogResult {
     required this.subscript,
     required this.emboss,
     required this.engrave,
+    required this.fontFamily,
     required this.fontSize,
     required this.textColor,
     required this.shadeColor,
@@ -574,6 +575,7 @@ class _CharShapeDialogResult {
   final bool subscript;
   final bool emboss;
   final bool engrave;
+  final String fontFamily;
   final int fontSize;
   final String textColor;
   final String shadeColor;
@@ -589,6 +591,7 @@ class _PendingCharFormat {
     this.subscript,
     this.emboss,
     this.engrave,
+    this.fontFamily,
     this.fontSize,
     this.textColor,
     this.shadeColor,
@@ -602,6 +605,7 @@ class _PendingCharFormat {
   final bool? subscript;
   final bool? emboss;
   final bool? engrave;
+  final String? fontFamily;
   final int? fontSize;
   final String? textColor;
   final String? shadeColor;
@@ -615,6 +619,7 @@ class _PendingCharFormat {
       subscript == null &&
       emboss == null &&
       engrave == null &&
+      fontFamily == null &&
       fontSize == null &&
       textColor == null &&
       shadeColor == null;
@@ -628,6 +633,7 @@ class _PendingCharFormat {
     bool? subscript,
     bool? emboss,
     bool? engrave,
+    String? fontFamily,
     int? fontSize,
     String? textColor,
     String? shadeColor,
@@ -653,6 +659,7 @@ class _PendingCharFormat {
       engrave: engrave == null
           ? (emboss == true ? false : this.engrave)
           : _toggleBool(this.engrave, engrave),
+      fontFamily: fontFamily ?? this.fontFamily,
       fontSize: fontSize ?? this.fontSize,
       textColor: textColor ?? this.textColor,
       shadeColor: shadeColor ?? this.shadeColor,
@@ -1096,6 +1103,21 @@ const _charShadeSwatches = [
   (label: '파랑', color: Color(0xffdbeafe), value: '#dbeafe'),
   (label: '초록', color: Color(0xffdcfce7), value: '#dcfce7'),
   (label: '분홍', color: Color(0xffffe4e6), value: '#ffe4e6'),
+];
+
+const _fontFamilyOptions = [
+  '함초롬바탕',
+  '함초롬돋움',
+  '맑은 고딕',
+  '돋움',
+  '굴림',
+  '바탕',
+  'HY헤드라인M',
+  'HY견고딕',
+  'HY그래픽',
+  'HY견명조',
+  'Arial',
+  'Times New Roman',
 ];
 
 const _cellFillSwatches = [
@@ -1775,6 +1797,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       subscript: pending.subscript,
       emboss: pending.emboss,
       engrave: pending.engrave,
+      fontFamily: pending.fontFamily,
       fontSize: pending.fontSize,
       textColor: pending.textColor,
       shadeColor: pending.shadeColor,
@@ -1813,6 +1836,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       subscript: pending.subscript,
       emboss: pending.emboss,
       engrave: pending.engrave,
+      fontFamily: pending.fontFamily,
       fontSize: pending.fontSize,
       textColor: pending.textColor,
       shadeColor: pending.shadeColor,
@@ -3159,6 +3183,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     bool? subscript,
     bool? emboss,
     bool? engrave,
+    String? fontFamily,
     int? fontSize,
     String? textColor,
     String? shadeColor,
@@ -3179,6 +3204,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           subscript: subscript,
           emboss: emboss,
           engrave: engrave,
+          fontFamily: fontFamily,
           fontSize: fontSize,
           textColor: textColor,
           shadeColor: shadeColor,
@@ -3204,6 +3230,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           subscript: subscript,
           emboss: emboss,
           engrave: engrave,
+          fontFamily: fontFamily,
           fontSize: fontSize,
           textColor: textColor,
           shadeColor: shadeColor,
@@ -3229,6 +3256,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
             subscript: subscript,
             emboss: emboss,
             engrave: engrave,
+            fontFamily: fontFamily,
             fontSize: fontSize,
             textColor: textColor,
             shadeColor: shadeColor,
@@ -3250,6 +3278,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         subscript: subscript,
         emboss: emboss,
         engrave: engrave,
+        fontFamily: fontFamily,
         fontSize: fontSize,
         textColor: textColor,
         shadeColor: shadeColor,
@@ -3278,6 +3307,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         subscript: subscript,
         emboss: emboss,
         engrave: engrave,
+        fontFamily: fontFamily,
         fontSize: fontSize,
         textColor: textColor,
         shadeColor: shadeColor,
@@ -3295,6 +3325,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     bool? subscript,
     bool? emboss,
     bool? engrave,
+    String? fontFamily,
     int? fontSize,
     String? textColor,
     String? shadeColor,
@@ -3309,6 +3340,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         subscript: subscript,
         emboss: emboss,
         engrave: engrave,
+        fontFamily: fontFamily,
         fontSize: fontSize,
         textColor: textColor,
         shadeColor: shadeColor,
@@ -3340,6 +3372,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       subscript: result.subscript,
       emboss: result.emboss,
       engrave: result.engrave,
+      fontFamily: result.fontFamily,
       fontSize: result.fontSize,
       textColor: result.textColor,
       shadeColor: result.shadeColor,
@@ -7362,6 +7395,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
               _applyCharFormat(subscript: true, superscript: false),
           onEmboss: () => _applyCharFormat(emboss: true, engrave: false),
           onEngrave: () => _applyCharFormat(engrave: true, emboss: false),
+          onFontFamily: (fontFamily) =>
+              _applyCharFormat(fontFamily: fontFamily),
           onFontSize: (fontSize) => _applyCharFormat(fontSize: fontSize),
           onTextColor: (textColor) => _applyCharFormat(textColor: textColor),
           onShadeColor: (shadeColor) =>
@@ -9513,6 +9548,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onSubscript,
     required this.onEmboss,
     required this.onEngrave,
+    required this.onFontFamily,
     required this.onFontSize,
     required this.onTextColor,
     required this.onShadeColor,
@@ -9624,6 +9660,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onSubscript;
   final VoidCallback onEmboss;
   final VoidCallback onEngrave;
+  final ValueChanged<String> onFontFamily;
   final ValueChanged<int> onFontSize;
   final ValueChanged<String> onTextColor;
   final ValueChanged<String> onShadeColor;
@@ -9663,6 +9700,7 @@ class _EditorToolbar extends StatefulWidget {
 class _EditorToolbarState extends State<_EditorToolbar> {
   var _activeTab = _EditorTab.insert;
   final _toolbarFontSizeController = TextEditingController(text: '10.0');
+  var _toolbarFontFamily = _fontFamilyOptions.first;
   var _toolbarTextColor = '#000000';
   var _toolbarShadeColor = '#ffffff';
 
@@ -10212,6 +10250,31 @@ class _EditorToolbarState extends State<_EditorToolbar> {
             ),
             const SizedBox(width: 6),
             SizedBox(
+              width: 150,
+              child: DropdownButtonFormField<String>(
+                key: const ValueKey('rhwp-editor-font-family-field'),
+                initialValue:
+                    widget.pendingCharFormat.fontFamily ?? _toolbarFontFamily,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  for (final family in _fontFamilyOptions)
+                    DropdownMenuItem(value: family, child: Text(family)),
+                ],
+                onChanged: widget.busy
+                    ? null
+                    : (value) {
+                        if (value != null) {
+                          _applyToolbarFontFamily(value);
+                        }
+                      },
+              ),
+            ),
+            const SizedBox(width: 6),
+            SizedBox(
               width: 86,
               child: TextField(
                 key: const ValueKey('rhwp-editor-font-size-field'),
@@ -10313,6 +10376,13 @@ class _EditorToolbarState extends State<_EditorToolbar> {
     widget.onFontSize(
       _hwpFontSizeFromPointText(_toolbarFontSizeController.text),
     );
+  }
+
+  void _applyToolbarFontFamily(String value) {
+    setState(() {
+      _toolbarFontFamily = value;
+    });
+    widget.onFontFamily(value);
   }
 
   void _applyToolbarTextColor(String value) {
@@ -11209,6 +11279,7 @@ class _CharShapeDialog extends StatefulWidget {
 
 class _CharShapeDialogState extends State<_CharShapeDialog> {
   final _fontSizeController = TextEditingController(text: '10.0');
+  var _fontFamily = _fontFamilyOptions.first;
   var _bold = false;
   var _italic = false;
   var _underline = false;
@@ -11237,6 +11308,26 @@ class _CharShapeDialogState extends State<_CharShapeDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              DropdownButtonFormField<String>(
+                key: const ValueKey('rhwp-char-shape-font-family-field'),
+                initialValue: _fontFamily,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Font family',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                items: [
+                  for (final family in _fontFamilyOptions)
+                    DropdownMenuItem(value: family, child: Text(family)),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _fontFamily = value);
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
               TextField(
                 key: const ValueKey('rhwp-char-shape-font-size-field'),
                 controller: _fontSizeController,
@@ -11455,6 +11546,7 @@ class _CharShapeDialogState extends State<_CharShapeDialog> {
         subscript: _subscript,
         emboss: _emboss,
         engrave: _engrave,
+        fontFamily: _fontFamily,
         fontSize: _hwpFontSizeFromPointText(_fontSizeController.text),
         textColor: _textColor,
         shadeColor: _shadeColor,

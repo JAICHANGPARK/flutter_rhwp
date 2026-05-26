@@ -5211,6 +5211,28 @@ void main() {
     await tester.pump();
 
     await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-font-family-field')),
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-font-family-field')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('맑은 고딕').last);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.single), {
+      'type': 'applyCharFormatRange',
+      'section': 0,
+      'startParagraph': 0,
+      'startOffset': 1,
+      'endParagraph': 0,
+      'endOffset': 3,
+      'properties': {'fontFamily': '맑은 고딕'},
+    });
+
+    await tester.ensureVisible(
       find.byKey(const ValueKey('rhwp-editor-font-size-field')),
     );
     await tester.pump();
@@ -5221,8 +5243,8 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('rhwp-editor-apply-font-size')));
     await _pumpDocumentFrame(tester);
 
-    expect(changedCalls, 1);
-    expect(jsonDecode(session.commands.single), {
+    expect(changedCalls, 2);
+    expect(jsonDecode(session.commands.last), {
       'type': 'applyCharFormatRange',
       'section': 0,
       'startParagraph': 0,
@@ -5237,7 +5259,7 @@ void main() {
     );
     await _pumpDocumentFrame(tester);
 
-    expect(changedCalls, 2);
+    expect(changedCalls, 3);
     expect(jsonDecode(session.commands.last), {
       'type': 'applyCharFormatRange',
       'section': 0,
@@ -5253,7 +5275,7 @@ void main() {
     );
     await _pumpDocumentFrame(tester);
 
-    expect(changedCalls, 3);
+    expect(changedCalls, 4);
     expect(jsonDecode(session.commands.last), {
       'type': 'applyCharFormatRange',
       'section': 0,
@@ -5267,7 +5289,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('rhwp-editor-superscript')));
     await _pumpDocumentFrame(tester);
 
-    expect(changedCalls, 4);
+    expect(changedCalls, 5);
     expect(jsonDecode(session.commands.last), {
       'type': 'applyCharFormatRange',
       'section': 0,
@@ -5281,7 +5303,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('rhwp-editor-subscript')));
     await _pumpDocumentFrame(tester);
 
-    expect(changedCalls, 5);
+    expect(changedCalls, 6);
     expect(jsonDecode(session.commands.last), {
       'type': 'applyCharFormatRange',
       'section': 0,
@@ -5295,7 +5317,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('rhwp-editor-emboss')));
     await _pumpDocumentFrame(tester);
 
-    expect(changedCalls, 6);
+    expect(changedCalls, 7);
     expect(jsonDecode(session.commands.last), {
       'type': 'applyCharFormatRange',
       'section': 0,
@@ -5309,7 +5331,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('rhwp-editor-engrave')));
     await _pumpDocumentFrame(tester);
 
-    expect(changedCalls, 7);
+    expect(changedCalls, 8);
     expect(jsonDecode(session.commands.last), {
       'type': 'applyCharFormatRange',
       'section': 0,
@@ -5621,6 +5643,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(AlertDialog), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-char-shape-font-family-field')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('맑은 고딕').last);
+    await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey('rhwp-char-shape-font-size-field')),
       '12.5',
@@ -5661,6 +5689,7 @@ void main() {
         'subscript': false,
         'emboss': true,
         'engrave': false,
+        'fontFamily': '맑은 고딕',
         'fontSize': 1250,
         'textColor': '#dc2626',
         'shadeColor': '#dbeafe',

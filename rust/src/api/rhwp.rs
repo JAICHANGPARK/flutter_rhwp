@@ -619,7 +619,8 @@ impl RhwpSession {
                 end_offset,
                 properties,
             } => {
-                let properties_json = properties.to_string();
+                let properties_json =
+                    char_properties_json_with_font_ids(&mut inner.document, properties)?;
                 inner
                     .document
                     .apply_char_format_native(
@@ -639,7 +640,8 @@ impl RhwpSession {
                 end_offset,
                 properties,
             } => {
-                let properties_json = properties.to_string();
+                let properties_json =
+                    char_properties_json_with_font_ids(&mut inner.document, properties)?;
                 inner
                     .document
                     .apply_char_format_range_native(
@@ -662,7 +664,8 @@ impl RhwpSession {
                 end_offset,
                 properties,
             } => {
-                let properties_json = properties.to_string();
+                let properties_json =
+                    char_properties_json_with_font_ids(&mut inner.document, properties)?;
                 inner
                     .document
                     .apply_char_format_in_cell_native(
@@ -1367,6 +1370,38 @@ fn delete_object_control(
     ))
 }
 
+fn char_properties_json_with_font_ids(
+    document: &mut HwpDocument,
+    mut properties: serde_json::Value,
+) -> Result<String, String> {
+    let Some(font_family) = properties
+        .get("fontFamily")
+        .and_then(|value| value.as_str())
+    else {
+        return Ok(properties.to_string());
+    };
+    let font_family = font_family.trim();
+    if font_family.is_empty() {
+        return Ok(properties.to_string());
+    }
+
+    let font_id = document.find_or_create_font_id_native(font_family);
+    if font_id < 0 {
+        return Err(format!("failed to resolve font family '{font_family}'"));
+    }
+    let font_id = font_id as u16;
+    let Some(object) = properties.as_object_mut() else {
+        return Err("character format properties must be a JSON object".to_string());
+    };
+    object.insert("fontId".to_string(), serde_json::json!(font_id));
+    object.insert(
+        "fontIds".to_string(),
+        serde_json::json!([font_id, font_id, font_id, font_id, font_id, font_id, font_id]),
+    );
+
+    Ok(properties.to_string())
+}
+
 fn change_object_z_order(
     document: &mut HwpDocument,
     section: usize,
@@ -2030,7 +2065,7 @@ mod tests {
             .expect("discard snapshot command should be accepted");
         session
             .apply_command(
-                r##"{"type":"applyCharFormat","section":0,"paragraph":0,"startOffset":0,"endOffset":2,"properties":{"bold":true,"italic":true,"underline":true,"strikethrough":true,"superscript":true,"subscript":false,"emboss":true,"engrave":false,"fontSize":1250,"textColor":"#dc2626","shadeColor":"#fef08a"}}"##
+                r##"{"type":"applyCharFormat","section":0,"paragraph":0,"startOffset":0,"endOffset":2,"properties":{"bold":true,"italic":true,"underline":true,"strikethrough":true,"superscript":true,"subscript":false,"emboss":true,"engrave":false,"fontFamily":"맑은 고딕","fontSize":1250,"textColor":"#dc2626","shadeColor":"#fef08a"}}"##
                     .to_string(),
             )
             .expect("apply char format command should be accepted");

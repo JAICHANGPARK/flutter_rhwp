@@ -673,8 +673,8 @@ impl DocumentCore {
         }
         self.apply_char_mods_to_paragraph(sec_idx, para_idx, start_offset, end_offset, &mods);
 
-        // 글꼴 크기 변경 시 LineSeg 재계산 (line_height, baseline_distance 갱신)
-        if mods.base_size.is_some() {
+        // 글꼴 크기/패밀리 변경 시 LineSeg 재계산 (line_height, baseline_distance 갱신)
+        if mods.base_size.is_some() || mods.font_id.is_some() || mods.font_ids.is_some() {
             let styles = resolve_styles(&self.document.doc_info, self.dpi);
             let section = &self.document.sections[sec_idx];
             let page_def = &section.section_def.page_def;
@@ -788,8 +788,8 @@ impl DocumentCore {
             cell_para.apply_char_shape_range(start_offset, end_offset, new_id);
         }
 
-        // 글꼴 크기 변경 시 셀 내 LineSeg 재계산
-        if mods.base_size.is_some() {
+        // 글꼴 크기/패밀리 변경 시 셀 내 LineSeg 재계산
+        if mods.base_size.is_some() || mods.font_id.is_some() || mods.font_ids.is_some() {
             let dpi = self.dpi;
             let styles = resolve_styles(&self.document.doc_info, dpi);
             let section = &self.document.sections[sec_idx];
