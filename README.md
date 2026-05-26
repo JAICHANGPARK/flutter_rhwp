@@ -255,7 +255,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   after every keystroke. Text-input commits wait for the active input action or
   connection close before `editRefreshDelay` starts; on desktop, automatic
   delayed `TextInputAction.done` events are ignored while the editor still has
-  focus, and transient desktop focus/IME churn gets a short grace window before
+  focus, and transient desktop focus/IME churn, including temporary external
+  primary-focus changes during a text commit, gets a short grace window before
   deferred page refresh is released. Rapid input commits are queued while
   previous edit commands finish.
   Committed text is shown through a

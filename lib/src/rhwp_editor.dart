@@ -5277,6 +5277,21 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     return !_isEditorRelatedFocusContext(focusContext);
   }
 
+  bool get _hasExternalPrimaryFocusEndingTextInput {
+    if (!_hasExternalPrimaryFocus) {
+      return false;
+    }
+    return !_shouldTreatExternalFocusAsDesktopTextInputChurn;
+  }
+
+  bool get _shouldTreatExternalFocusAsDesktopTextInputChurn {
+    return _isDesktopTextInputPlatform &&
+        (_pendingTextInputCommits > 0 ||
+            _hasActiveTextInputConnection ||
+            _hasPendingDesktopTextInputFocusRelease ||
+            _desktopTextInputCommitHoldActive);
+  }
+
   bool _isEditorRelatedFocusContext(BuildContext focusContext) {
     return identical(focusContext, context) ||
         _hasAncestorContext(focusContext, context) ||
@@ -5299,7 +5314,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     return _isDesktopTextInputPlatform &&
         _hasDeferredEditRefresh &&
         _hasPendingOptimisticTextEdit &&
-        !_hasExternalPrimaryFocus &&
+        !_hasExternalPrimaryFocusEndingTextInput &&
         (_focusNode.hasFocus ||
             _hasActiveTextInputConnection ||
             _hasPendingDesktopTextInputFocusRelease ||
@@ -5310,7 +5325,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     return _isDesktopTextInputPlatform &&
         _hasDeferredEditRefresh &&
         _hasPendingOptimisticTextEdit &&
-        !_hasExternalPrimaryFocus &&
+        !_hasExternalPrimaryFocusEndingTextInput &&
         (_deferredEditRefreshAwaitsTextInput ||
             _hasScheduledDeferredEditRefresh ||
             _pendingTextInputCommits > 0);
@@ -5428,7 +5443,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return true;
     }
 
-    if (_hasExternalPrimaryFocus) {
+    if (_hasExternalPrimaryFocusEndingTextInput) {
       return false;
     }
 
@@ -5452,7 +5467,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return true;
     }
 
-    if (_hasExternalPrimaryFocus) {
+    if (_hasExternalPrimaryFocusEndingTextInput) {
       return false;
     }
 
