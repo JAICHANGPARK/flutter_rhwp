@@ -306,6 +306,8 @@ void main() {
             fontSize: 1100,
             superscript: true,
             subscript: false,
+            emboss: true,
+            engrave: false,
             textColor: '#2563eb',
             shadeColor: '#fef08a',
           ).toJson(),
@@ -325,6 +327,8 @@ void main() {
           'fontSize': 1100,
           'superscript': true,
           'subscript': false,
+          'emboss': true,
+          'engrave': false,
           'textColor': '#2563eb',
           'shadeColor': '#fef08a',
         },
@@ -630,6 +634,8 @@ void main() {
       strikethrough: true,
       superscript: true,
       subscript: false,
+      emboss: true,
+      engrave: false,
       fontSize: 1250,
       textColor: '#dc2626',
       shadeColor: '#fef08a',
@@ -648,6 +654,8 @@ void main() {
         'strikethrough': true,
         'superscript': true,
         'subscript': false,
+        'emboss': true,
+        'engrave': false,
         'fontSize': 1250,
         'textColor': '#dc2626',
         'shadeColor': '#fef08a',
@@ -668,6 +676,8 @@ void main() {
         strikethrough: true,
         superscript: false,
         subscript: true,
+        emboss: false,
+        engrave: true,
         fontSize: 1100,
         textColor: '#2563eb',
         shadeColor: '#dbeafe',
@@ -685,6 +695,8 @@ void main() {
           'strikethrough': true,
           'superscript': false,
           'subscript': true,
+          'emboss': false,
+          'engrave': true,
           'fontSize': 1100,
           'textColor': '#2563eb',
           'shadeColor': '#dbeafe',
@@ -1059,6 +1071,8 @@ void main() {
       bold: true,
       superscript: true,
       subscript: false,
+      emboss: true,
+      engrave: false,
       fontSize: 1200,
       textColor: '#16a34a',
       shadeColor: '#dcfce7',
@@ -1074,6 +1088,8 @@ void main() {
         'bold': true,
         'superscript': true,
         'subscript': false,
+        'emboss': true,
+        'engrave': false,
         'fontSize': 1200,
         'textColor': '#16a34a',
         'shadeColor': '#dcfce7',
@@ -1088,6 +1104,8 @@ void main() {
       endOffset: 4,
       italic: true,
       strikethrough: true,
+      emboss: false,
+      engrave: true,
     );
 
     expect(jsonDecode(session.lastCommandJson!), {
@@ -1097,7 +1115,12 @@ void main() {
       'startOffset': 2,
       'endParagraph': 3,
       'endOffset': 4,
-      'properties': {'italic': true, 'strikethrough': true},
+      'properties': {
+        'italic': true,
+        'strikethrough': true,
+        'emboss': false,
+        'engrave': true,
+      },
     });
 
     await document.applyParaFormat(
@@ -1403,6 +1426,8 @@ void main() {
       bold: true,
       fontSize: 1100,
       textColor: '#2563eb',
+      emboss: true,
+      engrave: false,
     );
 
     expect(jsonDecode(session.lastCommandJson!), {
@@ -1414,7 +1439,13 @@ void main() {
       'cellParagraph': 0,
       'startOffset': 0,
       'endOffset': 4,
-      'properties': {'bold': true, 'fontSize': 1100, 'textColor': '#2563eb'},
+      'properties': {
+        'bold': true,
+        'fontSize': 1100,
+        'textColor': '#2563eb',
+        'emboss': true,
+        'engrave': false,
+      },
     });
 
     await document.applyTableCellStyle(

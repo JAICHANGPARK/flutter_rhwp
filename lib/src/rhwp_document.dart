@@ -398,6 +398,8 @@ abstract class RhwpCommand {
     bool? strikethrough,
     bool? superscript,
     bool? subscript,
+    bool? emboss,
+    bool? engrave,
     int? fontSize,
     String? textColor,
     String? shadeColor,
@@ -604,6 +606,8 @@ abstract class RhwpCommand {
     bool? strikethrough,
     bool? superscript,
     bool? subscript,
+    bool? emboss,
+    bool? engrave,
     int? fontSize,
     String? textColor,
     String? shadeColor,
@@ -621,6 +625,8 @@ abstract class RhwpCommand {
     bool? strikethrough,
     bool? superscript,
     bool? subscript,
+    bool? emboss,
+    bool? engrave,
     int? fontSize,
     String? textColor,
     String? shadeColor,
@@ -883,6 +889,8 @@ class RhwpApplyCharFormatInTableCellCommand extends RhwpCommand {
     this.strikethrough,
     this.superscript,
     this.subscript,
+    this.emboss,
+    this.engrave,
     this.fontSize,
     this.textColor,
     this.shadeColor,
@@ -901,6 +909,8 @@ class RhwpApplyCharFormatInTableCellCommand extends RhwpCommand {
   final bool? strikethrough;
   final bool? superscript;
   final bool? subscript;
+  final bool? emboss;
+  final bool? engrave;
   final int? fontSize;
   final String? textColor;
   final String? shadeColor;
@@ -922,6 +932,8 @@ class RhwpApplyCharFormatInTableCellCommand extends RhwpCommand {
       if (strikethrough != null) 'strikethrough': strikethrough,
       if (superscript != null) 'superscript': superscript,
       if (subscript != null) 'subscript': subscript,
+      if (emboss != null) 'emboss': emboss,
+      if (engrave != null) 'engrave': engrave,
       if (fontSize != null) 'fontSize': fontSize,
       if (textColor != null) 'textColor': textColor,
       if (shadeColor != null) 'shadeColor': shadeColor,
@@ -1557,6 +1569,8 @@ class RhwpApplyCharFormatCommand extends RhwpCommand {
     this.strikethrough,
     this.superscript,
     this.subscript,
+    this.emboss,
+    this.engrave,
     this.fontSize,
     this.textColor,
     this.shadeColor,
@@ -1572,6 +1586,8 @@ class RhwpApplyCharFormatCommand extends RhwpCommand {
   final bool? strikethrough;
   final bool? superscript;
   final bool? subscript;
+  final bool? emboss;
+  final bool? engrave;
   final int? fontSize;
   final String? textColor;
   final String? shadeColor;
@@ -1590,6 +1606,8 @@ class RhwpApplyCharFormatCommand extends RhwpCommand {
       if (strikethrough != null) 'strikethrough': strikethrough,
       if (superscript != null) 'superscript': superscript,
       if (subscript != null) 'subscript': subscript,
+      if (emboss != null) 'emboss': emboss,
+      if (engrave != null) 'engrave': engrave,
       if (fontSize != null) 'fontSize': fontSize,
       if (textColor != null) 'textColor': textColor,
       if (shadeColor != null) 'shadeColor': shadeColor,
@@ -1610,6 +1628,8 @@ class RhwpApplyCharFormatRangeCommand extends RhwpCommand {
     this.strikethrough,
     this.superscript,
     this.subscript,
+    this.emboss,
+    this.engrave,
     this.fontSize,
     this.textColor,
     this.shadeColor,
@@ -1626,6 +1646,8 @@ class RhwpApplyCharFormatRangeCommand extends RhwpCommand {
   final bool? strikethrough;
   final bool? superscript;
   final bool? subscript;
+  final bool? emboss;
+  final bool? engrave;
   final int? fontSize;
   final String? textColor;
   final String? shadeColor;
@@ -1645,6 +1667,8 @@ class RhwpApplyCharFormatRangeCommand extends RhwpCommand {
       if (strikethrough != null) 'strikethrough': strikethrough,
       if (superscript != null) 'superscript': superscript,
       if (subscript != null) 'subscript': subscript,
+      if (emboss != null) 'emboss': emboss,
+      if (engrave != null) 'engrave': engrave,
       if (fontSize != null) 'fontSize': fontSize,
       if (textColor != null) 'textColor': textColor,
       if (shadeColor != null) 'shadeColor': shadeColor,
@@ -2392,6 +2416,8 @@ class RhwpDocument {
     bool? strikethrough,
     bool? superscript,
     bool? subscript,
+    bool? emboss,
+    bool? engrave,
     int? fontSize,
     String? textColor,
     String? shadeColor,
@@ -2411,6 +2437,8 @@ class RhwpDocument {
         strikethrough: strikethrough,
         superscript: superscript,
         subscript: subscript,
+        emboss: emboss,
+        engrave: engrave,
         fontSize: fontSize,
         textColor: textColor,
         shadeColor: shadeColor,
@@ -2859,6 +2887,8 @@ class RhwpDocument {
     bool? strikethrough,
     bool? superscript,
     bool? subscript,
+    bool? emboss,
+    bool? engrave,
     int? fontSize,
     String? textColor,
     String? shadeColor,
@@ -2875,6 +2905,8 @@ class RhwpDocument {
         strikethrough: strikethrough,
         superscript: superscript,
         subscript: subscript,
+        emboss: emboss,
+        engrave: engrave,
         fontSize: fontSize,
         textColor: textColor,
         shadeColor: shadeColor,
@@ -2894,6 +2926,8 @@ class RhwpDocument {
     bool? strikethrough,
     bool? superscript,
     bool? subscript,
+    bool? emboss,
+    bool? engrave,
     int? fontSize,
     String? textColor,
     String? shadeColor,
@@ -2911,6 +2945,8 @@ class RhwpDocument {
         strikethrough: strikethrough,
         superscript: superscript,
         subscript: subscript,
+        emboss: emboss,
+        engrave: engrave,
         fontSize: fontSize,
         textColor: textColor,
         shadeColor: shadeColor,

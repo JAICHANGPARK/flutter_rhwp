@@ -530,6 +530,8 @@ class _CharShapeDialogResult {
     required this.strikethrough,
     required this.superscript,
     required this.subscript,
+    required this.emboss,
+    required this.engrave,
     required this.fontSize,
     required this.textColor,
     required this.shadeColor,
@@ -541,6 +543,8 @@ class _CharShapeDialogResult {
   final bool strikethrough;
   final bool superscript;
   final bool subscript;
+  final bool emboss;
+  final bool engrave;
   final int fontSize;
   final String textColor;
   final String shadeColor;
@@ -554,6 +558,8 @@ class _PendingCharFormat {
     this.strikethrough,
     this.superscript,
     this.subscript,
+    this.emboss,
+    this.engrave,
     this.fontSize,
     this.textColor,
     this.shadeColor,
@@ -565,6 +571,8 @@ class _PendingCharFormat {
   final bool? strikethrough;
   final bool? superscript;
   final bool? subscript;
+  final bool? emboss;
+  final bool? engrave;
   final int? fontSize;
   final String? textColor;
   final String? shadeColor;
@@ -576,6 +584,8 @@ class _PendingCharFormat {
       strikethrough == null &&
       superscript == null &&
       subscript == null &&
+      emboss == null &&
+      engrave == null &&
       fontSize == null &&
       textColor == null &&
       shadeColor == null;
@@ -587,6 +597,8 @@ class _PendingCharFormat {
     bool? strikethrough,
     bool? superscript,
     bool? subscript,
+    bool? emboss,
+    bool? engrave,
     int? fontSize,
     String? textColor,
     String? shadeColor,
@@ -606,6 +618,12 @@ class _PendingCharFormat {
       subscript: subscript == null
           ? (superscript == true ? false : this.subscript)
           : _toggleBool(this.subscript, subscript),
+      emboss: emboss == null
+          ? (engrave == true ? false : this.emboss)
+          : _toggleBool(this.emboss, emboss),
+      engrave: engrave == null
+          ? (emboss == true ? false : this.engrave)
+          : _toggleBool(this.engrave, engrave),
       fontSize: fontSize ?? this.fontSize,
       textColor: textColor ?? this.textColor,
       shadeColor: shadeColor ?? this.shadeColor,
@@ -1715,6 +1733,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       strikethrough: pending.strikethrough,
       superscript: pending.superscript,
       subscript: pending.subscript,
+      emboss: pending.emboss,
+      engrave: pending.engrave,
       fontSize: pending.fontSize,
       textColor: pending.textColor,
       shadeColor: pending.shadeColor,
@@ -1751,6 +1771,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       strikethrough: pending.strikethrough,
       superscript: pending.superscript,
       subscript: pending.subscript,
+      emboss: pending.emboss,
+      engrave: pending.engrave,
       fontSize: pending.fontSize,
       textColor: pending.textColor,
       shadeColor: pending.shadeColor,
@@ -3095,6 +3117,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     bool? strikethrough,
     bool? superscript,
     bool? subscript,
+    bool? emboss,
+    bool? engrave,
     int? fontSize,
     String? textColor,
     String? shadeColor,
@@ -3113,6 +3137,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           strikethrough: strikethrough,
           superscript: superscript,
           subscript: subscript,
+          emboss: emboss,
+          engrave: engrave,
           fontSize: fontSize,
           textColor: textColor,
           shadeColor: shadeColor,
@@ -3136,6 +3162,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           strikethrough: strikethrough,
           superscript: superscript,
           subscript: subscript,
+          emboss: emboss,
+          engrave: engrave,
           fontSize: fontSize,
           textColor: textColor,
           shadeColor: shadeColor,
@@ -3159,6 +3187,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
             strikethrough: strikethrough,
             superscript: superscript,
             subscript: subscript,
+            emboss: emboss,
+            engrave: engrave,
             fontSize: fontSize,
             textColor: textColor,
             shadeColor: shadeColor,
@@ -3178,6 +3208,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         strikethrough: strikethrough,
         superscript: superscript,
         subscript: subscript,
+        emboss: emboss,
+        engrave: engrave,
         fontSize: fontSize,
         textColor: textColor,
         shadeColor: shadeColor,
@@ -3204,6 +3236,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         strikethrough: strikethrough,
         superscript: superscript,
         subscript: subscript,
+        emboss: emboss,
+        engrave: engrave,
         fontSize: fontSize,
         textColor: textColor,
         shadeColor: shadeColor,
@@ -3219,6 +3253,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     bool? strikethrough,
     bool? superscript,
     bool? subscript,
+    bool? emboss,
+    bool? engrave,
     int? fontSize,
     String? textColor,
     String? shadeColor,
@@ -3231,6 +3267,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         strikethrough: strikethrough,
         superscript: superscript,
         subscript: subscript,
+        emboss: emboss,
+        engrave: engrave,
         fontSize: fontSize,
         textColor: textColor,
         shadeColor: shadeColor,
@@ -3260,6 +3298,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       strikethrough: result.strikethrough,
       superscript: result.superscript,
       subscript: result.subscript,
+      emboss: result.emboss,
+      engrave: result.engrave,
       fontSize: result.fontSize,
       textColor: result.textColor,
       shadeColor: result.shadeColor,
@@ -7197,6 +7237,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
               _applyCharFormat(superscript: true, subscript: false),
           onSubscript: () =>
               _applyCharFormat(subscript: true, superscript: false),
+          onEmboss: () => _applyCharFormat(emboss: true, engrave: false),
+          onEngrave: () => _applyCharFormat(engrave: true, emboss: false),
           onFontSize: (fontSize) => _applyCharFormat(fontSize: fontSize),
           onTextColor: (textColor) => _applyCharFormat(textColor: textColor),
           onShadeColor: (shadeColor) =>
@@ -9241,6 +9283,8 @@ class _EditorToolbar extends StatefulWidget {
     required this.onStrikethrough,
     required this.onSuperscript,
     required this.onSubscript,
+    required this.onEmboss,
+    required this.onEngrave,
     required this.onFontSize,
     required this.onTextColor,
     required this.onShadeColor,
@@ -9347,6 +9391,8 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onStrikethrough;
   final VoidCallback onSuperscript;
   final VoidCallback onSubscript;
+  final VoidCallback onEmboss;
+  final VoidCallback onEngrave;
   final ValueChanged<int> onFontSize;
   final ValueChanged<String> onTextColor;
   final ValueChanged<String> onShadeColor;
@@ -9907,6 +9953,20 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               icon: Icons.subscript,
               selected: widget.pendingCharFormat.subscript == true,
               onPressed: widget.busy ? null : widget.onSubscript,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Emboss',
+              buttonKey: const ValueKey('rhwp-editor-emboss'),
+              icon: Icons.layers_outlined,
+              selected: widget.pendingCharFormat.emboss == true,
+              onPressed: widget.busy ? null : widget.onEmboss,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Engrave',
+              buttonKey: const ValueKey('rhwp-editor-engrave'),
+              icon: Icons.layers_clear_outlined,
+              selected: widget.pendingCharFormat.engrave == true,
+              onPressed: widget.busy ? null : widget.onEngrave,
             ),
             const SizedBox(width: 6),
             SizedBox(
@@ -10872,6 +10932,8 @@ class _CharShapeDialogState extends State<_CharShapeDialog> {
   var _strikethrough = false;
   var _superscript = false;
   var _subscript = false;
+  var _emboss = false;
+  var _engrave = false;
   var _textColor = '#000000';
   var _shadeColor = '#ffffff';
 
@@ -10963,6 +11025,34 @@ class _CharShapeDialogState extends State<_CharShapeDialog> {
                         _subscript = value;
                         if (value) {
                           _superscript = false;
+                        }
+                      });
+                    },
+                  ),
+                  FilterChip(
+                    key: const ValueKey('rhwp-char-shape-emboss'),
+                    selected: _emboss,
+                    label: const Text('Emboss'),
+                    avatar: const Icon(Icons.layers_outlined),
+                    onSelected: (value) {
+                      setState(() {
+                        _emboss = value;
+                        if (value) {
+                          _engrave = false;
+                        }
+                      });
+                    },
+                  ),
+                  FilterChip(
+                    key: const ValueKey('rhwp-char-shape-engrave'),
+                    selected: _engrave,
+                    label: const Text('Engrave'),
+                    avatar: const Icon(Icons.layers_clear_outlined),
+                    onSelected: (value) {
+                      setState(() {
+                        _engrave = value;
+                        if (value) {
+                          _emboss = false;
                         }
                       });
                     },
@@ -11080,6 +11170,8 @@ class _CharShapeDialogState extends State<_CharShapeDialog> {
         strikethrough: _strikethrough,
         superscript: _superscript,
         subscript: _subscript,
+        emboss: _emboss,
+        engrave: _engrave,
         fontSize: _hwpFontSizeFromPointText(_fontSizeController.text),
         textColor: _textColor,
         shadeColor: _shadeColor,

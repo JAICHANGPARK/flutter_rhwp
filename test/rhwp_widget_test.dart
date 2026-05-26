@@ -5075,6 +5075,34 @@ void main() {
       'endOffset': 3,
       'properties': {'superscript': false, 'subscript': true},
     });
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-emboss')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 6);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'applyCharFormatRange',
+      'section': 0,
+      'startParagraph': 0,
+      'startOffset': 1,
+      'endParagraph': 0,
+      'endOffset': 3,
+      'properties': {'emboss': true, 'engrave': false},
+    });
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-engrave')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 7);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'applyCharFormatRange',
+      'section': 0,
+      'startParagraph': 0,
+      'startOffset': 1,
+      'endParagraph': 0,
+      'endOffset': 3,
+      'properties': {'emboss': false, 'engrave': true},
+    });
   });
 
   testWidgets(
@@ -5181,6 +5209,7 @@ void main() {
         find.byKey(const ValueKey('rhwp-editor-shade-color-#fef08a')),
       );
       await tester.tap(find.byKey(const ValueKey('rhwp-editor-superscript')));
+      await tester.tap(find.byKey(const ValueKey('rhwp-editor-emboss')));
       await tester.pump();
 
       expect(changedCalls, 0);
@@ -5229,6 +5258,8 @@ void main() {
             'shadeColor': '#fef08a',
             'superscript': true,
             'subscript': false,
+            'emboss': true,
+            'engrave': false,
           },
         },
       ]);
@@ -5283,6 +5314,7 @@ void main() {
       find.byKey(const ValueKey('rhwp-editor-shade-color-#fef08a')),
     );
     await tester.tap(find.byKey(const ValueKey('rhwp-editor-superscript')));
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-emboss')));
     await tester.pump();
 
     expect(changedCalls, 0);
@@ -5326,6 +5358,8 @@ void main() {
           'shadeColor': '#fef08a',
           'superscript': true,
           'subscript': false,
+          'emboss': true,
+          'engrave': false,
         },
       },
     ]);
@@ -5380,6 +5414,7 @@ void main() {
       find.byKey(const ValueKey('rhwp-char-shape-strikethrough')),
     );
     await tester.tap(find.byKey(const ValueKey('rhwp-char-shape-superscript')));
+    await tester.tap(find.byKey(const ValueKey('rhwp-char-shape-emboss')));
     await tester.tap(
       find.byKey(const ValueKey('rhwp-char-shape-color-#dc2626')),
     );
@@ -5408,6 +5443,8 @@ void main() {
         'strikethrough': true,
         'superscript': true,
         'subscript': false,
+        'emboss': true,
+        'engrave': false,
         'fontSize': 1250,
         'textColor': '#dc2626',
         'shadeColor': '#dbeafe',

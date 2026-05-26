@@ -23,6 +23,8 @@
   text, table-cell text, pending input, and the character-shape dialog.
 * Added Flutter-native superscript/subscript character formatting from the
   format ribbon, pending input, and character-shape dialog.
+* Added Flutter-native emboss/engrave character formatting from the format
+  ribbon, pending input, and character-shape dialog.
 * Kept Flutter-native editor deferred page refresh blocked when desktop text
   input focus briefly drops and returns during typing.
 * Initial flutter_rhwp plugin scaffold.
