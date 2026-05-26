@@ -221,7 +221,7 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   superscript, subscript, emboss, and engrave,
   collapsed-selection pending character
   formatting for the next inserted body text, paragraph alignment commands and
-  Ctrl/Cmd+L/E/R/J alignment shortcuts, a paragraph
+  line-spacing presets, Ctrl/Cmd+L/E/R/J alignment shortcuts, a paragraph
   shape dialog for line spacing, indent, and paragraph margins, header/footer
   creation from the page ribbon,
   snapshot-backed undo/redo from the edit ribbon, layer-tree text search with

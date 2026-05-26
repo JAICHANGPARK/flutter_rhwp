@@ -1120,6 +1120,8 @@ const _fontFamilyOptions = [
   'Times New Roman',
 ];
 
+const _lineSpacingPresets = [100, 120, 130, 140, 150, 160, 180, 200, 250, 300];
+
 const _cellFillSwatches = [
   (label: '노랑', color: Color(0xfffef08a), value: '#fef08a'),
   (label: '파랑', color: Color(0xffdbeafe), value: '#dbeafe'),
@@ -7408,6 +7410,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onAlignCenter: () => _applyParagraphAlignment('center'),
           onAlignRight: () => _applyParagraphAlignment('right'),
           onAlignJustify: () => _applyParagraphAlignment('justify'),
+          onLineSpacing: (lineSpacing) => _applyParagraphFormat(
+            lineSpacing: lineSpacing,
+            lineSpacingType: 'Percent',
+          ),
           onFind: _runSearch,
           onSearchTextChanged: _handleSearchInputChanged,
           onSearchPrevious: _searchPrevious,
@@ -9559,6 +9565,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onAlignCenter,
     required this.onAlignRight,
     required this.onAlignJustify,
+    required this.onLineSpacing,
     required this.onFind,
     required this.onSearchTextChanged,
     required this.onSearchPrevious,
@@ -9671,6 +9678,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onAlignCenter;
   final VoidCallback onAlignRight;
   final VoidCallback onAlignJustify;
+  final ValueChanged<int> onLineSpacing;
   final VoidCallback onFind;
   final ValueChanged<String> onSearchTextChanged;
   final VoidCallback onSearchPrevious;
@@ -9701,6 +9709,7 @@ class _EditorToolbarState extends State<_EditorToolbar> {
   var _activeTab = _EditorTab.insert;
   final _toolbarFontSizeController = TextEditingController(text: '10.0');
   var _toolbarFontFamily = _fontFamilyOptions.first;
+  var _toolbarLineSpacing = 160;
   var _toolbarTextColor = '#000000';
   var _toolbarShadeColor = '#ffffff';
 
@@ -10360,6 +10369,31 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               icon: Icons.format_align_justify,
               onPressed: widget.busy ? null : widget.onAlignJustify,
             ),
+            const SizedBox(width: 6),
+            SizedBox(
+              width: 98,
+              child: DropdownButtonFormField<int>(
+                key: const ValueKey('rhwp-editor-line-spacing-field'),
+                initialValue: _toolbarLineSpacing,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                  suffixText: '%',
+                ),
+                items: [
+                  for (final spacing in _lineSpacingPresets)
+                    DropdownMenuItem(value: spacing, child: Text('$spacing')),
+                ],
+                onChanged: widget.busy
+                    ? null
+                    : (value) {
+                        if (value != null) {
+                          _applyToolbarLineSpacing(value);
+                        }
+                      },
+              ),
+            ),
             _ToolbarIconButton(
               tooltip: 'Paragraph shape',
               buttonKey: const ValueKey('rhwp-editor-paragraph-shape'),
@@ -10383,6 +10417,13 @@ class _EditorToolbarState extends State<_EditorToolbar> {
       _toolbarFontFamily = value;
     });
     widget.onFontFamily(value);
+  }
+
+  void _applyToolbarLineSpacing(int value) {
+    setState(() {
+      _toolbarLineSpacing = value;
+    });
+    widget.onLineSpacing(value);
   }
 
   void _applyToolbarTextColor(String value) {

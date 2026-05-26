@@ -46,6 +46,7 @@
 * Added Flutter-native font family selection to the format ribbon and character
   shape dialog, backed by rhwp font id registration and char-layout reflow
   through the Rust facade.
+* Added upstream-style line-spacing presets to the Flutter-native format ribbon.
 * Kept Flutter-native editor deferred page refresh blocked when desktop text
   input focus briefly drops and returns during typing.
 * Initial flutter_rhwp plugin scaffold.
