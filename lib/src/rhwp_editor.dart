@@ -10360,7 +10360,9 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               tooltip: 'Zoom out',
               buttonKey: const ValueKey('rhwp-editor-toolbar-zoom-out'),
               icon: Icons.zoom_out,
-              onPressed: widget.zoom <= 0.25 ? null : widget.onZoomOut,
+              onPressed: widget.zoom <= RhwpViewerController.minZoom
+                  ? null
+                  : widget.onZoomOut,
             ),
             SizedBox(
               width: 52,
@@ -10382,7 +10384,9 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               tooltip: 'Zoom in',
               buttonKey: const ValueKey('rhwp-editor-toolbar-zoom-in'),
               icon: Icons.zoom_in,
-              onPressed: widget.zoom >= 6.0 ? null : widget.onZoomIn,
+              onPressed: widget.zoom >= RhwpViewerController.maxZoom
+                  ? null
+                  : widget.onZoomIn,
             ),
           ],
         ),
@@ -13566,7 +13570,9 @@ class _EditorStatusBar extends StatelessWidget {
                 tooltip: 'Zoom out',
                 buttonKey: const ValueKey('rhwp-editor-status-zoom-out'),
                 icon: Icons.zoom_out,
-                onPressed: zoom <= 0.25 ? null : onZoomOut,
+                onPressed: zoom <= RhwpViewerController.minZoom
+                    ? null
+                    : onZoomOut,
               ),
               SizedBox(
                 width: 48,
@@ -13583,7 +13589,9 @@ class _EditorStatusBar extends StatelessWidget {
                 tooltip: 'Zoom in',
                 buttonKey: const ValueKey('rhwp-editor-status-zoom-in'),
                 icon: Icons.zoom_in,
-                onPressed: zoom >= 6.0 ? null : onZoomIn,
+                onPressed: zoom >= RhwpViewerController.maxZoom
+                    ? null
+                    : onZoomIn,
               ),
               const SizedBox(width: 8),
             ],

@@ -26,7 +26,12 @@ Widget _defaultRhwpSvgBuilder(BuildContext context, String svg) {
 
 class RhwpViewerController extends ChangeNotifier {
   RhwpViewerController({double zoom = 1.0})
-    : _zoom = zoom.clamp(0.25, 6.0).toDouble();
+    : _zoom = zoom.clamp(minZoom, maxZoom).toDouble();
+
+  static const zoomSteps = <double>[0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0];
+  static const minZoom = 0.25;
+  static const maxZoom = 3.0;
+  static const _zoomEpsilon = 0.0001;
 
   double _zoom;
   int _currentPage = 0;
@@ -36,7 +41,7 @@ class RhwpViewerController extends ChangeNotifier {
   double get zoom => _zoom;
 
   set zoom(double value) {
-    final next = value.clamp(0.25, 6.0).toDouble();
+    final next = value.clamp(minZoom, maxZoom).toDouble();
     if (next == _zoom) {
       return;
     }
@@ -44,11 +49,29 @@ class RhwpViewerController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void zoomIn() => zoom = _zoom + 0.25;
+  void zoomIn() => zoom = _nextZoomStep();
 
-  void zoomOut() => zoom = _zoom - 0.25;
+  void zoomOut() => zoom = _previousZoomStep();
 
   void resetZoom() => zoom = 1.0;
+
+  double _nextZoomStep() {
+    for (final step in zoomSteps) {
+      if (step > _zoom + _zoomEpsilon) {
+        return step;
+      }
+    }
+    return maxZoom;
+  }
+
+  double _previousZoomStep() {
+    for (final step in zoomSteps.reversed) {
+      if (step < _zoom - _zoomEpsilon) {
+        return step;
+      }
+    }
+    return minZoom;
+  }
 
   /// The page index most recently requested through this controller.
   int get currentPage => _currentPage;

@@ -93,6 +93,35 @@ void main() {
     },
   );
 
+  testWidgets('RhwpViewer uses upstream-style zoom presets', (tester) async {
+    final controller = RhwpViewerController(zoom: 1.1);
+
+    expect(controller.zoom, 1.1);
+
+    controller.zoomIn();
+    expect(controller.zoom, 1.25);
+
+    controller.zoom = 1.5;
+    controller.zoomIn();
+    expect(controller.zoom, 2.0);
+
+    controller.zoomIn();
+    expect(controller.zoom, 3.0);
+
+    controller.zoomIn();
+    expect(controller.zoom, 3.0);
+
+    controller.zoomOut();
+    expect(controller.zoom, 2.0);
+
+    controller.zoom = 0.4;
+    controller.zoomOut();
+    expect(controller.zoom, 0.25);
+
+    controller.zoom = 9.0;
+    expect(controller.zoom, 3.0);
+  });
+
   testWidgets(
     'RhwpViewer ignores editor cursor notifications for page rebuilds',
     (tester) async {
@@ -1154,6 +1183,19 @@ void main() {
     await tester.pump();
 
     expect(controller.zoom, 1.0);
+
+    controller.zoom = 1.5;
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-toolbar-zoom-in')));
+    await tester.pump();
+
+    expect(controller.zoom, 2.0);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('rhwp-editor-toolbar-zoom')))
+          .data,
+      '200%',
+    );
 
     controller.zoom = 1.5;
     await tester.pump();

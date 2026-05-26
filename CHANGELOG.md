@@ -1,6 +1,8 @@
 ## 2026.5.24
 
 * Updated plugin release metadata for the `2026.5.24` release.
+* Matched Flutter-native viewer/editor zoom controls to the upstream web editor
+  preset steps from 25% through 300%.
 * Tracked the visible page while scrolling `RhwpViewer` and surfaced that page
   in the Flutter-native editor status bar.
 * Kept focused Flutter-native text input from releasing deferred page refresh
