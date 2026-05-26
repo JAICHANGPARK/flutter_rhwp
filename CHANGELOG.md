@@ -9,6 +9,8 @@
   bar, matching the upstream editor's dedicated page-width control.
 * Added upstream-style Flutter-native font size decrement/increment buttons to
   the format ribbon.
+* Added upstream-style Flutter-native paragraph indent decrement/increment
+  buttons to the format ribbon.
 * Added Flutter-native table cell split-into-grid editing through rhwp core's
   `splitTableCellInto` command.
 * Added the upstream-style F6 shortcut to open the Flutter-native style picker.

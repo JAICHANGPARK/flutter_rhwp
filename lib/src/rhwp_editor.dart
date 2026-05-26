@@ -1350,6 +1350,7 @@ const _fontFamilyOptions = [
 ];
 
 const _fontSizeStep = 100;
+const _paragraphIndentStep = 1000;
 const _lineSpacingPresets = [100, 120, 130, 140, 150, 160, 180, 200, 250, 300];
 
 const _cellFillSwatches = [
@@ -4056,6 +4057,19 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
   Future<void> _applyParagraphAlignment(String alignment) async {
     await _applyParagraphFormat(alignment: alignment);
+  }
+
+  void _decreaseParagraphIndent() {
+    final current = _currentParaFormat.marginLeft ?? 0;
+    final next = math.max(0, current - _paragraphIndentStep);
+    unawaited(_applyParagraphFormat(marginLeft: next));
+  }
+
+  void _increaseParagraphIndent() {
+    final current = _currentParaFormat.marginLeft ?? 0;
+    unawaited(
+      _applyParagraphFormat(marginLeft: current + _paragraphIndentStep),
+    );
   }
 
   Future<void> _showParaShapeDialog() async {
@@ -8237,6 +8251,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
             lineSpacing: lineSpacing,
             lineSpacingType: 'Percent',
           ),
+          onDecreaseIndent: _decreaseParagraphIndent,
+          onIncreaseIndent: _increaseParagraphIndent,
           onFind: _runSearch,
           onSearchTextChanged: _handleSearchInputChanged,
           onSearchPrevious: _searchPrevious,
@@ -10419,6 +10435,8 @@ class _EditorToolbar extends StatefulWidget {
     required this.onAlignRight,
     required this.onAlignJustify,
     required this.onLineSpacing,
+    required this.onDecreaseIndent,
+    required this.onIncreaseIndent,
     required this.onFind,
     required this.onSearchTextChanged,
     required this.onSearchPrevious,
@@ -10541,6 +10559,8 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onAlignRight;
   final VoidCallback onAlignJustify;
   final ValueChanged<int> onLineSpacing;
+  final VoidCallback onDecreaseIndent;
+  final VoidCallback onIncreaseIndent;
   final VoidCallback onFind;
   final ValueChanged<String> onSearchTextChanged;
   final VoidCallback onSearchPrevious;
@@ -11311,6 +11331,18 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               icon: Icons.format_align_justify,
               selected: widget.currentParaFormat.isAlignment('justify'),
               onPressed: widget.busy ? null : widget.onAlignJustify,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Decrease indent',
+              buttonKey: const ValueKey('rhwp-editor-decrease-indent'),
+              icon: Icons.format_indent_decrease,
+              onPressed: widget.busy ? null : widget.onDecreaseIndent,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Increase indent',
+              buttonKey: const ValueKey('rhwp-editor-increase-indent'),
+              icon: Icons.format_indent_increase,
+              onPressed: widget.busy ? null : widget.onIncreaseIndent,
             ),
             const SizedBox(width: 6),
             SizedBox(
