@@ -811,6 +811,44 @@ void main() {
     );
   });
 
+  test('header and footer text commands serialize to the Rust envelope', () {
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.getHeaderFooter(
+            section: 1,
+            isHeader: true,
+            applyTo: 2,
+          ).toJson(),
+        ),
+      ),
+      {'type': 'getHeaderFooter', 'section': 1, 'isHeader': true, 'applyTo': 2},
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.insertTextInHeaderFooter(
+            section: 1,
+            isHeader: false,
+            applyTo: 1,
+            paragraph: 0,
+            offset: 3,
+            text: 'footer',
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'insertTextInHeaderFooter',
+        'section': 1,
+        'isHeader': false,
+        'applyTo': 1,
+        'paragraph': 0,
+        'offset': 3,
+        'text': 'footer',
+      },
+    );
+  });
+
   test('page setup commands serialize to the Rust envelope', () {
     expect(
       jsonDecode(jsonEncode(RhwpCommand.getPageSetup(section: 1).toJson())),
@@ -1383,6 +1421,40 @@ void main() {
       'cellIndex': 2,
       'cellParagraph': 0,
       'styleId': 3,
+    });
+
+    final header = await document.headerFooter(
+      section: 0,
+      isHeader: true,
+      applyTo: 0,
+    );
+
+    expect(header.exists, isTrue);
+    expect(header.text, 'Header');
+    expect(header.paragraphCount, 1);
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'getHeaderFooter',
+      'section': 0,
+      'isHeader': true,
+      'applyTo': 0,
+    });
+
+    await document.insertTextInHeaderFooter(
+      section: 0,
+      isHeader: true,
+      paragraph: 0,
+      offset: 6,
+      text: ' Text',
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'insertTextInHeaderFooter',
+      'section': 0,
+      'isHeader': true,
+      'applyTo': 0,
+      'paragraph': 0,
+      'offset': 6,
+      'text': ' Text',
     });
 
     await document.insertTableRow(
@@ -2169,6 +2241,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'getPageSetup') {
       return '{"width":59528,"height":84189,"marginLeft":8504,"marginRight":8504,"marginTop":5669,"marginBottom":4252,"marginHeader":4252,"marginFooter":4252,"marginGutter":0,"landscape":false,"binding":0}';
+    }
+    if (command is Map && command['type'] == 'getHeaderFooter') {
+      return '{"ok":true,"exists":true,"kind":"header","applyTo":0,"label":"양 쪽","paraIndex":0,"controlIndex":1,"paraCount":1,"text":"Header"}';
     }
     if (command is Map && command['type'] == 'getStyleList') {
       return '[{"id":0,"name":"본문","englishName":"Body","type":0,"nextStyleId":0,"paraShapeId":0,"charShapeId":0},{"id":3,"name":"제목 1","englishName":"Heading 1","type":0,"nextStyleId":0,"paraShapeId":1,"charShapeId":1}]';

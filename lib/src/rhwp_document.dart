@@ -274,6 +274,48 @@ class RhwpPageSetup {
   final Map<String, Object?>? raw;
 }
 
+class RhwpHeaderFooterInfo {
+  const RhwpHeaderFooterInfo({
+    required this.exists,
+    required this.rawJson,
+    this.kind,
+    this.applyTo,
+    this.label,
+    this.paragraphIndex,
+    this.controlIndex,
+    this.paragraphCount,
+    this.text,
+    this.raw,
+  });
+
+  factory RhwpHeaderFooterInfo.fromJsonString(String source) {
+    final decoded = RhwpDocument._tryDecodeObject(source);
+    return RhwpHeaderFooterInfo(
+      exists: _boolFromJson(decoded?['exists']) ?? false,
+      kind: decoded?['kind']?.toString(),
+      applyTo: _intFromJson(decoded?['applyTo']),
+      label: decoded?['label']?.toString(),
+      paragraphIndex: _intFromJson(decoded?['paraIndex']),
+      controlIndex: _intFromJson(decoded?['controlIndex']),
+      paragraphCount: _intFromJson(decoded?['paraCount']),
+      text: decoded?['text']?.toString(),
+      rawJson: source,
+      raw: decoded,
+    );
+  }
+
+  final bool exists;
+  final String? kind;
+  final int? applyTo;
+  final String? label;
+  final int? paragraphIndex;
+  final int? controlIndex;
+  final int? paragraphCount;
+  final String? text;
+  final String rawJson;
+  final Map<String, Object?>? raw;
+}
+
 int? _intFromJson(Object? value) {
   if (value is int) {
     return value;
@@ -653,6 +695,21 @@ abstract class RhwpCommand {
     required bool isHeader,
     int applyTo,
   }) = RhwpCreateHeaderFooterCommand;
+
+  factory RhwpCommand.getHeaderFooter({
+    required int section,
+    required bool isHeader,
+    int applyTo,
+  }) = RhwpGetHeaderFooterCommand;
+
+  factory RhwpCommand.insertTextInHeaderFooter({
+    required int section,
+    required bool isHeader,
+    int applyTo,
+    required int paragraph,
+    required int offset,
+    required String text,
+  }) = RhwpInsertTextInHeaderFooterCommand;
 
   factory RhwpCommand.getPageSetup({required int section}) =
       RhwpGetPageSetupCommand;
@@ -1876,6 +1933,59 @@ class RhwpCreateHeaderFooterCommand extends RhwpCommand {
   };
 }
 
+class RhwpGetHeaderFooterCommand extends RhwpCommand {
+  const RhwpGetHeaderFooterCommand({
+    required this.section,
+    required this.isHeader,
+    this.applyTo = 0,
+  });
+
+  final int section;
+  final bool isHeader;
+
+  /// 0 applies to both pages, 1 to even pages, and 2 to odd pages.
+  final int applyTo;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'getHeaderFooter',
+    'section': section,
+    'isHeader': isHeader,
+    'applyTo': applyTo,
+  };
+}
+
+class RhwpInsertTextInHeaderFooterCommand extends RhwpCommand {
+  const RhwpInsertTextInHeaderFooterCommand({
+    required this.section,
+    required this.isHeader,
+    this.applyTo = 0,
+    required this.paragraph,
+    required this.offset,
+    required this.text,
+  });
+
+  final int section;
+  final bool isHeader;
+
+  /// 0 applies to both pages, 1 to even pages, and 2 to odd pages.
+  final int applyTo;
+  final int paragraph;
+  final int offset;
+  final String text;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'insertTextInHeaderFooter',
+    'section': section,
+    'isHeader': isHeader,
+    'applyTo': applyTo,
+    'paragraph': paragraph,
+    'offset': offset,
+    'text': text,
+  };
+}
+
 class RhwpGetPageSetupCommand extends RhwpCommand {
   const RhwpGetPageSetupCommand({required this.section});
 
@@ -2910,6 +3020,41 @@ class RhwpDocument {
       section: section,
       isHeader: false,
       applyTo: applyTo,
+    );
+  }
+
+  Future<RhwpHeaderFooterInfo> headerFooter({
+    required int section,
+    required bool isHeader,
+    int applyTo = 0,
+  }) async {
+    final result = await apply(
+      RhwpCommand.getHeaderFooter(
+        section: section,
+        isHeader: isHeader,
+        applyTo: applyTo,
+      ),
+    );
+    return RhwpHeaderFooterInfo.fromJsonString(result);
+  }
+
+  Future<String> insertTextInHeaderFooter({
+    required int section,
+    required bool isHeader,
+    int applyTo = 0,
+    required int paragraph,
+    required int offset,
+    required String text,
+  }) {
+    return apply(
+      RhwpCommand.insertTextInHeaderFooter(
+        section: section,
+        isHeader: isHeader,
+        applyTo: applyTo,
+        paragraph: paragraph,
+        offset: offset,
+        text: text,
+      ),
     );
   }
 

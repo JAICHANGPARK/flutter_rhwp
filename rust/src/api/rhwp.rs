@@ -784,6 +784,32 @@ impl RhwpSession {
                 .document
                 .create_header_footer_native(section as usize, is_header, apply_to as u8)
                 .map_err(error_to_string),
+            RhwpCommand::GetHeaderFooter {
+                section,
+                is_header,
+                apply_to,
+            } => inner
+                .document
+                .get_header_footer_native(section as usize, is_header, apply_to as u8)
+                .map_err(error_to_string),
+            RhwpCommand::InsertTextInHeaderFooter {
+                section,
+                is_header,
+                apply_to,
+                paragraph,
+                offset,
+                text,
+            } => inner
+                .document
+                .insert_text_in_header_footer_native(
+                    section as usize,
+                    is_header,
+                    apply_to as u8,
+                    paragraph as usize,
+                    offset as usize,
+                    &text,
+                )
+                .map_err(error_to_string),
             RhwpCommand::GetPageSetup { section } => inner
                 .document
                 .get_page_def_native(section as usize)
@@ -1200,6 +1226,23 @@ enum RhwpCommand {
         is_header: bool,
         #[serde(rename = "applyTo")]
         apply_to: u32,
+    },
+    GetHeaderFooter {
+        section: u32,
+        #[serde(rename = "isHeader")]
+        is_header: bool,
+        #[serde(rename = "applyTo")]
+        apply_to: u32,
+    },
+    InsertTextInHeaderFooter {
+        section: u32,
+        #[serde(rename = "isHeader")]
+        is_header: bool,
+        #[serde(rename = "applyTo")]
+        apply_to: u32,
+        paragraph: u32,
+        offset: u32,
+        text: String,
     },
     GetPageSetup {
         section: u32,
@@ -2033,6 +2076,20 @@ mod tests {
                     .to_string(),
             )
             .expect("create footer command should be accepted");
+        let header_info = session
+            .apply_command(
+                r#"{"type":"getHeaderFooter","section":0,"isHeader":true,"applyTo":0}"#.to_string(),
+            )
+            .expect("header query should be accepted");
+        let header_info: Value =
+            serde_json::from_str(&header_info).expect("header query result should be JSON");
+        assert_eq!(header_info["exists"].as_bool(), Some(true));
+        session
+            .apply_command(
+                r#"{"type":"insertTextInHeaderFooter","section":0,"isHeader":true,"applyTo":0,"paragraph":0,"offset":0,"text":"Header"}"#
+                    .to_string(),
+            )
+            .expect("insert header text command should be accepted");
         let page_setup = session
             .apply_command(r#"{"type":"getPageSetup","section":0}"#.to_string())
             .expect("page setup query should be accepted");

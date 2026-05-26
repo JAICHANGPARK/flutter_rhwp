@@ -651,6 +651,20 @@ class _NewNumberDialogResult {
   final int startNumber;
 }
 
+class _HeaderFooterTextDialogResult {
+  const _HeaderFooterTextDialogResult({
+    required this.text,
+    required this.applyTo,
+    required this.paragraph,
+    required this.offset,
+  });
+
+  final String text;
+  final int applyTo;
+  final int paragraph;
+  final int offset;
+}
+
 class _EquationDialogResult {
   const _EquationDialogResult({
     required this.script,
@@ -2906,6 +2920,45 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       await widget.document.createHeaderFooter(
         section: section,
         isHeader: isHeader,
+      );
+      _controller.cursor = _controller.cursor.copyWith(section: section);
+    });
+  }
+
+  Future<void> _showHeaderFooterTextDialog({required bool isHeader}) async {
+    if (_busy) {
+      return;
+    }
+
+    final result = await showDialog<_HeaderFooterTextDialogResult>(
+      context: context,
+      builder: (context) => _HeaderFooterTextDialog(isHeader: isHeader),
+    );
+    if (result == null || result.text.isEmpty) {
+      return;
+    }
+
+    final section = _parseNonNegative(_sectionController.text);
+    await _runEdit(() async {
+      final info = await widget.document.headerFooter(
+        section: section,
+        isHeader: isHeader,
+        applyTo: result.applyTo,
+      );
+      if (!info.exists) {
+        await widget.document.createHeaderFooter(
+          section: section,
+          isHeader: isHeader,
+          applyTo: result.applyTo,
+        );
+      }
+      await widget.document.insertTextInHeaderFooter(
+        section: section,
+        isHeader: isHeader,
+        applyTo: result.applyTo,
+        paragraph: result.paragraph,
+        offset: result.offset,
+        text: result.text,
       );
       _controller.cursor = _controller.cursor.copyWith(section: section);
     });
@@ -6958,6 +7011,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onInsertNewNumber: _showInsertNewNumberDialog,
           onCreateHeader: () => _createHeaderFooter(isHeader: true),
           onCreateFooter: () => _createHeaderFooter(isHeader: false),
+          onInsertHeaderText: () => _showHeaderFooterTextDialog(isHeader: true),
+          onInsertFooterText: () =>
+              _showHeaderFooterTextDialog(isHeader: false),
           onPreviousPage: () => unawaited(_controller.previousPage()),
           onNextPage: () => unawaited(_controller.nextPage()),
           onZoomOut: _controller.zoomOut,
@@ -8995,6 +9051,8 @@ class _EditorToolbar extends StatefulWidget {
     required this.onInsertNewNumber,
     required this.onCreateHeader,
     required this.onCreateFooter,
+    required this.onInsertHeaderText,
+    required this.onInsertFooterText,
     required this.onPreviousPage,
     required this.onNextPage,
     required this.onZoomOut,
@@ -9096,6 +9154,8 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onInsertNewNumber;
   final VoidCallback onCreateHeader;
   final VoidCallback onCreateFooter;
+  final VoidCallback onInsertHeaderText;
+  final VoidCallback onInsertFooterText;
   final VoidCallback onPreviousPage;
   final VoidCallback onNextPage;
   final VoidCallback onZoomOut;
@@ -9742,10 +9802,22 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               onPressed: widget.busy ? null : widget.onCreateHeader,
             ),
             _ToolbarIconButton(
+              tooltip: 'Insert header text',
+              buttonKey: const ValueKey('rhwp-editor-insert-header-text'),
+              icon: Icons.text_increase,
+              onPressed: widget.busy ? null : widget.onInsertHeaderText,
+            ),
+            _ToolbarIconButton(
               tooltip: 'Footer',
               buttonKey: const ValueKey('rhwp-editor-create-footer'),
               icon: Icons.vertical_align_bottom,
               onPressed: widget.busy ? null : widget.onCreateFooter,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Insert footer text',
+              buttonKey: const ValueKey('rhwp-editor-insert-footer-text'),
+              icon: Icons.text_decrease,
+              onPressed: widget.busy ? null : widget.onInsertFooterText,
             ),
           ],
         ),
@@ -10930,6 +11002,137 @@ class _NewNumberDialogState extends State<_NewNumberDialog> {
     final parsed = int.tryParse(_startNumberController.text.trim()) ?? 1;
     final startNumber = parsed.clamp(1, 65535).toInt();
     Navigator.of(context).pop(_NewNumberDialogResult(startNumber: startNumber));
+  }
+}
+
+class _HeaderFooterTextDialog extends StatefulWidget {
+  const _HeaderFooterTextDialog({required this.isHeader});
+
+  final bool isHeader;
+
+  @override
+  State<_HeaderFooterTextDialog> createState() =>
+      _HeaderFooterTextDialogState();
+}
+
+class _HeaderFooterTextDialogState extends State<_HeaderFooterTextDialog> {
+  final _textController = TextEditingController();
+  final _paragraphController = TextEditingController(text: '0');
+  final _offsetController = TextEditingController(text: '0');
+  var _applyTo = 0;
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    _paragraphController.dispose();
+    _offsetController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final title = widget.isHeader ? 'Header text' : 'Footer text';
+    return AlertDialog(
+      title: Text(title),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              key: const ValueKey('rhwp-header-footer-text-field'),
+              controller: _textController,
+              minLines: 2,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                labelText: 'Text',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<int>(
+                    key: const ValueKey('rhwp-header-footer-apply-to-field'),
+                    initialValue: _applyTo,
+                    decoration: const InputDecoration(
+                      labelText: 'Apply to',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 0, child: Text('Both')),
+                      DropdownMenuItem(value: 1, child: Text('Even')),
+                      DropdownMenuItem(value: 2, child: Text('Odd')),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        _applyTo = value ?? 0;
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 94,
+                  child: TextField(
+                    key: const ValueKey('rhwp-header-footer-paragraph-field'),
+                    controller: _paragraphController,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: const InputDecoration(
+                      labelText: 'Para',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 94,
+                  child: TextField(
+                    key: const ValueKey('rhwp-header-footer-offset-field'),
+                    controller: _offsetController,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: const InputDecoration(
+                      labelText: 'Offset',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const ValueKey('rhwp-header-footer-apply'),
+          onPressed: _submit,
+          child: const Text('Insert'),
+        ),
+      ],
+    );
+  }
+
+  void _submit() {
+    Navigator.of(context).pop(
+      _HeaderFooterTextDialogResult(
+        text: _textController.text,
+        applyTo: _applyTo,
+        paragraph: _parseDialogNonNegative(_paragraphController.text),
+        offset: _parseDialogNonNegative(_offsetController.text),
+      ),
+    );
+  }
+
+  int _parseDialogNonNegative(String text) {
+    final parsed = int.tryParse(text.trim()) ?? 0;
+    return math.max(0, parsed);
   }
 }
 

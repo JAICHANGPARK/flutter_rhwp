@@ -1191,6 +1191,65 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor page ribbon inserts header text', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('쪽'));
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-insert-header-text')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-header-footer-text-field')),
+      'Header from Flutter',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-header-footer-apply')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.commands.map(jsonDecode), [
+      {'type': 'getHeaderFooter', 'section': 0, 'isHeader': true, 'applyTo': 0},
+      {
+        'type': 'createHeaderFooter',
+        'section': 0,
+        'isHeader': true,
+        'applyTo': 0,
+      },
+      {
+        'type': 'insertTextInHeaderFooter',
+        'section': 0,
+        'isHeader': true,
+        'applyTo': 0,
+        'paragraph': 0,
+        'offset': 0,
+        'text': 'Header from Flutter',
+      },
+    ]);
+  });
+
   testWidgets('RhwpNativeEditor page ribbon inserts new page number', (
     tester,
   ) async {
