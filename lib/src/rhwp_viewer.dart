@@ -509,10 +509,17 @@ class _RhwpSvgPageState extends State<_RhwpSvgPage>
         page,
         Positioned.fill(
           child: widget.ignorePageOverlayPointer
-              ? IgnorePointer(child: overlay)
-              : overlay,
+              ? IgnorePointer(child: _pageOverlayBoundary(overlay))
+              : _pageOverlayBoundary(overlay),
         ),
       ],
+    );
+  }
+
+  Widget _pageOverlayBoundary(Widget overlay) {
+    return RepaintBoundary(
+      key: const ValueKey('rhwp-page-overlay-repaint-boundary'),
+      child: overlay,
     );
   }
 

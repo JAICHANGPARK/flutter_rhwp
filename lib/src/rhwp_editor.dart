@@ -1397,6 +1397,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   int? _pendingTextRefreshRevision;
   List<_PendingDeletionOverlay> _pendingDeletionOverlays = const [];
   int? _pendingDeletionRefreshRevision;
+  final _composingTextListenable = ValueNotifier<String?>(null);
   int _renderRevision = 0;
   List<_EditorSearchMatch> _searchMatches = const [];
   int _activeSearchMatch = -1;
@@ -1473,6 +1474,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _cancelDeferredEditRefresh();
     _closeTextInput();
     _pendingTextOverlaysListenable.dispose();
+    _composingTextListenable.dispose();
     if (_ownsController) {
       _controller.dispose();
     }
@@ -6491,18 +6493,24 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
     _inputValue = value;
+    final composingText = _composingTextFor(value);
+    if (_composingTextListenable.value != composingText) {
+      _composingTextListenable.value = composingText;
+    }
     if (notify && mounted) {
       setState(() {});
     }
   }
 
-  String? get _composingText {
-    final composing = _inputValue.composing;
+  String? get _composingText => _composingTextFor(_inputValue);
+
+  String? _composingTextFor(TextEditingValue value) {
+    final composing = value.composing;
     if (!composing.isValid || composing.isCollapsed) {
       return null;
     }
 
-    final text = _inputValue.text;
+    final text = value.text;
     final start = composing.start.clamp(0, text.length);
     final end = composing.end.clamp(0, text.length);
     if (start >= end) {
@@ -6570,13 +6578,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     if (value.composing.isValid && !value.composing.isCollapsed) {
-      _setInputValue(value);
+      _setInputValue(value, notify: false);
       return;
     }
 
     final committedText = value.text;
     if (committedText.isEmpty) {
-      _setInputValue(value);
+      _setInputValue(value, notify: false);
       return;
     }
 
@@ -7746,7 +7754,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
                     objectSelection: _controller.objectSelection,
                     showParagraphMarks: _showParagraphMarks,
                     showTransparentTableBorders: _showTransparentTableBorders,
-                    composingText: _composingText,
+                    composingTextListenable: _composingTextListenable,
                     pendingTextOverlaysListenable:
                         _pendingTextOverlaysListenable,
                     pendingDeletionOverlays: _pendingDeletionOverlays
@@ -7848,7 +7856,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
     required this.objectSelection,
     required this.showParagraphMarks,
     required this.showTransparentTableBorders,
-    required this.composingText,
+    required this.composingTextListenable,
     required this.pendingTextOverlaysListenable,
     required this.pendingDeletionOverlays,
     required this.searchMatches,
@@ -7872,7 +7880,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
   final RhwpObjectSelection? objectSelection;
   final bool showParagraphMarks;
   final bool showTransparentTableBorders;
-  final String? composingText;
+  final ValueListenable<String?> composingTextListenable;
   final ValueListenable<List<_PendingTextOverlay>>
   pendingTextOverlaysListenable;
   final List<_PendingDeletionOverlay> pendingDeletionOverlays;
@@ -7926,6 +7934,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     widget.pendingTextOverlaysListenable.addListener(
       _handlePendingTextOverlaysChanged,
     );
+    widget.composingTextListenable.addListener(_handleComposingTextChanged);
     _restartCaretBlink();
   }
 
@@ -7946,8 +7955,13 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
         _handlePendingTextOverlaysChanged,
       );
     }
+    if (oldWidget.composingTextListenable != widget.composingTextListenable) {
+      oldWidget.composingTextListenable.removeListener(
+        _handleComposingTextChanged,
+      );
+      widget.composingTextListenable.addListener(_handleComposingTextChanged);
+    }
     if (oldWidget.selection.end != widget.selection.end ||
-        oldWidget.composingText != widget.composingText ||
         oldWidget.page != widget.page ||
         oldWidget.layerRevision != widget.layerRevision) {
       _restartCaretBlink();
@@ -7959,6 +7973,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     widget.pendingTextOverlaysListenable.removeListener(
       _handlePendingTextOverlaysChanged,
     );
+    widget.composingTextListenable.removeListener(_handleComposingTextChanged);
     _caretBlinkTimer?.cancel();
     super.dispose();
   }
@@ -7971,6 +7986,14 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
   }
 
   void _handlePendingTextOverlaysChanged() {
+    if (mounted) {
+      setState(() {
+        _restartCaretBlink();
+      });
+    }
+  }
+
+  void _handleComposingTextChanged() {
     if (mounted) {
       setState(() {
         _restartCaretBlink();
@@ -8849,6 +8872,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     final pendingDeletionRects = _pendingDeletionRects(tree, overlaySize);
     final pendingTextRects = _pendingTextRects(tree, overlaySize);
     final pendingTextCaretRect = _pendingTextCaretRect(tree, overlaySize);
+    final composingText = widget.composingTextListenable.value;
     final transparentTableBorderRects = widget.showTransparentTableBorders
         ? _transparentTableBorderRects(tree, overlaySize)
         : const <Rect>[];
@@ -9003,7 +9027,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
             constraints: constraints,
             child: _EditorCaret(color: color, visible: _caretVisible),
           ),
-        if (widget.composingText != null && scaledCaretRect != null)
+        if (composingText != null && scaledCaretRect != null)
           _positionedRect(
             key: const ValueKey('rhwp-editor-composing-preview'),
             rect: Rect.fromLTWH(
@@ -9013,7 +9037,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
               32,
             ),
             constraints: constraints,
-            child: _ComposingPreview(text: widget.composingText!),
+            child: _ComposingPreview(text: composingText),
           ),
       ],
     );
@@ -9035,6 +9059,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     final boundedTop = _bound(top, constraints.maxHeight, height);
     final boundedCaretLeft = _bound(caretLeft, constraints.maxWidth, 2);
     final fallbackDeletionRects = _fallbackDeletionRects(constraints, height);
+    final composingText = widget.composingTextListenable.value;
 
     return Stack(
       children: [
@@ -9089,14 +9114,14 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
             height: height,
             child: _PendingTextPreview(text: overlay.text, height: height),
           ),
-        if (widget.composingText != null)
+        if (composingText != null)
           Positioned(
             key: const ValueKey('rhwp-editor-composing-preview'),
             left: _bound(boundedCaretLeft, constraints.maxWidth, 180),
             top: _bound(boundedTop, constraints.maxHeight, 32),
             width: 180,
             height: 32,
-            child: _ComposingPreview(text: widget.composingText!),
+            child: _ComposingPreview(text: composingText),
           ),
         if (widget.showParagraphMarks)
           Positioned(

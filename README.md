@@ -18,6 +18,9 @@ documents.
 - Use `RhwpViewer` for Flutter-native viewing.
 - Use `RhwpFullEditor` for the upstream Web editor UI.
 - Use `RhwpNativeEditor` for the Flutter widget editor track.
+- Keep native-editor typing, IME composing, caret, and selection overlays
+  separate from the rendered SVG page surface to reduce refresh churn on large
+  documents.
 - Use `RhwpCommandEditor` for the earlier command-editor compatibility name.
 
 ## Installation

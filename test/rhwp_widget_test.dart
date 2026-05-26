@@ -303,6 +303,10 @@ void main() {
     await _pumpDocumentFrame(tester);
 
     expect(find.byKey(const ValueKey('rhwp-page-overlay')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('rhwp-page-overlay-repaint-boundary')),
+      findsOneWidget,
+    );
     expect(overlayPages, [0]);
     expect(overlaySvgs.single, contains('#dc2626'));
   });
@@ -366,6 +370,10 @@ void main() {
     expect(find.byKey(const ValueKey('rhwp-cached-svg-page')), findsOneWidget);
     expect(
       find.byKey(const ValueKey('rhwp-rendered-svg-repaint-boundary')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('rhwp-page-overlay-repaint-boundary')),
       findsOneWidget,
     );
   });
@@ -7485,6 +7493,7 @@ void main() {
 
     controller.cursor = const RhwpCursorPosition(offset: 2);
     await tester.pump();
+    session.renderedPages.clear();
 
     tester.testTextInput.updateEditingValue(
       const TextEditingValue(
@@ -7496,6 +7505,7 @@ void main() {
     await tester.pump();
 
     expect(session.commands, isEmpty);
+    expect(session.renderedPages, isEmpty);
     expect(controller.cursor, const RhwpCursorPosition(offset: 2));
     expect(
       find.byKey(const ValueKey('rhwp-editor-composing-preview')),
@@ -7513,6 +7523,7 @@ void main() {
     await tester.pump();
 
     expect(changedCalls, 0);
+    expect(session.renderedPages, isEmpty);
     expect(controller.cursor, const RhwpCursorPosition(offset: 3));
     expect(jsonDecode(session.commands.single), {
       'type': 'insertText',
