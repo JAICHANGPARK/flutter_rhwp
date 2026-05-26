@@ -10544,22 +10544,25 @@ class _EditorToolbarState extends State<_EditorToolbar> {
           children: [
             SizedBox(
               width: 180,
-              child: TextField(
-                key: const ValueKey('rhwp-editor-search-field'),
-                controller: widget.searchController,
-                focusNode: widget.searchFocusNode,
-                minLines: 1,
-                maxLines: 1,
-                decoration: const InputDecoration(
-                  isDense: true,
-                  border: OutlineInputBorder(),
-                  labelText: 'Find',
+              child: Focus(
+                onKeyEvent: _handleSearchFieldKeyEvent,
+                child: TextField(
+                  key: const ValueKey('rhwp-editor-search-field'),
+                  controller: widget.searchController,
+                  focusNode: widget.searchFocusNode,
+                  minLines: 1,
+                  maxLines: 1,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                    labelText: 'Find',
+                  ),
+                  onSubmitted: (_) {
+                    _submitSearchField(
+                      backward: HardwareKeyboard.instance.isShiftPressed,
+                    );
+                  },
                 ),
-                onSubmitted: (_) {
-                  if (!widget.busy) {
-                    widget.onFind();
-                  }
-                },
               ),
             ),
             _ToolbarIconButton(
@@ -10662,6 +10665,43 @@ class _EditorToolbarState extends State<_EditorToolbar> {
         ),
       ),
     ];
+  }
+
+  KeyEventResult _handleSearchFieldKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (widget.busy) {
+      return KeyEventResult.ignored;
+    }
+
+    switch (event.logicalKey) {
+      case LogicalKeyboardKey.enter:
+      case LogicalKeyboardKey.numpadEnter:
+        _submitSearchField(backward: HardwareKeyboard.instance.isShiftPressed);
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.escape:
+        widget.onClearSearch();
+        widget.searchFocusNode.unfocus();
+        return KeyEventResult.handled;
+    }
+
+    return KeyEventResult.ignored;
+  }
+
+  void _submitSearchField({required bool backward}) {
+    if (widget.busy) {
+      return;
+    }
+    if (widget.searchMatchCount == 0) {
+      widget.onFind();
+      return;
+    }
+    if (backward) {
+      widget.onSearchPrevious();
+    } else {
+      widget.onSearchNext();
+    }
   }
 
   List<Widget> _stateIndicators() {

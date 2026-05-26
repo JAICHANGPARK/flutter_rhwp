@@ -35,6 +35,8 @@
   active editor session so Space/text input does not release deferred refresh.
 * Matched upstream table-cell edit mode handling so `F5` enters a selected cell
   and `Esc` returns active cell text editing to cell selection.
+* Matched upstream search-field keyboard handling so `Enter`/`Shift+Enter`
+  navigate matches and `Esc` clears the active search from the tools ribbon.
 * Kept Flutter-native editor deferred page refresh blocked when desktop text
   input focus briefly drops and returns during typing.
 * Initial flutter_rhwp plugin scaffold.
