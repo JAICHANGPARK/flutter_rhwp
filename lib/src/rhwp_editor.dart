@@ -525,6 +525,7 @@ enum _EditorContextMenuAction {
   insertTableColumn,
   mergeCells,
   splitCell,
+  splitCellInto,
   deleteObject,
   bringObjectToFront,
   sendObjectToBack,
@@ -907,6 +908,20 @@ class _EquationDialogResult {
   final String script;
   final int fontSize;
   final int color;
+}
+
+class _SplitTableCellIntoDialogResult {
+  const _SplitTableCellIntoDialogResult({
+    required this.rows,
+    required this.columns,
+    required this.equalRowHeight,
+    required this.mergeFirst,
+  });
+
+  final int rows;
+  final int columns;
+  final bool equalRowHeight;
+  final bool mergeFirst;
 }
 
 class _ResolvedEditorImage {
@@ -3319,6 +3334,36 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         controlIndex: ref.controlIndex,
         row: ref.row,
         column: ref.column,
+      );
+    });
+  }
+
+  Future<void> _splitTableCellInto() async {
+    if (_busy) {
+      return;
+    }
+
+    final result = await showDialog<_SplitTableCellIntoDialogResult>(
+      context: context,
+      builder: (context) => const _SplitTableCellIntoDialog(),
+    );
+    if (result == null) {
+      _focusEditor();
+      return;
+    }
+
+    await _runEdit(() async {
+      final ref = _readTableReference();
+      await widget.document.splitTableCellInto(
+        section: ref.section,
+        paragraph: ref.paragraph,
+        controlIndex: ref.controlIndex,
+        row: ref.row,
+        column: ref.column,
+        rows: result.rows,
+        columns: result.columns,
+        equalRowHeight: result.equalRowHeight,
+        mergeFirst: result.mergeFirst,
       );
     });
   }
@@ -6415,6 +6460,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         await _mergeTableCells();
       case _EditorContextMenuAction.splitCell:
         await _splitTableCell();
+      case _EditorContextMenuAction.splitCellInto:
+        await _splitTableCellInto();
       case _EditorContextMenuAction.deleteObject:
         await _deleteSelectedObject();
       case _EditorContextMenuAction.bringObjectToFront:
@@ -6554,6 +6601,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           action: _EditorContextMenuAction.splitCell,
           icon: Icons.call_split_outlined,
           label: '셀 나누기',
+          enabled: !_busy,
+        ),
+        _contextMenuItem(
+          action: _EditorContextMenuAction.splitCellInto,
+          icon: Icons.grid_4x4_outlined,
+          label: '셀 나누기...',
           enabled: !_busy,
         ),
       ];
@@ -7924,6 +7977,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onDeleteTableColumn: _deleteTableColumn,
           onMergeTableCells: _mergeTableCells,
           onSplitTableCell: _splitTableCell,
+          onSplitTableCellInto: _splitTableCellInto,
           onCellFillColor: (fillColor) =>
               _applyTableCellStyle(fillColor: fillColor),
           onCellBorder: () => _applyTableCellStyle(
@@ -10117,6 +10171,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onDeleteTableColumn,
     required this.onMergeTableCells,
     required this.onSplitTableCell,
+    required this.onSplitTableCellInto,
     required this.onCellFillColor,
     required this.onCellBorder,
     required this.onClearCellFill,
@@ -10235,6 +10290,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onDeleteTableColumn;
   final VoidCallback onMergeTableCells;
   final VoidCallback onSplitTableCell;
+  final VoidCallback onSplitTableCellInto;
   final ValueChanged<String> onCellFillColor;
   final VoidCallback onCellBorder;
   final VoidCallback onClearCellFill;
@@ -11276,6 +11332,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               icon: Icons.call_split_outlined,
               onPressed: widget.busy ? null : widget.onSplitTableCell,
             ),
+            _ToolbarIconButton(
+              tooltip: 'Split cell into',
+              buttonKey: const ValueKey('rhwp-editor-split-cell-into'),
+              icon: Icons.grid_4x4_outlined,
+              onPressed: widget.busy ? null : widget.onSplitTableCellInto,
+            ),
           ],
         ),
       ),
@@ -11548,6 +11610,115 @@ class _EditorToolbarState extends State<_EditorToolbar> {
       const SizedBox(width: 6),
       _NumberField(label: 'Offset', controller: widget.offsetController),
     ];
+  }
+}
+
+class _SplitTableCellIntoDialog extends StatefulWidget {
+  const _SplitTableCellIntoDialog();
+
+  @override
+  State<_SplitTableCellIntoDialog> createState() =>
+      _SplitTableCellIntoDialogState();
+}
+
+class _SplitTableCellIntoDialogState extends State<_SplitTableCellIntoDialog> {
+  final _rowsController = TextEditingController(text: '2');
+  final _columnsController = TextEditingController(text: '2');
+  bool _equalRowHeight = true;
+  bool _mergeFirst = false;
+
+  @override
+  void dispose() {
+    _rowsController.dispose();
+    _columnsController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('셀 나누기'),
+      content: SizedBox(
+        width: 320,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    key: const ValueKey('rhwp-split-cell-rows-field'),
+                    controller: _rowsController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Rows',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    key: const ValueKey('rhwp-split-cell-columns-field'),
+                    controller: _columnsController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Columns',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SwitchListTile(
+              key: const ValueKey('rhwp-split-cell-equal-height'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Equal row height'),
+              value: _equalRowHeight,
+              onChanged: (value) => setState(() => _equalRowHeight = value),
+            ),
+            SwitchListTile(
+              key: const ValueKey('rhwp-split-cell-merge-first'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Merge first'),
+              value: _mergeFirst,
+              onChanged: (value) => setState(() => _mergeFirst = value),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const ValueKey('rhwp-split-cell-confirm'),
+          onPressed: () {
+            Navigator.of(context).pop(
+              _SplitTableCellIntoDialogResult(
+                rows: _parseDialogPositive(_rowsController.text, max: 64),
+                columns: _parseDialogPositive(_columnsController.text, max: 64),
+                equalRowHeight: _equalRowHeight,
+                mergeFirst: _mergeFirst,
+              ),
+            );
+          },
+          child: const Text('Split'),
+        ),
+      ],
+    );
+  }
+
+  static int _parseDialogPositive(String text, {required int max}) {
+    final parsed = int.tryParse(text);
+    if (parsed == null || parsed < 1) {
+      return 1;
+    }
+    return math.min(parsed, max);
   }
 }
 

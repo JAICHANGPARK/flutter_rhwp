@@ -517,6 +517,40 @@ impl RhwpSession {
                     )
                     .map_err(error_to_string)
             }
+            RhwpCommand::SplitTableCellInto {
+                section,
+                paragraph,
+                control_index,
+                row,
+                column,
+                rows,
+                columns,
+                equal_row_height,
+                merge_first,
+            } => {
+                let row_index =
+                    u16::try_from(row).map_err(|_| "row must fit in u16".to_string())?;
+                let column_index =
+                    u16::try_from(column).map_err(|_| "column must fit in u16".to_string())?;
+                let row_count =
+                    u16::try_from(rows).map_err(|_| "rows must fit in u16".to_string())?;
+                let column_count =
+                    u16::try_from(columns).map_err(|_| "columns must fit in u16".to_string())?;
+                inner
+                    .document
+                    .split_table_cell_into_native(
+                        section as usize,
+                        paragraph as usize,
+                        control_index as usize,
+                        row_index,
+                        column_index,
+                        row_count,
+                        column_count,
+                        equal_row_height,
+                        merge_first,
+                    )
+                    .map_err(error_to_string)
+            }
             RhwpCommand::DeleteObjectControl {
                 section,
                 paragraph,
@@ -1142,6 +1176,20 @@ enum RhwpCommand {
         control_index: u32,
         row: u32,
         column: u32,
+    },
+    SplitTableCellInto {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        row: u32,
+        column: u32,
+        rows: u32,
+        columns: u32,
+        #[serde(rename = "equalRowHeight")]
+        equal_row_height: bool,
+        #[serde(rename = "mergeFirst")]
+        merge_first: bool,
     },
     DeleteObjectControl {
         section: u32,
@@ -2373,6 +2421,14 @@ mod tests {
                 ),
             )
             .expect("split table cell command should be accepted");
+        session
+            .apply_command(
+                format!(
+                    r#"{{"type":"splitTableCellInto","section":0,"paragraph":{},"controlIndex":0,"row":0,"column":0,"rows":2,"columns":2,"equalRowHeight":true,"mergeFirst":false}}"#,
+                    table_paragraph
+                ),
+            )
+            .expect("split table cell into grid command should be accepted");
         session
             .apply_command(
                 format!(

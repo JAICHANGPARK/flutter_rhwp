@@ -2059,6 +2059,81 @@ void main() {
     ]);
   });
 
+  testWidgets('RhwpNativeEditor splits a selected table cell into a grid', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    await tester.tapAt(
+      pageTopLeft +
+          Offset(pageSize.width * 100 / 240, pageSize.height * 60 / 180),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('표'));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-split-cell-into')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-split-cell-into')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('셀 나누기'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-split-cell-rows-field')),
+      '3',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-split-cell-columns-field')),
+      '2',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-split-cell-equal-height')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-split-cell-merge-first')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-split-cell-confirm')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.single), {
+      'type': 'splitTableCellInto',
+      'section': 0,
+      'paragraph': 5,
+      'controlIndex': 2,
+      'row': 1,
+      'column': 3,
+      'rows': 3,
+      'columns': 2,
+      'equalRowHeight': false,
+      'mergeFirst': true,
+    });
+  });
+
   testWidgets('RhwpNativeEditor taps table cell to set table edit context', (
     tester,
   ) async {

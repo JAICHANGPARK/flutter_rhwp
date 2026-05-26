@@ -637,6 +637,18 @@ abstract class RhwpCommand {
     required int column,
   }) = RhwpSplitTableCellCommand;
 
+  factory RhwpCommand.splitTableCellInto({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int row,
+    required int column,
+    required int rows,
+    required int columns,
+    required bool equalRowHeight,
+    required bool mergeFirst,
+  }) = RhwpSplitTableCellIntoCommand;
+
   factory RhwpCommand.deleteObjectControl({
     required int section,
     required int paragraph,
@@ -1499,6 +1511,44 @@ class RhwpSplitTableCellCommand extends RhwpCommand {
     'controlIndex': controlIndex,
     'row': row,
     'column': column,
+  };
+}
+
+class RhwpSplitTableCellIntoCommand extends RhwpCommand {
+  const RhwpSplitTableCellIntoCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.row,
+    required this.column,
+    required this.rows,
+    required this.columns,
+    required this.equalRowHeight,
+    required this.mergeFirst,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int row;
+  final int column;
+  final int rows;
+  final int columns;
+  final bool equalRowHeight;
+  final bool mergeFirst;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'splitTableCellInto',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'row': row,
+    'column': column,
+    'rows': rows,
+    'columns': columns,
+    'equalRowHeight': equalRowHeight,
+    'mergeFirst': mergeFirst,
   };
 }
 
@@ -2971,6 +3021,32 @@ class RhwpDocument {
         controlIndex: controlIndex,
         row: row,
         column: column,
+      ),
+    );
+  }
+
+  Future<String> splitTableCellInto({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int row,
+    required int column,
+    required int rows,
+    required int columns,
+    bool equalRowHeight = true,
+    bool mergeFirst = false,
+  }) {
+    return apply(
+      RhwpCommand.splitTableCellInto(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        row: row,
+        column: column,
+        rows: rows,
+        columns: columns,
+        equalRowHeight: equalRowHeight,
+        mergeFirst: mergeFirst,
       ),
     );
   }

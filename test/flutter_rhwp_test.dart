@@ -516,6 +516,35 @@ void main() {
         'column': 0,
       },
     );
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.splitTableCellInto(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            row: 0,
+            column: 0,
+            rows: 3,
+            columns: 2,
+            equalRowHeight: false,
+            mergeFirst: true,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'splitTableCellInto',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'row': 0,
+        'column': 0,
+        'rows': 3,
+        'columns': 2,
+        'equalRowHeight': false,
+        'mergeFirst': true,
+      },
+    );
   });
 
   test('object control commands serialize to Rust envelopes', () {
@@ -1810,6 +1839,31 @@ void main() {
       'controlIndex': 0,
       'row': 0,
       'column': 0,
+    });
+
+    await document.splitTableCellInto(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      row: 0,
+      column: 0,
+      rows: 3,
+      columns: 2,
+      equalRowHeight: false,
+      mergeFirst: true,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'splitTableCellInto',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'row': 0,
+      'column': 0,
+      'rows': 3,
+      'columns': 2,
+      'equalRowHeight': false,
+      'mergeFirst': true,
     });
 
     await document.deleteObjectControl(
