@@ -5047,6 +5047,34 @@ void main() {
       'endOffset': 3,
       'properties': {'shadeColor': '#fef08a'},
     });
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-superscript')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 4);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'applyCharFormatRange',
+      'section': 0,
+      'startParagraph': 0,
+      'startOffset': 1,
+      'endParagraph': 0,
+      'endOffset': 3,
+      'properties': {'superscript': true, 'subscript': false},
+    });
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-subscript')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 5);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'applyCharFormatRange',
+      'section': 0,
+      'startParagraph': 0,
+      'startOffset': 1,
+      'endParagraph': 0,
+      'endOffset': 3,
+      'properties': {'superscript': false, 'subscript': true},
+    });
   });
 
   testWidgets(
@@ -5152,6 +5180,7 @@ void main() {
       await tester.tap(
         find.byKey(const ValueKey('rhwp-editor-shade-color-#fef08a')),
       );
+      await tester.tap(find.byKey(const ValueKey('rhwp-editor-superscript')));
       await tester.pump();
 
       expect(changedCalls, 0);
@@ -5198,6 +5227,8 @@ void main() {
             'fontSize': 1450,
             'textColor': '#2563eb',
             'shadeColor': '#fef08a',
+            'superscript': true,
+            'subscript': false,
           },
         },
       ]);
@@ -5251,6 +5282,7 @@ void main() {
     await tester.tap(
       find.byKey(const ValueKey('rhwp-editor-shade-color-#fef08a')),
     );
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-superscript')));
     await tester.pump();
 
     expect(changedCalls, 0);
@@ -5292,6 +5324,8 @@ void main() {
           'fontSize': 1450,
           'textColor': '#2563eb',
           'shadeColor': '#fef08a',
+          'superscript': true,
+          'subscript': false,
         },
       },
     ]);
@@ -5345,6 +5379,7 @@ void main() {
     await tester.tap(
       find.byKey(const ValueKey('rhwp-char-shape-strikethrough')),
     );
+    await tester.tap(find.byKey(const ValueKey('rhwp-char-shape-superscript')));
     await tester.tap(
       find.byKey(const ValueKey('rhwp-char-shape-color-#dc2626')),
     );
@@ -5371,6 +5406,8 @@ void main() {
         'italic': false,
         'underline': false,
         'strikethrough': true,
+        'superscript': true,
+        'subscript': false,
         'fontSize': 1250,
         'textColor': '#dc2626',
         'shadeColor': '#dbeafe',

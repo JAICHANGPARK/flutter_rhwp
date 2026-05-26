@@ -396,6 +396,8 @@ abstract class RhwpCommand {
     bool? italic,
     bool? underline,
     bool? strikethrough,
+    bool? superscript,
+    bool? subscript,
     int? fontSize,
     String? textColor,
     String? shadeColor,
@@ -600,6 +602,8 @@ abstract class RhwpCommand {
     bool? italic,
     bool? underline,
     bool? strikethrough,
+    bool? superscript,
+    bool? subscript,
     int? fontSize,
     String? textColor,
     String? shadeColor,
@@ -615,6 +619,8 @@ abstract class RhwpCommand {
     bool? italic,
     bool? underline,
     bool? strikethrough,
+    bool? superscript,
+    bool? subscript,
     int? fontSize,
     String? textColor,
     String? shadeColor,
@@ -875,6 +881,8 @@ class RhwpApplyCharFormatInTableCellCommand extends RhwpCommand {
     this.italic,
     this.underline,
     this.strikethrough,
+    this.superscript,
+    this.subscript,
     this.fontSize,
     this.textColor,
     this.shadeColor,
@@ -891,6 +899,8 @@ class RhwpApplyCharFormatInTableCellCommand extends RhwpCommand {
   final bool? italic;
   final bool? underline;
   final bool? strikethrough;
+  final bool? superscript;
+  final bool? subscript;
   final int? fontSize;
   final String? textColor;
   final String? shadeColor;
@@ -910,6 +920,8 @@ class RhwpApplyCharFormatInTableCellCommand extends RhwpCommand {
       if (italic != null) 'italic': italic,
       if (underline != null) 'underline': underline,
       if (strikethrough != null) 'strikethrough': strikethrough,
+      if (superscript != null) 'superscript': superscript,
+      if (subscript != null) 'subscript': subscript,
       if (fontSize != null) 'fontSize': fontSize,
       if (textColor != null) 'textColor': textColor,
       if (shadeColor != null) 'shadeColor': shadeColor,
@@ -1543,6 +1555,8 @@ class RhwpApplyCharFormatCommand extends RhwpCommand {
     this.italic,
     this.underline,
     this.strikethrough,
+    this.superscript,
+    this.subscript,
     this.fontSize,
     this.textColor,
     this.shadeColor,
@@ -1556,6 +1570,8 @@ class RhwpApplyCharFormatCommand extends RhwpCommand {
   final bool? italic;
   final bool? underline;
   final bool? strikethrough;
+  final bool? superscript;
+  final bool? subscript;
   final int? fontSize;
   final String? textColor;
   final String? shadeColor;
@@ -1572,6 +1588,8 @@ class RhwpApplyCharFormatCommand extends RhwpCommand {
       if (italic != null) 'italic': italic,
       if (underline != null) 'underline': underline,
       if (strikethrough != null) 'strikethrough': strikethrough,
+      if (superscript != null) 'superscript': superscript,
+      if (subscript != null) 'subscript': subscript,
       if (fontSize != null) 'fontSize': fontSize,
       if (textColor != null) 'textColor': textColor,
       if (shadeColor != null) 'shadeColor': shadeColor,
@@ -1590,6 +1608,8 @@ class RhwpApplyCharFormatRangeCommand extends RhwpCommand {
     this.italic,
     this.underline,
     this.strikethrough,
+    this.superscript,
+    this.subscript,
     this.fontSize,
     this.textColor,
     this.shadeColor,
@@ -1604,6 +1624,8 @@ class RhwpApplyCharFormatRangeCommand extends RhwpCommand {
   final bool? italic;
   final bool? underline;
   final bool? strikethrough;
+  final bool? superscript;
+  final bool? subscript;
   final int? fontSize;
   final String? textColor;
   final String? shadeColor;
@@ -1621,6 +1643,8 @@ class RhwpApplyCharFormatRangeCommand extends RhwpCommand {
       if (italic != null) 'italic': italic,
       if (underline != null) 'underline': underline,
       if (strikethrough != null) 'strikethrough': strikethrough,
+      if (superscript != null) 'superscript': superscript,
+      if (subscript != null) 'subscript': subscript,
       if (fontSize != null) 'fontSize': fontSize,
       if (textColor != null) 'textColor': textColor,
       if (shadeColor != null) 'shadeColor': shadeColor,
@@ -2366,6 +2390,8 @@ class RhwpDocument {
     bool? italic,
     bool? underline,
     bool? strikethrough,
+    bool? superscript,
+    bool? subscript,
     int? fontSize,
     String? textColor,
     String? shadeColor,
@@ -2383,6 +2409,8 @@ class RhwpDocument {
         italic: italic,
         underline: underline,
         strikethrough: strikethrough,
+        superscript: superscript,
+        subscript: subscript,
         fontSize: fontSize,
         textColor: textColor,
         shadeColor: shadeColor,
@@ -2829,6 +2857,8 @@ class RhwpDocument {
     bool? italic,
     bool? underline,
     bool? strikethrough,
+    bool? superscript,
+    bool? subscript,
     int? fontSize,
     String? textColor,
     String? shadeColor,
@@ -2843,6 +2873,8 @@ class RhwpDocument {
         italic: italic,
         underline: underline,
         strikethrough: strikethrough,
+        superscript: superscript,
+        subscript: subscript,
         fontSize: fontSize,
         textColor: textColor,
         shadeColor: shadeColor,
@@ -2860,6 +2892,8 @@ class RhwpDocument {
     bool? italic,
     bool? underline,
     bool? strikethrough,
+    bool? superscript,
+    bool? subscript,
     int? fontSize,
     String? textColor,
     String? shadeColor,
@@ -2875,6 +2909,8 @@ class RhwpDocument {
         italic: italic,
         underline: underline,
         strikethrough: strikethrough,
+        superscript: superscript,
+        subscript: subscript,
         fontSize: fontSize,
         textColor: textColor,
         shadeColor: shadeColor,

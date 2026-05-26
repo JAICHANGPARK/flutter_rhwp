@@ -528,6 +528,8 @@ class _CharShapeDialogResult {
     required this.italic,
     required this.underline,
     required this.strikethrough,
+    required this.superscript,
+    required this.subscript,
     required this.fontSize,
     required this.textColor,
     required this.shadeColor,
@@ -537,6 +539,8 @@ class _CharShapeDialogResult {
   final bool italic;
   final bool underline;
   final bool strikethrough;
+  final bool superscript;
+  final bool subscript;
   final int fontSize;
   final String textColor;
   final String shadeColor;
@@ -548,6 +552,8 @@ class _PendingCharFormat {
     this.italic,
     this.underline,
     this.strikethrough,
+    this.superscript,
+    this.subscript,
     this.fontSize,
     this.textColor,
     this.shadeColor,
@@ -557,6 +563,8 @@ class _PendingCharFormat {
   final bool? italic;
   final bool? underline;
   final bool? strikethrough;
+  final bool? superscript;
+  final bool? subscript;
   final int? fontSize;
   final String? textColor;
   final String? shadeColor;
@@ -566,6 +574,8 @@ class _PendingCharFormat {
       italic == null &&
       underline == null &&
       strikethrough == null &&
+      superscript == null &&
+      subscript == null &&
       fontSize == null &&
       textColor == null &&
       shadeColor == null;
@@ -575,6 +585,8 @@ class _PendingCharFormat {
     bool? italic,
     bool? underline,
     bool? strikethrough,
+    bool? superscript,
+    bool? subscript,
     int? fontSize,
     String? textColor,
     String? shadeColor,
@@ -588,6 +600,12 @@ class _PendingCharFormat {
       strikethrough: strikethrough == null
           ? this.strikethrough
           : _toggleBool(this.strikethrough, strikethrough),
+      superscript: superscript == null
+          ? (subscript == true ? false : this.superscript)
+          : _toggleBool(this.superscript, superscript),
+      subscript: subscript == null
+          ? (superscript == true ? false : this.subscript)
+          : _toggleBool(this.subscript, subscript),
       fontSize: fontSize ?? this.fontSize,
       textColor: textColor ?? this.textColor,
       shadeColor: shadeColor ?? this.shadeColor,
@@ -1695,6 +1713,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       italic: pending.italic,
       underline: pending.underline,
       strikethrough: pending.strikethrough,
+      superscript: pending.superscript,
+      subscript: pending.subscript,
       fontSize: pending.fontSize,
       textColor: pending.textColor,
       shadeColor: pending.shadeColor,
@@ -1729,6 +1749,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       italic: pending.italic,
       underline: pending.underline,
       strikethrough: pending.strikethrough,
+      superscript: pending.superscript,
+      subscript: pending.subscript,
       fontSize: pending.fontSize,
       textColor: pending.textColor,
       shadeColor: pending.shadeColor,
@@ -3071,6 +3093,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     bool? italic,
     bool? underline,
     bool? strikethrough,
+    bool? superscript,
+    bool? subscript,
     int? fontSize,
     String? textColor,
     String? shadeColor,
@@ -3087,6 +3111,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           italic: italic,
           underline: underline,
           strikethrough: strikethrough,
+          superscript: superscript,
+          subscript: subscript,
           fontSize: fontSize,
           textColor: textColor,
           shadeColor: shadeColor,
@@ -3108,6 +3134,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           italic: italic,
           underline: underline,
           strikethrough: strikethrough,
+          superscript: superscript,
+          subscript: subscript,
           fontSize: fontSize,
           textColor: textColor,
           shadeColor: shadeColor,
@@ -3129,6 +3157,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
             italic: italic,
             underline: underline,
             strikethrough: strikethrough,
+            superscript: superscript,
+            subscript: subscript,
             fontSize: fontSize,
             textColor: textColor,
             shadeColor: shadeColor,
@@ -3146,6 +3176,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         italic: italic,
         underline: underline,
         strikethrough: strikethrough,
+        superscript: superscript,
+        subscript: subscript,
         fontSize: fontSize,
         textColor: textColor,
         shadeColor: shadeColor,
@@ -3170,6 +3202,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         italic: italic,
         underline: underline,
         strikethrough: strikethrough,
+        superscript: superscript,
+        subscript: subscript,
         fontSize: fontSize,
         textColor: textColor,
         shadeColor: shadeColor,
@@ -3183,6 +3217,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     bool? italic,
     bool? underline,
     bool? strikethrough,
+    bool? superscript,
+    bool? subscript,
     int? fontSize,
     String? textColor,
     String? shadeColor,
@@ -3193,6 +3229,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         italic: italic,
         underline: underline,
         strikethrough: strikethrough,
+        superscript: superscript,
+        subscript: subscript,
         fontSize: fontSize,
         textColor: textColor,
         shadeColor: shadeColor,
@@ -3220,6 +3258,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       italic: result.italic,
       underline: result.underline,
       strikethrough: result.strikethrough,
+      superscript: result.superscript,
+      subscript: result.subscript,
       fontSize: result.fontSize,
       textColor: result.textColor,
       shadeColor: result.shadeColor,
@@ -7153,6 +7193,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onItalic: () => _applyCharFormat(italic: true),
           onUnderline: () => _applyCharFormat(underline: true),
           onStrikethrough: () => _applyCharFormat(strikethrough: true),
+          onSuperscript: () =>
+              _applyCharFormat(superscript: true, subscript: false),
+          onSubscript: () =>
+              _applyCharFormat(subscript: true, superscript: false),
           onFontSize: (fontSize) => _applyCharFormat(fontSize: fontSize),
           onTextColor: (textColor) => _applyCharFormat(textColor: textColor),
           onShadeColor: (shadeColor) =>
@@ -9195,6 +9239,8 @@ class _EditorToolbar extends StatefulWidget {
     required this.onItalic,
     required this.onUnderline,
     required this.onStrikethrough,
+    required this.onSuperscript,
+    required this.onSubscript,
     required this.onFontSize,
     required this.onTextColor,
     required this.onShadeColor,
@@ -9299,6 +9345,8 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onItalic;
   final VoidCallback onUnderline;
   final VoidCallback onStrikethrough;
+  final VoidCallback onSuperscript;
+  final VoidCallback onSubscript;
   final ValueChanged<int> onFontSize;
   final ValueChanged<String> onTextColor;
   final ValueChanged<String> onShadeColor;
@@ -9845,6 +9893,20 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               icon: Icons.format_strikethrough,
               selected: widget.pendingCharFormat.strikethrough == true,
               onPressed: widget.busy ? null : widget.onStrikethrough,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Superscript',
+              buttonKey: const ValueKey('rhwp-editor-superscript'),
+              icon: Icons.superscript,
+              selected: widget.pendingCharFormat.superscript == true,
+              onPressed: widget.busy ? null : widget.onSuperscript,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Subscript',
+              buttonKey: const ValueKey('rhwp-editor-subscript'),
+              icon: Icons.subscript,
+              selected: widget.pendingCharFormat.subscript == true,
+              onPressed: widget.busy ? null : widget.onSubscript,
             ),
             const SizedBox(width: 6),
             SizedBox(
@@ -10808,6 +10870,8 @@ class _CharShapeDialogState extends State<_CharShapeDialog> {
   var _italic = false;
   var _underline = false;
   var _strikethrough = false;
+  var _superscript = false;
+  var _subscript = false;
   var _textColor = '#000000';
   var _shadeColor = '#ffffff';
 
@@ -10874,6 +10938,34 @@ class _CharShapeDialogState extends State<_CharShapeDialog> {
                     avatar: const Icon(Icons.format_strikethrough),
                     onSelected: (value) =>
                         setState(() => _strikethrough = value),
+                  ),
+                  FilterChip(
+                    key: const ValueKey('rhwp-char-shape-superscript'),
+                    selected: _superscript,
+                    label: const Text('Superscript'),
+                    avatar: const Icon(Icons.superscript),
+                    onSelected: (value) {
+                      setState(() {
+                        _superscript = value;
+                        if (value) {
+                          _subscript = false;
+                        }
+                      });
+                    },
+                  ),
+                  FilterChip(
+                    key: const ValueKey('rhwp-char-shape-subscript'),
+                    selected: _subscript,
+                    label: const Text('Subscript'),
+                    avatar: const Icon(Icons.subscript),
+                    onSelected: (value) {
+                      setState(() {
+                        _subscript = value;
+                        if (value) {
+                          _superscript = false;
+                        }
+                      });
+                    },
                   ),
                 ],
               ),
@@ -10986,6 +11078,8 @@ class _CharShapeDialogState extends State<_CharShapeDialog> {
         italic: _italic,
         underline: _underline,
         strikethrough: _strikethrough,
+        superscript: _superscript,
+        subscript: _subscript,
         fontSize: _hwpFontSizeFromPointText(_fontSizeController.text),
         textColor: _textColor,
         shadeColor: _shadeColor,
