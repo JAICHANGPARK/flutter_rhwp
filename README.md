@@ -224,7 +224,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   the format ribbon, caret paragraph alignment/line-spacing sync for the
   format ribbon, paragraph alignment commands and line-spacing presets,
   Ctrl/Cmd+L/E/R/J alignment shortcuts, a paragraph
-  shape dialog for line spacing, indent, and paragraph margins, header/footer
+  shape dialog that preloads the current caret paragraph's line spacing,
+  indent, and paragraph margins, header/footer
   creation from the page ribbon,
   snapshot-backed undo/redo from the edit ribbon with continuous text-input
   undo batching, layer-tree text search with

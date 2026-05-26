@@ -763,6 +763,11 @@ class _CurrentParaFormat {
     this.alignment,
     this.lineSpacing,
     this.lineSpacingType,
+    this.indent,
+    this.marginLeft,
+    this.marginRight,
+    this.spacingBefore,
+    this.spacingAfter,
   });
 
   factory _CurrentParaFormat.fromParaProperties(RhwpParaProperties properties) {
@@ -770,12 +775,22 @@ class _CurrentParaFormat {
       alignment: properties.alignment,
       lineSpacing: properties.lineSpacing,
       lineSpacingType: properties.lineSpacingType,
+      indent: properties.indent,
+      marginLeft: properties.marginLeft,
+      marginRight: properties.marginRight,
+      spacingBefore: properties.spacingBefore,
+      spacingAfter: properties.spacingAfter,
     );
   }
 
   final String? alignment;
   final int? lineSpacing;
   final String? lineSpacingType;
+  final int? indent;
+  final int? marginLeft;
+  final int? marginRight;
+  final int? spacingBefore;
+  final int? spacingAfter;
 
   bool isAlignment(String value) => alignment == value;
 }
@@ -3607,7 +3622,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
     final result = await showDialog<_ParaShapeDialogResult>(
       context: context,
-      builder: (context) => const _ParaShapeDialog(),
+      builder: (context) => _ParaShapeDialog(initialFormat: _currentParaFormat),
     );
     if (result == null) {
       return;
@@ -12806,21 +12821,23 @@ class _ObjectPropertiesNumberField extends StatelessWidget {
 }
 
 class _ParaShapeDialog extends StatefulWidget {
-  const _ParaShapeDialog();
+  const _ParaShapeDialog({required this.initialFormat});
+
+  final _CurrentParaFormat initialFormat;
 
   @override
   State<_ParaShapeDialog> createState() => _ParaShapeDialogState();
 }
 
 class _ParaShapeDialogState extends State<_ParaShapeDialog> {
-  final _lineSpacingController = TextEditingController(text: '160');
-  final _indentController = TextEditingController(text: '0');
-  final _marginLeftController = TextEditingController(text: '0');
-  final _marginRightController = TextEditingController(text: '0');
-  final _spacingBeforeController = TextEditingController(text: '0');
-  final _spacingAfterController = TextEditingController(text: '0');
-  var _alignment = 'justify';
-  var _lineSpacingType = 'Percent';
+  late final TextEditingController _lineSpacingController;
+  late final TextEditingController _indentController;
+  late final TextEditingController _marginLeftController;
+  late final TextEditingController _marginRightController;
+  late final TextEditingController _spacingBeforeController;
+  late final TextEditingController _spacingAfterController;
+  late String _alignment;
+  late String _lineSpacingType;
 
   static const _alignments = [
     (label: 'Left', value: 'left'),
@@ -12836,6 +12853,32 @@ class _ParaShapeDialogState extends State<_ParaShapeDialog> {
     (label: 'Space only', value: 'SpaceOnly'),
     (label: 'Minimum', value: 'Minimum'),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initialFormat;
+    _alignment = _validAlignment(initial.alignment);
+    _lineSpacingType = _validLineSpacingType(initial.lineSpacingType);
+    _lineSpacingController = TextEditingController(
+      text: (initial.lineSpacing ?? 160).toString(),
+    );
+    _indentController = TextEditingController(
+      text: (initial.indent ?? 0).toString(),
+    );
+    _marginLeftController = TextEditingController(
+      text: (initial.marginLeft ?? 0).toString(),
+    );
+    _marginRightController = TextEditingController(
+      text: (initial.marginRight ?? 0).toString(),
+    );
+    _spacingBeforeController = TextEditingController(
+      text: (initial.spacingBefore ?? 0).toString(),
+    );
+    _spacingAfterController = TextEditingController(
+      text: (initial.spacingAfter ?? 0).toString(),
+    );
+  }
 
   @override
   void dispose() {
@@ -13012,6 +13055,20 @@ class _ParaShapeDialogState extends State<_ParaShapeDialog> {
 
   int _readInt(TextEditingController controller, {int fallback = 0}) {
     return int.tryParse(controller.text.trim()) ?? fallback;
+  }
+
+  String _validAlignment(String? value) {
+    if (_alignments.any((alignment) => alignment.value == value)) {
+      return value!;
+    }
+    return 'justify';
+  }
+
+  String _validLineSpacingType(String? value) {
+    if (_lineSpacingTypes.any((type) => type.value == value)) {
+      return value!;
+    }
+    return 'Percent';
   }
 }
 
