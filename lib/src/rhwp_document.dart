@@ -217,6 +217,58 @@ class RhwpTableProperties {
   final Map<String, Object?>? raw;
 }
 
+class RhwpCellProperties {
+  const RhwpCellProperties({
+    this.width,
+    this.height,
+    this.paddingLeft,
+    this.paddingRight,
+    this.paddingTop,
+    this.paddingBottom,
+    this.verticalAlign,
+    this.textDirection,
+    this.isHeader,
+    this.cellProtect,
+    required this.rawJson,
+    this.raw,
+  });
+
+  factory RhwpCellProperties.fromJsonString(String source) {
+    final decoded = RhwpDocument._tryDecodeObject(source);
+    return RhwpCellProperties(
+      width: _intFromJson(decoded?['width']),
+      height: _intFromJson(decoded?['height']),
+      paddingLeft: _intFromJson(decoded?['paddingLeft']),
+      paddingRight: _intFromJson(decoded?['paddingRight']),
+      paddingTop: _intFromJson(decoded?['paddingTop']),
+      paddingBottom: _intFromJson(decoded?['paddingBottom']),
+      verticalAlign: _intFromJson(decoded?['verticalAlign']),
+      textDirection: _intFromJson(decoded?['textDirection']),
+      isHeader: decoded?['isHeader'] is bool
+          ? decoded!['isHeader'] as bool
+          : null,
+      cellProtect: decoded?['cellProtect'] is bool
+          ? decoded!['cellProtect'] as bool
+          : null,
+      rawJson: source,
+      raw: decoded,
+    );
+  }
+
+  final int? width;
+  final int? height;
+  final int? paddingLeft;
+  final int? paddingRight;
+  final int? paddingTop;
+  final int? paddingBottom;
+  final int? verticalAlign;
+  final int? textDirection;
+  final bool? isHeader;
+  final bool? cellProtect;
+  final String rawJson;
+  final Map<String, Object?>? raw;
+}
+
 class RhwpStyleInfo {
   const RhwpStyleInfo({
     required this.id,
@@ -708,6 +760,30 @@ abstract class RhwpCommand {
     int? pageBreak,
     bool? repeatHeader,
   }) = RhwpSetTablePropertiesCommand;
+
+  factory RhwpCommand.getCellProperties({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+  }) = RhwpGetCellPropertiesCommand;
+
+  factory RhwpCommand.setCellProperties({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    int? width,
+    int? height,
+    int? paddingLeft,
+    int? paddingRight,
+    int? paddingTop,
+    int? paddingBottom,
+    int? verticalAlign,
+    int? textDirection,
+    bool? isHeader,
+    bool? cellProtect,
+  }) = RhwpSetCellPropertiesCommand;
 
   factory RhwpCommand.deleteObjectControl({
     required int section,
@@ -1671,6 +1747,84 @@ class RhwpSetTablePropertiesCommand extends RhwpCommand {
       if (paddingBottom != null) 'paddingBottom': paddingBottom,
       if (pageBreak != null) 'pageBreak': pageBreak,
       if (repeatHeader != null) 'repeatHeader': repeatHeader,
+    },
+  };
+}
+
+class RhwpGetCellPropertiesCommand extends RhwpCommand {
+  const RhwpGetCellPropertiesCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'getCellProperties',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'cellIndex': cellIndex,
+  };
+}
+
+class RhwpSetCellPropertiesCommand extends RhwpCommand {
+  const RhwpSetCellPropertiesCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+    this.width,
+    this.height,
+    this.paddingLeft,
+    this.paddingRight,
+    this.paddingTop,
+    this.paddingBottom,
+    this.verticalAlign,
+    this.textDirection,
+    this.isHeader,
+    this.cellProtect,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+  final int? width;
+  final int? height;
+  final int? paddingLeft;
+  final int? paddingRight;
+  final int? paddingTop;
+  final int? paddingBottom;
+  final int? verticalAlign;
+  final int? textDirection;
+  final bool? isHeader;
+  final bool? cellProtect;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'setCellProperties',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'cellIndex': cellIndex,
+    'properties': {
+      if (width != null) 'width': width,
+      if (height != null) 'height': height,
+      if (paddingLeft != null) 'paddingLeft': paddingLeft,
+      if (paddingRight != null) 'paddingRight': paddingRight,
+      if (paddingTop != null) 'paddingTop': paddingTop,
+      if (paddingBottom != null) 'paddingBottom': paddingBottom,
+      if (verticalAlign != null) 'verticalAlign': verticalAlign,
+      if (textDirection != null) 'textDirection': textDirection,
+      if (isHeader != null) 'isHeader': isHeader,
+      if (cellProtect != null) 'cellProtect': cellProtect,
     },
   };
 }
@@ -3213,6 +3367,59 @@ class RhwpDocument {
         paddingBottom: paddingBottom,
         pageBreak: pageBreak,
         repeatHeader: repeatHeader,
+      ),
+    );
+  }
+
+  Future<RhwpCellProperties> cellProperties({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+  }) async {
+    final json = await apply(
+      RhwpCommand.getCellProperties(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        cellIndex: cellIndex,
+      ),
+    );
+    return RhwpCellProperties.fromJsonString(json);
+  }
+
+  Future<String> setCellProperties({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    int? width,
+    int? height,
+    int? paddingLeft,
+    int? paddingRight,
+    int? paddingTop,
+    int? paddingBottom,
+    int? verticalAlign,
+    int? textDirection,
+    bool? isHeader,
+    bool? cellProtect,
+  }) {
+    return apply(
+      RhwpCommand.setCellProperties(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        cellIndex: cellIndex,
+        width: width,
+        height: height,
+        paddingLeft: paddingLeft,
+        paddingRight: paddingRight,
+        paddingTop: paddingTop,
+        paddingBottom: paddingBottom,
+        verticalAlign: verticalAlign,
+        textDirection: textDirection,
+        isHeader: isHeader,
+        cellProtect: cellProtect,
       ),
     );
   }

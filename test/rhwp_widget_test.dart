@@ -2235,6 +2235,123 @@ void main() {
     ]);
   });
 
+  testWidgets(
+    'RhwpNativeEditor edits selected cell properties from table ribbon',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      final pageFinder = find.byType(SvgPicture);
+      final pageTopLeft = tester.getTopLeft(pageFinder);
+      final pageSize = tester.getSize(pageFinder);
+      await tester.tapAt(
+        pageTopLeft +
+            Offset(pageSize.width * 100 / 240, pageSize.height * 60 / 180),
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('표'));
+      await tester.pump();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('rhwp-editor-cell-properties')),
+      );
+      await tester.pump();
+      await tester.tap(
+        find.byKey(const ValueKey('rhwp-editor-cell-properties')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('셀 속성'), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-cell-width-field')),
+        '6000',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-cell-height-field')),
+        '3200',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-cell-padding-left-field')),
+        '210',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-cell-padding-right-field')),
+        '220',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-cell-padding-top-field')),
+        '230',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-cell-padding-bottom-field')),
+        '240',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-cell-text-direction-field')),
+        '1',
+      );
+      await tester.tap(find.byKey(const ValueKey('rhwp-cell-is-header-field')));
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('rhwp-cell-protect-field')));
+      await tester.pump();
+      await tester.tap(
+        find.byKey(const ValueKey('rhwp-cell-properties-apply')),
+      );
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+      expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+        'saveSnapshot',
+      ]);
+      expect(session.commands.map(jsonDecode), [
+        {
+          'type': 'getCellProperties',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+        },
+        {
+          'type': 'setCellProperties',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'properties': {
+            'width': 6000,
+            'height': 3200,
+            'paddingLeft': 210,
+            'paddingRight': 220,
+            'paddingTop': 230,
+            'paddingBottom': 240,
+            'verticalAlign': 1,
+            'textDirection': 1,
+            'isHeader': true,
+            'cellProtect': true,
+          },
+        },
+      ]);
+    },
+  );
+
   testWidgets('RhwpNativeEditor taps table cell to set table edit context', (
     tester,
   ) async {
@@ -10127,6 +10244,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'getTableProperties') {
       return '{"cellSpacing":10,"paddingLeft":100,"paddingRight":110,"paddingTop":120,"paddingBottom":130,"pageBreak":1,"repeatHeader":false}';
+    }
+    if (command is Map && command['type'] == 'getCellProperties') {
+      return '{"width":5000,"height":3000,"paddingLeft":100,"paddingRight":110,"paddingTop":120,"paddingBottom":130,"verticalAlign":1,"textDirection":0,"isHeader":false,"cellProtect":false}';
     }
     if (command is Map && command['type'] == 'getPageSetup') {
       return '{"width":59528,"height":84189,"marginLeft":8504,"marginRight":8504,"marginTop":5669,"marginBottom":4252,"marginHeader":4252,"marginFooter":4252,"marginGutter":0,"landscape":false,"binding":0}';

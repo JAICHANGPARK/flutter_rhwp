@@ -3,6 +3,8 @@
 * Updated plugin release metadata for the `2026.5.24` release.
 * Added Flutter-native table properties editing for cell spacing, cell padding,
   page break mode, and repeated header rows.
+* Added Flutter-native selected cell properties editing for size, padding,
+  vertical alignment, text direction, header, and protection flags.
 * Added Flutter-native table cell split-into-grid editing through rhwp core's
   `splitTableCellInto` command.
 * Added the upstream-style F6 shortcut to open the Flutter-native style picker.

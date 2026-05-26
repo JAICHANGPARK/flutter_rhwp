@@ -527,6 +527,7 @@ enum _EditorContextMenuAction {
   splitCell,
   splitCellInto,
   tableProperties,
+  cellProperties,
   deleteObject,
   bringObjectToFront,
   sendObjectToBack,
@@ -943,6 +944,32 @@ class _TablePropertiesDialogResult {
   final int paddingBottom;
   final int pageBreak;
   final bool repeatHeader;
+}
+
+class _CellPropertiesDialogResult {
+  const _CellPropertiesDialogResult({
+    required this.width,
+    required this.height,
+    required this.paddingLeft,
+    required this.paddingRight,
+    required this.paddingTop,
+    required this.paddingBottom,
+    required this.verticalAlign,
+    required this.textDirection,
+    required this.isHeader,
+    required this.cellProtect,
+  });
+
+  final int width;
+  final int height;
+  final int paddingLeft;
+  final int paddingRight;
+  final int paddingTop;
+  final int paddingBottom;
+  final int verticalAlign;
+  final int textDirection;
+  final bool isHeader;
+  final bool cellProtect;
 }
 
 class _ResolvedEditorImage {
@@ -3448,6 +3475,79 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         pageBreak: result.pageBreak,
         repeatHeader: result.repeatHeader,
       );
+    });
+  }
+
+  Future<void> _showCellPropertiesDialog() async {
+    if (_busy) {
+      return;
+    }
+
+    final selection = _editableTableCellSelection;
+    final cellIndex = selection?.activeCellIndex;
+    if (selection == null || cellIndex == null) {
+      return;
+    }
+
+    RhwpCellProperties properties;
+    setState(() {
+      _busy = true;
+      _visibleBusy = true;
+      _error = null;
+    });
+    try {
+      properties = await widget.document.cellProperties(
+        section: selection.section,
+        paragraph: selection.paragraph,
+        controlIndex: selection.controlIndex,
+        cellIndex: cellIndex,
+      );
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _visibleBusy = false;
+          _error = error;
+        });
+      }
+      _focusEditor();
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _busy = false;
+      _visibleBusy = false;
+    });
+
+    final result = await showDialog<_CellPropertiesDialogResult>(
+      context: context,
+      builder: (context) => _CellPropertiesDialog(properties: properties),
+    );
+    if (result == null) {
+      _focusEditor();
+      return;
+    }
+
+    await _runEdit(() async {
+      await widget.document.setCellProperties(
+        section: selection.section,
+        paragraph: selection.paragraph,
+        controlIndex: selection.controlIndex,
+        cellIndex: cellIndex,
+        width: result.width,
+        height: result.height,
+        paddingLeft: result.paddingLeft,
+        paddingRight: result.paddingRight,
+        paddingTop: result.paddingTop,
+        paddingBottom: result.paddingBottom,
+        verticalAlign: result.verticalAlign,
+        textDirection: result.textDirection,
+        isHeader: result.isHeader,
+        cellProtect: result.cellProtect,
+      );
+      _controller.tableCellSelection = selection;
     });
   }
 
@@ -6547,6 +6647,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         await _splitTableCellInto();
       case _EditorContextMenuAction.tableProperties:
         await _showTablePropertiesDialog();
+      case _EditorContextMenuAction.cellProperties:
+        await _showCellPropertiesDialog();
       case _EditorContextMenuAction.deleteObject:
         await _deleteSelectedObject();
       case _EditorContextMenuAction.bringObjectToFront:
@@ -6699,6 +6801,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           icon: Icons.tune,
           label: '표 속성',
           enabled: !_busy,
+        ),
+        _contextMenuItem(
+          action: _EditorContextMenuAction.cellProperties,
+          icon: Icons.crop_square,
+          label: '셀 속성',
+          enabled:
+              !_busy && _controller.tableCellSelection?.activeCellIndex != null,
         ),
       ];
     }
@@ -8070,6 +8179,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onSplitTableCell: _splitTableCell,
           onSplitTableCellInto: _splitTableCellInto,
           onTableProperties: _showTablePropertiesDialog,
+          onCellProperties: _showCellPropertiesDialog,
           onCellFillColor: (fillColor) =>
               _applyTableCellStyle(fillColor: fillColor),
           onCellBorder: () => _applyTableCellStyle(
@@ -10265,6 +10375,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onSplitTableCell,
     required this.onSplitTableCellInto,
     required this.onTableProperties,
+    required this.onCellProperties,
     required this.onCellFillColor,
     required this.onCellBorder,
     required this.onClearCellFill,
@@ -10385,6 +10496,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onSplitTableCell;
   final VoidCallback onSplitTableCellInto;
   final VoidCallback onTableProperties;
+  final VoidCallback onCellProperties;
   final ValueChanged<String> onCellFillColor;
   final VoidCallback onCellBorder;
   final VoidCallback onClearCellFill;
@@ -11298,6 +11410,8 @@ class _EditorToolbarState extends State<_EditorToolbar> {
 
   List<Widget> _tableGroups() {
     final canStyleCell = !widget.busy && widget.tableCellSelection != null;
+    final canEditActiveCell =
+        canStyleCell && widget.tableCellSelection?.activeCellIndex != null;
     return [
       _RibbonGroup(
         label: '표 위치',
@@ -11462,6 +11576,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               buttonKey: const ValueKey('rhwp-editor-cell-align-bottom'),
               icon: Icons.vertical_align_bottom,
               onPressed: canStyleCell ? widget.onCellVerticalAlignBottom : null,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Cell properties',
+              buttonKey: const ValueKey('rhwp-editor-cell-properties'),
+              icon: Icons.crop_square,
+              onPressed: canEditActiveCell ? widget.onCellProperties : null,
             ),
           ],
         ),
@@ -12010,6 +12130,247 @@ class _TablePropertiesDialogState extends State<_TablePropertiesDialog> {
   int _readNonNegative(TextEditingController controller) {
     final parsed = int.tryParse(controller.text.trim()) ?? 0;
     return math.max(0, math.min(parsed, 32767));
+  }
+}
+
+class _CellPropertiesDialog extends StatefulWidget {
+  const _CellPropertiesDialog({required this.properties});
+
+  final RhwpCellProperties properties;
+
+  @override
+  State<_CellPropertiesDialog> createState() => _CellPropertiesDialogState();
+}
+
+class _CellPropertiesDialogState extends State<_CellPropertiesDialog> {
+  late final TextEditingController _widthController;
+  late final TextEditingController _heightController;
+  late final TextEditingController _paddingLeftController;
+  late final TextEditingController _paddingRightController;
+  late final TextEditingController _paddingTopController;
+  late final TextEditingController _paddingBottomController;
+  late final TextEditingController _textDirectionController;
+  late int _verticalAlign;
+  late bool _isHeader;
+  late bool _cellProtect;
+
+  @override
+  void initState() {
+    super.initState();
+    final properties = widget.properties;
+    _widthController = TextEditingController(
+      text: _initialValue(properties.width),
+    );
+    _heightController = TextEditingController(
+      text: _initialValue(properties.height),
+    );
+    _paddingLeftController = TextEditingController(
+      text: _initialValue(properties.paddingLeft),
+    );
+    _paddingRightController = TextEditingController(
+      text: _initialValue(properties.paddingRight),
+    );
+    _paddingTopController = TextEditingController(
+      text: _initialValue(properties.paddingTop),
+    );
+    _paddingBottomController = TextEditingController(
+      text: _initialValue(properties.paddingBottom),
+    );
+    _textDirectionController = TextEditingController(
+      text: _initialValue(properties.textDirection),
+    );
+    _verticalAlign = (properties.verticalAlign ?? 0).clamp(0, 2).toInt();
+    _isHeader = properties.isHeader ?? false;
+    _cellProtect = properties.cellProtect ?? false;
+  }
+
+  @override
+  void dispose() {
+    _widthController.dispose();
+    _heightController.dispose();
+    _paddingLeftController.dispose();
+    _paddingRightController.dispose();
+    _paddingTopController.dispose();
+    _paddingBottomController.dispose();
+    _textDirectionController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('셀 속성'),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _numberField(
+                      key: const ValueKey('rhwp-cell-width-field'),
+                      label: 'Width',
+                      controller: _widthController,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _numberField(
+                      key: const ValueKey('rhwp-cell-height-field'),
+                      label: 'Height',
+                      controller: _heightController,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _numberField(
+                      key: const ValueKey('rhwp-cell-padding-left-field'),
+                      label: 'Padding left',
+                      controller: _paddingLeftController,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _numberField(
+                      key: const ValueKey('rhwp-cell-padding-right-field'),
+                      label: 'Padding right',
+                      controller: _paddingRightController,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _numberField(
+                      key: const ValueKey('rhwp-cell-padding-top-field'),
+                      label: 'Padding top',
+                      controller: _paddingTopController,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _numberField(
+                      key: const ValueKey('rhwp-cell-padding-bottom-field'),
+                      label: 'Padding bottom',
+                      controller: _paddingBottomController,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      key: const ValueKey('rhwp-cell-vertical-align-field'),
+                      initialValue: _verticalAlign,
+                      decoration: const InputDecoration(
+                        labelText: 'Vertical align',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 0, child: Text('Top')),
+                        DropdownMenuItem(value: 1, child: Text('Center')),
+                        DropdownMenuItem(value: 2, child: Text('Bottom')),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => _verticalAlign = value);
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _numberField(
+                      key: const ValueKey('rhwp-cell-text-direction-field'),
+                      label: 'Text direction',
+                      controller: _textDirectionController,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                key: const ValueKey('rhwp-cell-is-header-field'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Header cell'),
+                value: _isHeader,
+                onChanged: (value) => setState(() => _isHeader = value),
+              ),
+              SwitchListTile(
+                key: const ValueKey('rhwp-cell-protect-field'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Protect cell'),
+                value: _cellProtect,
+                onChanged: (value) => setState(() => _cellProtect = value),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const ValueKey('rhwp-cell-properties-apply'),
+          onPressed: _apply,
+          child: const Text('Apply'),
+        ),
+      ],
+    );
+  }
+
+  Widget _numberField({
+    required Key key,
+    required String label,
+    required TextEditingController controller,
+  }) {
+    return TextField(
+      key: key,
+      controller: controller,
+      keyboardType: TextInputType.number,
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+        isDense: true,
+      ),
+    );
+  }
+
+  void _apply() {
+    Navigator.of(context).pop(
+      _CellPropertiesDialogResult(
+        width: _readNonNegative(_widthController),
+        height: _readNonNegative(_heightController),
+        paddingLeft: _readNonNegative(_paddingLeftController),
+        paddingRight: _readNonNegative(_paddingRightController),
+        paddingTop: _readNonNegative(_paddingTopController),
+        paddingBottom: _readNonNegative(_paddingBottomController),
+        verticalAlign: _verticalAlign,
+        textDirection: _readNonNegative(_textDirectionController),
+        isHeader: _isHeader,
+        cellProtect: _cellProtect,
+      ),
+    );
+  }
+
+  String _initialValue(int? value) => (value ?? 0).toString();
+
+  int _readNonNegative(TextEditingController controller) {
+    final parsed = int.tryParse(controller.text.trim()) ?? 0;
+    return math.max(0, math.min(parsed, 2147483647));
   }
 }
 

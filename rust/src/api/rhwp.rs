@@ -568,6 +568,31 @@ impl RhwpSession {
                 .document
                 .set_table_properties(section, paragraph, control_index, &properties.to_string())
                 .map_err(|error| format!("{error:?}")),
+            RhwpCommand::GetCellProperties {
+                section,
+                paragraph,
+                control_index,
+                cell_index,
+            } => inner
+                .document
+                .get_cell_properties(section, paragraph, control_index, cell_index)
+                .map_err(|error| format!("{error:?}")),
+            RhwpCommand::SetCellProperties {
+                section,
+                paragraph,
+                control_index,
+                cell_index,
+                properties,
+            } => inner
+                .document
+                .set_cell_properties(
+                    section,
+                    paragraph,
+                    control_index,
+                    cell_index,
+                    &properties.to_string(),
+                )
+                .map_err(|error| format!("{error:?}")),
             RhwpCommand::DeleteObjectControl {
                 section,
                 paragraph,
@@ -1219,6 +1244,23 @@ enum RhwpCommand {
         paragraph: u32,
         #[serde(rename = "controlIndex")]
         control_index: u32,
+        properties: serde_json::Value,
+    },
+    GetCellProperties {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "cellIndex")]
+        cell_index: u32,
+    },
+    SetCellProperties {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "cellIndex")]
+        cell_index: u32,
         properties: serde_json::Value,
     },
     DeleteObjectControl {
@@ -2389,6 +2431,24 @@ mod tests {
                 ),
             )
             .expect("set table properties command should be accepted");
+        let cell_properties = session
+            .apply_command(format!(
+                r#"{{"type":"getCellProperties","section":0,"paragraph":{},"controlIndex":0,"cellIndex":0}}"#,
+                table_paragraph
+            ))
+            .expect("cell properties query should be accepted");
+        let cell_properties: Value =
+            serde_json::from_str(&cell_properties).expect("cell properties should be JSON");
+        assert!(cell_properties["width"].is_number());
+        assert!(cell_properties["height"].is_number());
+        session
+            .apply_command(
+                format!(
+                    r#"{{"type":"setCellProperties","section":0,"paragraph":{},"controlIndex":0,"cellIndex":0,"properties":{{"width":6000,"height":3200,"paddingLeft":210,"paddingRight":220,"paddingTop":230,"paddingBottom":240,"verticalAlign":2,"textDirection":1,"isHeader":true,"cellProtect":true}}}}"#,
+                    table_paragraph
+                ),
+            )
+            .expect("set cell properties command should be accepted");
         session
             .apply_command(
                 format!(

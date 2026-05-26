@@ -595,6 +595,66 @@ void main() {
         },
       },
     );
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.getCellProperties(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            cellIndex: 3,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'getCellProperties',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'cellIndex': 3,
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.setCellProperties(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            cellIndex: 3,
+            width: 6000,
+            height: 3200,
+            paddingLeft: 210,
+            paddingRight: 220,
+            paddingTop: 230,
+            paddingBottom: 240,
+            verticalAlign: 2,
+            textDirection: 1,
+            isHeader: true,
+            cellProtect: true,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'setCellProperties',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'cellIndex': 3,
+        'properties': {
+          'width': 6000,
+          'height': 3200,
+          'paddingLeft': 210,
+          'paddingRight': 220,
+          'paddingTop': 230,
+          'paddingBottom': 240,
+          'verticalAlign': 2,
+          'textDirection': 1,
+          'isHeader': true,
+          'cellProtect': true,
+        },
+      },
+    );
   });
 
   test('object control commands serialize to Rust envelopes', () {
@@ -1965,6 +2025,68 @@ void main() {
       },
     });
 
+    final cellProperties = await document.cellProperties(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      cellIndex: 2,
+    );
+
+    expect(cellProperties.width, 5000);
+    expect(cellProperties.height, 3000);
+    expect(cellProperties.paddingLeft, 100);
+    expect(cellProperties.paddingRight, 110);
+    expect(cellProperties.paddingTop, 120);
+    expect(cellProperties.paddingBottom, 130);
+    expect(cellProperties.verticalAlign, 1);
+    expect(cellProperties.textDirection, 0);
+    expect(cellProperties.isHeader, isFalse);
+    expect(cellProperties.cellProtect, isFalse);
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'getCellProperties',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'cellIndex': 2,
+    });
+
+    await document.setCellProperties(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      cellIndex: 2,
+      width: 6000,
+      height: 3200,
+      paddingLeft: 210,
+      paddingRight: 220,
+      paddingTop: 230,
+      paddingBottom: 240,
+      verticalAlign: 2,
+      textDirection: 1,
+      isHeader: true,
+      cellProtect: true,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'setCellProperties',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'cellIndex': 2,
+      'properties': {
+        'width': 6000,
+        'height': 3200,
+        'paddingLeft': 210,
+        'paddingRight': 220,
+        'paddingTop': 230,
+        'paddingBottom': 240,
+        'verticalAlign': 2,
+        'textDirection': 1,
+        'isHeader': true,
+        'cellProtect': true,
+      },
+    });
+
     await document.deleteObjectControl(
       section: 0,
       paragraph: 2,
@@ -2646,6 +2768,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'getTableProperties') {
       return '{"cellSpacing":10,"paddingLeft":100,"paddingRight":110,"paddingTop":120,"paddingBottom":130,"pageBreak":1,"repeatHeader":false}';
+    }
+    if (command is Map && command['type'] == 'getCellProperties') {
+      return '{"width":5000,"height":3000,"paddingLeft":100,"paddingRight":110,"paddingTop":120,"paddingBottom":130,"verticalAlign":1,"textDirection":0,"isHeader":false,"cellProtect":false}';
     }
     if (command is Map && command['type'] == 'clipboardHasObjectControl') {
       return '{"ok":true,"hasControl":true}';
