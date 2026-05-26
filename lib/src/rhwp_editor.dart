@@ -5200,6 +5200,14 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
+    final initialSelection = _controller.selection;
+    if (initialSelection.isCollapsed) {
+      final cursor = _readCursor();
+      if (cursor.offset <= 0 && !await _hasPreviousParagraph(cursor)) {
+        return;
+      }
+    }
+
     RhwpSelectionRange? deletedRange;
     final edited = await _runEdit(() async {
       final selection = _controller.selection;
@@ -5246,6 +5254,17 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
+    final initialSelection = _controller.selection;
+    if (initialSelection.isCollapsed) {
+      final cursor = _readCursor();
+      final paragraphEnd = await _paragraphEndOffsetFor(cursor);
+      if (paragraphEnd != null &&
+          cursor.offset >= paragraphEnd &&
+          !await _hasNextParagraph(cursor.copyWith(offset: paragraphEnd))) {
+        return;
+      }
+    }
+
     RhwpSelectionRange? deletedRange;
     final edited = await _runEdit(() async {
       final selection = _controller.selection;
@@ -5274,6 +5293,18 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     if (edited && deletedRange != null) {
       _recordPendingDeletionOverlay(deletedRange!);
     }
+  }
+
+  Future<bool> _hasPreviousParagraph(RhwpCursorPosition cursor) async {
+    final paragraphs = await _bodyParagraphs();
+    final previous = _paragraphRelativeTo(paragraphs, cursor, -1);
+    return previous != null && previous.section == cursor.section;
+  }
+
+  Future<bool> _hasNextParagraph(RhwpCursorPosition cursor) async {
+    final paragraphs = await _bodyParagraphs();
+    final next = _paragraphRelativeTo(paragraphs, cursor, 1);
+    return next != null && next.section == cursor.section;
   }
 
   Future<bool> _mergeWithPreviousParagraph(RhwpCursorPosition cursor) async {

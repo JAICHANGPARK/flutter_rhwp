@@ -5764,6 +5764,25 @@ void main() {
       'endParagraph': 1,
       'endOffset': 0,
     });
+
+    session.commands.clear();
+    controller.cursor = const RhwpCursorPosition();
+    await tester.pump();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 2);
+    expect(session.commands, isEmpty);
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 1, offset: 4);
+    await tester.pump();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 2);
+    expect(session.commands, isEmpty);
   });
 
   testWidgets('RhwpNativeEditor inserts tab from keyboard', (tester) async {

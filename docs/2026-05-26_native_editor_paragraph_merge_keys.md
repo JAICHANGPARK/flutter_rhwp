@@ -4,6 +4,7 @@
 
 - `RhwpNativeEditor`에서 문단 시작 위치에서 Backspace를 누르면 이전 본문 문단 끝과 현재 문단 시작 사이를 `deleteRange`로 삭제해 문단을 병합하도록 했다.
 - 문단 끝 위치에서 Delete를 누르면 현재 문단 끝과 다음 문단 시작 사이를 `deleteRange`로 삭제해 다음 문단과 병합하도록 했다.
+- 첫 문단 시작 또는 마지막 문단 끝처럼 병합 대상이 없는 경계에서는 command와 page refresh를 실행하지 않도록 했다.
 - page layer tree의 본문 문단 목록과 문단 끝 offset을 사용해 병합 대상 문단을 찾도록 연결했다.
 - Backspace/Delete 문단 경계 병합 widget test를 추가했다.
 
