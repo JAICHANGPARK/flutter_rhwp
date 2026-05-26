@@ -295,8 +295,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   row above/below insertion and row deletion, column left/right insertion and
   column deletion, and cell
   merge/split/split-into-grid command flow, table properties editing, and
-  selected-cell properties and vertical alignment editing from the ribbon and
-  context menu with table-cell hit testing, selected-cell
+  selected-cell properties, fill, border, and vertical alignment editing from
+  the ribbon and context menu with table-cell hit testing, selected-cell
   highlighting, object/control hit testing, highlighting, pointer drag move and
   resize handles for selected objects, Delete/Backspace object deletion, object
   size/position properties, and object z-order actions from the edit ribbon and

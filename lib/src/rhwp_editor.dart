@@ -530,6 +530,9 @@ enum _EditorContextMenuAction {
   cellAlignTop,
   cellAlignCenter,
   cellAlignBottom,
+  cellFillYellow,
+  clearCellFill,
+  cellBorder,
   mergeCells,
   splitCell,
   splitCellInto,
@@ -6677,6 +6680,16 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         await _applyTableCellStyle(verticalAlign: 1);
       case _EditorContextMenuAction.cellAlignBottom:
         await _applyTableCellStyle(verticalAlign: 2);
+      case _EditorContextMenuAction.cellFillYellow:
+        await _applyTableCellStyle(fillColor: '#fef08a');
+      case _EditorContextMenuAction.clearCellFill:
+        await _applyTableCellStyle(clearFill: true);
+      case _EditorContextMenuAction.cellBorder:
+        await _applyTableCellStyle(
+          borderColor: '#475569',
+          borderWidth: 1,
+          borderType: 1,
+        );
       case _EditorContextMenuAction.mergeCells:
         await _mergeTableCells();
       case _EditorContextMenuAction.splitCell:
@@ -6857,6 +6870,25 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           action: _EditorContextMenuAction.cellAlignBottom,
           icon: Icons.vertical_align_bottom,
           label: '셀 아래쪽 정렬',
+          enabled: !_busy,
+        ),
+        const PopupMenuDivider(),
+        _contextMenuItem(
+          action: _EditorContextMenuAction.cellFillYellow,
+          icon: Icons.format_color_fill,
+          label: '셀 노랑 채우기',
+          enabled: !_busy,
+        ),
+        _contextMenuItem(
+          action: _EditorContextMenuAction.clearCellFill,
+          icon: Icons.format_color_reset,
+          label: '셀 채우기 제거',
+          enabled: !_busy,
+        ),
+        _contextMenuItem(
+          action: _EditorContextMenuAction.cellBorder,
+          icon: Icons.border_all,
+          label: '셀 테두리',
           enabled: !_busy,
         ),
         const PopupMenuDivider(),

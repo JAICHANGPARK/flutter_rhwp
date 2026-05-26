@@ -4581,6 +4581,15 @@ void main() {
     expect(find.text('셀 위쪽 정렬'), findsOneWidget);
     expect(find.text('셀 가운데 정렬'), findsOneWidget);
     expect(find.text('셀 아래쪽 정렬'), findsOneWidget);
+    expect(find.text('셀 노랑 채우기'), findsOneWidget);
+    expect(find.text('셀 채우기 제거'), findsOneWidget);
+    expect(find.text('셀 테두리'), findsOneWidget);
+    await tester.tap(find.text('셀 노랑 채우기'));
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(tablePoint, buttons: kSecondaryMouseButton);
+    await tester.pumpAndSettle();
+
     await tester.tap(find.text('셀 아래쪽 정렬'));
     await _pumpDocumentFrame(tester);
 
@@ -4597,8 +4606,16 @@ void main() {
     await tester.tap(find.text('셀 나누기'));
     await _pumpDocumentFrame(tester);
 
-    expect(changedCalls, 3);
+    expect(changedCalls, 4);
     expect(session.commands.map(jsonDecode), [
+      {
+        'type': 'applyTableCellStyle',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'cellIndex': 7,
+        'properties': {'fillType': 'solid', 'fillColor': '#fef08a'},
+      },
       {
         'type': 'applyTableCellStyle',
         'section': 0,
