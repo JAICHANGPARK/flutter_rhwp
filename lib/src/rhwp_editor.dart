@@ -527,6 +527,9 @@ enum _EditorContextMenuAction {
   insertTableColumnRight,
   deleteTableRow,
   deleteTableColumn,
+  cellAlignTop,
+  cellAlignCenter,
+  cellAlignBottom,
   mergeCells,
   splitCell,
   splitCellInto,
@@ -6668,6 +6671,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         await _deleteTableRow();
       case _EditorContextMenuAction.deleteTableColumn:
         await _deleteTableColumn();
+      case _EditorContextMenuAction.cellAlignTop:
+        await _applyTableCellStyle(verticalAlign: 0);
+      case _EditorContextMenuAction.cellAlignCenter:
+        await _applyTableCellStyle(verticalAlign: 1);
+      case _EditorContextMenuAction.cellAlignBottom:
+        await _applyTableCellStyle(verticalAlign: 2);
       case _EditorContextMenuAction.mergeCells:
         await _mergeTableCells();
       case _EditorContextMenuAction.splitCell:
@@ -6831,6 +6840,26 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           label: '칸 삭제',
           enabled: !_busy,
         ),
+        const PopupMenuDivider(),
+        _contextMenuItem(
+          action: _EditorContextMenuAction.cellAlignTop,
+          icon: Icons.vertical_align_top,
+          label: '셀 위쪽 정렬',
+          enabled: !_busy,
+        ),
+        _contextMenuItem(
+          action: _EditorContextMenuAction.cellAlignCenter,
+          icon: Icons.vertical_align_center,
+          label: '셀 가운데 정렬',
+          enabled: !_busy,
+        ),
+        _contextMenuItem(
+          action: _EditorContextMenuAction.cellAlignBottom,
+          icon: Icons.vertical_align_bottom,
+          label: '셀 아래쪽 정렬',
+          enabled: !_busy,
+        ),
+        const PopupMenuDivider(),
         _contextMenuItem(
           action: _EditorContextMenuAction.mergeCells,
           icon: Icons.call_merge_outlined,

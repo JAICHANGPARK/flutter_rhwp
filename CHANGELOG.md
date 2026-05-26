@@ -15,6 +15,8 @@
   left/right insertion controls to the table ribbon and context menu.
 * Added Flutter-native table row and column delete actions to the table cell
   context menu.
+* Added Flutter-native table cell vertical alignment actions to the table cell
+  context menu.
 * Added Flutter-native table cell split-into-grid editing through rhwp core's
   `splitTableCellInto` command.
 * Added the upstream-style F6 shortcut to open the Flutter-native style picker.

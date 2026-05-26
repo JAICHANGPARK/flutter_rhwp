@@ -4578,6 +4578,15 @@ void main() {
     expect(find.text('오른쪽에 칸 삽입'), findsOneWidget);
     expect(find.text('줄 삭제'), findsOneWidget);
     expect(find.text('칸 삭제'), findsOneWidget);
+    expect(find.text('셀 위쪽 정렬'), findsOneWidget);
+    expect(find.text('셀 가운데 정렬'), findsOneWidget);
+    expect(find.text('셀 아래쪽 정렬'), findsOneWidget);
+    await tester.tap(find.text('셀 아래쪽 정렬'));
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(tablePoint, buttons: kSecondaryMouseButton);
+    await tester.pumpAndSettle();
+
     await tester.tap(find.text('줄 삭제'));
     await _pumpDocumentFrame(tester);
 
@@ -4588,8 +4597,16 @@ void main() {
     await tester.tap(find.text('셀 나누기'));
     await _pumpDocumentFrame(tester);
 
-    expect(changedCalls, 2);
+    expect(changedCalls, 3);
     expect(session.commands.map(jsonDecode), [
+      {
+        'type': 'applyTableCellStyle',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'cellIndex': 7,
+        'properties': {'verticalAlign': 2},
+      },
       {
         'type': 'deleteTableRow',
         'section': 0,
