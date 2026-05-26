@@ -750,6 +750,36 @@ class _PendingCharFormat {
     );
   }
 
+  _PendingCharFormat applyExplicit({
+    bool? bold,
+    bool? italic,
+    bool? underline,
+    bool? strikethrough,
+    bool? superscript,
+    bool? subscript,
+    bool? emboss,
+    bool? engrave,
+    String? fontFamily,
+    int? fontSize,
+    String? textColor,
+    String? shadeColor,
+  }) {
+    return _PendingCharFormat(
+      bold: bold ?? this.bold,
+      italic: italic ?? this.italic,
+      underline: underline ?? this.underline,
+      strikethrough: strikethrough ?? this.strikethrough,
+      superscript: superscript ?? this.superscript,
+      subscript: subscript ?? this.subscript,
+      emboss: emboss ?? this.emboss,
+      engrave: engrave ?? this.engrave,
+      fontFamily: fontFamily ?? this.fontFamily,
+      fontSize: fontSize ?? this.fontSize,
+      textColor: textColor ?? this.textColor,
+      shadeColor: shadeColor ?? this.shadeColor,
+    );
+  }
+
   static bool _toggleBool(bool? current, bool requested) {
     if (!requested) {
       return false;
@@ -3498,7 +3528,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         return;
       }
 
-      await _runEdit(() async {
+      final edited = await _runEdit(() async {
         for (final segment in nonEmptySegments) {
           await widget.document.applyCharFormatInTableCell(
             section: segment.section,
@@ -3524,6 +3554,22 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         }
         _controller.tableCellSelection = tableSelection;
       });
+      if (edited) {
+        _rememberAppliedCharFormat(
+          bold: bold,
+          italic: italic,
+          underline: underline,
+          strikethrough: strikethrough,
+          superscript: superscript,
+          subscript: subscript,
+          emboss: emboss,
+          engrave: engrave,
+          fontFamily: fontFamily,
+          fontSize: fontSize,
+          textColor: textColor,
+          shadeColor: shadeColor,
+        );
+      }
       return;
     }
 
@@ -3552,7 +3598,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
-    await _runEdit(() async {
+    final edited = await _runEdit(() async {
       await widget.document.applyCharFormatRange(
         section: start.section,
         startParagraph: start.paragraph,
@@ -3573,6 +3619,106 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         shadeColor: shadeColor,
       );
       _controller.selection = RhwpSelectionRange(start: start, end: end);
+    });
+    if (edited) {
+      _rememberAppliedCharFormat(
+        bold: bold,
+        italic: italic,
+        underline: underline,
+        strikethrough: strikethrough,
+        superscript: superscript,
+        subscript: subscript,
+        emboss: emboss,
+        engrave: engrave,
+        fontFamily: fontFamily,
+        fontSize: fontSize,
+        textColor: textColor,
+        shadeColor: shadeColor,
+      );
+    }
+  }
+
+  Future<void> _toggleCharFormat({
+    bool bold = false,
+    bool italic = false,
+    bool underline = false,
+    bool strikethrough = false,
+    bool superscript = false,
+    bool subscript = false,
+    bool emboss = false,
+    bool engrave = false,
+  }) {
+    final active = _pendingCharFormat.withFallback(_currentCharFormat);
+    final bool? nextSuperscript;
+    final bool? nextSubscript;
+    if (superscript) {
+      nextSuperscript = active.superscript == true ? false : true;
+      nextSubscript = false;
+    } else if (subscript) {
+      nextSuperscript = false;
+      nextSubscript = active.subscript == true ? false : true;
+    } else {
+      nextSuperscript = null;
+      nextSubscript = null;
+    }
+
+    final bool? nextEmboss;
+    final bool? nextEngrave;
+    if (emboss) {
+      nextEmboss = active.emboss == true ? false : true;
+      nextEngrave = false;
+    } else if (engrave) {
+      nextEmboss = false;
+      nextEngrave = active.engrave == true ? false : true;
+    } else {
+      nextEmboss = null;
+      nextEngrave = null;
+    }
+
+    return _applyCharFormat(
+      bold: bold ? active.bold != true : null,
+      italic: italic ? active.italic != true : null,
+      underline: underline ? active.underline != true : null,
+      strikethrough: strikethrough ? active.strikethrough != true : null,
+      superscript: nextSuperscript,
+      subscript: nextSubscript,
+      emboss: nextEmboss,
+      engrave: nextEngrave,
+    );
+  }
+
+  void _rememberAppliedCharFormat({
+    bool? bold,
+    bool? italic,
+    bool? underline,
+    bool? strikethrough,
+    bool? superscript,
+    bool? subscript,
+    bool? emboss,
+    bool? engrave,
+    String? fontFamily,
+    int? fontSize,
+    String? textColor,
+    String? shadeColor,
+  }) {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _currentCharFormat = _currentCharFormat.applyExplicit(
+        bold: bold,
+        italic: italic,
+        underline: underline,
+        strikethrough: strikethrough,
+        superscript: superscript,
+        subscript: subscript,
+        emboss: emboss,
+        engrave: engrave,
+        fontFamily: fontFamily,
+        fontSize: fontSize,
+        textColor: textColor,
+        shadeColor: shadeColor,
+      );
     });
   }
 
@@ -6174,13 +6320,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       case _EditorContextMenuAction.paste:
         await _pasteClipboard();
       case _EditorContextMenuAction.bold:
-        await _applyCharFormat(bold: true);
+        await _toggleCharFormat(bold: true);
       case _EditorContextMenuAction.italic:
-        await _applyCharFormat(italic: true);
+        await _toggleCharFormat(italic: true);
       case _EditorContextMenuAction.underline:
-        await _applyCharFormat(underline: true);
+        await _toggleCharFormat(underline: true);
       case _EditorContextMenuAction.strikethrough:
-        await _applyCharFormat(strikethrough: true);
+        await _toggleCharFormat(strikethrough: true);
       case _EditorContextMenuAction.charShape:
         await _showCharShapeDialog();
       case _EditorContextMenuAction.paraShape:
@@ -6772,13 +6918,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           _controller.resetZoom();
           return KeyEventResult.handled;
         case LogicalKeyboardKey.keyB:
-          _applyCharFormat(bold: true);
+          _toggleCharFormat(bold: true);
           return KeyEventResult.handled;
         case LogicalKeyboardKey.keyI:
-          _applyCharFormat(italic: true);
+          _toggleCharFormat(italic: true);
           return KeyEventResult.handled;
         case LogicalKeyboardKey.keyU:
-          _applyCharFormat(underline: true);
+          _toggleCharFormat(underline: true);
           return KeyEventResult.handled;
       }
     }
@@ -7711,16 +7857,14 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           canRedo: _redoSnapshots.isNotEmpty,
           onUndo: _undoEdit,
           onRedo: _redoEdit,
-          onBold: () => _applyCharFormat(bold: true),
-          onItalic: () => _applyCharFormat(italic: true),
-          onUnderline: () => _applyCharFormat(underline: true),
-          onStrikethrough: () => _applyCharFormat(strikethrough: true),
-          onSuperscript: () =>
-              _applyCharFormat(superscript: true, subscript: false),
-          onSubscript: () =>
-              _applyCharFormat(subscript: true, superscript: false),
-          onEmboss: () => _applyCharFormat(emboss: true, engrave: false),
-          onEngrave: () => _applyCharFormat(engrave: true, emboss: false),
+          onBold: () => _toggleCharFormat(bold: true),
+          onItalic: () => _toggleCharFormat(italic: true),
+          onUnderline: () => _toggleCharFormat(underline: true),
+          onStrikethrough: () => _toggleCharFormat(strikethrough: true),
+          onSuperscript: () => _toggleCharFormat(superscript: true),
+          onSubscript: () => _toggleCharFormat(subscript: true),
+          onEmboss: () => _toggleCharFormat(emboss: true),
+          onEngrave: () => _toggleCharFormat(engrave: true),
           onFontFamily: (fontFamily) =>
               _applyCharFormat(fontFamily: fontFamily),
           onFontSize: (fontSize) => _applyCharFormat(fontSize: fontSize),

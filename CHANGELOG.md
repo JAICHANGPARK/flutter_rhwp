@@ -1,6 +1,9 @@
 ## 2026.5.24
 
 * Updated plugin release metadata for the `2026.5.24` release.
+* Changed Flutter-native character toolbar and shortcuts to toggle active
+  Bold/Italic/Underline/Strike/script/emboss states instead of only forcing
+  them on.
 * Added a Flutter-native go-to-page dialog from the view ribbon and Ctrl/Cmd+G,
   backed by the existing `RhwpViewerController.goToPage` page scroller.
 * Kept Flutter-native IME composing previews and page overlays on their own

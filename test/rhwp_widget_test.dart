@@ -5395,6 +5395,85 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor toggles active character formatting off', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1)
+      ..charPropertiesJson =
+          '{"fontFamily":"함초롬바탕","fontSize":1000,"bold":true,"italic":true,"underline":true,"strikethrough":false,"superscript":false,"subscript":false,"emboss":false,"engrave":false,"textColor":"#000000","shadeColor":"#ffffff"}';
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.selection = const RhwpSelectionRange(
+      start: RhwpCursorPosition(offset: 1),
+      end: RhwpCursorPosition(offset: 3),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('서식'));
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('Bold'));
+    await _pumpDocumentFrame(tester);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyI);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await _pumpDocumentFrame(tester);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyU);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 3);
+    expect(session.commands.map(jsonDecode), [
+      {
+        'type': 'applyCharFormatRange',
+        'section': 0,
+        'startParagraph': 0,
+        'startOffset': 1,
+        'endParagraph': 0,
+        'endOffset': 3,
+        'properties': {'bold': false},
+      },
+      {
+        'type': 'applyCharFormatRange',
+        'section': 0,
+        'startParagraph': 0,
+        'startOffset': 1,
+        'endParagraph': 0,
+        'endOffset': 3,
+        'properties': {'italic': false},
+      },
+      {
+        'type': 'applyCharFormatRange',
+        'section': 0,
+        'startParagraph': 0,
+        'startOffset': 1,
+        'endParagraph': 0,
+        'endOffset': 3,
+        'properties': {'underline': false},
+      },
+    ]);
+  });
+
   testWidgets('RhwpNativeEditor applies inline character toolbar values', (
     tester,
   ) async {

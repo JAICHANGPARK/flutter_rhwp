@@ -220,7 +220,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   multi-paragraph selection
   replacement, multi-paragraph selected-text bold/italic/underline/strike
   formatting, inline font family, font size, text color, text background,
-  superscript, subscript, emboss, and engrave controls, a character shape
+  toggleable Bold/Italic/Underline/Strike, superscript, subscript, emboss, and
+  engrave controls, a character shape
   dialog with `Alt+L` shortcut support for font family, font size, text color,
   text background,
   superscript, subscript, emboss, and engrave, preloaded from the current
