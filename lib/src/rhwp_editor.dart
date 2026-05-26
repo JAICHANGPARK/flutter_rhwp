@@ -6902,7 +6902,14 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           _requestOpenFromEditor();
           return KeyEventResult.handled;
         case LogicalKeyboardKey.keyS:
-          _exportFromEditor(RhwpExportFormat.hwp);
+          _exportFromEditor(
+            HardwareKeyboard.instance.isShiftPressed
+                ? RhwpExportFormat.hwpx
+                : RhwpExportFormat.hwp,
+          );
+          return KeyEventResult.handled;
+        case LogicalKeyboardKey.keyP:
+          _exportFromEditor(RhwpExportFormat.pdf);
           return KeyEventResult.handled;
         case LogicalKeyboardKey.equal:
         case LogicalKeyboardKey.add:

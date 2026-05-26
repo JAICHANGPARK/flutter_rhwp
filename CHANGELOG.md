@@ -1,6 +1,8 @@
 ## 2026.5.24
 
 * Updated plugin release metadata for the `2026.5.24` release.
+* Added Flutter-native file shortcuts for Ctrl/Cmd+Shift+S HWPX save and
+  Ctrl/Cmd+P PDF export alongside the existing Ctrl/Cmd+S HWP save.
 * Changed Flutter-native character toolbar and shortcuts to toggle active
   Bold/Italic/Underline/Strike/script/emboss states instead of only forcing
   them on.
