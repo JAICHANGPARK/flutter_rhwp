@@ -6174,6 +6174,31 @@ void main() {
       find.byKey(const ValueKey('rhwp-editor-search-field')),
     );
     expect(searchField.focusNode?.hasFocus, isTrue);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-search-field')),
+      'needle',
+    );
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    await tester.pump();
+
+    final focusedSearchField = tester.widget<TextField>(
+      find.byKey(const ValueKey('rhwp-editor-search-field')),
+    );
+    expect(focusedSearchField.focusNode?.hasFocus, isTrue);
+    expect(
+      focusedSearchField.controller?.selection,
+      const TextSelection(baseOffset: 0, extentOffset: 6),
+    );
     expect(session.commands, isEmpty);
     expect(session.historyCommands, isEmpty);
   });

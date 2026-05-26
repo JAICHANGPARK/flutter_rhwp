@@ -3477,6 +3477,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       if (!mounted) {
         return;
       }
+      _searchController.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _searchController.text.length,
+      );
       _searchFocusNode.requestFocus();
     });
   }

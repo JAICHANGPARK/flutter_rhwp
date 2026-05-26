@@ -37,6 +37,8 @@
   and `Esc` returns active cell text editing to cell selection.
 * Matched upstream search-field keyboard handling so `Enter`/`Shift+Enter`
   navigate matches and `Esc` clears the active search from the tools ribbon.
+* Matched upstream find shortcut behavior so `Ctrl/Cmd+F` selects the existing
+  search text when focusing the tools-ribbon search field.
 * Kept Flutter-native editor deferred page refresh blocked when desktop text
   input focus briefly drops and returns during typing.
 * Initial flutter_rhwp plugin scaffold.
