@@ -4899,12 +4899,51 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
             (_hasDeferredEditRefresh && _deferredEditRefreshAwaitsTextInput));
   }
 
+  bool get _hasPendingOptimisticTextEdit {
+    return _pendingTextOverlays.isNotEmpty ||
+        _pendingDeletionOverlays.isNotEmpty;
+  }
+
+  bool get _hasScheduledDeferredEditRefresh {
+    final timer = _deferredEditRefreshTimer;
+    return timer != null && timer.isActive;
+  }
+
+  bool get _hasExternalPrimaryFocus {
+    final primaryFocus = FocusManager.instance.primaryFocus;
+    return primaryFocus != null &&
+        primaryFocus != _focusNode &&
+        primaryFocus != _searchFocusNode;
+  }
+
+  bool get _shouldKeepDesktopTextEditRefreshHeld {
+    return _isDesktopTextInputPlatform &&
+        _hasDeferredEditRefresh &&
+        _hasPendingOptimisticTextEdit &&
+        !_hasExternalPrimaryFocus &&
+        (_focusNode.hasFocus ||
+            _hasActiveTextInputConnection ||
+            _hasPendingDesktopTextInputFocusRelease ||
+            _desktopTextInputCommitHoldActive);
+  }
+
+  bool get _shouldTreatPendingDesktopTextEditAsChurn {
+    return _isDesktopTextInputPlatform &&
+        _hasDeferredEditRefresh &&
+        _hasPendingOptimisticTextEdit &&
+        !_hasExternalPrimaryFocus &&
+        (_deferredEditRefreshAwaitsTextInput ||
+            _hasScheduledDeferredEditRefresh ||
+            _pendingTextInputCommits > 0);
+  }
+
   bool get _shouldHoldDeferredRefreshForTextInput {
     return _pendingTextInputCommits > 0 ||
         _focusNode.hasFocus ||
         _hasActiveTextInputConnection ||
         _hasPendingDesktopTextInputFocusRelease ||
-        _desktopTextInputCommitHoldActive;
+        _desktopTextInputCommitHoldActive ||
+        _shouldKeepDesktopTextEditRefreshHeld;
   }
 
   Duration get _desktopTextInputFocusReleaseDelay {
@@ -4943,6 +4982,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       () {
         _desktopTextInputCommitHoldTimer = null;
         _desktopTextInputCommitHoldActive = false;
+        if (_shouldKeepDesktopTextEditRefreshHeld &&
+            !_hasExternalPrimaryFocus) {
+          _restoreDesktopTextInputAfterChurn();
+          return;
+        }
         if (!_shouldHoldDeferredRefreshForTextInput) {
           _releaseDeferredEditRefreshFromTextInput();
         }
@@ -4961,6 +5005,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       }
 
       if (_searchFocusNode.hasFocus) {
+        return;
+      }
+      if (_hasExternalPrimaryFocus) {
         return;
       }
 
@@ -4994,10 +5041,20 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   }
 
   bool get _shouldTreatConnectionClosedAsDesktopInputChurn {
-    if (!_isDesktopTextInputPlatform ||
-        (_pendingTextInputCommits <= 0 &&
-            (!_hasDeferredEditRefresh ||
-                !_deferredEditRefreshAwaitsTextInput))) {
+    if (!_isDesktopTextInputPlatform) {
+      return false;
+    }
+
+    if (_shouldTreatPendingDesktopTextEditAsChurn) {
+      return true;
+    }
+
+    if (_hasExternalPrimaryFocus) {
+      return false;
+    }
+
+    if (_pendingTextInputCommits <= 0 &&
+        (!_hasDeferredEditRefresh || !_deferredEditRefreshAwaitsTextInput)) {
       return false;
     }
 
@@ -5008,10 +5065,20 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   }
 
   bool get _shouldTreatTextInputActionAsDesktopInputChurn {
-    if (!_isDesktopTextInputPlatform ||
-        (_pendingTextInputCommits <= 0 &&
-            (!_hasDeferredEditRefresh ||
-                !_deferredEditRefreshAwaitsTextInput))) {
+    if (!_isDesktopTextInputPlatform) {
+      return false;
+    }
+
+    if (_shouldTreatPendingDesktopTextEditAsChurn) {
+      return true;
+    }
+
+    if (_hasExternalPrimaryFocus) {
+      return false;
+    }
+
+    if (_pendingTextInputCommits <= 0 &&
+        (!_hasDeferredEditRefresh || !_deferredEditRefreshAwaitsTextInput)) {
       return false;
     }
 
@@ -5225,6 +5292,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
     if (_deferredEditRefreshAwaitsTextInput &&
         _shouldHoldDeferredRefreshForTextInput) {
+      return;
+    }
+    if (_shouldKeepDesktopTextEditRefreshHeld) {
+      _deferredEditRefreshAwaitsTextInput = true;
+      _deferredEditRefreshTimer?.cancel();
+      _deferredEditRefreshTimer = null;
+      _restoreDesktopTextInputAfterChurn();
       return;
     }
     _deferredEditRefreshAwaitsTextInput = false;

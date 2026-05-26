@@ -9,6 +9,8 @@
   so typing or Space does not trigger visible page refreshes between commits.
 * Restored the Flutter-native editor TextInput focus after delayed desktop
   input churn so typing or Space does not reopen a page refresh while editing.
+* Kept late desktop text input actions from flushing an already scheduled
+  native-editor page refresh while optimistic text input is still active.
 * Added Flutter-native new page number insertion from the page ribbon through
   rhwp core's `insert_new_number_native` command.
 * Added Flutter-native header/footer text insertion from the page ribbon,

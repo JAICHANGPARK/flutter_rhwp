@@ -6941,6 +6941,80 @@ void main() {
   );
 
   testWidgets(
+    'RhwpNativeEditor cancels scheduled refresh on late desktop input action',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Column(
+                children: [
+                  SizedBox(
+                    width: 720,
+                    height: 420,
+                    child: RhwpNativeEditor(
+                      document: document,
+                      controller: controller,
+                      editRefreshDelay: const Duration(milliseconds: 500),
+                      onChanged: (_) => changedCalls += 1,
+                    ),
+                  ),
+                  const TextField(key: ValueKey('external-focus-field')),
+                ],
+              ),
+            ),
+          ),
+        );
+        await _pumpDocumentFrame(tester);
+
+        final caretFinder = find.byKey(const ValueKey('rhwp-editor-caret'));
+        await tester.tapAt(tester.getTopLeft(caretFinder) + const Offset(1, 6));
+        await tester.pump();
+
+        controller.cursor = const RhwpCursorPosition(offset: 2);
+        session.renderedPages.clear();
+
+        tester.testTextInput.updateEditingValue(
+          const TextEditingValue(
+            text: 'A',
+            selection: TextSelection.collapsed(offset: 1),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.pump(const Duration(milliseconds: 1600));
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pump(const Duration(milliseconds: 700));
+        await tester.pump();
+
+        expect(changedCalls, 0);
+        expect(session.renderedPages, isEmpty);
+        expect(tester.testTextInput.hasAnyClients, isTrue);
+        expect(
+          find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.byKey(const ValueKey('external-focus-field')));
+        await _pumpDesktopTextInputRelease(tester);
+
+        expect(changedCalls, 1);
+        expect(session.renderedPages, [0]);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
+
+  testWidgets(
     'RhwpNativeEditor holds text refresh across transient desktop focus loss',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
