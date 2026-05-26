@@ -6657,6 +6657,50 @@ void main() {
     ]);
   });
 
+  testWidgets('RhwpNativeEditor opens style picker with F6 shortcut', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.f6);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.byKey(const ValueKey('rhwp-style-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('rhwp-style-3')), findsOneWidget);
+    expect(changedCalls, 0);
+    expect(session.commands.map(jsonDecode), [
+      {'type': 'getStyleList'},
+    ]);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('RhwpNativeEditor applies document styles to table cells', (
     tester,
   ) async {

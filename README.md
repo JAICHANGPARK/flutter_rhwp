@@ -238,7 +238,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   format ribbon, paragraph alignment commands and line-spacing presets,
   Ctrl/Cmd+L/E/R/J alignment shortcuts, a paragraph
   shape dialog that preloads the current caret paragraph's line spacing,
-  indent, and paragraph margins with `Alt+T` shortcut support, header/footer
+  indent, and paragraph margins with `Alt+T` shortcut support, style picker
+  command with F6 shortcut support, header/footer
   creation from the page ribbon,
   snapshot-backed undo/redo from the edit ribbon with continuous text-input
   undo batching, layer-tree text search with

@@ -1,6 +1,7 @@
 ## 2026.5.24
 
 * Updated plugin release metadata for the `2026.5.24` release.
+* Added the upstream-style F6 shortcut to open the Flutter-native style picker.
 * Added the upstream-style `Alt+T` shortcut to open the Flutter-native paragraph
   shape dialog.
 * Matched the upstream page setup shortcut by opening the Flutter-native page
