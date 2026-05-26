@@ -624,6 +624,40 @@ class _PendingCharFormat {
       textColor == null &&
       shadeColor == null;
 
+  factory _PendingCharFormat.fromCharProperties(RhwpCharProperties properties) {
+    return _PendingCharFormat(
+      bold: properties.bold,
+      italic: properties.italic,
+      underline: properties.underline,
+      strikethrough: properties.strikethrough,
+      superscript: properties.superscript,
+      subscript: properties.subscript,
+      emboss: properties.emboss,
+      engrave: properties.engrave,
+      fontFamily: properties.fontFamily,
+      fontSize: properties.fontSize,
+      textColor: properties.textColor,
+      shadeColor: properties.shadeColor,
+    );
+  }
+
+  _PendingCharFormat withFallback(_PendingCharFormat fallback) {
+    return _PendingCharFormat(
+      bold: bold ?? fallback.bold,
+      italic: italic ?? fallback.italic,
+      underline: underline ?? fallback.underline,
+      strikethrough: strikethrough ?? fallback.strikethrough,
+      superscript: superscript ?? fallback.superscript,
+      subscript: subscript ?? fallback.subscript,
+      emboss: emboss ?? fallback.emboss,
+      engrave: engrave ?? fallback.engrave,
+      fontFamily: fontFamily ?? fallback.fontFamily,
+      fontSize: fontSize ?? fallback.fontSize,
+      textColor: textColor ?? fallback.textColor,
+      shadeColor: shadeColor ?? fallback.shadeColor,
+    );
+  }
+
   _PendingCharFormat merge({
     bool? bold,
     bool? italic,
@@ -659,6 +693,56 @@ class _PendingCharFormat {
       engrave: engrave == null
           ? (emboss == true ? false : this.engrave)
           : _toggleBool(this.engrave, engrave),
+      fontFamily: fontFamily ?? this.fontFamily,
+      fontSize: fontSize ?? this.fontSize,
+      textColor: textColor ?? this.textColor,
+      shadeColor: shadeColor ?? this.shadeColor,
+    );
+  }
+
+  _PendingCharFormat mergeWithFallback(
+    _PendingCharFormat fallback, {
+    bool? bold,
+    bool? italic,
+    bool? underline,
+    bool? strikethrough,
+    bool? superscript,
+    bool? subscript,
+    bool? emboss,
+    bool? engrave,
+    String? fontFamily,
+    int? fontSize,
+    String? textColor,
+    String? shadeColor,
+  }) {
+    return _PendingCharFormat(
+      bold: bold == null
+          ? this.bold
+          : _toggleBool(this.bold ?? fallback.bold, bold),
+      italic: italic == null
+          ? this.italic
+          : _toggleBool(this.italic ?? fallback.italic, italic),
+      underline: underline == null
+          ? this.underline
+          : _toggleBool(this.underline ?? fallback.underline, underline),
+      strikethrough: strikethrough == null
+          ? this.strikethrough
+          : _toggleBool(
+              this.strikethrough ?? fallback.strikethrough,
+              strikethrough,
+            ),
+      superscript: superscript == null
+          ? (subscript == true ? false : this.superscript)
+          : _toggleBool(this.superscript ?? fallback.superscript, superscript),
+      subscript: subscript == null
+          ? (superscript == true ? false : this.subscript)
+          : _toggleBool(this.subscript ?? fallback.subscript, subscript),
+      emboss: emboss == null
+          ? (engrave == true ? false : this.emboss)
+          : _toggleBool(this.emboss ?? fallback.emboss, emboss),
+      engrave: engrave == null
+          ? (emboss == true ? false : this.engrave)
+          : _toggleBool(this.engrave ?? fallback.engrave, engrave),
       fontFamily: fontFamily ?? this.fontFamily,
       fontSize: fontSize ?? this.fontSize,
       textColor: textColor ?? this.textColor,
@@ -1135,6 +1219,11 @@ int _hwpFontSizeFromPointText(String text) {
   return (clampedPoints * 100).round();
 }
 
+String _hwpFontSizeToPointText(int fontSize) {
+  final points = fontSize / 100.0;
+  return points.toStringAsFixed(1);
+}
+
 class _PendingTextOverlay {
   const _PendingTextOverlay({
     required this.page,
@@ -1276,6 +1365,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   int _activeSearchMatch = -1;
   int? _pageCountValue;
   _PendingCharFormat _pendingCharFormat = const _PendingCharFormat();
+  _PendingCharFormat _currentCharFormat = const _PendingCharFormat();
   _EditorClipboardDomain? _clipboardDomain;
   final _undoSnapshots = <int>[];
   final _redoSnapshots = <int>[];
@@ -1292,6 +1382,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   bool _showTransparentTableBorders = false;
   bool _overwriteMode = false;
   Object? _error;
+  int _charFormatQueryRevision = 0;
 
   static const _maxUndoSnapshots = 100;
   static const _textInputActionIgnoreWindow = Duration(milliseconds: 800);
@@ -1309,6 +1400,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _controller.addListener(_handleControllerChanged);
     _focusNode.addListener(_handleFocusChanged);
     _syncCursorFields();
+    unawaited(_syncCurrentCharFormat());
     _loadPageCount();
   }
 
@@ -1319,6 +1411,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       _cancelDeferredEditRefresh();
       _renderRevision += 1;
       _pageCountValue = null;
+      _currentCharFormat = const _PendingCharFormat();
+      _charFormatQueryRevision += 1;
+      unawaited(_syncCurrentCharFormat());
       _loadPageCount();
     }
   }
@@ -1377,6 +1472,51 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
     if (mounted && !_suppressControllerChangedSetState) {
       setState(() {});
+      unawaited(_syncCurrentCharFormat());
+    }
+  }
+
+  Future<void> _syncCurrentCharFormat() async {
+    if (_busy ||
+        _controller.objectSelection != null ||
+        _hasPendingOptimisticTextEdit ||
+        _pendingTextInputCommits > 0) {
+      return;
+    }
+
+    final revision = ++_charFormatQueryRevision;
+    try {
+      final tableSelection = _controller.tableCellSelection;
+      final RhwpCharProperties properties;
+      if (tableSelection?.activeCellIndex != null) {
+        properties = await widget.document.cellCharPropertiesAt(
+          section: tableSelection!.section,
+          paragraph: tableSelection.paragraph,
+          controlIndex: tableSelection.controlIndex,
+          cellIndex: tableSelection.activeCellIndex!,
+          cellParagraph: tableSelection.activeCellParagraph,
+          offset: tableSelection.activeOffset,
+        );
+      } else {
+        final selection = _controller.selection;
+        final cursor = selection.isCollapsed
+            ? _controller.cursor
+            : selection.normalizedStart;
+        properties = await widget.document.charPropertiesAt(
+          section: cursor.section,
+          paragraph: cursor.paragraph,
+          offset: cursor.offset,
+        );
+      }
+
+      if (!mounted || revision != _charFormatQueryRevision) {
+        return;
+      }
+      setState(() {
+        _currentCharFormat = _PendingCharFormat.fromCharProperties(properties);
+      });
+    } catch (_) {
+      // Some documents do not expose style information for every cursor target.
     }
   }
 
@@ -3336,7 +3476,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     String? shadeColor,
   }) {
     setState(() {
-      _pendingCharFormat = _pendingCharFormat.merge(
+      _pendingCharFormat = _pendingCharFormat.mergeWithFallback(
+        _currentCharFormat,
         bold: bold,
         italic: italic,
         underline: underline,
@@ -7348,6 +7489,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           tableCellSelection: _controller.tableCellSelection,
           objectSelection: _controller.objectSelection,
           pendingCharFormat: _pendingCharFormat,
+          currentCharFormat: _currentCharFormat,
           currentPage: _controller.currentPage,
           pageCount: _pageCountValue,
           zoom: _controller.zoom,
@@ -9518,6 +9660,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.tableCellSelection,
     required this.objectSelection,
     required this.pendingCharFormat,
+    required this.currentCharFormat,
     required this.currentPage,
     required this.pageCount,
     required this.zoom,
@@ -9631,6 +9774,7 @@ class _EditorToolbar extends StatefulWidget {
   final RhwpTableCellSelection? tableCellSelection;
   final RhwpObjectSelection? objectSelection;
   final _PendingCharFormat pendingCharFormat;
+  final _PendingCharFormat currentCharFormat;
   final int currentPage;
   final int? pageCount;
   final double zoom;
@@ -9753,6 +9897,7 @@ class _EditorToolbarState extends State<_EditorToolbar> {
   @override
   void didUpdateWidget(covariant _EditorToolbar oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _syncCurrentFormatFields();
     if (oldWidget.tableCellSelection == null &&
         widget.tableCellSelection != null &&
         _activeTab != _EditorTab.tools) {
@@ -9761,6 +9906,34 @@ class _EditorToolbarState extends State<_EditorToolbar> {
         widget.objectSelection != null &&
         _activeTab != _EditorTab.tools) {
       _activeTab = _EditorTab.edit;
+    }
+  }
+
+  void _syncCurrentFormatFields() {
+    final format = widget.pendingCharFormat.withFallback(
+      widget.currentCharFormat,
+    );
+    final fontFamily = format.fontFamily;
+    if (fontFamily != null && _fontFamilyOptions.contains(fontFamily)) {
+      _toolbarFontFamily = fontFamily;
+    }
+
+    final fontSize = format.fontSize;
+    if (fontSize != null) {
+      final text = _hwpFontSizeToPointText(fontSize);
+      if (_toolbarFontSizeController.text != text) {
+        _toolbarFontSizeController.text = text;
+      }
+    }
+
+    final textColor = format.textColor;
+    if (textColor != null) {
+      _toolbarTextColor = textColor;
+    }
+
+    final shadeColor = format.shadeColor;
+    if (shadeColor != null) {
+      _toolbarShadeColor = shadeColor;
     }
   }
 
@@ -10209,6 +10382,14 @@ class _EditorToolbarState extends State<_EditorToolbar> {
   }
 
   List<Widget> _formatGroups() {
+    final charFormat = widget.pendingCharFormat.withFallback(
+      widget.currentCharFormat,
+    );
+    final fontFamilyValue =
+        charFormat.fontFamily != null &&
+            _fontFamilyOptions.contains(charFormat.fontFamily)
+        ? charFormat.fontFamily!
+        : _toolbarFontFamily;
     return [
       _RibbonGroup(
         label: '스타일',
@@ -10230,53 +10411,53 @@ class _EditorToolbarState extends State<_EditorToolbar> {
             _ToolbarIconButton(
               tooltip: 'Bold',
               icon: Icons.format_bold,
-              selected: widget.pendingCharFormat.bold == true,
+              selected: charFormat.bold == true,
               onPressed: widget.busy ? null : widget.onBold,
             ),
             _ToolbarIconButton(
               tooltip: 'Italic',
               icon: Icons.format_italic,
-              selected: widget.pendingCharFormat.italic == true,
+              selected: charFormat.italic == true,
               onPressed: widget.busy ? null : widget.onItalic,
             ),
             _ToolbarIconButton(
               tooltip: 'Underline',
               icon: Icons.format_underlined,
-              selected: widget.pendingCharFormat.underline == true,
+              selected: charFormat.underline == true,
               onPressed: widget.busy ? null : widget.onUnderline,
             ),
             _ToolbarIconButton(
               tooltip: 'Strikethrough',
               icon: Icons.format_strikethrough,
-              selected: widget.pendingCharFormat.strikethrough == true,
+              selected: charFormat.strikethrough == true,
               onPressed: widget.busy ? null : widget.onStrikethrough,
             ),
             _ToolbarIconButton(
               tooltip: 'Superscript',
               buttonKey: const ValueKey('rhwp-editor-superscript'),
               icon: Icons.superscript,
-              selected: widget.pendingCharFormat.superscript == true,
+              selected: charFormat.superscript == true,
               onPressed: widget.busy ? null : widget.onSuperscript,
             ),
             _ToolbarIconButton(
               tooltip: 'Subscript',
               buttonKey: const ValueKey('rhwp-editor-subscript'),
               icon: Icons.subscript,
-              selected: widget.pendingCharFormat.subscript == true,
+              selected: charFormat.subscript == true,
               onPressed: widget.busy ? null : widget.onSubscript,
             ),
             _ToolbarIconButton(
               tooltip: 'Emboss',
               buttonKey: const ValueKey('rhwp-editor-emboss'),
               icon: Icons.layers_outlined,
-              selected: widget.pendingCharFormat.emboss == true,
+              selected: charFormat.emboss == true,
               onPressed: widget.busy ? null : widget.onEmboss,
             ),
             _ToolbarIconButton(
               tooltip: 'Engrave',
               buttonKey: const ValueKey('rhwp-editor-engrave'),
               icon: Icons.layers_clear_outlined,
-              selected: widget.pendingCharFormat.engrave == true,
+              selected: charFormat.engrave == true,
               onPressed: widget.busy ? null : widget.onEngrave,
             ),
             const SizedBox(width: 6),
@@ -10284,8 +10465,7 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               width: 150,
               child: DropdownButtonFormField<String>(
                 key: const ValueKey('rhwp-editor-font-family-field'),
-                initialValue:
-                    widget.pendingCharFormat.fontFamily ?? _toolbarFontFamily,
+                initialValue: fontFamilyValue,
                 isExpanded: true,
                 decoration: const InputDecoration(
                   isDense: true,
@@ -10338,8 +10518,7 @@ class _EditorToolbarState extends State<_EditorToolbar> {
                 tooltip: 'Text color ${swatch.label}',
                 color: swatch.color,
                 selected:
-                    (widget.pendingCharFormat.textColor ?? _toolbarTextColor) ==
-                    swatch.value,
+                    (charFormat.textColor ?? _toolbarTextColor) == swatch.value,
                 onPressed: widget.busy
                     ? null
                     : () => _applyToolbarTextColor(swatch.value),
@@ -10351,8 +10530,7 @@ class _EditorToolbarState extends State<_EditorToolbar> {
                 tooltip: 'Text background ${swatch.label}',
                 color: swatch.color,
                 selected:
-                    (widget.pendingCharFormat.shadeColor ??
-                        _toolbarShadeColor) ==
+                    (charFormat.shadeColor ?? _toolbarShadeColor) ==
                     swatch.value,
                 onPressed: widget.busy
                     ? null

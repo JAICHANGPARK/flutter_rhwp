@@ -48,6 +48,8 @@
 * Added Flutter-native font family selection to the format ribbon and character
   shape dialog, backed by rhwp font id registration and char-layout reflow
   through the Rust facade.
+* Added native char-property query commands and synchronized the Flutter-native
+  format ribbon with the caret's current document character shape.
 * Added upstream-style line-spacing presets to the Flutter-native format ribbon.
 * Kept Flutter-native editor deferred page refresh blocked when desktop text
   input focus briefly drops and returns during typing.

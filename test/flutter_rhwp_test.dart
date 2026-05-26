@@ -373,6 +373,46 @@ void main() {
     expect(
       jsonDecode(
         jsonEncode(
+          RhwpCommand.getCharPropertiesAt(
+            section: 0,
+            paragraph: 1,
+            offset: 2,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'getCharPropertiesAt',
+        'section': 0,
+        'paragraph': 1,
+        'offset': 2,
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.getCellCharPropertiesAt(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            cellIndex: 3,
+            cellParagraph: 4,
+            offset: 5,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'getCellCharPropertiesAt',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'cellIndex': 3,
+        'cellParagraph': 4,
+        'offset': 5,
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
           RhwpCommand.applyStyle(section: 0, paragraph: 1, styleId: 3).toJson(),
         ),
       ),
@@ -1493,6 +1533,44 @@ void main() {
     expect(styles.last.englishName, 'Heading 1');
     expect(jsonDecode(session.lastCommandJson!), {'type': 'getStyleList'});
 
+    final charProperties = await document.charPropertiesAt(
+      section: 0,
+      paragraph: 1,
+      offset: 2,
+    );
+
+    expect(charProperties.fontFamily, '맑은 고딕');
+    expect(charProperties.fontSize, 1400);
+    expect(charProperties.bold, isTrue);
+    expect(charProperties.underline, isTrue);
+    expect(charProperties.textColor, '#dc2626');
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'getCharPropertiesAt',
+      'section': 0,
+      'paragraph': 1,
+      'offset': 2,
+    });
+
+    final cellCharProperties = await document.cellCharPropertiesAt(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 2,
+      cellIndex: 3,
+      cellParagraph: 0,
+      offset: 4,
+    );
+
+    expect(cellCharProperties.shadeColor, '#dbeafe');
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'getCellCharPropertiesAt',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 2,
+      'cellIndex': 3,
+      'cellParagraph': 0,
+      'offset': 4,
+    });
+
     await document.applyStyle(section: 0, paragraph: 1, styleId: 3);
 
     expect(jsonDecode(session.lastCommandJson!), {
@@ -2363,6 +2441,11 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'getStyleList') {
       return '[{"id":0,"name":"본문","englishName":"Body","type":0,"nextStyleId":0,"paraShapeId":0,"charShapeId":0},{"id":3,"name":"제목 1","englishName":"Heading 1","type":0,"nextStyleId":0,"paraShapeId":1,"charShapeId":1}]';
+    }
+    if (command is Map &&
+        (command['type'] == 'getCharPropertiesAt' ||
+            command['type'] == 'getCellCharPropertiesAt')) {
+      return '{"fontFamily":"맑은 고딕","fontSize":1400,"bold":true,"italic":false,"underline":true,"strikethrough":false,"superscript":false,"subscript":false,"emboss":false,"engrave":false,"textColor":"#dc2626","shadeColor":"#dbeafe"}';
     }
     return '{"ok":true}';
   }

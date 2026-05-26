@@ -221,6 +221,60 @@ class RhwpStyleInfo {
   }
 }
 
+class RhwpCharProperties {
+  const RhwpCharProperties({
+    required this.rawJson,
+    this.fontFamily,
+    this.fontSize,
+    this.bold,
+    this.italic,
+    this.underline,
+    this.strikethrough,
+    this.superscript,
+    this.subscript,
+    this.emboss,
+    this.engrave,
+    this.textColor,
+    this.shadeColor,
+    this.raw,
+  });
+
+  factory RhwpCharProperties.fromJsonString(String source) {
+    final decoded = RhwpDocument._tryDecodeObject(source);
+    return RhwpCharProperties(
+      rawJson: source,
+      fontFamily: decoded?['fontFamily']?.toString(),
+      fontSize: _intFromJson(decoded?['fontSize']),
+      bold: _boolFromJson(decoded?['bold']),
+      italic: _boolFromJson(decoded?['italic']),
+      underline: _boolFromJson(decoded?['underline']),
+      strikethrough: _boolFromJson(decoded?['strikethrough']),
+      superscript: _boolFromJson(decoded?['superscript']),
+      subscript: _boolFromJson(decoded?['subscript']),
+      emboss: _boolFromJson(decoded?['emboss']),
+      engrave: _boolFromJson(decoded?['engrave']),
+      textColor: decoded?['textColor']?.toString(),
+      shadeColor: decoded?['shadeColor']?.toString(),
+      raw: decoded,
+    );
+  }
+
+  final String rawJson;
+  final String? fontFamily;
+  final int? fontSize;
+  final bool? bold;
+  final bool? italic;
+  final bool? underline;
+  final bool? strikethrough;
+  final bool? superscript;
+  final bool? subscript;
+  final bool? emboss;
+  final bool? engrave;
+  final String? textColor;
+  final String? shadeColor;
+  final Map<String, Object?>? raw;
+}
+
 class RhwpPageSetup {
   const RhwpPageSetup({
     required this.width,
@@ -692,6 +746,21 @@ abstract class RhwpCommand {
   }) = RhwpApplyTableCellStyleCommand;
 
   factory RhwpCommand.getStyleList() = RhwpGetStyleListCommand;
+
+  factory RhwpCommand.getCharPropertiesAt({
+    required int section,
+    required int paragraph,
+    required int offset,
+  }) = RhwpGetCharPropertiesAtCommand;
+
+  factory RhwpCommand.getCellCharPropertiesAt({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int offset,
+  }) = RhwpGetCellCharPropertiesAtCommand;
 
   factory RhwpCommand.applyStyle({
     required int section,
@@ -1877,6 +1946,55 @@ class RhwpGetStyleListCommand extends RhwpCommand {
 
   @override
   Map<String, Object?> toJson() => {'type': 'getStyleList'};
+}
+
+class RhwpGetCharPropertiesAtCommand extends RhwpCommand {
+  const RhwpGetCharPropertiesAtCommand({
+    required this.section,
+    required this.paragraph,
+    required this.offset,
+  });
+
+  final int section;
+  final int paragraph;
+  final int offset;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'getCharPropertiesAt',
+    'section': section,
+    'paragraph': paragraph,
+    'offset': offset,
+  };
+}
+
+class RhwpGetCellCharPropertiesAtCommand extends RhwpCommand {
+  const RhwpGetCellCharPropertiesAtCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+    required this.cellParagraph,
+    required this.offset,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+  final int cellParagraph;
+  final int offset;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'getCellCharPropertiesAt',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'cellIndex': cellIndex,
+    'cellParagraph': cellParagraph,
+    'offset': offset,
+  };
 }
 
 class RhwpApplyStyleCommand extends RhwpCommand {
@@ -3105,6 +3223,42 @@ class RhwpDocument {
             item.map((key, value) => MapEntry(key.toString(), value)),
           ),
     ];
+  }
+
+  Future<RhwpCharProperties> charPropertiesAt({
+    required int section,
+    required int paragraph,
+    required int offset,
+  }) async {
+    final source = await apply(
+      RhwpCommand.getCharPropertiesAt(
+        section: section,
+        paragraph: paragraph,
+        offset: offset,
+      ),
+    );
+    return RhwpCharProperties.fromJsonString(source);
+  }
+
+  Future<RhwpCharProperties> cellCharPropertiesAt({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int offset,
+  }) async {
+    final source = await apply(
+      RhwpCommand.getCellCharPropertiesAt(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        cellIndex: cellIndex,
+        cellParagraph: cellParagraph,
+        offset: offset,
+      ),
+    );
+    return RhwpCharProperties.fromJsonString(source);
   }
 
   Future<String> applyStyle({

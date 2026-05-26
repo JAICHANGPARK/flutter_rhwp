@@ -5608,6 +5608,58 @@ void main() {
     expect(changedCalls, 1);
   });
 
+  testWidgets('RhwpNativeEditor reflects caret character properties in ribbon', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1)
+      ..charPropertiesJson =
+          '{"fontFamily":"맑은 고딕","fontSize":1400,"bold":true,"italic":false,"underline":true,"strikethrough":false,"superscript":false,"subscript":false,"emboss":false,"engrave":false,"textColor":"#dc2626","shadeColor":"#dbeafe"}';
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+    await tester.pump();
+
+    await tester.tap(find.text('서식'));
+    await tester.pump();
+
+    expect(session.commands, isEmpty);
+    expect(
+      tester
+          .widget<IconButton>(
+            find.widgetWithIcon(IconButton, Icons.format_bold),
+          )
+          .isSelected,
+      isTrue,
+    );
+    expect(
+      tester
+          .widget<IconButton>(
+            find.widgetWithIcon(IconButton, Icons.format_underlined),
+          )
+          .isSelected,
+      isTrue,
+    );
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('rhwp-editor-font-size-field')),
+          )
+          .controller
+          ?.text,
+      '14.0',
+    );
+  });
+
   testWidgets('RhwpNativeEditor applies character shape dialog values', (
     tester,
   ) async {
@@ -8714,6 +8766,8 @@ class _FakeRhwpSession implements rust.RhwpSession {
   bool headerFooterExists = false;
   String headerFooterText = '';
   String extractedText = 'alpha\nbeta';
+  String charPropertiesJson =
+      '{"fontFamily":"함초롬바탕","fontSize":1000,"bold":false,"italic":false,"underline":false,"strikethrough":false,"superscript":false,"subscript":false,"emboss":false,"engrave":false,"textColor":"#000000","shadeColor":"#ffffff"}';
   String pageLayerTreeJson = jsonEncode(_editorLayerTreeJson());
   final pageLayerTreeJsonByPage = <int, String>{};
   bool _disposed = false;
@@ -8736,6 +8790,12 @@ class _FakeRhwpSession implements rust.RhwpSession {
         return '{"ok":true,"snapshotId":$snapshotId}';
       }
       return '{"ok":true}';
+    }
+
+    if (command is Map &&
+        (command['type'] == 'getCharPropertiesAt' ||
+            command['type'] == 'getCellCharPropertiesAt')) {
+      return charPropertiesJson;
     }
 
     commands.add(commandJson);

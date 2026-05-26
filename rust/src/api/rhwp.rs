@@ -753,6 +753,36 @@ impl RhwpSession {
                     .map_err(error_to_string)
             }
             RhwpCommand::GetStyleList => Ok(inner.document.get_style_list()),
+            RhwpCommand::GetCharPropertiesAt {
+                section,
+                paragraph,
+                offset,
+            } => inner
+                .document
+                .get_char_properties_at_native(
+                    section as usize,
+                    paragraph as usize,
+                    offset as usize,
+                )
+                .map_err(error_to_string),
+            RhwpCommand::GetCellCharPropertiesAt {
+                section,
+                paragraph,
+                control_index,
+                cell_index,
+                cell_paragraph,
+                offset,
+            } => inner
+                .document
+                .get_cell_char_properties_at_native(
+                    section as usize,
+                    paragraph as usize,
+                    control_index as usize,
+                    cell_index as usize,
+                    cell_paragraph as usize,
+                    offset as usize,
+                )
+                .map_err(error_to_string),
             RhwpCommand::ApplyStyle {
                 section,
                 paragraph,
@@ -1223,6 +1253,22 @@ enum RhwpCommand {
         properties: serde_json::Value,
     },
     GetStyleList,
+    GetCharPropertiesAt {
+        section: u32,
+        paragraph: u32,
+        offset: u32,
+    },
+    GetCellCharPropertiesAt {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "cellIndex")]
+        cell_index: u32,
+        #[serde(rename = "cellParagraph")]
+        cell_paragraph: u32,
+        offset: u32,
+    },
     ApplyStyle {
         section: u32,
         paragraph: u32,
