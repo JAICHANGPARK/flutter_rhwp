@@ -268,6 +268,35 @@ class RhwpTableCellSelection {
         cell.endColumn >= startColumn;
   }
 
+  /// Creates a copy with selected fields changed.
+  RhwpTableCellSelection copyWith({
+    int? section,
+    int? paragraph,
+    int? controlIndex,
+    int? startRow,
+    int? startColumn,
+    int? endRow,
+    int? endColumn,
+    int? activeCellIndex,
+    int? activeCellParagraph,
+    int? activeOffset,
+    bool? isTextEditing,
+  }) {
+    return RhwpTableCellSelection(
+      section: section ?? this.section,
+      paragraph: paragraph ?? this.paragraph,
+      controlIndex: controlIndex ?? this.controlIndex,
+      startRow: startRow ?? this.startRow,
+      startColumn: startColumn ?? this.startColumn,
+      endRow: endRow ?? this.endRow,
+      endColumn: endColumn ?? this.endColumn,
+      activeCellIndex: activeCellIndex ?? this.activeCellIndex,
+      activeCellParagraph: activeCellParagraph ?? this.activeCellParagraph,
+      activeOffset: activeOffset ?? this.activeOffset,
+      isTextEditing: isTextEditing ?? this.isTextEditing,
+    );
+  }
+
   /// Whether [cell] belongs to the same table control as this selection.
   bool isSameTableAs(RhwpTableCellLayout cell) {
     return cell.section == section &&
@@ -6143,8 +6172,15 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       handled = true;
     }
 
-    if (_controller.tableCellSelection != null) {
-      _controller.clearTableCellSelection();
+    final tableSelection = _controller.tableCellSelection;
+    if (tableSelection != null) {
+      if (tableSelection.isTextEditing) {
+        _controller.tableCellSelection = tableSelection.copyWith(
+          isTextEditing: false,
+        );
+      } else {
+        _controller.clearTableCellSelection();
+      }
       handled = true;
     }
 
@@ -6373,6 +6409,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           _searchNext();
         }
         return KeyEventResult.handled;
+      case LogicalKeyboardKey.f5:
+        if (!_busy && _controller.tableCellSelection != null) {
+          unawaited(_enterSelectedTableCell());
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
       case LogicalKeyboardKey.arrowLeft:
         if (_nudgeSelectedObject(Offset(-objectNudgeStep, 0))) {
           return KeyEventResult.handled;

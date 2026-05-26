@@ -33,6 +33,8 @@
   the upstream web editor while keeping the caret hit-test widget mounted.
 * Treated root or ancestor focus churn during desktop text input as part of the
   active editor session so Space/text input does not release deferred refresh.
+* Matched upstream table-cell edit mode handling so `F5` enters a selected cell
+  and `Esc` returns active cell text editing to cell selection.
 * Kept Flutter-native editor deferred page refresh blocked when desktop text
   input focus briefly drops and returns during typing.
 * Initial flutter_rhwp plugin scaffold.

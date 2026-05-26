@@ -239,10 +239,12 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   selected-cell
   text insert/delete/clear/copy/cut/paste, tab/newline multi-cell paste,
   cell text offset hit testing, Arrow/Tab/Enter keyboard handling for selected
-  table cells, Arrow/Shift+Arrow object nudging, and Shift+drag aspect-ratio
-  preserving object resize. Insert/Overwrite input mode toggles with the Insert
-  key, and overwrite typing replaces body and active table cell text through
-  Rust delete/insert commands. Text input, paste, tab input, and keyboard delete
+  table cells, F5 selected-cell edit entry, Esc return from active cell text
+  editing to cell selection, Arrow/Shift+Arrow object nudging, and Shift+drag
+  aspect-ratio preserving object resize. Insert/Overwrite input mode toggles
+  with the Insert key, and overwrite typing replaces body and active table cell
+  text through Rust delete/insert commands. Text input, paste, tab input, and
+  keyboard delete
   defer page SVG refresh so normal typing does not reload the rendered page
   after every keystroke. Text-input commits wait for the active input action or
   connection close before `editRefreshDelay` starts; on desktop, automatic

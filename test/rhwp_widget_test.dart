@@ -2262,6 +2262,78 @@ void main() {
     expect(changedCalls, 1);
   });
 
+  testWidgets('RhwpNativeEditor exits and re-enters table cell edit mode', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    await tester.tapAt(
+      pageTopLeft +
+          Offset(pageSize.width * 100 / 240, pageSize.height * 60 / 180),
+    );
+    await tester.pump();
+
+    expect(
+      controller.tableCellSelection,
+      const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+      ),
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.f5);
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.tableCellSelection?.isTextEditing, isTrue);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+
+    expect(
+      controller.tableCellSelection,
+      const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+      ),
+    );
+    expect(session.commands, isEmpty);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.f5);
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.tableCellSelection?.isTextEditing, isTrue);
+    expect(session.commands, isEmpty);
+  });
+
   testWidgets(
     'RhwpNativeEditor keeps committed table cell text visible until refresh completes',
     (tester) async {
