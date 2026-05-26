@@ -6265,6 +6265,58 @@ void main() {
     );
   });
 
+  testWidgets('RhwpNativeEditor debounces live search field input', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 3);
+    session.pageLayerTreeJsonByPage[2] = jsonEncode(
+      _editorLayerTreeJson(firstText: 'wxyz', secondText: 'mnop'),
+    );
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('도구'));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-search-field')),
+      'xy',
+    );
+
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(find.text('0 / 0'), findsOneWidget);
+    expect(controller.selection.isCollapsed, isTrue);
+
+    await tester.pump(const Duration(milliseconds: 80));
+    await _pumpDocumentFrame(tester);
+
+    expect(find.text('1 / 1'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-search-active')),
+      findsOneWidget,
+    );
+    expect(
+      controller.selection,
+      const RhwpSelectionRange(
+        start: RhwpCursorPosition(paragraph: 0, offset: 1),
+        end: RhwpCursorPosition(paragraph: 0, offset: 3),
+      ),
+    );
+    expect(session.commands, isEmpty);
+    expect(session.historyCommands, isEmpty);
+  });
+
   testWidgets('RhwpNativeEditor finds text inside table cells', (tester) async {
     final controller = RhwpEditorController();
     final session = _FakeRhwpSession(pageCountValue: 1);

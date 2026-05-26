@@ -225,9 +225,10 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   creation from the page ribbon,
   snapshot-backed undo/redo from the edit ribbon, layer-tree text search with
   Ctrl/Cmd+F focus and search-text selection, F3/Shift+F3 and search-field
-  Enter/Shift+Enter result navigation, search-field Escape clearing, result
-  highlighting, active-match replace, replace-all, table-cell find/replace, and
-  a tools-ribbon compare dialog backed by text extraction, and basic
+  Enter/Shift+Enter result navigation, debounced live search field input,
+  search-field Escape clearing, result highlighting, active-match replace,
+  replace-all, table-cell find/replace, and a tools-ribbon compare dialog
+  backed by text extraction, and basic
   text/table/picture/shape
   insert/delete, with shape presets for rectangle, ellipse, line, and text box,
   page/column break insertion, plus table

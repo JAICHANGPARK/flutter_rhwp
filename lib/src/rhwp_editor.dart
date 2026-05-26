@@ -1239,6 +1239,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   Timer? _textInputFocusReleaseTimer;
   Timer? _desktopTextInputCommitHoldTimer;
   Timer? _deferredEditRefreshTimer;
+  Timer? _searchInputDebounceTimer;
   int _pendingTextInputCommits = 0;
   List<_PendingTextOverlay> _pendingTextOverlays = const [];
   final _pendingTextOverlaysListenable =
@@ -1269,6 +1270,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
   static const _maxUndoSnapshots = 100;
   static const _textInputActionIgnoreWindow = Duration(milliseconds: 800);
+  static const _searchInputDebounceDelay = Duration(milliseconds: 300);
   static const _minimumDesktopTextInputFocusReleaseDelay = Duration(
     milliseconds: 900,
   );
@@ -1303,6 +1305,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _textInputActionIgnoreTimer?.cancel();
     _textInputFocusReleaseTimer?.cancel();
     _desktopTextInputCommitHoldTimer?.cancel();
+    _searchInputDebounceTimer?.cancel();
     _pendingTextInputCommits = 0;
     _cancelDeferredEditRefresh();
     _closeTextInput();
@@ -3422,12 +3425,15 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   }
 
   Future<void> _runSearch() async {
+    _searchInputDebounceTimer?.cancel();
+    _searchInputDebounceTimer = null;
     final query = _searchController.text.trim();
     if (query.isEmpty) {
       _clearSearch();
       return;
     }
     if (_searching) {
+      _scheduleSearchInputDebounce();
       return;
     }
 
@@ -3469,6 +3475,24 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         });
       }
     }
+  }
+
+  void _handleSearchInputChanged(String value) {
+    _scheduleSearchInputDebounce();
+  }
+
+  void _scheduleSearchInputDebounce() {
+    _searchInputDebounceTimer?.cancel();
+    final query = _searchController.text.trim();
+    if (query.isEmpty) {
+      _clearSearch();
+      return;
+    }
+
+    _searchInputDebounceTimer = Timer(_searchInputDebounceDelay, () {
+      _searchInputDebounceTimer = null;
+      unawaited(_runSearch());
+    });
   }
 
   void _focusSearchField() {
@@ -3582,6 +3606,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   }
 
   void _clearSearch() {
+    _searchInputDebounceTimer?.cancel();
+    _searchInputDebounceTimer = null;
     _searchController.clear();
     setState(() {
       _searchMatches = const [];
@@ -7348,6 +7374,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onAlignRight: () => _applyParagraphAlignment('right'),
           onAlignJustify: () => _applyParagraphAlignment('justify'),
           onFind: _runSearch,
+          onSearchTextChanged: _handleSearchInputChanged,
           onSearchPrevious: _searchPrevious,
           onSearchNext: _searchNext,
           onClearSearch: _clearSearch,
@@ -9497,6 +9524,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onAlignRight,
     required this.onAlignJustify,
     required this.onFind,
+    required this.onSearchTextChanged,
     required this.onSearchPrevious,
     required this.onSearchNext,
     required this.onClearSearch,
@@ -9607,6 +9635,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onAlignRight;
   final VoidCallback onAlignJustify;
   final VoidCallback onFind;
+  final ValueChanged<String> onSearchTextChanged;
   final VoidCallback onSearchPrevious;
   final VoidCallback onSearchNext;
   final VoidCallback onClearSearch;
@@ -10566,6 +10595,7 @@ class _EditorToolbarState extends State<_EditorToolbar> {
                       backward: HardwareKeyboard.instance.isShiftPressed,
                     );
                   },
+                  onChanged: widget.onSearchTextChanged,
                 ),
               ),
             ),

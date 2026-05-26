@@ -39,6 +39,8 @@
   navigate matches and `Esc` clears the active search from the tools ribbon.
 * Matched upstream find shortcut behavior so `Ctrl/Cmd+F` selects the existing
   search text when focusing the tools-ribbon search field.
+* Added upstream-style debounced live search from the Flutter-native tools
+  ribbon search field.
 * Kept Flutter-native editor deferred page refresh blocked when desktop text
   input focus briefly drops and returns during typing.
 * Initial flutter_rhwp plugin scaffold.
