@@ -525,6 +525,8 @@ enum _EditorContextMenuAction {
   insertTableRowBelow,
   insertTableColumnLeft,
   insertTableColumnRight,
+  deleteTableRow,
+  deleteTableColumn,
   mergeCells,
   splitCell,
   splitCellInto,
@@ -6662,6 +6664,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         await _insertTableColumn(right: false);
       case _EditorContextMenuAction.insertTableColumnRight:
         await _insertTableColumn();
+      case _EditorContextMenuAction.deleteTableRow:
+        await _deleteTableRow();
+      case _EditorContextMenuAction.deleteTableColumn:
+        await _deleteTableColumn();
       case _EditorContextMenuAction.mergeCells:
         await _mergeTableCells();
       case _EditorContextMenuAction.splitCell:
@@ -6811,6 +6817,18 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           action: _EditorContextMenuAction.insertTableColumnRight,
           icon: Icons.view_column_outlined,
           label: '오른쪽에 칸 삽입',
+          enabled: !_busy,
+        ),
+        _contextMenuItem(
+          action: _EditorContextMenuAction.deleteTableRow,
+          icon: Icons.indeterminate_check_box_outlined,
+          label: '줄 삭제',
+          enabled: !_busy,
+        ),
+        _contextMenuItem(
+          action: _EditorContextMenuAction.deleteTableColumn,
+          icon: Icons.disabled_by_default_outlined,
+          label: '칸 삭제',
           enabled: !_busy,
         ),
         _contextMenuItem(

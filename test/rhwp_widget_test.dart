@@ -4576,19 +4576,36 @@ void main() {
     expect(find.text('아래에 줄 삽입'), findsOneWidget);
     expect(find.text('왼쪽에 칸 삽입'), findsOneWidget);
     expect(find.text('오른쪽에 칸 삽입'), findsOneWidget);
+    expect(find.text('줄 삭제'), findsOneWidget);
+    expect(find.text('칸 삭제'), findsOneWidget);
+    await tester.tap(find.text('줄 삭제'));
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(tablePoint, buttons: kSecondaryMouseButton);
+    await tester.pumpAndSettle();
+
     expect(find.text('셀 나누기'), findsOneWidget);
     await tester.tap(find.text('셀 나누기'));
     await _pumpDocumentFrame(tester);
 
-    expect(changedCalls, 1);
-    expect(jsonDecode(session.commands.single), {
-      'type': 'splitTableCell',
-      'section': 0,
-      'paragraph': 5,
-      'controlIndex': 2,
-      'row': 1,
-      'column': 3,
-    });
+    expect(changedCalls, 2);
+    expect(session.commands.map(jsonDecode), [
+      {
+        'type': 'deleteTableRow',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'row': 1,
+      },
+      {
+        'type': 'splitTableCell',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'row': 1,
+        'column': 3,
+      },
+    ]);
   });
 
   testWidgets('RhwpNativeEditor edit ribbon selects all body text', (
