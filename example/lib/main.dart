@@ -65,7 +65,6 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
       ? _EditorMode.fullEditor
       : _EditorMode.nativeEditor;
   bool _busy = false;
-  bool _nativeDocumentDirty = false;
 
   bool get _usesFullEditor => _editorMode == _EditorMode.fullEditor;
 
@@ -234,7 +233,6 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
       );
       _viewerKey = UniqueKey();
       _metadata = await document.metadata();
-      _nativeDocumentDirty = true;
       return 'Inserted text at section 0, paragraph 0';
     });
   }
@@ -273,7 +271,6 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
       _sourceBytes = sourceBytes;
       _fileName = fileName;
       _viewerKey = UniqueKey();
-      _nativeDocumentDirty = false;
     });
     await previous?.close();
   }
@@ -289,7 +286,6 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
       _sourceBytes = sourceBytes;
       _fileName = fileName;
       _viewerKey = UniqueKey();
-      _nativeDocumentDirty = false;
     });
     await previous?.close();
   }
@@ -306,9 +302,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
     final nativeDocument = _document;
     if (mode == _EditorMode.fullEditor && nativeDocument != null) {
       await _run('Open full editor', () async {
-        final sourceBytes = _nativeDocumentDirty || _sourceBytes == null
-            ? await nativeDocument.exportHwp()
-            : _sourceBytes;
+        final sourceBytes = await nativeDocument.exportHwp();
         await _replaceWebEditorSource(
           fileName: _fileName ?? 'document.hwp',
           sourceBytes: sourceBytes,
@@ -497,11 +491,11 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
                       document: document,
                       controller: _editorController,
                       editRefreshDelay: const Duration(seconds: 5),
+                      holdTextRefreshWhileFocused: true,
                       onOpenRequested: _busy ? null : _openDocument,
                       onImageRequested: _busy ? null : _pickEditorImage,
                       onExported: _busy ? null : _saveEditorExport,
                       onChanged: (_) async {
-                        _nativeDocumentDirty = true;
                         final metadata = await document.metadata();
                         if (!mounted) {
                           return;

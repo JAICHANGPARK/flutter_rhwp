@@ -1147,6 +1147,7 @@ class RhwpEditor extends StatefulWidget {
     this.onImageRequested,
     this.onExported,
     this.editRefreshDelay = _defaultEditRefreshDelay,
+    this.holdTextRefreshWhileFocused = false,
   });
 
   final RhwpDocument document;
@@ -1161,6 +1162,14 @@ class RhwpEditor extends StatefulWidget {
   /// The document command is applied immediately. This delay only controls the
   /// heavier page render synchronization so typing can stay visually stable.
   final Duration editRefreshDelay;
+
+  /// Keeps text-input page refresh deferred until focus actually leaves the
+  /// editor.
+  ///
+  /// This is useful for large desktop documents where macOS, Windows, or Linux
+  /// text-input focus churn can otherwise release the deferred SVG refresh
+  /// between Space/text commits.
+  final bool holdTextRefreshWhileFocused;
 
   @override
   State<RhwpEditor> createState() => _RhwpEditorState();
@@ -1177,6 +1186,7 @@ class RhwpNativeEditor extends StatelessWidget {
     this.onImageRequested,
     this.onExported,
     this.editRefreshDelay = _defaultEditRefreshDelay,
+    this.holdTextRefreshWhileFocused = false,
   });
 
   final RhwpDocument document;
@@ -1186,6 +1196,7 @@ class RhwpNativeEditor extends StatelessWidget {
   final RhwpEditorImagePicker? onImageRequested;
   final FutureOr<void> Function(RhwpExportedDocument document)? onExported;
   final Duration editRefreshDelay;
+  final bool holdTextRefreshWhileFocused;
 
   @override
   Widget build(BuildContext context) {
@@ -1197,6 +1208,7 @@ class RhwpNativeEditor extends StatelessWidget {
       onImageRequested: onImageRequested,
       onExported: onExported,
       editRefreshDelay: editRefreshDelay,
+      holdTextRefreshWhileFocused: holdTextRefreshWhileFocused,
     );
   }
 }
@@ -1215,6 +1227,7 @@ class RhwpCommandEditor extends StatelessWidget {
     this.onImageRequested,
     this.onExported,
     this.editRefreshDelay = _defaultEditRefreshDelay,
+    this.holdTextRefreshWhileFocused = false,
   });
 
   final RhwpDocument document;
@@ -1224,6 +1237,7 @@ class RhwpCommandEditor extends StatelessWidget {
   final RhwpEditorImagePicker? onImageRequested;
   final FutureOr<void> Function(RhwpExportedDocument document)? onExported;
   final Duration editRefreshDelay;
+  final bool holdTextRefreshWhileFocused;
 
   @override
   Widget build(BuildContext context) {
@@ -1235,6 +1249,7 @@ class RhwpCommandEditor extends StatelessWidget {
       onImageRequested: onImageRequested,
       onExported: onExported,
       editRefreshDelay: editRefreshDelay,
+      holdTextRefreshWhileFocused: holdTextRefreshWhileFocused,
     );
   }
 }
@@ -1445,6 +1460,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   bool _desktopTextInputCommitHoldActive = false;
   bool _hasDeferredEditRefresh = false;
   bool _deferredEditRefreshAwaitsTextInput = false;
+  bool _textRefreshHeldForFocusedInput = false;
   bool _textInputUndoBatchOpen = false;
   bool _suppressControllerChangedSetState = false;
   bool _showParagraphMarks = false;
@@ -1469,6 +1485,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _controller = widget.controller ?? RhwpEditorController();
     _controller.addListener(_handleControllerChanged);
     _focusNode.addListener(_handleFocusChanged);
+    FocusManager.instance.addListener(_handlePrimaryFocusChanged);
     _syncCursorFields();
     unawaited(_syncCurrentCharFormat());
     unawaited(_syncCurrentParaFormat());
@@ -1496,6 +1513,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   void dispose() {
     _controller.removeListener(_handleControllerChanged);
     _focusNode.removeListener(_handleFocusChanged);
+    FocusManager.instance.removeListener(_handlePrimaryFocusChanged);
     _textInputActionIgnoreTimer?.cancel();
     _textInputFocusReleaseTimer?.cancel();
     _desktopTextInputCommitHoldTimer?.cancel();
@@ -1727,6 +1745,20 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         _closeTextInput();
       }
     }
+  }
+
+  void _handlePrimaryFocusChanged() {
+    if (!mounted ||
+        !_textRefreshHeldForFocusedInput ||
+        !_hasDeferredEditRefresh) {
+      return;
+    }
+    if (!_hasExternalPrimaryFocus) {
+      return;
+    }
+
+    _textRefreshHeldForFocusedInput = false;
+    _releaseDeferredEditRefreshFromTextInput(force: true);
   }
 
   void _handlePointerSignal(PointerSignalEvent event) {
@@ -2137,6 +2169,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
+    if (widget.holdTextRefreshWhileFocused && _isDesktopTextInputPlatform) {
+      _textRefreshHeldForFocusedInput = true;
+    }
     _beginTextInputCommit();
     final previous = _textInputEditQueue;
     _textInputEditQueue = () async {
@@ -5610,12 +5645,22 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
             _desktopTextInputCommitHoldActive);
   }
 
+  bool get _shouldHoldFocusedDesktopTextRefresh {
+    return widget.holdTextRefreshWhileFocused &&
+        _isDesktopTextInputPlatform &&
+        _textRefreshHeldForFocusedInput &&
+        _hasDeferredEditRefresh &&
+        _hasPendingOptimisticTextEdit &&
+        !_hasExternalPrimaryFocus;
+  }
+
   bool get _shouldHoldDeferredRefreshForTextInput {
     return _pendingTextInputCommits > 0 ||
         _focusNode.hasFocus ||
         _hasActiveTextInputConnection ||
         _hasPendingDesktopTextInputFocusRelease ||
         _desktopTextInputCommitHoldActive ||
+        _shouldHoldFocusedDesktopTextRefresh ||
         _shouldKeepDesktopTextEditRefreshHeld;
   }
 
@@ -5787,6 +5832,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _deferredEditRefreshTimer = null;
     _hasDeferredEditRefresh = false;
     _deferredEditRefreshAwaitsTextInput = false;
+    _textRefreshHeldForFocusedInput = false;
     _textInputUndoBatchOpen = false;
     _clearDesktopTextInputCommitHoldWindow();
     _setPendingTextOverlays(const []);
@@ -5795,16 +5841,18 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _pendingDeletionRefreshRevision = null;
   }
 
-  void _releaseDeferredEditRefreshFromTextInput() {
+  void _releaseDeferredEditRefreshFromTextInput({bool force = false}) {
     if (!_hasDeferredEditRefresh || !_deferredEditRefreshAwaitsTextInput) {
       return;
     }
-    if (_shouldHoldFocusedTextInputRefresh ||
-        (_isDesktopTextInputPlatform &&
-            _shouldHoldDeferredRefreshForTextInput)) {
+    if (!force &&
+        (_shouldHoldFocusedTextInputRefresh ||
+            (_isDesktopTextInputPlatform &&
+                _shouldHoldDeferredRefreshForTextInput))) {
       return;
     }
 
+    _textRefreshHeldForFocusedInput = false;
     _deferredEditRefreshAwaitsTextInput = false;
     _scheduleDeferredEditRefresh();
   }
@@ -5998,6 +6046,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           ? null
           : _renderRevision;
     });
+    _textRefreshHeldForFocusedInput = false;
     _textInputUndoBatchOpen = false;
     widget.onChanged?.call(widget.document);
   }

@@ -1,6 +1,9 @@
 ## 2026.5.24
 
 * Updated plugin release metadata for the `2026.5.24` release.
+* Added `holdTextRefreshWhileFocused` for the Flutter-native editor and enabled
+  it in the example app so desktop Space/text input does not release a page SVG
+  refresh until focus moves outside the editor.
 * Added Flutter-native file shortcuts for Ctrl/Cmd+Shift+S HWPX save and
   Ctrl/Cmd+P PDF export alongside the existing Ctrl/Cmd+S HWP save.
 * Changed Flutter-native character toolbar and shortcuts to toggle active
