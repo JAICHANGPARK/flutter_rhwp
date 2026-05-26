@@ -131,6 +131,7 @@ class _RhwpViewerState extends State<RhwpViewer> {
   late final RhwpViewerController _controller;
   late final bool _ownsController;
   late Future<int> _pageCount;
+  late double _lastControllerZoom;
   final _verticalScrollController = ScrollController();
   final _pageKeys = <GlobalKey>[];
   int _resolvedPageCount = 0;
@@ -140,7 +141,8 @@ class _RhwpViewerState extends State<RhwpViewer> {
     super.initState();
     _ownsController = widget.controller == null;
     _controller = widget.controller ?? RhwpViewerController();
-    _controller.addListener(_handleZoomChanged);
+    _lastControllerZoom = _controller.zoom;
+    _controller.addListener(_handleControllerChanged);
     _pageCount = widget.document.pageCount;
   }
 
@@ -154,7 +156,7 @@ class _RhwpViewerState extends State<RhwpViewer> {
 
   @override
   void dispose() {
-    _controller.removeListener(_handleZoomChanged);
+    _controller.removeListener(_handleControllerChanged);
     _controller._detachPageScroller();
     _verticalScrollController.dispose();
     if (_ownsController) {
@@ -163,7 +165,12 @@ class _RhwpViewerState extends State<RhwpViewer> {
     super.dispose();
   }
 
-  void _handleZoomChanged() {
+  void _handleControllerChanged() {
+    final nextZoom = _controller.zoom;
+    if (nextZoom == _lastControllerZoom) {
+      return;
+    }
+    _lastControllerZoom = nextZoom;
     setState(() {});
   }
 

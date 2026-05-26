@@ -93,6 +93,51 @@ void main() {
     },
   );
 
+  testWidgets(
+    'RhwpViewer ignores editor cursor notifications for page rebuilds',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      final document = RhwpDocument.fromSession(session);
+      var overlayBuildCount = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 400,
+            height: 280,
+            child: RhwpViewer(
+              document: document,
+              controller: controller,
+              padding: const EdgeInsets.all(8),
+              svgBuilder: _testSvgBuilder,
+              pageOverlayBuilder: (context, page, svg) {
+                overlayBuildCount += 1;
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      expect(overlayBuildCount, 1);
+      expect(session.renderedPages, [0]);
+
+      controller.cursor = const RhwpCursorPosition(offset: 1);
+      await tester.pump();
+
+      expect(overlayBuildCount, 1);
+      expect(session.renderedPages, [0]);
+
+      controller.zoomIn();
+      await tester.pump();
+
+      expect(overlayBuildCount, 2);
+      expect(session.renderedPages, [0]);
+    },
+  );
+
   testWidgets('RhwpViewer lazily renders pages as they enter the viewport', (
     tester,
   ) async {

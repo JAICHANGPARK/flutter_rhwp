@@ -41,6 +41,8 @@
   search text when focusing the tools-ribbon search field.
 * Added upstream-style debounced live search from the Flutter-native tools
   ribbon search field.
+* Scoped `RhwpViewer` controller rebuilds to zoom changes so native-editor
+  cursor updates during typing do not refresh the page surface.
 * Kept Flutter-native editor deferred page refresh blocked when desktop text
   input focus briefly drops and returns during typing.
 * Initial flutter_rhwp plugin scaffold.
