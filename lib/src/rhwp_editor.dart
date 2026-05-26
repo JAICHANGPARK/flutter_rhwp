@@ -1349,6 +1349,7 @@ const _fontFamilyOptions = [
   'Times New Roman',
 ];
 
+const _fontSizeStep = 100;
 const _lineSpacingPresets = [100, 120, 130, 140, 150, 160, 180, 200, 250, 300];
 
 const _cellFillSwatches = [
@@ -11211,6 +11212,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               ),
             ),
             const SizedBox(width: 6),
+            _ToolbarIconButton(
+              tooltip: 'Decrease font size',
+              buttonKey: const ValueKey('rhwp-editor-font-size-decrease'),
+              icon: Icons.remove,
+              onPressed: widget.busy ? null : () => _stepToolbarFontSize(-1),
+            ),
             SizedBox(
               width: 86,
               child: TextField(
@@ -11230,6 +11237,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
                   }
                 },
               ),
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Increase font size',
+              buttonKey: const ValueKey('rhwp-editor-font-size-increase'),
+              icon: Icons.add,
+              onPressed: widget.busy ? null : () => _stepToolbarFontSize(1),
             ),
             _ToolbarIconButton(
               tooltip: 'Apply font size',
@@ -11340,6 +11353,17 @@ class _EditorToolbarState extends State<_EditorToolbar> {
     widget.onFontSize(
       _hwpFontSizeFromPointText(_toolbarFontSizeController.text),
     );
+  }
+
+  void _stepToolbarFontSize(int direction) {
+    final current = _hwpFontSizeFromPointText(_toolbarFontSizeController.text);
+    final next = (current + _fontSizeStep * direction)
+        .clamp(100, 20000)
+        .toInt();
+    setState(() {
+      _toolbarFontSizeController.text = _hwpFontSizeToPointText(next);
+    });
+    widget.onFontSize(next);
   }
 
   void _applyToolbarFontFamily(String value) {

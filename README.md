@@ -263,7 +263,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   Tab text insertion, multiline clipboard paste as paragraph insertion,
   multi-paragraph selection
   replacement, multi-paragraph selected-text bold/italic/underline/strike
-  formatting, inline font family, font size, text color, text background,
+  formatting, inline font family, font size field and stepper, text color,
+  text background,
   toggleable Bold/Italic/Underline/Strike, superscript, subscript, emboss, and
   engrave controls, a character shape
   dialog with `Alt+L` shortcut support for font family, font size, text color,
