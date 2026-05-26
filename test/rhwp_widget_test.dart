@@ -9082,6 +9082,100 @@ void main() {
   );
 
   testWidgets(
+    'RhwpNativeEditor ignores transient external focus while holding text refresh',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      final externalFocusNode = FocusNode();
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Column(
+                children: [
+                  SizedBox(
+                    width: 720,
+                    height: 420,
+                    child: RhwpNativeEditor(
+                      document: document,
+                      controller: controller,
+                      editRefreshDelay: const Duration(milliseconds: 120),
+                      holdTextRefreshWhileFocused: true,
+                      onChanged: (_) => changedCalls += 1,
+                    ),
+                  ),
+                  Focus(
+                    focusNode: externalFocusNode,
+                    child: const SizedBox(
+                      key: ValueKey('transient-external-focus-target'),
+                      width: 10,
+                      height: 10,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+        await _pumpDocumentFrame(tester);
+
+        final caretFinder = find.byKey(const ValueKey('rhwp-editor-caret'));
+        await tester.tapAt(tester.getTopLeft(caretFinder) + const Offset(1, 6));
+        await tester.pump();
+
+        controller.cursor = const RhwpCursorPosition(offset: 2);
+        session.renderedPages.clear();
+
+        tester.testTextInput.updateEditingValue(
+          const TextEditingValue(
+            text: 'A',
+            selection: TextSelection.collapsed(offset: 1),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        externalFocusNode.requestFocus();
+        await tester.pump(const Duration(milliseconds: 200));
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pump(const Duration(milliseconds: 200));
+        await tester.pump();
+
+        expect(changedCalls, 0);
+        expect(session.renderedPages, isEmpty);
+        expect(
+          find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
+          findsOneWidget,
+        );
+
+        await tester.tapAt(tester.getTopLeft(caretFinder) + const Offset(1, 6));
+        await tester.pump(const Duration(milliseconds: 1200));
+        await tester.pump();
+
+        expect(changedCalls, 0);
+        expect(session.renderedPages, isEmpty);
+        expect(
+          find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
+          findsOneWidget,
+        );
+
+        FocusManager.instance.primaryFocus?.unfocus();
+        await _pumpDesktopTextInputRelease(tester);
+
+        expect(changedCalls, 1);
+        expect(session.renderedPages, [0]);
+      } finally {
+        externalFocusNode.dispose();
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
+
+  testWidgets(
     'RhwpNativeEditor cancels transient desktop focus release when focus returns',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;

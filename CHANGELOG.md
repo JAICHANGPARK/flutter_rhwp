@@ -15,6 +15,9 @@
 * Added `holdTextRefreshWhileFocused` for the Flutter-native editor and enabled
   it in the example app so desktop Space/text input does not release a page SVG
   refresh until focus moves outside the editor.
+* Kept `holdTextRefreshWhileFocused` from treating transient desktop text-input
+  focus churn as an external focus move, preventing per-key page refreshes in the
+  example app.
 * Added Flutter-native file shortcuts for Ctrl/Cmd+Shift+S HWPX save and
   Ctrl/Cmd+P PDF export alongside the existing Ctrl/Cmd+S HWP save.
 * Changed Flutter-native character toolbar and shortcuts to toggle active

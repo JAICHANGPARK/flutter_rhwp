@@ -1791,7 +1791,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         !_hasDeferredEditRefresh) {
       return;
     }
-    if (!_hasExternalPrimaryFocus) {
+    if (!_hasExternalPrimaryFocusEndingTextInput) {
       return;
     }
 
