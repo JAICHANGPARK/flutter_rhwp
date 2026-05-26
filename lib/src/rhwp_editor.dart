@@ -5209,6 +5209,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       }
       final cursor = _readCursor();
       if (cursor.offset <= 0) {
+        await _mergeWithPreviousParagraph(cursor);
         return;
       }
       deletedRange = RhwpSelectionRange(
@@ -5253,6 +5254,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         return;
       }
       final cursor = _readCursor();
+      final paragraphEnd = await _paragraphEndOffsetFor(cursor);
+      if (paragraphEnd != null && cursor.offset >= paragraphEnd) {
+        await _mergeWithNextParagraph(cursor.copyWith(offset: paragraphEnd));
+        return;
+      }
       deletedRange = RhwpSelectionRange(
         start: cursor,
         end: cursor.copyWith(offset: cursor.offset + 1),
@@ -5268,6 +5274,61 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     if (edited && deletedRange != null) {
       _recordPendingDeletionOverlay(deletedRange!);
     }
+  }
+
+  Future<bool> _mergeWithPreviousParagraph(RhwpCursorPosition cursor) async {
+    final paragraphs = await _bodyParagraphs();
+    final previous = _paragraphRelativeTo(paragraphs, cursor, -1);
+    if (previous == null || previous.section != cursor.section) {
+      return false;
+    }
+
+    final mergedCursor = RhwpCursorPosition(
+      section: previous.section,
+      paragraph: previous.paragraph,
+      offset: previous.endOffset,
+    );
+    await widget.document.deleteRange(
+      section: cursor.section,
+      startParagraph: previous.paragraph,
+      startOffset: previous.endOffset,
+      endParagraph: cursor.paragraph,
+      endOffset: cursor.offset,
+    );
+    _controller.cursor = mergedCursor;
+    unawaited(_controller.goToPage(previous.page));
+    return true;
+  }
+
+  Future<bool> _mergeWithNextParagraph(RhwpCursorPosition cursor) async {
+    final paragraphs = await _bodyParagraphs();
+    ({int section, int paragraph, int endOffset, int page})? current;
+    for (final paragraph in paragraphs) {
+      if (paragraph.section == cursor.section &&
+          paragraph.paragraph == cursor.paragraph) {
+        current = paragraph;
+        break;
+      }
+    }
+    if (current == null || cursor.offset < current.endOffset) {
+      return false;
+    }
+
+    final next = _paragraphRelativeTo(paragraphs, cursor, 1);
+    if (next == null || next.section != cursor.section) {
+      return false;
+    }
+
+    await widget.document.deleteRange(
+      section: cursor.section,
+      startParagraph: cursor.paragraph,
+      startOffset: current.endOffset,
+      endParagraph: next.paragraph,
+      endOffset: 0,
+    );
+    _controller.cursor = cursor.copyWith(offset: current.endOffset);
+    unawaited(_controller.goToPage(current.page));
+    return true;
   }
 
   Future<void> _deleteWord({required bool backward}) async {

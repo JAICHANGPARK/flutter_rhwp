@@ -5698,6 +5698,74 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor merges paragraphs at keyboard boundaries', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(
+      _editorLayerTreeJson(firstText: 'abcd', secondText: 'efgh'),
+    );
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 1);
+    await tester.pump();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(controller.cursor, const RhwpCursorPosition(offset: 4));
+    expect(jsonDecode(session.commands.single), {
+      'type': 'deleteRange',
+      'section': 0,
+      'startParagraph': 0,
+      'startOffset': 4,
+      'endParagraph': 1,
+      'endOffset': 0,
+    });
+
+    session.commands.clear();
+    controller.cursor = const RhwpCursorPosition(offset: 4);
+    await tester.pump();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 2);
+    expect(controller.cursor, const RhwpCursorPosition(offset: 4));
+    expect(jsonDecode(session.commands.single), {
+      'type': 'deleteRange',
+      'section': 0,
+      'startParagraph': 0,
+      'startOffset': 4,
+      'endParagraph': 1,
+      'endOffset': 0,
+    });
+  });
+
   testWidgets('RhwpNativeEditor inserts tab from keyboard', (tester) async {
     final controller = RhwpEditorController();
     final session = _FakeRhwpSession(pageCountValue: 1);

@@ -260,6 +260,7 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   150%, 200%, and 300% steps, Ctrl/Cmd zoom shortcuts, Ctrl/Cmd+mouse-wheel
   zoom, Escape state clearing, text commit, select-all,
   copy/cut/paste, Enter paragraph splitting, Shift+Enter soft line breaks,
+  Backspace/Delete paragraph-boundary merging,
   Tab text insertion, multiline clipboard paste as paragraph insertion,
   multi-paragraph selection
   replacement, multi-paragraph selected-text bold/italic/underline/strike

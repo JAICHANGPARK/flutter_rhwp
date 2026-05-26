@@ -42,6 +42,8 @@
 * Changed Flutter-native character toolbar and shortcuts to toggle active
   Bold/Italic/Underline/Strike/script/emboss states instead of only forcing
   them on.
+* Added Flutter-native paragraph-boundary merge behavior for Backspace at the
+  start of a paragraph and Delete at the end of a paragraph.
 * Added a Flutter-native go-to-page dialog from the view ribbon and Ctrl/Cmd+G,
   backed by the existing `RhwpViewerController.goToPage` page scroller.
 * Kept Flutter-native IME composing previews and page overlays on their own
