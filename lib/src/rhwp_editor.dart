@@ -1738,6 +1738,33 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
   }
 
+  Future<void> _showGoToPageDialog() async {
+    final pageCount = _pageCountValue;
+    if (_busy || pageCount == null || pageCount <= 0) {
+      return;
+    }
+
+    final page = await showDialog<int>(
+      context: context,
+      builder: (context) => _GoToPageDialog(
+        currentPage: _controller.currentPage,
+        pageCount: pageCount,
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
+    if (page == null) {
+      _focusEditor();
+      return;
+    }
+
+    await _controller.goToPage(page - 1);
+    if (mounted) {
+      _focusEditor();
+    }
+  }
+
   Future<void> _insertText() async {
     final text = _textController.text;
     if (text.isEmpty) {
@@ -6684,6 +6711,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         case LogicalKeyboardKey.keyF:
           _focusSearchField();
           return KeyEventResult.handled;
+        case LogicalKeyboardKey.keyG:
+          unawaited(_showGoToPageDialog());
+          return KeyEventResult.handled;
         case LogicalKeyboardKey.keyL:
           _applyParagraphFormat(alignment: 'left');
           return KeyEventResult.handled;
@@ -7725,6 +7755,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
               _showHeaderFooterTextDialog(isHeader: false),
           onPreviousPage: () => unawaited(_controller.previousPage()),
           onNextPage: () => unawaited(_controller.nextPage()),
+          onGoToPage: _showGoToPageDialog,
           onZoomOut: _controller.zoomOut,
           onZoomIn: _controller.zoomIn,
           onResetZoom: _controller.resetZoom,
@@ -9899,6 +9930,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onInsertFooterText,
     required this.onPreviousPage,
     required this.onNextPage,
+    required this.onGoToPage,
     required this.onZoomOut,
     required this.onZoomIn,
     required this.onResetZoom,
@@ -10015,6 +10047,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onInsertFooterText;
   final VoidCallback onPreviousPage;
   final VoidCallback onNextPage;
+  final VoidCallback onGoToPage;
   final VoidCallback onZoomOut;
   final VoidCallback onZoomIn;
   final VoidCallback onResetZoom;
@@ -10366,6 +10399,17 @@ class _EditorToolbarState extends State<_EditorToolbar> {
                       widget.currentPage >= widget.pageCount! - 1
                   ? null
                   : widget.onNextPage,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Go to page',
+              buttonKey: const ValueKey('rhwp-editor-go-to-page'),
+              icon: Icons.find_in_page_outlined,
+              onPressed:
+                  widget.busy ||
+                      widget.pageCount == null ||
+                      widget.pageCount! <= 0
+                  ? null
+                  : widget.onGoToPage,
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -13504,6 +13548,90 @@ class _ColorSwatchButton extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _GoToPageDialog extends StatefulWidget {
+  const _GoToPageDialog({required this.currentPage, required this.pageCount});
+
+  final int currentPage;
+  final int pageCount;
+
+  @override
+  State<_GoToPageDialog> createState() => _GoToPageDialogState();
+}
+
+class _GoToPageDialogState extends State<_GoToPageDialog> {
+  late final TextEditingController _pageController;
+  String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    final initialPage = (widget.currentPage + 1)
+        .clamp(1, widget.pageCount)
+        .toInt();
+    _pageController = TextEditingController(text: initialPage.toString());
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Go to page'),
+      content: SizedBox(
+        width: 280,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Page 1 - ${widget.pageCount}'),
+            const SizedBox(height: 12),
+            TextField(
+              key: const ValueKey('rhwp-go-to-page-field'),
+              controller: _pageController,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: InputDecoration(
+                labelText: 'Page',
+                errorText: _errorText,
+                border: const OutlineInputBorder(),
+              ),
+              onSubmitted: (_) => _submit(),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const ValueKey('rhwp-go-to-page-apply'),
+          onPressed: _submit,
+          child: const Text('Go'),
+        ),
+      ],
+    );
+  }
+
+  void _submit() {
+    final value = int.tryParse(_pageController.text);
+    if (value == null || value < 1 || value > widget.pageCount) {
+      setState(() {
+        _errorText = 'Enter a page from 1 to ${widget.pageCount}.';
+      });
+      return;
+    }
+
+    Navigator.of(context).pop(value);
   }
 }
 

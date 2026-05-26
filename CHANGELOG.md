@@ -1,6 +1,8 @@
 ## 2026.5.24
 
 * Updated plugin release metadata for the `2026.5.24` release.
+* Added a Flutter-native go-to-page dialog from the view ribbon and Ctrl/Cmd+G,
+  backed by the existing `RhwpViewerController.goToPage` page scroller.
 * Kept Flutter-native IME composing previews and page overlays on their own
   listenable/repaint layers so Space/text input does not rebuild or repaint the
   rendered HWP page surface.

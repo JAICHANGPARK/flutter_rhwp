@@ -875,6 +875,72 @@ void main() {
     );
   });
 
+  testWidgets('RhwpNativeEditor jumps to page from view ribbon and shortcut', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 8);
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('보기'));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-go-to-page')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-go-to-page')));
+    await tester.pump();
+
+    expect(find.text('Go to page'), findsOneWidget);
+    expect(find.text('Page 1 - 8'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-go-to-page-field')),
+      '6',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-go-to-page-apply')));
+    await tester.pumpAndSettle();
+
+    expect(controller.currentPage, 5);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('rhwp-editor-status-page')))
+          .data,
+      'Page 6 / 8',
+    );
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-go-to-page-field')),
+      '2',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-go-to-page-apply')));
+    await tester.pumpAndSettle();
+
+    expect(controller.currentPage, 1);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('rhwp-editor-status-page')))
+          .data,
+      'Page 2 / 8',
+    );
+  });
+
   testWidgets('RhwpNativeEditor edit ribbon restores undo and redo snapshots', (
     tester,
   ) async {

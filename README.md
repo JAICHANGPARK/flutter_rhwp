@@ -209,8 +209,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   delete, IME
   composing preview, context menus, HWP/HWPX/PDF export callbacks from the file
   ribbon, app-level file open callbacks and document information from the file
-  ribbon, page navigation
-  controls, scroll-tracked current page reporting in the view ribbon and status
+  ribbon, page navigation controls, direct go-to-page from the view ribbon and
+  Ctrl/Cmd+G, scroll-tracked current page reporting in the view ribbon and status
   bar, transparent table border overlays, synchronized view/status zoom controls
   and preset menus using the upstream web editor's 25%, 50%, 75%, 100%, 125%,
   150%, 200%, and 300% steps, Ctrl/Cmd zoom shortcuts, Ctrl/Cmd+mouse-wheel
