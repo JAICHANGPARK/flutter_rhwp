@@ -34,6 +34,9 @@
 * Kept `holdTextRefreshWhileFocused` from treating transient desktop text-input
   focus churn as an external focus move, preventing per-key page refreshes in the
   example app.
+* Delayed external-focus-triggered refresh release while desktop text input is
+  still settling, so Space/text commits do not refresh the example document
+  between keystrokes on macOS/Linux/Windows.
 * Added Flutter-native file shortcuts for Ctrl/Cmd+Shift+S HWPX save and
   Ctrl/Cmd+P PDF export alongside the existing Ctrl/Cmd+S HWP save.
 * Changed Flutter-native character toolbar and shortcuts to toggle active

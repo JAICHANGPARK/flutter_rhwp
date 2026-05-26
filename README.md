@@ -22,8 +22,8 @@ documents.
   separate from the rendered SVG page surface to reduce refresh churn on large
   documents.
 - `holdTextRefreshWhileFocused` can be enabled for large desktop documents so
-  Space/text input stays in the Flutter overlay until focus moves outside the
-  editor.
+  Space/text input stays in the Flutter overlay through transient desktop
+  focus/IME churn until focus moves outside the editor.
 - Use `RhwpCommandEditor` for the earlier command-editor compatibility name.
 
 ## Installation
@@ -317,8 +317,9 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   events arrive; `editRefreshDelay` starts only after the active input session
   is released. For large desktop documents, `holdTextRefreshWhileFocused` keeps
   Space/text commits in the Flutter overlay through transient focus/IME churn
-  and releases the deferred page refresh only when focus moves outside the
-  editor. Rapid input commits are queued while previous edit commands finish.
+  and delays external-focus release while desktop text input settles, then
+  releases the deferred page refresh when focus moves outside the editor. Rapid
+  input commits are queued while previous edit commands finish.
   Committed text is shown through a
   temporary Flutter overlay with a pending caret until the refreshed page render
   completes, including table cell text input. Deleted body text is temporarily
