@@ -847,6 +847,29 @@ void main() {
         'text': 'footer',
       },
     );
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.deleteTextInHeaderFooter(
+            section: 1,
+            isHeader: false,
+            applyTo: 1,
+            paragraph: 0,
+            offset: 3,
+            count: 6,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'deleteTextInHeaderFooter',
+        'section': 1,
+        'isHeader': false,
+        'applyTo': 1,
+        'paragraph': 0,
+        'offset': 3,
+        'count': 6,
+      },
+    );
   });
 
   test('page setup commands serialize to the Rust envelope', () {
@@ -1455,6 +1478,24 @@ void main() {
       'paragraph': 0,
       'offset': 6,
       'text': ' Text',
+    });
+
+    await document.deleteTextInHeaderFooter(
+      section: 0,
+      isHeader: true,
+      paragraph: 0,
+      offset: 0,
+      count: 6,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'deleteTextInHeaderFooter',
+      'section': 0,
+      'isHeader': true,
+      'applyTo': 0,
+      'paragraph': 0,
+      'offset': 0,
+      'count': 6,
     });
 
     await document.insertTableRow(

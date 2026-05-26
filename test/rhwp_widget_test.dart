@@ -1232,6 +1232,7 @@ void main() {
     expect(changedCalls, 1);
     expect(session.commands.map(jsonDecode), [
       {'type': 'getHeaderFooter', 'section': 0, 'isHeader': true, 'applyTo': 0},
+      {'type': 'getHeaderFooter', 'section': 0, 'isHeader': true, 'applyTo': 0},
       {
         'type': 'createHeaderFooter',
         'section': 0,
@@ -1246,6 +1247,82 @@ void main() {
         'paragraph': 0,
         'offset': 0,
         'text': 'Header from Flutter',
+      },
+    ]);
+  });
+
+  testWidgets('RhwpNativeEditor page ribbon replaces header text', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1)
+      ..headerFooterExists = true
+      ..headerFooterText = 'Old Header';
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('쪽'));
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-insert-header-text')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('rhwp-header-footer-text-field')),
+          )
+          .controller
+          ?.text,
+      'Old Header',
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-header-footer-text-field')),
+      'New Header',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-header-footer-apply')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.headerFooterText, 'New Header');
+    expect(session.commands.map(jsonDecode), [
+      {'type': 'getHeaderFooter', 'section': 0, 'isHeader': true, 'applyTo': 0},
+      {'type': 'getHeaderFooter', 'section': 0, 'isHeader': true, 'applyTo': 0},
+      {
+        'type': 'deleteTextInHeaderFooter',
+        'section': 0,
+        'isHeader': true,
+        'applyTo': 0,
+        'paragraph': 0,
+        'offset': 0,
+        'count': 10,
+      },
+      {
+        'type': 'insertTextInHeaderFooter',
+        'section': 0,
+        'isHeader': true,
+        'applyTo': 0,
+        'paragraph': 0,
+        'offset': 0,
+        'text': 'New Header',
       },
     ]);
   });
@@ -6789,6 +6866,81 @@ void main() {
   );
 
   testWidgets(
+    'RhwpNativeEditor restores desktop text input after delayed churn action',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Column(
+                children: [
+                  SizedBox(
+                    width: 720,
+                    height: 420,
+                    child: RhwpNativeEditor(
+                      document: document,
+                      controller: controller,
+                      editRefreshDelay: const Duration(milliseconds: 120),
+                      onChanged: (_) => changedCalls += 1,
+                    ),
+                  ),
+                  const TextField(key: ValueKey('external-focus-field')),
+                ],
+              ),
+            ),
+          ),
+        );
+        await _pumpDocumentFrame(tester);
+
+        final caretFinder = find.byKey(const ValueKey('rhwp-editor-caret'));
+        await tester.tapAt(tester.getTopLeft(caretFinder) + const Offset(1, 6));
+        await tester.pump();
+
+        controller.cursor = const RhwpCursorPosition(offset: 2);
+        session.renderedPages.clear();
+
+        tester.testTextInput.updateEditingValue(
+          const TextEditingValue(
+            text: 'A',
+            selection: TextSelection.collapsed(offset: 1),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.pump(_textInputActionIgnoreTestWindow);
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 1600));
+        await tester.pump(const Duration(milliseconds: 240));
+
+        expect(changedCalls, 0);
+        expect(session.renderedPages, isEmpty);
+        expect(tester.testTextInput.hasAnyClients, isTrue);
+        expect(
+          find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.byKey(const ValueKey('external-focus-field')));
+        await _pumpDesktopTextInputRelease(tester);
+
+        expect(changedCalls, 1);
+        expect(session.renderedPages, [0]);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
+
+  testWidgets(
     'RhwpNativeEditor holds text refresh across transient desktop focus loss',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
@@ -7803,6 +7955,8 @@ class _FakeRhwpSession implements rust.RhwpSession {
   int exportPdfCalls = 0;
   int nextSnapshotId = 1;
   bool hasObjectControlClipboard = false;
+  bool headerFooterExists = false;
+  String headerFooterText = '';
   String extractedText = 'alpha\nbeta';
   String pageLayerTreeJson = jsonEncode(_editorLayerTreeJson());
   final pageLayerTreeJsonByPage = <int, String>{};
@@ -7869,6 +8023,35 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'getPageSetup') {
       return '{"width":59528,"height":84189,"marginLeft":8504,"marginRight":8504,"marginTop":5669,"marginBottom":4252,"marginHeader":4252,"marginFooter":4252,"marginGutter":0,"landscape":false,"binding":0}';
+    }
+    if (command is Map && command['type'] == 'getHeaderFooter') {
+      if (!headerFooterExists) {
+        return '{"ok":true,"exists":false}';
+      }
+      return jsonEncode({
+        'ok': true,
+        'exists': true,
+        'kind': command['isHeader'] == true ? 'header' : 'footer',
+        'applyTo': command['applyTo'] ?? 0,
+        'label': '양 쪽',
+        'paraIndex': 0,
+        'controlIndex': 1,
+        'paraCount': 1,
+        'text': headerFooterText,
+      });
+    }
+    if (command is Map && command['type'] == 'createHeaderFooter') {
+      headerFooterExists = true;
+      return '{"ok":true,"kind":"header","applyTo":0,"label":"양 쪽","paraIndex":0,"controlIndex":1}';
+    }
+    if (command is Map && command['type'] == 'deleteTextInHeaderFooter') {
+      headerFooterText = '';
+      return '{"ok":true,"charOffset":0}';
+    }
+    if (command is Map && command['type'] == 'insertTextInHeaderFooter') {
+      headerFooterExists = true;
+      headerFooterText = command['text']?.toString() ?? '';
+      return '{"ok":true,"charOffset":0}';
     }
     return '{"ok":true}';
   }

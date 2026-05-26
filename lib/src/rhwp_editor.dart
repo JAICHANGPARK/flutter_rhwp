@@ -657,12 +657,14 @@ class _HeaderFooterTextDialogResult {
     required this.applyTo,
     required this.paragraph,
     required this.offset,
+    required this.replaceExisting,
   });
 
   final String text;
   final int applyTo;
   final int paragraph;
   final int offset;
+  final bool replaceExisting;
 }
 
 class _EquationDialogResult {
@@ -2930,15 +2932,34 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
-    final result = await showDialog<_HeaderFooterTextDialogResult>(
-      context: context,
-      builder: (context) => _HeaderFooterTextDialog(isHeader: isHeader),
-    );
-    if (result == null || result.text.isEmpty) {
+    final section = _parseNonNegative(_sectionController.text);
+    RhwpHeaderFooterInfo? initialInfo;
+    try {
+      initialInfo = await widget.document.headerFooter(
+        section: section,
+        isHeader: isHeader,
+      );
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+      return;
+    }
+    if (!mounted) {
       return;
     }
 
-    final section = _parseNonNegative(_sectionController.text);
+    final result = await showDialog<_HeaderFooterTextDialogResult>(
+      context: context,
+      builder: (context) =>
+          _HeaderFooterTextDialog(isHeader: isHeader, initialInfo: initialInfo),
+    );
+    if (result == null) {
+      return;
+    }
+
     await _runEdit(() async {
       final info = await widget.document.headerFooter(
         section: section,
@@ -2952,14 +2973,29 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           applyTo: result.applyTo,
         );
       }
-      await widget.document.insertTextInHeaderFooter(
-        section: section,
-        isHeader: isHeader,
-        applyTo: result.applyTo,
-        paragraph: result.paragraph,
-        offset: result.offset,
-        text: result.text,
-      );
+      if (result.replaceExisting && info.exists) {
+        final count = info.text?.runes.length ?? 0;
+        if (count > 0) {
+          await widget.document.deleteTextInHeaderFooter(
+            section: section,
+            isHeader: isHeader,
+            applyTo: result.applyTo,
+            paragraph: 0,
+            offset: 0,
+            count: count,
+          );
+        }
+      }
+      if (result.text.isNotEmpty) {
+        await widget.document.insertTextInHeaderFooter(
+          section: section,
+          isHeader: isHeader,
+          applyTo: result.applyTo,
+          paragraph: result.replaceExisting ? 0 : result.paragraph,
+          offset: result.replaceExisting ? 0 : result.offset,
+          text: result.text,
+        );
+      }
       _controller.cursor = _controller.cursor.copyWith(section: section);
     });
   }
@@ -4914,6 +4950,28 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     );
   }
 
+  void _restoreDesktopTextInputAfterChurn() {
+    if (!_isDesktopTextInputPlatform || !mounted) {
+      return;
+    }
+
+    scheduleMicrotask(() {
+      if (!mounted) {
+        return;
+      }
+
+      if (_searchFocusNode.hasFocus) {
+        return;
+      }
+
+      _textInputFocusReleaseTimer?.cancel();
+      _textInputFocusReleaseTimer = null;
+      _holdDeferredEditRefreshForTextInput();
+      _focusNode.requestFocus();
+      _openTextInput();
+    });
+  }
+
   void _clearDesktopTextInputCommitHoldWindow() {
     _desktopTextInputCommitHoldTimer?.cancel();
     _desktopTextInputCommitHoldTimer = null;
@@ -5932,8 +5990,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   @override
   void performAction(TextInputAction action) {
     _resetTextInputValue();
-    if (_shouldIgnoreTextInputActionAfterCommit ||
-        _shouldTreatTextInputActionAsDesktopInputChurn) {
+    final desktopInputChurn = _shouldTreatTextInputActionAsDesktopInputChurn;
+    if (_shouldIgnoreTextInputActionAfterCommit || desktopInputChurn) {
+      if (desktopInputChurn) {
+        _restoreDesktopTextInputAfterChurn();
+      }
       return;
     }
     if (_shouldDelayDesktopTextInputFocusRelease) {
@@ -5962,6 +6023,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           _openTextInput();
         }
       });
+      _restoreDesktopTextInputAfterChurn();
       return;
     }
     if (_shouldDelayDesktopTextInputFocusRelease) {
@@ -11006,9 +11068,13 @@ class _NewNumberDialogState extends State<_NewNumberDialog> {
 }
 
 class _HeaderFooterTextDialog extends StatefulWidget {
-  const _HeaderFooterTextDialog({required this.isHeader});
+  const _HeaderFooterTextDialog({
+    required this.isHeader,
+    required this.initialInfo,
+  });
 
   final bool isHeader;
+  final RhwpHeaderFooterInfo? initialInfo;
 
   @override
   State<_HeaderFooterTextDialog> createState() =>
@@ -11016,10 +11082,20 @@ class _HeaderFooterTextDialog extends StatefulWidget {
 }
 
 class _HeaderFooterTextDialogState extends State<_HeaderFooterTextDialog> {
-  final _textController = TextEditingController();
+  late final TextEditingController _textController;
   final _paragraphController = TextEditingController(text: '0');
   final _offsetController = TextEditingController(text: '0');
-  var _applyTo = 0;
+  late int _applyTo;
+  late bool _replaceExisting;
+
+  @override
+  void initState() {
+    super.initState();
+    final initialInfo = widget.initialInfo;
+    _applyTo = initialInfo?.applyTo ?? 0;
+    _replaceExisting = initialInfo?.exists ?? false;
+    _textController = TextEditingController(text: initialInfo?.text ?? '');
+  }
 
   @override
   void dispose() {
@@ -11048,6 +11124,18 @@ class _HeaderFooterTextDialogState extends State<_HeaderFooterTextDialog> {
                 labelText: 'Text',
                 border: OutlineInputBorder(),
               ),
+            ),
+            const SizedBox(height: 12),
+            SwitchListTile(
+              key: const ValueKey('rhwp-header-footer-replace-existing'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Replace existing text'),
+              value: _replaceExisting,
+              onChanged: (value) {
+                setState(() {
+                  _replaceExisting = value;
+                });
+              },
             ),
             const SizedBox(height: 12),
             Row(
@@ -11113,7 +11201,7 @@ class _HeaderFooterTextDialogState extends State<_HeaderFooterTextDialog> {
         FilledButton(
           key: const ValueKey('rhwp-header-footer-apply'),
           onPressed: _submit,
-          child: const Text('Insert'),
+          child: const Text('Save'),
         ),
       ],
     );
@@ -11126,6 +11214,7 @@ class _HeaderFooterTextDialogState extends State<_HeaderFooterTextDialog> {
         applyTo: _applyTo,
         paragraph: _parseDialogNonNegative(_paragraphController.text),
         offset: _parseDialogNonNegative(_offsetController.text),
+        replaceExisting: _replaceExisting,
       ),
     );
   }

@@ -810,6 +810,24 @@ impl RhwpSession {
                     &text,
                 )
                 .map_err(error_to_string),
+            RhwpCommand::DeleteTextInHeaderFooter {
+                section,
+                is_header,
+                apply_to,
+                paragraph,
+                offset,
+                count,
+            } => inner
+                .document
+                .delete_text_in_header_footer_native(
+                    section as usize,
+                    is_header,
+                    apply_to as u8,
+                    paragraph as usize,
+                    offset as usize,
+                    count as usize,
+                )
+                .map_err(error_to_string),
             RhwpCommand::GetPageSetup { section } => inner
                 .document
                 .get_page_def_native(section as usize)
@@ -1243,6 +1261,16 @@ enum RhwpCommand {
         paragraph: u32,
         offset: u32,
         text: String,
+    },
+    DeleteTextInHeaderFooter {
+        section: u32,
+        #[serde(rename = "isHeader")]
+        is_header: bool,
+        #[serde(rename = "applyTo")]
+        apply_to: u32,
+        paragraph: u32,
+        offset: u32,
+        count: u32,
     },
     GetPageSetup {
         section: u32,
@@ -2090,6 +2118,12 @@ mod tests {
                     .to_string(),
             )
             .expect("insert header text command should be accepted");
+        session
+            .apply_command(
+                r#"{"type":"deleteTextInHeaderFooter","section":0,"isHeader":true,"applyTo":0,"paragraph":0,"offset":0,"count":6}"#
+                    .to_string(),
+            )
+            .expect("delete header text command should be accepted");
         let page_setup = session
             .apply_command(r#"{"type":"getPageSetup","section":0}"#.to_string())
             .expect("page setup query should be accepted");

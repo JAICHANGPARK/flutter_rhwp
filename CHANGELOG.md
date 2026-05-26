@@ -7,10 +7,14 @@
   churn arrives before a slow input command finishes.
 * Debounced desktop text-input focus churn with the native editor refresh delay
   so typing or Space does not trigger visible page refreshes between commits.
+* Restored the Flutter-native editor TextInput focus after delayed desktop
+  input churn so typing or Space does not reopen a page refresh while editing.
 * Added Flutter-native new page number insertion from the page ribbon through
   rhwp core's `insert_new_number_native` command.
 * Added Flutter-native header/footer text insertion from the page ribbon,
   backed by rhwp core header/footer query and text-edit commands.
+* Changed the Flutter-native header/footer text dialog to prefill existing
+  text and replace it through the Rust header/footer delete command.
 * Added Flutter-native style list/apply commands and a format toolbar style
   picker for body paragraphs and selected table-cell paragraphs.
 * Kept Flutter-native editor deferred page refresh blocked when desktop text

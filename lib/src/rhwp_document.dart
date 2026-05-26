@@ -711,6 +711,15 @@ abstract class RhwpCommand {
     required String text,
   }) = RhwpInsertTextInHeaderFooterCommand;
 
+  factory RhwpCommand.deleteTextInHeaderFooter({
+    required int section,
+    required bool isHeader,
+    int applyTo,
+    required int paragraph,
+    required int offset,
+    required int count,
+  }) = RhwpDeleteTextInHeaderFooterCommand;
+
   factory RhwpCommand.getPageSetup({required int section}) =
       RhwpGetPageSetupCommand;
 
@@ -1986,6 +1995,37 @@ class RhwpInsertTextInHeaderFooterCommand extends RhwpCommand {
   };
 }
 
+class RhwpDeleteTextInHeaderFooterCommand extends RhwpCommand {
+  const RhwpDeleteTextInHeaderFooterCommand({
+    required this.section,
+    required this.isHeader,
+    this.applyTo = 0,
+    required this.paragraph,
+    required this.offset,
+    required this.count,
+  });
+
+  final int section;
+  final bool isHeader;
+
+  /// 0 applies to both pages, 1 to even pages, and 2 to odd pages.
+  final int applyTo;
+  final int paragraph;
+  final int offset;
+  final int count;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'deleteTextInHeaderFooter',
+    'section': section,
+    'isHeader': isHeader,
+    'applyTo': applyTo,
+    'paragraph': paragraph,
+    'offset': offset,
+    'count': count,
+  };
+}
+
 class RhwpGetPageSetupCommand extends RhwpCommand {
   const RhwpGetPageSetupCommand({required this.section});
 
@@ -3054,6 +3094,26 @@ class RhwpDocument {
         paragraph: paragraph,
         offset: offset,
         text: text,
+      ),
+    );
+  }
+
+  Future<String> deleteTextInHeaderFooter({
+    required int section,
+    required bool isHeader,
+    int applyTo = 0,
+    required int paragraph,
+    required int offset,
+    required int count,
+  }) {
+    return apply(
+      RhwpCommand.deleteTextInHeaderFooter(
+        section: section,
+        isHeader: isHeader,
+        applyTo: applyTo,
+        paragraph: paragraph,
+        offset: offset,
+        count: count,
       ),
     );
   }
