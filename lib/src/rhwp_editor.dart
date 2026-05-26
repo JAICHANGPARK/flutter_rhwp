@@ -758,6 +758,28 @@ class _PendingCharFormat {
   }
 }
 
+class _CurrentParaFormat {
+  const _CurrentParaFormat({
+    this.alignment,
+    this.lineSpacing,
+    this.lineSpacingType,
+  });
+
+  factory _CurrentParaFormat.fromParaProperties(RhwpParaProperties properties) {
+    return _CurrentParaFormat(
+      alignment: properties.alignment,
+      lineSpacing: properties.lineSpacing,
+      lineSpacingType: properties.lineSpacingType,
+    );
+  }
+
+  final String? alignment;
+  final int? lineSpacing;
+  final String? lineSpacingType;
+
+  bool isAlignment(String value) => alignment == value;
+}
+
 class _ParaShapeDialogResult {
   const _ParaShapeDialogResult({
     required this.alignment,
@@ -1366,6 +1388,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   int? _pageCountValue;
   _PendingCharFormat _pendingCharFormat = const _PendingCharFormat();
   _PendingCharFormat _currentCharFormat = const _PendingCharFormat();
+  _CurrentParaFormat _currentParaFormat = const _CurrentParaFormat();
   _EditorClipboardDomain? _clipboardDomain;
   final _undoSnapshots = <int>[];
   final _redoSnapshots = <int>[];
@@ -1383,6 +1406,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   bool _overwriteMode = false;
   Object? _error;
   int _charFormatQueryRevision = 0;
+  int _paraFormatQueryRevision = 0;
 
   static const _maxUndoSnapshots = 100;
   static const _textInputActionIgnoreWindow = Duration(milliseconds: 800);
@@ -1401,6 +1425,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _focusNode.addListener(_handleFocusChanged);
     _syncCursorFields();
     unawaited(_syncCurrentCharFormat());
+    unawaited(_syncCurrentParaFormat());
     _loadPageCount();
   }
 
@@ -1412,8 +1437,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       _renderRevision += 1;
       _pageCountValue = null;
       _currentCharFormat = const _PendingCharFormat();
+      _currentParaFormat = const _CurrentParaFormat();
       _charFormatQueryRevision += 1;
+      _paraFormatQueryRevision += 1;
       unawaited(_syncCurrentCharFormat());
+      unawaited(_syncCurrentParaFormat());
       _loadPageCount();
     }
   }
@@ -1473,6 +1501,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     if (mounted && !_suppressControllerChangedSetState) {
       setState(() {});
       unawaited(_syncCurrentCharFormat());
+      unawaited(_syncCurrentParaFormat());
     }
   }
 
@@ -1517,6 +1546,48 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       });
     } catch (_) {
       // Some documents do not expose style information for every cursor target.
+    }
+  }
+
+  Future<void> _syncCurrentParaFormat() async {
+    if (_busy ||
+        _controller.objectSelection != null ||
+        _hasPendingOptimisticTextEdit ||
+        _pendingTextInputCommits > 0) {
+      return;
+    }
+
+    final revision = ++_paraFormatQueryRevision;
+    try {
+      final tableSelection = _controller.tableCellSelection;
+      final RhwpParaProperties properties;
+      if (tableSelection?.activeCellIndex != null) {
+        properties = await widget.document.cellParaPropertiesAt(
+          section: tableSelection!.section,
+          paragraph: tableSelection.paragraph,
+          controlIndex: tableSelection.controlIndex,
+          cellIndex: tableSelection.activeCellIndex!,
+          cellParagraph: tableSelection.activeCellParagraph,
+        );
+      } else {
+        final selection = _controller.selection;
+        final cursor = selection.isCollapsed
+            ? _controller.cursor
+            : selection.normalizedStart;
+        properties = await widget.document.paraPropertiesAt(
+          section: cursor.section,
+          paragraph: cursor.paragraph,
+        );
+      }
+
+      if (!mounted || revision != _paraFormatQueryRevision) {
+        return;
+      }
+      setState(() {
+        _currentParaFormat = _CurrentParaFormat.fromParaProperties(properties);
+      });
+    } catch (_) {
+      // Some documents do not expose paragraph information for every target.
     }
   }
 
@@ -4054,7 +4125,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         return;
       }
 
-      await _runEdit(() async {
+      final edited = await _runEdit(() async {
         for (final target in targets) {
           await widget.document.applyParaFormatInTableCell(
             section: target.section,
@@ -4074,6 +4145,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         }
         _controller.tableCellSelection = tableSelection;
       });
+      if (edited) {
+        unawaited(_syncCurrentParaFormat());
+      }
       return;
     }
 
@@ -4084,7 +4158,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
-    await _runEdit(() async {
+    final edited = await _runEdit(() async {
       await widget.document.applyParaFormatRange(
         section: start.section,
         startParagraph: start.paragraph,
@@ -4102,6 +4176,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           ? RhwpSelectionRange.collapsed(start)
           : RhwpSelectionRange(start: start, end: end);
     });
+    if (edited) {
+      unawaited(_syncCurrentParaFormat());
+    }
   }
 
   Future<void> _applyStyle(int styleId) async {
@@ -7505,6 +7582,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           objectSelection: _controller.objectSelection,
           pendingCharFormat: _pendingCharFormat,
           currentCharFormat: _currentCharFormat,
+          currentParaFormat: _currentParaFormat,
           currentPage: _controller.currentPage,
           pageCount: _pageCountValue,
           zoom: _controller.zoom,
@@ -9676,6 +9754,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.objectSelection,
     required this.pendingCharFormat,
     required this.currentCharFormat,
+    required this.currentParaFormat,
     required this.currentPage,
     required this.pageCount,
     required this.zoom,
@@ -9790,6 +9869,7 @@ class _EditorToolbar extends StatefulWidget {
   final RhwpObjectSelection? objectSelection;
   final _PendingCharFormat pendingCharFormat;
   final _PendingCharFormat currentCharFormat;
+  final _CurrentParaFormat currentParaFormat;
   final int currentPage;
   final int? pageCount;
   final double zoom;
@@ -9949,6 +10029,14 @@ class _EditorToolbarState extends State<_EditorToolbar> {
     final shadeColor = format.shadeColor;
     if (shadeColor != null) {
       _toolbarShadeColor = shadeColor;
+    }
+
+    final paraFormat = widget.currentParaFormat;
+    final lineSpacing = paraFormat.lineSpacing;
+    if (paraFormat.lineSpacingType == 'Percent' &&
+        lineSpacing != null &&
+        _lineSpacingPresets.contains(lineSpacing)) {
+      _toolbarLineSpacing = lineSpacing;
     }
   }
 
@@ -10567,21 +10655,25 @@ class _EditorToolbarState extends State<_EditorToolbar> {
             _ToolbarIconButton(
               tooltip: 'Align left',
               icon: Icons.format_align_left,
+              selected: widget.currentParaFormat.isAlignment('left'),
               onPressed: widget.busy ? null : widget.onAlignLeft,
             ),
             _ToolbarIconButton(
               tooltip: 'Align center',
               icon: Icons.format_align_center,
+              selected: widget.currentParaFormat.isAlignment('center'),
               onPressed: widget.busy ? null : widget.onAlignCenter,
             ),
             _ToolbarIconButton(
               tooltip: 'Align right',
               icon: Icons.format_align_right,
+              selected: widget.currentParaFormat.isAlignment('right'),
               onPressed: widget.busy ? null : widget.onAlignRight,
             ),
             _ToolbarIconButton(
               tooltip: 'Justify',
               icon: Icons.format_align_justify,
+              selected: widget.currentParaFormat.isAlignment('justify'),
               onPressed: widget.busy ? null : widget.onAlignJustify,
             ),
             const SizedBox(width: 6),

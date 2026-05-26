@@ -275,6 +275,51 @@ class RhwpCharProperties {
   final Map<String, Object?>? raw;
 }
 
+class RhwpParaProperties {
+  const RhwpParaProperties({
+    required this.rawJson,
+    this.alignment,
+    this.lineSpacing,
+    this.lineSpacingType,
+    this.indent,
+    this.marginLeft,
+    this.marginRight,
+    this.spacingBefore,
+    this.spacingAfter,
+    this.paraShapeId,
+    this.raw,
+  });
+
+  factory RhwpParaProperties.fromJsonString(String source) {
+    final decoded = RhwpDocument._tryDecodeObject(source);
+    return RhwpParaProperties(
+      rawJson: source,
+      alignment: decoded?['alignment']?.toString(),
+      lineSpacing: _intFromJson(decoded?['lineSpacing']),
+      lineSpacingType: decoded?['lineSpacingType']?.toString(),
+      indent: _intFromJson(decoded?['indent']),
+      marginLeft: _intFromJson(decoded?['marginLeft']),
+      marginRight: _intFromJson(decoded?['marginRight']),
+      spacingBefore: _intFromJson(decoded?['spacingBefore']),
+      spacingAfter: _intFromJson(decoded?['spacingAfter']),
+      paraShapeId: _intFromJson(decoded?['paraShapeId']),
+      raw: decoded,
+    );
+  }
+
+  final String rawJson;
+  final String? alignment;
+  final int? lineSpacing;
+  final String? lineSpacingType;
+  final int? indent;
+  final int? marginLeft;
+  final int? marginRight;
+  final int? spacingBefore;
+  final int? spacingAfter;
+  final int? paraShapeId;
+  final Map<String, Object?>? raw;
+}
+
 class RhwpPageSetup {
   const RhwpPageSetup({
     required this.width,
@@ -761,6 +806,19 @@ abstract class RhwpCommand {
     required int cellParagraph,
     required int offset,
   }) = RhwpGetCellCharPropertiesAtCommand;
+
+  factory RhwpCommand.getParaPropertiesAt({
+    required int section,
+    required int paragraph,
+  }) = RhwpGetParaPropertiesAtCommand;
+
+  factory RhwpCommand.getCellParaPropertiesAt({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+  }) = RhwpGetCellParaPropertiesAtCommand;
 
   factory RhwpCommand.applyStyle({
     required int section,
@@ -1994,6 +2052,49 @@ class RhwpGetCellCharPropertiesAtCommand extends RhwpCommand {
     'cellIndex': cellIndex,
     'cellParagraph': cellParagraph,
     'offset': offset,
+  };
+}
+
+class RhwpGetParaPropertiesAtCommand extends RhwpCommand {
+  const RhwpGetParaPropertiesAtCommand({
+    required this.section,
+    required this.paragraph,
+  });
+
+  final int section;
+  final int paragraph;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'getParaPropertiesAt',
+    'section': section,
+    'paragraph': paragraph,
+  };
+}
+
+class RhwpGetCellParaPropertiesAtCommand extends RhwpCommand {
+  const RhwpGetCellParaPropertiesAtCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+    required this.cellParagraph,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+  final int cellParagraph;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'getCellParaPropertiesAt',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'cellIndex': cellIndex,
+    'cellParagraph': cellParagraph,
   };
 }
 
@@ -3259,6 +3360,35 @@ class RhwpDocument {
       ),
     );
     return RhwpCharProperties.fromJsonString(source);
+  }
+
+  Future<RhwpParaProperties> paraPropertiesAt({
+    required int section,
+    required int paragraph,
+  }) async {
+    final source = await apply(
+      RhwpCommand.getParaPropertiesAt(section: section, paragraph: paragraph),
+    );
+    return RhwpParaProperties.fromJsonString(source);
+  }
+
+  Future<RhwpParaProperties> cellParaPropertiesAt({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+  }) async {
+    final source = await apply(
+      RhwpCommand.getCellParaPropertiesAt(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        cellIndex: cellIndex,
+        cellParagraph: cellParagraph,
+      ),
+    );
+    return RhwpParaProperties.fromJsonString(source);
   }
 
   Future<String> applyStyle({

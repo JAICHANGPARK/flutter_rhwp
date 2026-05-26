@@ -783,6 +783,26 @@ impl RhwpSession {
                     offset as usize,
                 )
                 .map_err(error_to_string),
+            RhwpCommand::GetParaPropertiesAt { section, paragraph } => inner
+                .document
+                .get_para_properties_at_native(section as usize, paragraph as usize)
+                .map_err(error_to_string),
+            RhwpCommand::GetCellParaPropertiesAt {
+                section,
+                paragraph,
+                control_index,
+                cell_index,
+                cell_paragraph,
+            } => inner
+                .document
+                .get_cell_para_properties_at_native(
+                    section as usize,
+                    paragraph as usize,
+                    control_index as usize,
+                    cell_index as usize,
+                    cell_paragraph as usize,
+                )
+                .map_err(error_to_string),
             RhwpCommand::ApplyStyle {
                 section,
                 paragraph,
@@ -1268,6 +1288,20 @@ enum RhwpCommand {
         #[serde(rename = "cellParagraph")]
         cell_paragraph: u32,
         offset: u32,
+    },
+    GetParaPropertiesAt {
+        section: u32,
+        paragraph: u32,
+    },
+    GetCellParaPropertiesAt {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "cellIndex")]
+        cell_index: u32,
+        #[serde(rename = "cellParagraph")]
+        cell_paragraph: u32,
     },
     ApplyStyle {
         section: u32,
@@ -2233,6 +2267,15 @@ mod tests {
                 r#"{{"type":"applyStyle","section":0,"paragraph":0,"styleId":{style_id}}}"#
             ))
             .expect("apply style command should be accepted");
+        let para_properties = session
+            .apply_command(
+                r#"{"type":"getParaPropertiesAt","section":0,"paragraph":0}"#.to_string(),
+            )
+            .expect("paragraph properties query should be accepted");
+        let para_properties: Value =
+            serde_json::from_str(&para_properties).expect("paragraph properties should be JSON");
+        assert!(para_properties["alignment"].is_string());
+        assert!(para_properties["lineSpacing"].is_number());
         let table_result = session
             .apply_command(
                 r#"{"type":"insertTable","section":0,"paragraph":0,"offset":0,"rows":2,"columns":3}"#
@@ -2275,6 +2318,15 @@ mod tests {
                 ),
             )
             .expect("apply para format in table cell command should be accepted");
+        let cell_para_properties = session
+            .apply_command(format!(
+                r#"{{"type":"getCellParaPropertiesAt","section":0,"paragraph":{},"controlIndex":0,"cellIndex":0,"cellParagraph":0}}"#,
+                table_paragraph
+            ))
+            .expect("cell paragraph properties query should be accepted");
+        let cell_para_properties: Value = serde_json::from_str(&cell_para_properties)
+            .expect("cell paragraph properties should be JSON");
+        assert_eq!(cell_para_properties["alignment"], "center");
         session
             .apply_command(
                 format!(

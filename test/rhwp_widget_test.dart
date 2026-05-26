@@ -5660,6 +5660,49 @@ void main() {
     );
   });
 
+  testWidgets('RhwpNativeEditor reflects caret paragraph properties in ribbon', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1)
+      ..paraPropertiesJson =
+          '{"alignment":"center","lineSpacing":180.0,"lineSpacingType":"Percent","marginLeft":0.0,"marginRight":0.0,"indent":0.0,"spacingBefore":0.0,"spacingAfter":0.0,"paraShapeId":1}';
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+    await tester.pump();
+
+    await tester.tap(find.text('서식'));
+    await tester.pump();
+
+    expect(session.commands, isEmpty);
+    expect(
+      tester
+          .widget<IconButton>(
+            find.widgetWithIcon(IconButton, Icons.format_align_center),
+          )
+          .isSelected,
+      isTrue,
+    );
+    expect(
+      tester
+          .widget<DropdownButtonFormField<int>>(
+            find.byKey(const ValueKey('rhwp-editor-line-spacing-field')),
+          )
+          .initialValue,
+      180,
+    );
+  });
+
   testWidgets('RhwpNativeEditor applies character shape dialog values', (
     tester,
   ) async {
@@ -8851,6 +8894,8 @@ class _FakeRhwpSession implements rust.RhwpSession {
   String extractedText = 'alpha\nbeta';
   String charPropertiesJson =
       '{"fontFamily":"함초롬바탕","fontSize":1000,"bold":false,"italic":false,"underline":false,"strikethrough":false,"superscript":false,"subscript":false,"emboss":false,"engrave":false,"textColor":"#000000","shadeColor":"#ffffff"}';
+  String paraPropertiesJson =
+      '{"alignment":"justify","lineSpacing":160.0,"lineSpacingType":"Percent","marginLeft":0.0,"marginRight":0.0,"indent":0.0,"spacingBefore":0.0,"spacingAfter":0.0,"paraShapeId":0}';
   String pageLayerTreeJson = jsonEncode(_editorLayerTreeJson());
   final pageLayerTreeJsonByPage = <int, String>{};
   bool _disposed = false;
@@ -8879,6 +8924,11 @@ class _FakeRhwpSession implements rust.RhwpSession {
         (command['type'] == 'getCharPropertiesAt' ||
             command['type'] == 'getCellCharPropertiesAt')) {
       return charPropertiesJson;
+    }
+    if (command is Map &&
+        (command['type'] == 'getParaPropertiesAt' ||
+            command['type'] == 'getCellParaPropertiesAt')) {
+      return paraPropertiesJson;
     }
 
     commands.add(commandJson);

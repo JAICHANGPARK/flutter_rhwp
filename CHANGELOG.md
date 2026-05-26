@@ -1,6 +1,8 @@
 ## 2026.5.24
 
 * Updated plugin release metadata for the `2026.5.24` release.
+* Added paragraph-property query commands and synchronized the Flutter-native
+  format ribbon with the caret's current paragraph alignment and line spacing.
 * Treated external primary-focus churn during a desktop text commit as part of
   the active native-editor input session, preventing Space/text input from
   immediately releasing deferred page refresh.

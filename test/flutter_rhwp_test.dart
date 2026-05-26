@@ -413,6 +413,35 @@ void main() {
     expect(
       jsonDecode(
         jsonEncode(
+          RhwpCommand.getParaPropertiesAt(section: 0, paragraph: 1).toJson(),
+        ),
+      ),
+      {'type': 'getParaPropertiesAt', 'section': 0, 'paragraph': 1},
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.getCellParaPropertiesAt(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            cellIndex: 3,
+            cellParagraph: 4,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'getCellParaPropertiesAt',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'cellIndex': 3,
+        'cellParagraph': 4,
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
           RhwpCommand.applyStyle(section: 0, paragraph: 1, styleId: 3).toJson(),
         ),
       ),
@@ -1571,6 +1600,38 @@ void main() {
       'offset': 4,
     });
 
+    final paraProperties = await document.paraPropertiesAt(
+      section: 0,
+      paragraph: 1,
+    );
+
+    expect(paraProperties.alignment, 'center');
+    expect(paraProperties.lineSpacing, 180);
+    expect(paraProperties.lineSpacingType, 'Percent');
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'getParaPropertiesAt',
+      'section': 0,
+      'paragraph': 1,
+    });
+
+    final cellParaProperties = await document.cellParaPropertiesAt(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 2,
+      cellIndex: 3,
+      cellParagraph: 0,
+    );
+
+    expect(cellParaProperties.indent, 20);
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'getCellParaPropertiesAt',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 2,
+      'cellIndex': 3,
+      'cellParagraph': 0,
+    });
+
     await document.applyStyle(section: 0, paragraph: 1, styleId: 3);
 
     expect(jsonDecode(session.lastCommandJson!), {
@@ -2446,6 +2507,11 @@ class _FakeRhwpSession implements rust.RhwpSession {
         (command['type'] == 'getCharPropertiesAt' ||
             command['type'] == 'getCellCharPropertiesAt')) {
       return '{"fontFamily":"맑은 고딕","fontSize":1400,"bold":true,"italic":false,"underline":true,"strikethrough":false,"superscript":false,"subscript":false,"emboss":false,"engrave":false,"textColor":"#dc2626","shadeColor":"#dbeafe"}';
+    }
+    if (command is Map &&
+        (command['type'] == 'getParaPropertiesAt' ||
+            command['type'] == 'getCellParaPropertiesAt')) {
+      return '{"alignment":"center","lineSpacing":180.0,"lineSpacingType":"Percent","marginLeft":10.0,"marginRight":12.0,"indent":20.0,"spacingBefore":4.0,"spacingAfter":6.0,"paraShapeId":3}';
     }
     return '{"ok":true}';
   }
