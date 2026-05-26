@@ -218,7 +218,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   superscript, subscript, emboss, and engrave controls, a character shape
   dialog with `Alt+L` shortcut support for font family, font size, text color,
   text background,
-  superscript, subscript, emboss, and engrave,
+  superscript, subscript, emboss, and engrave, preloaded from the current
+  caret character shape,
   collapsed-selection pending character
   formatting for the next inserted body text, caret character-shape sync for
   the format ribbon, caret paragraph alignment/line-spacing sync for the

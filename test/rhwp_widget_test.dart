@@ -5897,6 +5897,121 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor preloads character shape dialog from caret', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1)
+      ..charPropertiesJson =
+          '{"fontFamily":"맑은 고딕","fontSize":1400,"bold":true,"italic":true,"underline":true,"strikethrough":true,"superscript":true,"subscript":false,"emboss":true,"engrave":false,"textColor":"#dc2626","shadeColor":"#dbeafe"}';
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.selection = const RhwpSelectionRange(
+      start: RhwpCursorPosition(offset: 1),
+      end: RhwpCursorPosition(offset: 3),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('서식'));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-character-shape')));
+    await tester.pumpAndSettle();
+
+    expect(session.commands, isEmpty);
+    expect(
+      tester
+          .widget<DropdownButtonFormField<String>>(
+            find.byKey(const ValueKey('rhwp-char-shape-font-family-field')),
+          )
+          .initialValue,
+      '맑은 고딕',
+    );
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('rhwp-char-shape-font-size-field')),
+          )
+          .controller
+          ?.text,
+      '14.0',
+    );
+    expect(
+      tester
+          .widget<FilterChip>(
+            find.byKey(const ValueKey('rhwp-char-shape-bold')),
+          )
+          .selected,
+      isTrue,
+    );
+    expect(
+      tester
+          .widget<FilterChip>(
+            find.byKey(const ValueKey('rhwp-char-shape-italic')),
+          )
+          .selected,
+      isTrue,
+    );
+    expect(
+      tester
+          .widget<FilterChip>(
+            find.byKey(const ValueKey('rhwp-char-shape-underline')),
+          )
+          .selected,
+      isTrue,
+    );
+    expect(
+      tester
+          .widget<FilterChip>(
+            find.byKey(const ValueKey('rhwp-char-shape-strikethrough')),
+          )
+          .selected,
+      isTrue,
+    );
+    expect(
+      tester
+          .widget<FilterChip>(
+            find.byKey(const ValueKey('rhwp-char-shape-superscript')),
+          )
+          .selected,
+      isTrue,
+    );
+    expect(
+      tester
+          .widget<FilterChip>(
+            find.byKey(const ValueKey('rhwp-char-shape-subscript')),
+          )
+          .selected,
+      isFalse,
+    );
+    expect(
+      tester
+          .widget<FilterChip>(
+            find.byKey(const ValueKey('rhwp-char-shape-emboss')),
+          )
+          .selected,
+      isTrue,
+    );
+    expect(
+      tester
+          .widget<FilterChip>(
+            find.byKey(const ValueKey('rhwp-char-shape-engrave')),
+          )
+          .selected,
+      isFalse,
+    );
+  });
+
   testWidgets('RhwpNativeEditor opens character shape dialog with Alt+L', (
     tester,
   ) async {

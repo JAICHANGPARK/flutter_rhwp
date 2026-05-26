@@ -3589,7 +3589,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
     final result = await showDialog<_CharShapeDialogResult>(
       context: context,
-      builder: (context) => const _CharShapeDialog(),
+      builder: (context) => _CharShapeDialog(
+        initialFormat: _pendingCharFormat.withFallback(_currentCharFormat),
+      ),
     );
     if (result == null) {
       return;
@@ -11634,25 +11636,50 @@ class _StylePickerDialog extends StatelessWidget {
 }
 
 class _CharShapeDialog extends StatefulWidget {
-  const _CharShapeDialog();
+  const _CharShapeDialog({required this.initialFormat});
+
+  final _PendingCharFormat initialFormat;
 
   @override
   State<_CharShapeDialog> createState() => _CharShapeDialogState();
 }
 
 class _CharShapeDialogState extends State<_CharShapeDialog> {
-  final _fontSizeController = TextEditingController(text: '10.0');
-  var _fontFamily = _fontFamilyOptions.first;
-  var _bold = false;
-  var _italic = false;
-  var _underline = false;
-  var _strikethrough = false;
-  var _superscript = false;
-  var _subscript = false;
-  var _emboss = false;
-  var _engrave = false;
-  var _textColor = '#000000';
-  var _shadeColor = '#ffffff';
+  late final TextEditingController _fontSizeController;
+  late String _fontFamily;
+  late bool _bold;
+  late bool _italic;
+  late bool _underline;
+  late bool _strikethrough;
+  late bool _superscript;
+  late bool _subscript;
+  late bool _emboss;
+  late bool _engrave;
+  late String _textColor;
+  late String _shadeColor;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initialFormat;
+    final fontFamily = initial.fontFamily;
+    _fontFamily = fontFamily != null && _fontFamilyOptions.contains(fontFamily)
+        ? fontFamily
+        : _fontFamilyOptions.first;
+    _fontSizeController = TextEditingController(
+      text: _hwpFontSizeToPointText(initial.fontSize ?? 1000),
+    );
+    _bold = initial.bold ?? false;
+    _italic = initial.italic ?? false;
+    _underline = initial.underline ?? false;
+    _strikethrough = initial.strikethrough ?? false;
+    _superscript = initial.superscript ?? false;
+    _subscript = initial.subscript ?? false;
+    _emboss = initial.emboss ?? false;
+    _engrave = initial.engrave ?? false;
+    _textColor = initial.textColor ?? '#000000';
+    _shadeColor = initial.shadeColor ?? '#ffffff';
+  }
 
   @override
   void dispose() {
