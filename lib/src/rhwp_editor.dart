@@ -5025,9 +5025,36 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
   bool get _hasExternalPrimaryFocus {
     final primaryFocus = FocusManager.instance.primaryFocus;
-    return primaryFocus != null &&
-        primaryFocus != _focusNode &&
-        primaryFocus != _searchFocusNode;
+    if (primaryFocus == null ||
+        primaryFocus == _focusNode ||
+        primaryFocus == _searchFocusNode) {
+      return false;
+    }
+
+    final focusContext = primaryFocus.context;
+    if (focusContext == null) {
+      return false;
+    }
+
+    return !_isEditorRelatedFocusContext(focusContext);
+  }
+
+  bool _isEditorRelatedFocusContext(BuildContext focusContext) {
+    return identical(focusContext, context) ||
+        _hasAncestorContext(focusContext, context) ||
+        _hasAncestorContext(context, focusContext);
+  }
+
+  bool _hasAncestorContext(BuildContext child, BuildContext ancestor) {
+    var found = false;
+    child.visitAncestorElements((element) {
+      if (identical(element, ancestor)) {
+        found = true;
+        return false;
+      }
+      return true;
+    });
+    return found;
   }
 
   bool get _shouldKeepDesktopTextEditRefreshHeld {

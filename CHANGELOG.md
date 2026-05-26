@@ -31,6 +31,8 @@
   shape dialog.
 * Changed the Flutter-native caret overlay to blink on the same 500ms cadence as
   the upstream web editor while keeping the caret hit-test widget mounted.
+* Treated root or ancestor focus churn during desktop text input as part of the
+  active editor session so Space/text input does not release deferred refresh.
 * Kept Flutter-native editor deferred page refresh blocked when desktop text
   input focus briefly drops and returns during typing.
 * Initial flutter_rhwp plugin scaffold.

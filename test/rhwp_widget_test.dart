@@ -7116,6 +7116,82 @@ void main() {
   );
 
   testWidgets(
+    'RhwpNativeEditor treats ancestor focus action as desktop input churn',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      final ancestorFocusNode = FocusNode();
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Focus(
+                focusNode: ancestorFocusNode,
+                child: SizedBox(
+                  width: 720,
+                  height: 420,
+                  child: RhwpNativeEditor(
+                    document: document,
+                    controller: controller,
+                    editRefreshDelay: const Duration(milliseconds: 120),
+                    onChanged: (_) => changedCalls += 1,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await _pumpDocumentFrame(tester);
+
+        await tester.tapAt(
+          tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+              const Offset(1, 6),
+        );
+        await tester.pump();
+
+        controller.cursor = const RhwpCursorPosition(offset: 2);
+        session.renderedPages.clear();
+
+        tester.testTextInput.updateEditingValue(
+          const TextEditingValue(
+            text: 'A',
+            selection: TextSelection.collapsed(offset: 1),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        ancestorFocusNode.requestFocus();
+        await tester.pump(_textInputActionIgnoreTestWindow);
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pump(const Duration(milliseconds: 1800));
+        await tester.pump();
+
+        expect(changedCalls, 0);
+        expect(session.renderedPages, isEmpty);
+        expect(tester.testTextInput.hasAnyClients, isTrue);
+        expect(
+          find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
+          findsOneWidget,
+        );
+
+        FocusManager.instance.primaryFocus?.unfocus();
+        await _pumpDesktopTextInputRelease(tester);
+
+        expect(changedCalls, 1);
+        expect(session.renderedPages, [0]);
+      } finally {
+        ancestorFocusNode.dispose();
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
+
+  testWidgets(
     'RhwpNativeEditor restores desktop text input after delayed churn action',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
