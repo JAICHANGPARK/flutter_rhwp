@@ -7779,6 +7779,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           objectSelection: _controller.objectSelection,
           overwriteMode: _overwriteMode,
           busy: _visibleBusy,
+          currentPage: _controller.currentPage,
+          pageCount: _pageCountValue,
           zoom: _controller.zoom,
           onZoomOut: _controller.zoomOut,
           onZoomIn: _controller.zoomIn,
@@ -13494,6 +13496,8 @@ class _EditorStatusBar extends StatelessWidget {
     required this.objectSelection,
     required this.overwriteMode,
     required this.busy,
+    required this.currentPage,
+    required this.pageCount,
     required this.zoom,
     required this.onZoomOut,
     required this.onZoomIn,
@@ -13504,6 +13508,8 @@ class _EditorStatusBar extends StatelessWidget {
   final RhwpObjectSelection? objectSelection;
   final bool overwriteMode;
   final bool busy;
+  final int currentPage;
+  final int? pageCount;
   final double zoom;
   final VoidCallback onZoomOut;
   final VoidCallback onZoomIn;
@@ -13531,6 +13537,12 @@ class _EditorStatusBar extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
+              ),
+              const VerticalDivider(width: 24),
+              Text(
+                _pageStatusText(),
+                key: const ValueKey('rhwp-editor-status-page'),
+                style: Theme.of(context).textTheme.bodySmall,
               ),
               const VerticalDivider(width: 24),
               Text(
@@ -13579,6 +13591,14 @@ class _EditorStatusBar extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _pageStatusText() {
+    final count = pageCount;
+    if (count == null) {
+      return 'Page ${currentPage + 1} / ?';
+    }
+    return 'Page ${currentPage + 1} / $count';
   }
 
   String _positionStatusText() {

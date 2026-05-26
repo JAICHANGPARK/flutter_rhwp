@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -54,10 +56,7 @@ class RhwpViewerController extends ChangeNotifier {
   /// Scrolls the attached viewer to [page] when a viewer is mounted.
   Future<void> goToPage(int page) async {
     final next = _clampPage(page);
-    if (next != _currentPage) {
-      _currentPage = next;
-      notifyListeners();
-    }
+    _setCurrentPage(next);
     await _pageScroller?.call(next);
   }
 
@@ -89,6 +88,18 @@ class RhwpViewerController extends ChangeNotifier {
   void _detachPageScroller() {
     _pageScroller = null;
     _pageCount = null;
+  }
+
+  void _setCurrentPageFromViewer(int page) {
+    _setCurrentPage(_clampPage(page));
+  }
+
+  void _setCurrentPage(int page) {
+    if (page == _currentPage) {
+      return;
+    }
+    _currentPage = page;
+    notifyListeners();
   }
 }
 
@@ -135,6 +146,7 @@ class _RhwpViewerState extends State<RhwpViewer> {
   final _verticalScrollController = ScrollController();
   final _pageKeys = <GlobalKey>[];
   int _resolvedPageCount = 0;
+  bool _visiblePageSyncScheduled = false;
 
   @override
   void initState() {
@@ -143,6 +155,7 @@ class _RhwpViewerState extends State<RhwpViewer> {
     _controller = widget.controller ?? RhwpViewerController();
     _lastControllerZoom = _controller.zoom;
     _controller.addListener(_handleControllerChanged);
+    _verticalScrollController.addListener(_handleScrollPositionChanged);
     _pageCount = widget.document.pageCount;
   }
 
@@ -158,6 +171,7 @@ class _RhwpViewerState extends State<RhwpViewer> {
   void dispose() {
     _controller.removeListener(_handleControllerChanged);
     _controller._detachPageScroller();
+    _verticalScrollController.removeListener(_handleScrollPositionChanged);
     _verticalScrollController.dispose();
     if (_ownsController) {
       _controller.dispose();
@@ -194,6 +208,7 @@ class _RhwpViewerState extends State<RhwpViewer> {
             pageCount: pageCount,
             pageScroller: _scrollToPage,
           );
+          _scheduleVisiblePageSync();
           return LayoutBuilder(
             builder: (context, constraints) {
               final width = constraints.maxWidth.isFinite
@@ -248,6 +263,69 @@ class _RhwpViewerState extends State<RhwpViewer> {
       return;
     }
     _pageKeys.removeRange(pageCount, _pageKeys.length);
+  }
+
+  void _handleScrollPositionChanged() {
+    _scheduleVisiblePageSync();
+  }
+
+  void _scheduleVisiblePageSync() {
+    if (_visiblePageSyncScheduled) {
+      return;
+    }
+    _visiblePageSyncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _visiblePageSyncScheduled = false;
+      if (mounted) {
+        _syncVisiblePageToController();
+      }
+    });
+  }
+
+  void _syncVisiblePageToController() {
+    if (_resolvedPageCount <= 0 || !_verticalScrollController.hasClients) {
+      return;
+    }
+
+    final viewportRenderObject = context.findRenderObject();
+    if (viewportRenderObject is! RenderBox || !viewportRenderObject.hasSize) {
+      return;
+    }
+
+    final viewportHeight = viewportRenderObject.size.height;
+    final targetY = widget.padding.top.clamp(0.0, viewportHeight).toDouble();
+    int? bestPage;
+    double? bestDistance;
+
+    for (var page = 0; page < _pageKeys.length; page += 1) {
+      final pageContext = _pageKeys[page].currentContext;
+      final pageRenderObject = pageContext?.findRenderObject();
+      if (pageRenderObject is! RenderBox || !pageRenderObject.hasSize) {
+        continue;
+      }
+
+      final top = pageRenderObject
+          .localToGlobal(Offset.zero, ancestor: viewportRenderObject)
+          .dy;
+      final bottom = top + pageRenderObject.size.height;
+      final visibleTop = math.max(0.0, top);
+      final visibleBottom = math.min(viewportHeight, bottom);
+      if (visibleBottom <= visibleTop) {
+        continue;
+      }
+
+      final distance = targetY >= top && targetY <= bottom
+          ? 0.0
+          : math.min((targetY - top).abs(), (targetY - bottom).abs());
+      if (bestDistance == null || distance < bestDistance) {
+        bestDistance = distance;
+        bestPage = page;
+      }
+    }
+
+    if (bestPage != null) {
+      _controller._setCurrentPageFromViewer(bestPage);
+    }
   }
 
   Future<void> _scrollToPage(int page) async {

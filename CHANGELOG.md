@@ -1,6 +1,8 @@
 ## 2026.5.24
 
 * Updated plugin release metadata for the `2026.5.24` release.
+* Tracked the visible page while scrolling `RhwpViewer` and surfaced that page
+  in the Flutter-native editor status bar.
 * Kept focused Flutter-native text input from releasing deferred page refresh
   after `TextInputAction.done`, so Space/text commits stay in the overlay until
   the editor actually loses focus.

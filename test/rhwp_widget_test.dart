@@ -176,6 +176,39 @@ void main() {
     );
   });
 
+  testWidgets('RhwpViewer updates current page from visible scroll position', (
+    tester,
+  ) async {
+    final controller = RhwpViewerController();
+    final session = _FakeRhwpSession(pageCountValue: 8);
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 420,
+          height: 320,
+          child: RhwpViewer(
+            document: document,
+            controller: controller,
+            padding: const EdgeInsets.all(8),
+            pageGap: 8,
+            svgBuilder: _tallSvgBuilder,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.currentPage, 0);
+
+    final verticalScrollable = find.byType(Scrollable).last;
+    await tester.drag(verticalScrollable, const Offset(0, -900));
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.currentPage, greaterThan(0));
+  });
+
   testWidgets('RhwpViewer controller scrolls to requested page', (
     tester,
   ) async {
@@ -765,6 +798,44 @@ void main() {
       'offset': 0,
       'text': 'x',
     });
+  });
+
+  testWidgets('RhwpNativeEditor status bar tracks current page', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 8);
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('rhwp-editor-status-page')))
+          .data,
+      'Page 1 / 8',
+    );
+
+    final scroll = controller.goToPage(5);
+    await tester.pumpAndSettle();
+    await scroll;
+    await _pumpDocumentFrame(tester);
+
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('rhwp-editor-status-page')))
+          .data,
+      'Page 6 / 8',
+    );
   });
 
   testWidgets('RhwpNativeEditor edit ribbon restores undo and redo snapshots', (

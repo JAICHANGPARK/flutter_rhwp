@@ -207,9 +207,10 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   composing preview, context menus, HWP/HWPX/PDF export callbacks from the file
   ribbon, app-level file open callbacks and document information from the file
   ribbon, page navigation
-  controls, transparent table border overlays, synchronized view/status zoom
-  controls and Ctrl/Cmd zoom shortcuts, Ctrl/Cmd+mouse-wheel zoom, Escape state
-  clearing, text commit, select-all,
+  controls, scroll-tracked current page reporting in the view ribbon and status
+  bar, transparent table border overlays, synchronized view/status zoom controls
+  and Ctrl/Cmd zoom shortcuts, Ctrl/Cmd+mouse-wheel zoom, Escape state clearing,
+  text commit, select-all,
   copy/cut/paste, Enter paragraph splitting, Shift+Enter soft line breaks,
   Tab text insertion, multiline clipboard paste as paragraph insertion,
   multi-paragraph selection
