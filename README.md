@@ -224,7 +224,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   line-spacing presets, Ctrl/Cmd+L/E/R/J alignment shortcuts, a paragraph
   shape dialog for line spacing, indent, and paragraph margins, header/footer
   creation from the page ribbon,
-  snapshot-backed undo/redo from the edit ribbon, layer-tree text search with
+  snapshot-backed undo/redo from the edit ribbon with continuous text-input
+  undo batching, layer-tree text search with
   Ctrl/Cmd+F focus and search-text selection, F3/Shift+F3 and search-field
   Enter/Shift+Enter result navigation, debounced live search field input,
   search-field Escape clearing, result highlighting, active-match replace,

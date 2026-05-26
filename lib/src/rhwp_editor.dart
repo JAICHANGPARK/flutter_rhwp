@@ -1286,6 +1286,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   bool _desktopTextInputCommitHoldActive = false;
   bool _hasDeferredEditRefresh = false;
   bool _deferredEditRefreshAwaitsTextInput = false;
+  bool _textInputUndoBatchOpen = false;
   bool _suppressControllerChangedSetState = false;
   bool _showParagraphMarks = false;
   bool _showTransparentTableBorders = false;
@@ -1732,6 +1733,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       deferRefresh: true,
       awaitTextInputBeforeRefresh: awaitTextInputBeforeRefresh,
       visibleBusy: visibleBusy,
+      mergeIntoTextInputUndoBatch: awaitTextInputBeforeRefresh,
     );
     if (edited) {
       if (deletedRange != null) {
@@ -1939,6 +1941,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       deferRefresh: deferRefresh,
       awaitTextInputBeforeRefresh: awaitTextInputBeforeRefresh,
       visibleBusy: visibleBusy,
+      mergeIntoTextInputUndoBatch: awaitTextInputBeforeRefresh,
     );
     if (edited && deferRefresh) {
       if (deletedRange != null) {
@@ -5349,6 +5352,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _deferredEditRefreshTimer = null;
     _hasDeferredEditRefresh = false;
     _deferredEditRefreshAwaitsTextInput = false;
+    _textInputUndoBatchOpen = false;
     _clearDesktopTextInputCommitHoldWindow();
     _setPendingTextOverlays(const []);
     _pendingTextRefreshRevision = null;
@@ -5557,6 +5561,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           ? null
           : _renderRevision;
     });
+    _textInputUndoBatchOpen = false;
     widget.onChanged?.call(widget.document);
   }
 
@@ -5565,6 +5570,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     bool deferRefresh = false,
     bool awaitTextInputBeforeRefresh = false,
     bool visibleBusy = true,
+    bool mergeIntoTextInputUndoBatch = false,
   }) async {
     if (visibleBusy) {
       setState(() {
@@ -5580,14 +5586,28 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
     int? undoSnapshot;
     try {
-      undoSnapshot = await widget.document.saveSnapshot();
+      final reuseTextInputUndoSnapshot =
+          mergeIntoTextInputUndoBatch &&
+          _textInputUndoBatchOpen &&
+          _undoSnapshots.isNotEmpty;
+      if (!reuseTextInputUndoSnapshot) {
+        undoSnapshot = await widget.document.saveSnapshot();
+      }
       await edit();
       await _discardSnapshots(_redoSnapshots);
       _redoSnapshots.clear();
-      _undoSnapshots.add(undoSnapshot);
-      if (_undoSnapshots.length > _maxUndoSnapshots) {
-        final stale = _undoSnapshots.removeAt(0);
-        await widget.document.discardSnapshot(stale);
+      if (undoSnapshot != null) {
+        _undoSnapshots.add(undoSnapshot);
+        if (mergeIntoTextInputUndoBatch) {
+          _textInputUndoBatchOpen = true;
+        }
+        if (_undoSnapshots.length > _maxUndoSnapshots) {
+          final stale = _undoSnapshots.removeAt(0);
+          await widget.document.discardSnapshot(stale);
+        }
+      }
+      if (!mergeIntoTextInputUndoBatch) {
+        _textInputUndoBatchOpen = false;
       }
       if (!mounted) {
         return false;
@@ -5616,6 +5636,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       }
       return true;
     } catch (error) {
+      _textInputUndoBatchOpen = false;
       if (undoSnapshot != null) {
         try {
           await widget.document.discardSnapshot(undoSnapshot);
@@ -5672,6 +5693,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     required List<int> destinationStack,
     required List<int> rollbackStack,
   }) async {
+    _cancelDeferredEditRefresh();
     setState(() {
       _busy = true;
       _visibleBusy = true;

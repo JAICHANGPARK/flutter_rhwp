@@ -8070,6 +8070,9 @@ void main() {
         'text': 'B',
       },
     ]);
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+    ]);
     expect(
       find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
       findsOneWidget,

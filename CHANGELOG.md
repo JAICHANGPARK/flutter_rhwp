@@ -43,6 +43,8 @@
   ribbon search field.
 * Scoped `RhwpViewer` controller rebuilds to zoom changes so native-editor
   cursor updates during typing do not refresh the page surface.
+* Batched continuous Flutter-native text input into one undo snapshot so Space
+  and character input avoid repeated full-document snapshot work.
 * Added Flutter-native font family selection to the format ribbon and character
   shape dialog, backed by rhwp font id registration and char-layout reflow
   through the Rust facade.
