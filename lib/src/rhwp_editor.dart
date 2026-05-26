@@ -7018,6 +7018,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           _searchNext();
         }
         return KeyEventResult.handled;
+      case LogicalKeyboardKey.f7:
+        unawaited(_showPageSetupDialog());
+        return KeyEventResult.handled;
       case LogicalKeyboardKey.f5:
         if (!_busy && _controller.tableCellSelection != null) {
           unawaited(_enterSelectedTableCell());

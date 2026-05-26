@@ -1,6 +1,8 @@
 ## 2026.5.24
 
 * Updated plugin release metadata for the `2026.5.24` release.
+* Matched the upstream page setup shortcut by opening the Flutter-native page
+  setup dialog with F7.
 * Added a Flutter-native replace shortcut so Ctrl/Cmd+H opens the tools ribbon
   and focuses the replace field without invoking the WebView editor.
 * Added `holdTextRefreshWhileFocused` for the Flutter-native editor and enabled
