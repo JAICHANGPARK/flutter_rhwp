@@ -214,9 +214,9 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   multi-paragraph selection
   replacement, multi-paragraph selected-text bold/italic/underline/strike
   formatting, inline font size, text color, text background, superscript,
-  subscript, emboss, and engrave controls, a character shape dialog for font
-  size, text color, text background, superscript, subscript, emboss, and
-  engrave,
+  subscript, emboss, and engrave controls, a character shape dialog with
+  `Alt+L` shortcut support for font size, text color, text background,
+  superscript, subscript, emboss, and engrave,
   collapsed-selection pending character
   formatting for the next inserted body text, paragraph alignment commands and
   Ctrl/Cmd+L/E/R/J alignment shortcuts, a paragraph

@@ -5514,6 +5514,47 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor opens character shape dialog with Alt+L', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    controller.selection = const RhwpSelectionRange(
+      start: RhwpCursorPosition(offset: 1),
+      end: RhwpCursorPosition(offset: 3),
+    );
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyL);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('rhwp-char-shape-font-size-field')),
+      findsOneWidget,
+    );
+    expect(session.commands, isEmpty);
+  });
+
   testWidgets('RhwpNativeEditor applies paragraph shape dialog values', (
     tester,
   ) async {

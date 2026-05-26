@@ -27,6 +27,8 @@
   ribbon, pending input, and character-shape dialog.
 * Added a Flutter-native view-ribbon toggle that overlays transparent table cell
   borders from the page layer tree.
+* Added the upstream-style `Alt+L` shortcut to open the Flutter-native character
+  shape dialog.
 * Kept Flutter-native editor deferred page refresh blocked when desktop text
   input focus briefly drops and returns during typing.
 * Initial flutter_rhwp plugin scaffold.
