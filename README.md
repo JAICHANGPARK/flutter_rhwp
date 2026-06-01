@@ -209,6 +209,21 @@ await document.setCellProperties(
   verticalAlign: 1,
   isHeader: true,
 );
+
+final html = await document.exportSelectionHtml(
+  section: 0,
+  startParagraph: 0,
+  startOffset: 0,
+  endParagraph: 0,
+  endOffset: 5,
+);
+
+await document.pasteHtml(
+  section: 0,
+  paragraph: 0,
+  offset: 5,
+  html: html,
+);
 ```
 
 Export with save metadata:
@@ -259,7 +274,9 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   and preset menus using the upstream web editor's 25%, 50%, 75%, 100%, 125%,
   150%, 200%, and 300% steps, Ctrl/Cmd zoom shortcuts, Ctrl/Cmd+mouse-wheel
   zoom, Escape state clearing, text commit, select-all,
-  copy/cut/paste, Enter paragraph splitting, Shift+Enter soft line breaks,
+  copy/cut/paste with same-editor HTML clipboard import/export for body text
+  and single selected table cells, Enter paragraph splitting,
+  Shift+Enter soft line breaks,
   Backspace/Delete paragraph-boundary merging,
   Tab text insertion, multiline clipboard paste as paragraph insertion,
   multi-paragraph selection

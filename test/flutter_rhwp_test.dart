@@ -739,6 +739,120 @@ void main() {
     expect(
       jsonDecode(
         jsonEncode(
+          RhwpCommand.exportSelectionHtml(
+            section: 0,
+            startParagraph: 1,
+            startOffset: 2,
+            endParagraph: 3,
+            endOffset: 4,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'exportSelectionHtml',
+        'section': 0,
+        'startParagraph': 1,
+        'startOffset': 2,
+        'endParagraph': 3,
+        'endOffset': 4,
+      },
+    );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.exportSelectionInCellHtml(
+            section: 0,
+            paragraph: 2,
+            controlIndex: 1,
+            cellIndex: 3,
+            startCellParagraph: 4,
+            startOffset: 5,
+            endCellParagraph: 6,
+            endOffset: 7,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'exportSelectionInCellHtml',
+        'section': 0,
+        'paragraph': 2,
+        'controlIndex': 1,
+        'cellIndex': 3,
+        'startCellParagraph': 4,
+        'startOffset': 5,
+        'endCellParagraph': 6,
+        'endOffset': 7,
+      },
+    );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.exportControlHtml(
+            section: 0,
+            paragraph: 2,
+            controlIndex: 1,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'exportControlHtml',
+        'section': 0,
+        'paragraph': 2,
+        'controlIndex': 1,
+      },
+    );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.pasteHtml(
+            section: 0,
+            paragraph: 2,
+            offset: 3,
+            html: '<p>A</p>',
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'pasteHtml',
+        'section': 0,
+        'paragraph': 2,
+        'offset': 3,
+        'html': '<p>A</p>',
+      },
+    );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.pasteHtmlInCell(
+            section: 0,
+            paragraph: 2,
+            controlIndex: 1,
+            cellIndex: 3,
+            cellParagraph: 4,
+            offset: 5,
+            html: '<p>A</p>',
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'pasteHtmlInCell',
+        'section': 0,
+        'paragraph': 2,
+        'controlIndex': 1,
+        'cellIndex': 3,
+        'cellParagraph': 4,
+        'offset': 5,
+        'html': '<p>A</p>',
+      },
+    );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
           RhwpCommand.getObjectProperties(
             section: 0,
             paragraph: 2,
@@ -2126,6 +2240,93 @@ void main() {
       'offset': 1,
     });
 
+    final bodyHtml = await document.exportSelectionHtml(
+      section: 0,
+      startParagraph: 1,
+      startOffset: 2,
+      endParagraph: 3,
+      endOffset: 4,
+    );
+    expect(bodyHtml, contains('StartFragment'));
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'exportSelectionHtml',
+      'section': 0,
+      'startParagraph': 1,
+      'startOffset': 2,
+      'endParagraph': 3,
+      'endOffset': 4,
+    });
+
+    final cellHtml = await document.exportSelectionInCellHtml(
+      section: 0,
+      paragraph: 2,
+      controlIndex: 1,
+      cellIndex: 3,
+      startCellParagraph: 4,
+      startOffset: 5,
+      endCellParagraph: 6,
+      endOffset: 7,
+    );
+    expect(cellHtml, contains('StartFragment'));
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'exportSelectionInCellHtml',
+      'section': 0,
+      'paragraph': 2,
+      'controlIndex': 1,
+      'cellIndex': 3,
+      'startCellParagraph': 4,
+      'startOffset': 5,
+      'endCellParagraph': 6,
+      'endOffset': 7,
+    });
+
+    final controlHtml = await document.exportControlHtml(
+      section: 0,
+      paragraph: 2,
+      controlIndex: 1,
+    );
+    expect(controlHtml, contains('StartFragment'));
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'exportControlHtml',
+      'section': 0,
+      'paragraph': 2,
+      'controlIndex': 1,
+    });
+
+    await document.pasteHtml(
+      section: 0,
+      paragraph: 2,
+      offset: 3,
+      html: '<p>A</p>',
+    );
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'pasteHtml',
+      'section': 0,
+      'paragraph': 2,
+      'offset': 3,
+      'html': '<p>A</p>',
+    });
+
+    await document.pasteHtmlInCell(
+      section: 0,
+      paragraph: 2,
+      controlIndex: 1,
+      cellIndex: 3,
+      cellParagraph: 4,
+      offset: 5,
+      html: '<p>A</p>',
+    );
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'pasteHtmlInCell',
+      'section': 0,
+      'paragraph': 2,
+      'controlIndex': 1,
+      'cellIndex': 3,
+      'cellParagraph': 4,
+      'offset': 5,
+      'html': '<p>A</p>',
+    });
+
     await document.changeObjectZOrder(
       section: 0,
       paragraph: 2,
@@ -2774,6 +2975,20 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'clipboardHasObjectControl') {
       return '{"ok":true,"hasControl":true}';
+    }
+    if (command is Map &&
+        const {
+          'exportSelectionHtml',
+          'exportSelectionInCellHtml',
+          'exportControlHtml',
+        }.contains(command['type'])) {
+      return '<html><body><!--StartFragment--><p>A</p><!--EndFragment--></body></html>';
+    }
+    if (command is Map && command['type'] == 'pasteHtml') {
+      return '{"ok":true,"paraIdx":2,"charOffset":3}';
+    }
+    if (command is Map && command['type'] == 'pasteHtmlInCell') {
+      return '{"ok":true,"cellParaIdx":4,"charOffset":5}';
     }
     if (command is Map && command['type'] == 'getPageSetup') {
       return '{"width":59528,"height":84189,"marginLeft":8504,"marginRight":8504,"marginTop":5669,"marginBottom":4252,"marginHeader":4252,"marginFooter":4252,"marginGutter":0,"landscape":false,"binding":0}';

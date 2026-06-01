@@ -554,7 +554,7 @@ enum _EditorContextMenuAction {
   objectProperties,
 }
 
-enum _EditorClipboardDomain { text, objectControl }
+enum _EditorClipboardDomain { text, richText, objectControl }
 
 enum _TableCellNavigationDirection { left, right, up, down }
 
@@ -1536,6 +1536,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   _PendingCharFormat _currentCharFormat = const _PendingCharFormat();
   _CurrentParaFormat _currentParaFormat = const _CurrentParaFormat();
   _EditorClipboardDomain? _clipboardDomain;
+  String? _clipboardHtml;
+  String? _clipboardHtmlText;
   final _undoSnapshots = <int>[];
   final _redoSnapshots = <int>[];
   bool _busy = false;
@@ -2435,7 +2437,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     final tableText = await _selectedTableCellText();
     if (tableText != null && tableText.isNotEmpty) {
       await Clipboard.setData(ClipboardData(text: tableText));
-      _clipboardDomain = _EditorClipboardDomain.text;
+      await _rememberTableSelectionHtmlClipboard(tableText);
       return;
     }
 
@@ -2444,7 +2446,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
     await Clipboard.setData(ClipboardData(text: text));
-    _clipboardDomain = _EditorClipboardDomain.text;
+    await _rememberBodySelectionHtmlClipboard(text);
   }
 
   Future<void> _cutSelection() async {
@@ -2460,7 +2462,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         return;
       }
       await Clipboard.setData(ClipboardData(text: tableText));
-      _clipboardDomain = _EditorClipboardDomain.text;
+      await _rememberTableSelectionHtmlClipboard(tableText);
       await _deleteSelectedTableCellText(tableSelection);
       return;
     }
@@ -2471,7 +2473,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     await Clipboard.setData(ClipboardData(text: text));
-    _clipboardDomain = _EditorClipboardDomain.text;
+    await _rememberBodySelectionHtmlClipboard(text);
     await _runEdit(() async {
       await _deleteSelectedText(_controller.selection);
     });
@@ -2491,6 +2493,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     if (text == null || text.isEmpty) {
       return;
     }
+    if (await _pasteHtmlClipboardIfCurrent(text)) {
+      return;
+    }
     final tableSelection = _controller.tableCellSelection;
     if (tableSelection != null &&
         await _pasteTableClipboardText(tableSelection, text)) {
@@ -2501,7 +2506,166 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
     _clipboardDomain = _EditorClipboardDomain.text;
+    _clearHtmlClipboard();
     await _insertCommittedText(text);
+  }
+
+  void _rememberHtmlClipboard({required String html, required String text}) {
+    if (html.isEmpty) {
+      _clipboardDomain = _EditorClipboardDomain.text;
+      _clipboardHtml = null;
+      _clipboardHtmlText = null;
+      return;
+    }
+
+    _clipboardDomain = _EditorClipboardDomain.richText;
+    _clipboardHtml = html;
+    _clipboardHtmlText = text;
+  }
+
+  void _clearHtmlClipboard() {
+    _clipboardHtml = null;
+    _clipboardHtmlText = null;
+  }
+
+  Future<void> _rememberBodySelectionHtmlClipboard(String text) async {
+    final selection = _controller.selection;
+    if (selection.isCollapsed) {
+      _clipboardDomain = _EditorClipboardDomain.text;
+      _clearHtmlClipboard();
+      return;
+    }
+
+    final start = selection.normalizedStart;
+    final end = selection.normalizedEnd;
+    if (start.section != end.section) {
+      _clipboardDomain = _EditorClipboardDomain.text;
+      _clearHtmlClipboard();
+      return;
+    }
+
+    try {
+      final html = await widget.document.exportSelectionHtml(
+        section: start.section,
+        startParagraph: start.paragraph,
+        startOffset: start.offset,
+        endParagraph: end.paragraph,
+        endOffset: end.offset,
+      );
+      _rememberHtmlClipboard(html: html, text: text);
+    } catch (_) {
+      _clipboardDomain = _EditorClipboardDomain.text;
+      _clearHtmlClipboard();
+    }
+  }
+
+  Future<void> _rememberTableSelectionHtmlClipboard(String text) async {
+    final selection = _controller.tableCellSelection;
+    if (selection == null) {
+      _clipboardDomain = _EditorClipboardDomain.text;
+      _clearHtmlClipboard();
+      return;
+    }
+
+    final html = await _singleCellSelectionHtml(selection);
+    if (html == null || html.isEmpty) {
+      _clipboardDomain = _EditorClipboardDomain.text;
+      _clearHtmlClipboard();
+      return;
+    }
+    _rememberHtmlClipboard(html: html, text: text);
+  }
+
+  Future<bool> _pasteHtmlClipboardIfCurrent(String plainText) async {
+    final html = _clipboardHtml;
+    if (_clipboardDomain != _EditorClipboardDomain.richText ||
+        html == null ||
+        _clipboardHtmlText != plainText) {
+      if (_clipboardDomain == _EditorClipboardDomain.richText) {
+        _clipboardDomain = _EditorClipboardDomain.text;
+        _clearHtmlClipboard();
+      }
+      return false;
+    }
+
+    final tableSelection = _controller.tableCellSelection;
+    if (tableSelection != null) {
+      return _pasteHtmlIntoSelectedTableCell(tableSelection, html);
+    }
+
+    return _pasteHtmlIntoBody(html);
+  }
+
+  Future<bool> _pasteHtmlIntoBody(String html) async {
+    if (_busy) {
+      return false;
+    }
+
+    var pasted = false;
+    await _runEdit(() async {
+      final selection = _controller.selection;
+      final cursor = selection.isCollapsed
+          ? _controller.cursor
+          : selection.normalizedStart;
+      if (!selection.isCollapsed) {
+        await _deleteSelectedText(selection);
+      }
+      final result = await widget.document.pasteHtml(
+        section: cursor.section,
+        paragraph: cursor.paragraph,
+        offset: cursor.offset,
+        html: html,
+      );
+      final nextParagraph =
+          _readIntResult(result, 'paraIdx') ?? cursor.paragraph;
+      final nextOffset = _readIntResult(result, 'charOffset') ?? cursor.offset;
+      _controller.cursor = RhwpCursorPosition(
+        section: cursor.section,
+        paragraph: nextParagraph,
+        offset: nextOffset,
+      );
+      pasted = true;
+    });
+    return pasted;
+  }
+
+  Future<bool> _pasteHtmlIntoSelectedTableCell(
+    RhwpTableCellSelection tableSelection,
+    String html,
+  ) async {
+    if (_busy || !tableSelection.isTextEditing) {
+      return false;
+    }
+
+    final cellIndex = tableSelection.activeCellIndex;
+    if (cellIndex == null) {
+      return false;
+    }
+
+    var pasted = false;
+    await _runEdit(() async {
+      final result = await widget.document.pasteHtmlInCell(
+        section: tableSelection.section,
+        paragraph: tableSelection.paragraph,
+        controlIndex: tableSelection.controlIndex,
+        cellIndex: cellIndex,
+        cellParagraph: tableSelection.activeCellParagraph,
+        offset: tableSelection.activeOffset,
+        html: html,
+      );
+      final nextCellParagraph =
+          _readIntResult(result, 'cellParaIdx') ??
+          tableSelection.activeCellParagraph;
+      final nextOffset =
+          _readIntResult(result, 'charOffset') ?? tableSelection.activeOffset;
+      _controller.tableCellSelection = tableSelection.copyWith(
+        activeCellParagraph: nextCellParagraph,
+        activeOffset: nextOffset,
+        isTextEditing: true,
+      );
+      pasted = true;
+    });
+    return pasted;
   }
 
   bool _isMultiParagraphClipboardText(String text) {
@@ -2657,6 +2821,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         controlIndex: target.controlIndex,
       );
       _clipboardDomain = _EditorClipboardDomain.objectControl;
+      _clearHtmlClipboard();
     } catch (error) {
       if (mounted) {
         setState(() {
@@ -2688,10 +2853,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       hasControl = await widget.document.clipboardHasObjectControl();
     } catch (_) {
       _clipboardDomain = null;
+      _clearHtmlClipboard();
       return false;
     }
     if (!hasControl) {
       _clipboardDomain = null;
+      _clearHtmlClipboard();
       return false;
     }
 
@@ -4886,6 +5053,52 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     return buffer.toString();
+  }
+
+  Future<String?> _singleCellSelectionHtml(
+    RhwpTableCellSelection selection,
+  ) async {
+    final cellIndex = selection.activeCellIndex;
+    if (cellIndex == null) {
+      return null;
+    }
+
+    final selectedCellIndexes = <int>{};
+    for (final entry in await _tableCellsForSelection(selection)) {
+      final selectedIndex = entry.cell.modelCellIndex;
+      if (selectedIndex != null && selection.containsCell(entry.cell)) {
+        selectedCellIndexes.add(selectedIndex);
+      }
+    }
+    if (selectedCellIndexes.length != 1 ||
+        !selectedCellIndexes.contains(cellIndex)) {
+      return null;
+    }
+
+    final segments = [
+      for (final segment in await _tableCellTextSegments(selection))
+        if (segment.cellIndex == cellIndex) segment,
+    ];
+    if (segments.isEmpty) {
+      return null;
+    }
+
+    final start = segments.first;
+    final end = segments.last;
+    try {
+      return widget.document.exportSelectionInCellHtml(
+        section: selection.section,
+        paragraph: selection.paragraph,
+        controlIndex: selection.controlIndex,
+        cellIndex: cellIndex,
+        startCellParagraph: start.cellParagraph,
+        startOffset: start.startOffset,
+        endCellParagraph: end.cellParagraph,
+        endOffset: end.endOffset,
+      );
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<List<_TableCellTextSegment>> _tableCellTextSegments(

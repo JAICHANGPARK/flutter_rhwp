@@ -625,6 +625,85 @@ impl RhwpSession {
                 .document
                 .paste_control_native(section as usize, paragraph as usize, offset as usize)
                 .map_err(error_to_string),
+            RhwpCommand::ExportSelectionHtml {
+                section,
+                start_paragraph,
+                start_offset,
+                end_paragraph,
+                end_offset,
+            } => inner
+                .document
+                .export_selection_html_native(
+                    section as usize,
+                    start_paragraph as usize,
+                    start_offset as usize,
+                    end_paragraph as usize,
+                    end_offset as usize,
+                )
+                .map_err(error_to_string),
+            RhwpCommand::ExportSelectionInCellHtml {
+                section,
+                paragraph,
+                control_index,
+                cell_index,
+                start_cell_paragraph,
+                start_offset,
+                end_cell_paragraph,
+                end_offset,
+            } => inner
+                .document
+                .export_selection_in_cell_html_native(
+                    section as usize,
+                    paragraph as usize,
+                    control_index as usize,
+                    cell_index as usize,
+                    start_cell_paragraph as usize,
+                    start_offset as usize,
+                    end_cell_paragraph as usize,
+                    end_offset as usize,
+                )
+                .map_err(error_to_string),
+            RhwpCommand::ExportControlHtml {
+                section,
+                paragraph,
+                control_index,
+            } => inner
+                .document
+                .export_control_html_native(
+                    section as usize,
+                    paragraph as usize,
+                    control_index as usize,
+                )
+                .map_err(error_to_string),
+            RhwpCommand::PasteHtml {
+                section,
+                paragraph,
+                offset,
+                html,
+            } => inner
+                .document
+                .paste_html_native(section as usize, paragraph as usize, offset as usize, &html)
+                .map_err(error_to_string),
+            RhwpCommand::PasteHtmlInCell {
+                section,
+                paragraph,
+                control_index,
+                cell_index,
+                cell_paragraph,
+                offset,
+                html,
+            } => inner
+                .document
+                .paste_html_in_cell_native(
+                    section as usize,
+                    paragraph as usize,
+                    control_index as usize,
+                    cell_index as usize,
+                    cell_paragraph as usize,
+                    offset as usize,
+                    &html,
+                )
+                .map_err(error_to_string),
             RhwpCommand::ChangeObjectZOrder {
                 section,
                 paragraph,
@@ -1282,6 +1361,57 @@ enum RhwpCommand {
         section: u32,
         paragraph: u32,
         offset: u32,
+    },
+    ExportSelectionHtml {
+        section: u32,
+        #[serde(rename = "startParagraph")]
+        start_paragraph: u32,
+        #[serde(rename = "startOffset")]
+        start_offset: u32,
+        #[serde(rename = "endParagraph")]
+        end_paragraph: u32,
+        #[serde(rename = "endOffset")]
+        end_offset: u32,
+    },
+    ExportSelectionInCellHtml {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "cellIndex")]
+        cell_index: u32,
+        #[serde(rename = "startCellParagraph")]
+        start_cell_paragraph: u32,
+        #[serde(rename = "startOffset")]
+        start_offset: u32,
+        #[serde(rename = "endCellParagraph")]
+        end_cell_paragraph: u32,
+        #[serde(rename = "endOffset")]
+        end_offset: u32,
+    },
+    ExportControlHtml {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+    },
+    PasteHtml {
+        section: u32,
+        paragraph: u32,
+        offset: u32,
+        html: String,
+    },
+    PasteHtmlInCell {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "cellIndex")]
+        cell_index: u32,
+        #[serde(rename = "cellParagraph")]
+        cell_paragraph: u32,
+        offset: u32,
+        html: String,
     },
     ChangeObjectZOrder {
         section: u32,
@@ -2711,6 +2841,76 @@ mod tests {
         assert!(!hwp.is_empty());
         open_bytes(hwp, Some("object-clipboard-roundtrip.hwp".to_string()))
             .expect("object clipboard document should reopen");
+    }
+
+    #[test]
+    fn applies_html_clipboard_commands() {
+        let session =
+            open_bytes(BLANK_2010_HWP.to_vec(), None).expect("vendored sample should open");
+
+        session
+            .apply_command(
+                r#"{"type":"insertText","section":0,"paragraph":0,"offset":0,"text":"abc"}"#
+                    .to_string(),
+            )
+            .expect("insert text command should be accepted");
+
+        let html = session
+            .apply_command(
+                r#"{"type":"exportSelectionHtml","section":0,"startParagraph":0,"startOffset":0,"endParagraph":0,"endOffset":3}"#
+                    .to_string(),
+            )
+            .expect("HTML export command should be accepted");
+        assert!(html.contains("StartFragment"));
+        assert!(html.contains("abc"));
+
+        let paste_result = session
+            .apply_command(
+                r#"{"type":"pasteHtml","section":0,"paragraph":0,"offset":3,"html":"<html><body><!--StartFragment--><p>def</p><!--EndFragment--></body></html>"}"#
+                    .to_string(),
+            )
+            .expect("HTML paste command should be accepted");
+        let paste_result: Value =
+            serde_json::from_str(&paste_result).expect("paste result should be JSON");
+        assert_eq!(paste_result["ok"], true);
+        assert_eq!(paste_result["paraIdx"], 0);
+        assert_eq!(paste_result["charOffset"], 6);
+
+        let table_result = session
+            .apply_command(
+                r#"{"type":"insertTable","section":0,"paragraph":0,"offset":0,"rows":1,"columns":1}"#
+                    .to_string(),
+            )
+            .expect("table insert should be accepted");
+        let table_result: Value =
+            serde_json::from_str(&table_result).expect("table result should be JSON");
+        let table_para = table_result["paraIdx"]
+            .as_u64()
+            .expect("table insert should expose paraIdx");
+        let table_control = table_result["controlIdx"]
+            .as_u64()
+            .expect("table insert should expose controlIdx");
+
+        let control_html = session
+            .apply_command(format!(
+                r#"{{"type":"exportControlHtml","section":0,"paragraph":{},"controlIndex":{}}}"#,
+                table_para, table_control
+            ))
+            .expect("control HTML export should be accepted");
+        assert!(control_html.contains("StartFragment"));
+        assert!(control_html.contains("<table"));
+
+        let cell_paste = session
+            .apply_command(format!(
+                r#"{{"type":"pasteHtmlInCell","section":0,"paragraph":{},"controlIndex":{},"cellIndex":0,"cellParagraph":0,"offset":0,"html":"<html><body><!--StartFragment--><p>cell</p><!--EndFragment--></body></html>"}}"#,
+                table_para, table_control
+            ))
+            .expect("cell HTML paste should be accepted");
+        let cell_paste: Value =
+            serde_json::from_str(&cell_paste).expect("cell paste result should be JSON");
+        assert_eq!(cell_paste["ok"], true);
+        assert_eq!(cell_paste["cellParaIdx"], 0);
+        assert_eq!(cell_paste["charOffset"], 4);
     }
 
     #[test]

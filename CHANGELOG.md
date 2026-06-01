@@ -16,6 +16,9 @@
 * Added upstream-style Flutter-native table object/cell mode switching: Escape
   promotes selected cells to a table object, and Enter/F5 re-enters cell
   selection.
+* Added rhwp core HTML clipboard bridge commands and wired same-editor
+  Flutter-native copy/paste to preserve rich body text and single table-cell
+  text through HTML import/export.
 * Added Flutter-native table row and column delete actions to the table cell
   context menu.
 * Added Flutter-native table cell vertical alignment actions to the table cell

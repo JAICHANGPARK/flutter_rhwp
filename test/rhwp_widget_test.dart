@@ -3461,7 +3461,19 @@ void main() {
 
       var clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
       expect(clipboardData?.text, 'cell');
-      expect(session.commands, isEmpty);
+      expect(session.commands.map(jsonDecode), [
+        {
+          'type': 'exportSelectionInCellHtml',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'startCellParagraph': 0,
+          'startOffset': 0,
+          'endCellParagraph': 0,
+          'endOffset': 4,
+        },
+      ]);
 
       await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
       await tester.sendKeyEvent(LogicalKeyboardKey.keyX);
@@ -3471,16 +3483,29 @@ void main() {
       clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
       expect(clipboardData?.text, 'cell');
       expect(changedCalls, 1);
-      expect(jsonDecode(session.commands.single), {
-        'type': 'deleteTextInTableCell',
-        'section': 0,
-        'paragraph': 5,
-        'controlIndex': 2,
-        'cellIndex': 7,
-        'cellParagraph': 0,
-        'offset': 0,
-        'count': 4,
-      });
+      expect(session.commands.map(jsonDecode).skip(1), [
+        {
+          'type': 'exportSelectionInCellHtml',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'startCellParagraph': 0,
+          'startOffset': 0,
+          'endCellParagraph': 0,
+          'endOffset': 4,
+        },
+        {
+          'type': 'deleteTextInTableCell',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 0,
+          'offset': 0,
+          'count': 4,
+        },
+      ]);
 
       await Clipboard.setData(const ClipboardData(text: 'ZZ'));
       await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
@@ -3499,6 +3524,115 @@ void main() {
         'offset': 0,
         'text': 'ZZ',
       });
+    },
+  );
+
+  testWidgets(
+    'RhwpNativeEditor pastes copied table cell text through HTML import',
+    (tester) async {
+      final clipboard = _MockClipboard();
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        clipboard.handleMethodCall,
+      );
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      addTearDown(() {
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        );
+      });
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      await tester.tapAt(
+        tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+            const Offset(1, 6),
+      );
+      await tester.pump();
+
+      controller.tableCellSelection = const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+        activeCellParagraph: 0,
+        activeOffset: 0,
+        isTextEditing: true,
+      );
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+
+      controller.tableCellSelection = const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+        activeCellParagraph: 0,
+        activeOffset: 2,
+        isTextEditing: true,
+      );
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+      expect(controller.tableCellSelection?.activeOffset, 6);
+      expect(session.commands.map(jsonDecode), [
+        {
+          'type': 'exportSelectionInCellHtml',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'startCellParagraph': 0,
+          'startOffset': 0,
+          'endCellParagraph': 0,
+          'endOffset': 4,
+        },
+        {
+          'type': 'pasteHtmlInCell',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 0,
+          'offset': 2,
+          'html':
+              '<html><body><!--StartFragment--><p><span>bc</span></p><!--EndFragment--></body></html>',
+        },
+      ]);
     },
   );
 
@@ -4626,7 +4760,16 @@ void main() {
 
     final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
     expect(clipboardData?.text, 'bc');
-    expect(session.commands, isEmpty);
+    expect(session.commands.map(jsonDecode), [
+      {
+        'type': 'exportSelectionHtml',
+        'section': 0,
+        'startParagraph': 0,
+        'startOffset': 1,
+        'endParagraph': 0,
+        'endOffset': 3,
+      },
+    ]);
   });
 
   testWidgets('RhwpNativeEditor context menu runs table cell actions', (
@@ -10326,7 +10469,16 @@ void main() {
 
     var clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
     expect(clipboardData?.text, 'bc');
-    expect(session.commands, isEmpty);
+    expect(session.commands.map(jsonDecode), [
+      {
+        'type': 'exportSelectionHtml',
+        'section': 0,
+        'startParagraph': 0,
+        'startOffset': 1,
+        'endParagraph': 0,
+        'endOffset': 3,
+      },
+    ]);
 
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyX);
@@ -10337,13 +10489,23 @@ void main() {
     expect(clipboardData?.text, 'bc');
     expect(changedCalls, 1);
     expect(controller.cursor, const RhwpCursorPosition(offset: 1));
-    expect(jsonDecode(session.commands.single), {
-      'type': 'deleteText',
-      'section': 0,
-      'paragraph': 0,
-      'offset': 1,
-      'count': 2,
-    });
+    expect(session.commands.map(jsonDecode).skip(1), [
+      {
+        'type': 'exportSelectionHtml',
+        'section': 0,
+        'startParagraph': 0,
+        'startOffset': 1,
+        'endParagraph': 0,
+        'endOffset': 3,
+      },
+      {
+        'type': 'deleteText',
+        'section': 0,
+        'paragraph': 0,
+        'offset': 1,
+        'count': 2,
+      },
+    ]);
 
     await Clipboard.setData(const ClipboardData(text: 'ZZ'));
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
@@ -10360,6 +10522,86 @@ void main() {
       'offset': 1,
       'text': 'ZZ',
     });
+  });
+
+  testWidgets('RhwpNativeEditor pastes copied body text through HTML import', (
+    tester,
+  ) async {
+    final clipboard = _MockClipboard();
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      clipboard.handleMethodCall,
+    );
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+    });
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    controller.selection = const RhwpSelectionRange(
+      start: RhwpCursorPosition(offset: 1),
+      end: RhwpCursorPosition(offset: 3),
+    );
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+
+    controller.cursor = const RhwpCursorPosition(offset: 4);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(controller.cursor, const RhwpCursorPosition(offset: 6));
+    expect(session.commands.map(jsonDecode), [
+      {
+        'type': 'exportSelectionHtml',
+        'section': 0,
+        'startParagraph': 0,
+        'startOffset': 1,
+        'endParagraph': 0,
+        'endOffset': 3,
+      },
+      {
+        'type': 'pasteHtml',
+        'section': 0,
+        'paragraph': 0,
+        'offset': 4,
+        'html':
+            '<html><body><!--StartFragment--><p><span>bc</span></p><!--EndFragment--></body></html>',
+      },
+    ]);
   });
 
   testWidgets('RhwpNativeEditor pastes multiline body text as paragraphs', (
@@ -10746,6 +10988,28 @@ class _FakeRhwpSession implements rust.RhwpSession {
       if (paragraph is int && offset is int) {
         final pastedParagraph = offset > 0 ? paragraph + 1 : paragraph;
         return '{"ok":true,"paraIdx":$pastedParagraph,"controlIdx":0}';
+      }
+    }
+    if (command is Map &&
+        const {
+          'exportSelectionHtml',
+          'exportSelectionInCellHtml',
+          'exportControlHtml',
+        }.contains(command['type'])) {
+      return '<html><body><!--StartFragment--><p><span>bc</span></p><!--EndFragment--></body></html>';
+    }
+    if (command is Map && command['type'] == 'pasteHtml') {
+      final paragraph = command['paragraph'];
+      final offset = command['offset'];
+      if (paragraph is int && offset is int) {
+        return '{"ok":true,"paraIdx":$paragraph,"charOffset":${offset + 2}}';
+      }
+    }
+    if (command is Map && command['type'] == 'pasteHtmlInCell') {
+      final cellParagraph = command['cellParagraph'];
+      final offset = command['offset'];
+      if (cellParagraph is int && offset is int) {
+        return '{"ok":true,"cellParaIdx":$cellParagraph,"charOffset":${offset + 4}}';
       }
     }
     if (command is Map && command['type'] == 'getObjectProperties') {

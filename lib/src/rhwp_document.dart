@@ -807,6 +807,48 @@ abstract class RhwpCommand {
     required int offset,
   }) = RhwpPasteObjectControlCommand;
 
+  factory RhwpCommand.exportSelectionHtml({
+    required int section,
+    required int startParagraph,
+    required int startOffset,
+    required int endParagraph,
+    required int endOffset,
+  }) = RhwpExportSelectionHtmlCommand;
+
+  factory RhwpCommand.exportSelectionInCellHtml({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int startCellParagraph,
+    required int startOffset,
+    required int endCellParagraph,
+    required int endOffset,
+  }) = RhwpExportSelectionInCellHtmlCommand;
+
+  factory RhwpCommand.exportControlHtml({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+  }) = RhwpExportControlHtmlCommand;
+
+  factory RhwpCommand.pasteHtml({
+    required int section,
+    required int paragraph,
+    required int offset,
+    required String html,
+  }) = RhwpPasteHtmlCommand;
+
+  factory RhwpCommand.pasteHtmlInCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int offset,
+    required String html,
+  }) = RhwpPasteHtmlInCellCommand;
+
   factory RhwpCommand.changeObjectZOrder({
     required int section,
     required int paragraph,
@@ -1896,6 +1938,142 @@ class RhwpPasteObjectControlCommand extends RhwpCommand {
     'section': section,
     'paragraph': paragraph,
     'offset': offset,
+  };
+}
+
+class RhwpExportSelectionHtmlCommand extends RhwpCommand {
+  const RhwpExportSelectionHtmlCommand({
+    required this.section,
+    required this.startParagraph,
+    required this.startOffset,
+    required this.endParagraph,
+    required this.endOffset,
+  });
+
+  final int section;
+  final int startParagraph;
+  final int startOffset;
+  final int endParagraph;
+  final int endOffset;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'exportSelectionHtml',
+    'section': section,
+    'startParagraph': startParagraph,
+    'startOffset': startOffset,
+    'endParagraph': endParagraph,
+    'endOffset': endOffset,
+  };
+}
+
+class RhwpExportSelectionInCellHtmlCommand extends RhwpCommand {
+  const RhwpExportSelectionInCellHtmlCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+    required this.startCellParagraph,
+    required this.startOffset,
+    required this.endCellParagraph,
+    required this.endOffset,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+  final int startCellParagraph;
+  final int startOffset;
+  final int endCellParagraph;
+  final int endOffset;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'exportSelectionInCellHtml',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'cellIndex': cellIndex,
+    'startCellParagraph': startCellParagraph,
+    'startOffset': startOffset,
+    'endCellParagraph': endCellParagraph,
+    'endOffset': endOffset,
+  };
+}
+
+class RhwpExportControlHtmlCommand extends RhwpCommand {
+  const RhwpExportControlHtmlCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'exportControlHtml',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+  };
+}
+
+class RhwpPasteHtmlCommand extends RhwpCommand {
+  const RhwpPasteHtmlCommand({
+    required this.section,
+    required this.paragraph,
+    required this.offset,
+    required this.html,
+  });
+
+  final int section;
+  final int paragraph;
+  final int offset;
+  final String html;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'pasteHtml',
+    'section': section,
+    'paragraph': paragraph,
+    'offset': offset,
+    'html': html,
+  };
+}
+
+class RhwpPasteHtmlInCellCommand extends RhwpCommand {
+  const RhwpPasteHtmlInCellCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+    required this.cellParagraph,
+    required this.offset,
+    required this.html,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+  final int cellParagraph;
+  final int offset;
+  final String html;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'pasteHtmlInCell',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'cellIndex': cellIndex,
+    'cellParagraph': cellParagraph,
+    'offset': offset,
+    'html': html,
   };
 }
 
@@ -3473,6 +3651,100 @@ class RhwpDocument {
         section: section,
         paragraph: paragraph,
         offset: offset,
+      ),
+    );
+  }
+
+  Future<String> exportSelectionHtml({
+    required int section,
+    required int startParagraph,
+    required int startOffset,
+    required int endParagraph,
+    required int endOffset,
+  }) {
+    return apply(
+      RhwpCommand.exportSelectionHtml(
+        section: section,
+        startParagraph: startParagraph,
+        startOffset: startOffset,
+        endParagraph: endParagraph,
+        endOffset: endOffset,
+      ),
+    );
+  }
+
+  Future<String> exportSelectionInCellHtml({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int startCellParagraph,
+    required int startOffset,
+    required int endCellParagraph,
+    required int endOffset,
+  }) {
+    return apply(
+      RhwpCommand.exportSelectionInCellHtml(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        cellIndex: cellIndex,
+        startCellParagraph: startCellParagraph,
+        startOffset: startOffset,
+        endCellParagraph: endCellParagraph,
+        endOffset: endOffset,
+      ),
+    );
+  }
+
+  Future<String> exportControlHtml({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+  }) {
+    return apply(
+      RhwpCommand.exportControlHtml(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+      ),
+    );
+  }
+
+  Future<String> pasteHtml({
+    required int section,
+    required int paragraph,
+    required int offset,
+    required String html,
+  }) {
+    return apply(
+      RhwpCommand.pasteHtml(
+        section: section,
+        paragraph: paragraph,
+        offset: offset,
+        html: html,
+      ),
+    );
+  }
+
+  Future<String> pasteHtmlInCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int offset,
+    required String html,
+  }) {
+    return apply(
+      RhwpCommand.pasteHtmlInCell(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        cellIndex: cellIndex,
+        cellParagraph: cellParagraph,
+        offset: offset,
+        html: html,
       ),
     );
   }
