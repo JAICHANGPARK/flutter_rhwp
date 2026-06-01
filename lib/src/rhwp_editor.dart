@@ -5700,6 +5700,15 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     );
   }
 
+  Future<void> _stepKeyboardFontSize(int direction) {
+    final active = _pendingCharFormat.withFallback(_currentCharFormat);
+    final current = active.fontSize ?? 1000;
+    final next = (current + _fontSizeStep * direction)
+        .clamp(100, 20000)
+        .toInt();
+    return _applyCharFormat(fontSize: next);
+  }
+
   Future<void> _showCharEffectPicker() async {
     if (_busy) {
       return;
@@ -11364,6 +11373,18 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return KeyEventResult.handled;
     }
     if (shortcutPressed && event is KeyDownEvent) {
+      if (HardwareKeyboard.instance.isShiftPressed) {
+        if (event.logicalKey == LogicalKeyboardKey.period ||
+            event.logicalKey == LogicalKeyboardKey.greater) {
+          _runFocusedEditorAction(() => _stepKeyboardFontSize(1));
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.comma ||
+            event.logicalKey == LogicalKeyboardKey.less) {
+          _runFocusedEditorAction(() => _stepKeyboardFontSize(-1));
+          return KeyEventResult.handled;
+        }
+      }
       switch (event.logicalKey) {
         case LogicalKeyboardKey.keyC:
           _copySelection();

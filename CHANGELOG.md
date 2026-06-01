@@ -1,6 +1,9 @@
 ## 2026.5.24
 
 * Updated plugin release metadata for the `2026.5.24` release.
+* Added Flutter-native Ctrl/Cmd+Shift+Period/Comma shortcuts for increasing
+  and decreasing the active editor font size through the same character-format
+  command path as the format ribbon.
 * Added Flutter-native previous/next page controls to the editor status bar so
   page navigation can be done from the bottom editor chrome without WebView
   controls.
