@@ -34,9 +34,9 @@ documents.
 - Keep native-editor typing, IME composing, caret, and selection overlays
   separate from the rendered SVG page surface to reduce refresh churn on large
   documents.
-- `holdTextRefreshWhileFocused` can be enabled for large desktop documents so
-  Space/text input stays in the Flutter overlay through transient desktop
-  focus/IME churn until focus moves outside the editor.
+- `holdTextRefreshWhileFocused` is enabled by default so Space/text input stays
+  in the Flutter overlay through transient desktop focus/IME churn until focus
+  moves outside the editor.
 - Use `RhwpCommandEditor` for the earlier command-editor compatibility name.
 
 ## Installation
@@ -112,7 +112,6 @@ RhwpNativeEditor(
   document: document,
   convertToEditableOnLoad: true,
   editRefreshDelay: const Duration(milliseconds: 1200),
-  holdTextRefreshWhileFocused: true,
   onOpenRequested: pickAndOpenDocument,
   onImageRequested: pickImageForEditor,
   onExported: saveExportedDocument,
@@ -467,7 +466,9 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   input commits are queued while previous edit commands finish.
   Committed text is shown through a
   temporary Flutter overlay with a pending caret until the refreshed page render
-  completes, including table cell text input. Deleted body text is temporarily
+  completes, including table cell text input. Set
+  `holdTextRefreshWhileFocused: false` only when an app needs eager SVG sync
+  while the editor still has focus. Deleted body text is temporarily
   masked until the refreshed page render completes. The example app uses a 5 s
   refresh delay for a steadier typing feel on large HWP files and defers HWP
   snapshot export until the user saves/exports or switches from the native

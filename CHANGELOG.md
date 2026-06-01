@@ -64,6 +64,9 @@
 * Added `holdTextRefreshWhileFocused` for the Flutter-native editor and enabled
   it in the example app so desktop Space/text input does not release a page SVG
   refresh until focus moves outside the editor.
+* Made focused text refresh holding the default for `RhwpNativeEditor`,
+  `RhwpEditor`, and `RhwpCommandEditor`, with focus-loss release handling for
+  delayed desktop text-input actions.
 * Kept `holdTextRefreshWhileFocused` from treating transient desktop text-input
   focus churn as an external focus move, preventing per-key page refreshes in the
   example app.

@@ -1287,7 +1287,7 @@ class RhwpEditor extends StatefulWidget {
     this.onImageRequested,
     this.onExported,
     this.editRefreshDelay = _defaultEditRefreshDelay,
-    this.holdTextRefreshWhileFocused = false,
+    this.holdTextRefreshWhileFocused = true,
     this.convertToEditableOnLoad = true,
   });
 
@@ -1333,7 +1333,7 @@ class RhwpNativeEditor extends StatelessWidget {
     this.onImageRequested,
     this.onExported,
     this.editRefreshDelay = _defaultEditRefreshDelay,
-    this.holdTextRefreshWhileFocused = false,
+    this.holdTextRefreshWhileFocused = true,
     this.convertToEditableOnLoad = true,
   });
 
@@ -1377,7 +1377,7 @@ class RhwpCommandEditor extends StatelessWidget {
     this.onImageRequested,
     this.onExported,
     this.editRefreshDelay = _defaultEditRefreshDelay,
-    this.holdTextRefreshWhileFocused = false,
+    this.holdTextRefreshWhileFocused = true,
     this.convertToEditableOnLoad = true,
   });
 
@@ -7180,7 +7180,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         _textRefreshHeldForFocusedInput &&
         _hasDeferredEditRefresh &&
         _hasPendingOptimisticTextEdit &&
-        !_hasExternalPrimaryFocus;
+        !_hasExternalPrimaryFocus &&
+        (_focusNode.hasFocus ||
+            _hasActiveTextInputConnection ||
+            _hasPendingDesktopTextInputFocusRelease ||
+            _desktopTextInputCommitHoldActive);
   }
 
   bool get _shouldHoldDeferredRefreshForTextInput {
@@ -7199,6 +7203,15 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         _isDesktopTextInputPlatform &&
         _hasDeferredEditRefresh &&
         _hasPendingOptimisticTextEdit;
+  }
+
+  bool get _shouldReleaseDeferredRefreshAfterDesktopFocusLoss {
+    return _isDesktopTextInputPlatform &&
+        _hasDeferredEditRefresh &&
+        _deferredEditRefreshAwaitsTextInput &&
+        _pendingTextInputCommits <= 0 &&
+        !_focusNode.hasFocus &&
+        !_hasExternalPrimaryFocus;
   }
 
   Duration get _desktopTextInputFocusReleaseDelay {
@@ -7241,6 +7254,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         if (_hasExternalPrimaryFocusEndingTextInput &&
             _shouldDelayExternalFocusRefreshRelease) {
           _scheduleExternalFocusRefreshRelease();
+          return;
+        }
+        if (_shouldReleaseDeferredRefreshAfterDesktopFocusLoss) {
+          _closeTextInput();
           return;
         }
         if (_shouldKeepDesktopTextEditRefreshHeld &&
