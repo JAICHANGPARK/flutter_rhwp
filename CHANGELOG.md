@@ -96,6 +96,8 @@
   existing selection.
 * Added Flutter-native character formatting for selected table-cell text ranges,
   including context-menu formatting actions while cell text is selected.
+* Kept Flutter-native editor focus after character-format toolbar actions, so
+  follow-up shortcuts continue to apply to the current editor selection.
 * Added Flutter-native Up/Down movement while editing table-cell text, using
   page-layer text geometry first and core cell-paragraph metrics as a fallback
   instead of moving the rectangular cell selection.

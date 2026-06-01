@@ -5234,6 +5234,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     );
   }
 
+  void _runFocusedEditorAction(Future<void> Function() action) {
+    _focusEditor();
+    unawaited(action());
+  }
+
   void _rememberAppliedCharFormat({
     bool? bold,
     bool? italic,
@@ -11737,21 +11742,37 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           canRedo: _redoSnapshots.isNotEmpty,
           onUndo: _undoEdit,
           onRedo: _redoEdit,
-          onBold: () => _toggleCharFormat(bold: true),
-          onItalic: () => _toggleCharFormat(italic: true),
-          onUnderline: () => _toggleCharFormat(underline: true),
-          onStrikethrough: () => _toggleCharFormat(strikethrough: true),
-          onSuperscript: () => _toggleCharFormat(superscript: true),
-          onSubscript: () => _toggleCharFormat(subscript: true),
-          onEmboss: () => _toggleCharFormat(emboss: true),
-          onEngrave: () => _toggleCharFormat(engrave: true),
-          onFontFamily: (fontFamily) =>
-              _applyCharFormat(fontFamily: fontFamily),
-          onFontSize: (fontSize) => _applyCharFormat(fontSize: fontSize),
-          onTextColor: (textColor) => _applyCharFormat(textColor: textColor),
-          onShadeColor: (shadeColor) =>
-              _applyCharFormat(shadeColor: shadeColor),
-          onCharShape: _showCharShapeDialog,
+          onBold: () =>
+              _runFocusedEditorAction(() => _toggleCharFormat(bold: true)),
+          onItalic: () =>
+              _runFocusedEditorAction(() => _toggleCharFormat(italic: true)),
+          onUnderline: () =>
+              _runFocusedEditorAction(() => _toggleCharFormat(underline: true)),
+          onStrikethrough: () => _runFocusedEditorAction(
+            () => _toggleCharFormat(strikethrough: true),
+          ),
+          onSuperscript: () => _runFocusedEditorAction(
+            () => _toggleCharFormat(superscript: true),
+          ),
+          onSubscript: () =>
+              _runFocusedEditorAction(() => _toggleCharFormat(subscript: true)),
+          onEmboss: () =>
+              _runFocusedEditorAction(() => _toggleCharFormat(emboss: true)),
+          onEngrave: () =>
+              _runFocusedEditorAction(() => _toggleCharFormat(engrave: true)),
+          onFontFamily: (fontFamily) => _runFocusedEditorAction(
+            () => _applyCharFormat(fontFamily: fontFamily),
+          ),
+          onFontSize: (fontSize) => _runFocusedEditorAction(
+            () => _applyCharFormat(fontSize: fontSize),
+          ),
+          onTextColor: (textColor) => _runFocusedEditorAction(
+            () => _applyCharFormat(textColor: textColor),
+          ),
+          onShadeColor: (shadeColor) => _runFocusedEditorAction(
+            () => _applyCharFormat(shadeColor: shadeColor),
+          ),
+          onCharShape: () => _runFocusedEditorAction(_showCharShapeDialog),
           onParaShape: _showParaShapeDialog,
           onStylePicker: _showStylePicker,
           onAlignLeft: () => _applyParagraphAlignment('left'),
