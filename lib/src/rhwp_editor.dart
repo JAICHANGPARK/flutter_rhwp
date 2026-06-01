@@ -10488,6 +10488,37 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
             label: '글자 모양',
             enabled: !_busy,
           ),
+          const PopupMenuDivider(),
+          _contextMenuItem(
+            action: _EditorContextMenuAction.paraShape,
+            icon: Icons.format_line_spacing,
+            label: '문단 모양',
+            enabled: !_busy,
+          ),
+          _contextMenuItem(
+            action: _EditorContextMenuAction.alignLeft,
+            icon: Icons.format_align_left,
+            label: '왼쪽 정렬',
+            enabled: !_busy,
+          ),
+          _contextMenuItem(
+            action: _EditorContextMenuAction.alignCenter,
+            icon: Icons.format_align_center,
+            label: '가운데 정렬',
+            enabled: !_busy,
+          ),
+          _contextMenuItem(
+            action: _EditorContextMenuAction.alignRight,
+            icon: Icons.format_align_right,
+            label: '오른쪽 정렬',
+            enabled: !_busy,
+          ),
+          _contextMenuItem(
+            action: _EditorContextMenuAction.alignJustify,
+            icon: Icons.format_align_justify,
+            label: '양쪽 정렬',
+            enabled: !_busy,
+          ),
         ],
         const PopupMenuDivider(),
         _contextMenuItem(

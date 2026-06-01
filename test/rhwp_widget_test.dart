@@ -9311,6 +9311,80 @@ void main() {
     },
   );
 
+  testWidgets(
+    'RhwpNativeEditor context menu applies paragraph alignment to table text',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 2200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      controller.tableCellSelection = const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+        activeCellParagraph: 0,
+        activeOffset: 2,
+        isTextEditing: true,
+      );
+      await tester.pump();
+
+      final pageFinder = find.byType(SvgPicture);
+      final pageTopLeft = tester.getTopLeft(pageFinder);
+      final pageSize = tester.getSize(pageFinder);
+      final cellTextPoint =
+          pageTopLeft +
+          Offset(pageSize.width * 118 / 240, pageSize.height * 76 / 180);
+
+      await tester.tapAt(cellTextPoint, buttons: kSecondaryMouseButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('문단 모양'), findsOneWidget);
+      expect(find.text('가운데 정렬'), findsOneWidget);
+      await tester.tap(find.text('가운데 정렬'));
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+      expect(jsonDecode(session.commands.single), {
+        'type': 'applyParaFormatInTableCell',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'cellIndex': 7,
+        'cellParagraph': 0,
+        'properties': {'alignment': 'center'},
+      });
+      expect(controller.tableCellSelection?.hasTextSelection, isFalse);
+      expect(controller.tableCellSelection?.activeOffset, 2);
+    },
+  );
+
   testWidgets('RhwpNativeEditor edit ribbon selects all body text', (
     tester,
   ) async {
