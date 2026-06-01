@@ -167,6 +167,40 @@ void main() {
 
     controller.fitWidth();
     expect(controller.zoom, 1.0);
+
+    controller.fitPage();
+    expect(controller.zoom, 0.75);
+  });
+
+  testWidgets('RhwpViewer fit page uses the current viewport height', (
+    tester,
+  ) async {
+    final controller = RhwpViewerController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 400,
+          height: 420,
+          child: RhwpViewer(
+            document: document,
+            controller: controller,
+            padding: const EdgeInsets.all(8),
+            pageGap: 0,
+            svgBuilder: _tallSvgBuilder,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.fitPage();
+    await tester.pump();
+
+    expect(controller.zoom, closeTo(404 / 816, 0.01));
+    expect(session.renderedPages, [0]);
   });
 
   testWidgets(
@@ -1976,6 +2010,22 @@ void main() {
           .data,
       '100%',
     );
+
+    controller.zoom = 1.5;
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-fit-page')));
+    await tester.pump();
+
+    expect(controller.zoom, lessThan(1.5));
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('rhwp-editor-status-zoom')))
+          .data,
+      isNot('150%'),
+    );
+
+    controller.zoom = 1.0;
+    await tester.pump();
 
     await tester.tapAt(
       tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +

@@ -1,6 +1,9 @@
 ## 2026.5.24
 
 * Updated plugin release metadata for the `2026.5.24` release.
+* Added Flutter-native fit-page zoom commands to the view ribbon and status
+  bar, computing the zoom from the mounted page and viewport height instead of
+  using WebView editor controls.
 * Added Flutter-native table properties editing for cell spacing, cell padding,
   page break mode, and repeated header rows.
 * Added Flutter-native selected cell properties editing for size, padding,

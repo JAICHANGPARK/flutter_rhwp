@@ -15,6 +15,7 @@ typedef RhwpPageOverlayBuilder =
 typedef RhwpPageRenderedCallback = void Function(int page, int renderRevision);
 
 typedef _RhwpPageScroller = Future<void> Function(int page);
+typedef _RhwpFitPageZoomCalculator = double? Function();
 
 Widget _defaultRhwpSvgBuilder(BuildContext context, String svg) {
   return SvgPicture.string(
@@ -37,6 +38,7 @@ class RhwpViewerController extends ChangeNotifier {
   int _currentPage = 0;
   int? _pageCount;
   _RhwpPageScroller? _pageScroller;
+  _RhwpFitPageZoomCalculator? _fitPageZoomCalculator;
 
   double get zoom => _zoom;
 
@@ -60,6 +62,12 @@ class RhwpViewerController extends ChangeNotifier {
   /// `RhwpViewer` treats 100% as page-width fit because the base layout is
   /// constrained to the available viewport width.
   void fitWidth() => zoom = 1.0;
+
+  /// Fits the current page height to the current viewport when possible.
+  ///
+  /// When no viewer is attached yet, this falls back to the closest upstream
+  /// zoom preset that generally shows more of the page than page-width mode.
+  void fitPage() => zoom = _fitPageZoomCalculator?.call() ?? 0.75;
 
   double _nextZoomStep() {
     for (final step in zoomSteps) {
@@ -106,9 +114,11 @@ class RhwpViewerController extends ChangeNotifier {
   void _attachPageScroller({
     required int pageCount,
     required _RhwpPageScroller pageScroller,
+    required _RhwpFitPageZoomCalculator fitPageZoomCalculator,
   }) {
     _pageCount = pageCount;
     _pageScroller = pageScroller;
+    _fitPageZoomCalculator = fitPageZoomCalculator;
     if (pageCount > 0 && _currentPage >= pageCount) {
       _currentPage = pageCount - 1;
     }
@@ -116,6 +126,7 @@ class RhwpViewerController extends ChangeNotifier {
 
   void _detachPageScroller() {
     _pageScroller = null;
+    _fitPageZoomCalculator = null;
     _pageCount = null;
   }
 
@@ -246,6 +257,7 @@ class _RhwpViewerState extends State<RhwpViewer> {
           _controller._attachPageScroller(
             pageCount: pageCount,
             pageScroller: _scrollToPage,
+            fitPageZoomCalculator: _fitCurrentPageToViewportZoom,
           );
           _scheduleVisiblePageSync();
           return LayoutBuilder(
@@ -428,6 +440,40 @@ class _RhwpViewerState extends State<RhwpViewer> {
         _controller._setCurrentPageFromViewer(pageIndex);
       }
     }
+  }
+
+  double? _fitCurrentPageToViewportZoom() {
+    if (!mounted || _resolvedPageCount <= 0) {
+      return null;
+    }
+
+    final viewportRenderObject = context.findRenderObject();
+    if (viewportRenderObject is! RenderBox || !viewportRenderObject.hasSize) {
+      return null;
+    }
+
+    final pageIndex = _controller._clampPage(_controller.currentPage);
+    final pageContext = pageIndex < _pageKeys.length
+        ? _pageKeys[pageIndex].currentContext
+        : null;
+    final pageRenderObject = pageContext?.findRenderObject();
+    if (pageRenderObject is! RenderBox || !pageRenderObject.hasSize) {
+      return null;
+    }
+
+    final pageHeight = pageRenderObject.size.height;
+    if (pageHeight <= 0) {
+      return null;
+    }
+
+    final viewportHeight = viewportRenderObject.size.height;
+    final availableHeight = math.max(
+      1.0,
+      viewportHeight - widget.padding.vertical,
+    );
+    return (_controller.zoom * availableHeight / pageHeight)
+        .clamp(RhwpViewerController.minZoom, RhwpViewerController.maxZoom)
+        .toDouble();
   }
 }
 
