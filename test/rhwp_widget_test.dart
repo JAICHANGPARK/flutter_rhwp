@@ -15156,6 +15156,118 @@ void main() {
   });
 
   testWidgets(
+    'RhwpNativeEditor previews multi-paragraph body replacement while deleteRange is pending',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      final deleteRangeGate = Completer<void>();
+      session.commandGates['deleteRange'] = deleteRangeGate;
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      await tester.tapAt(
+        tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+            const Offset(1, 6),
+      );
+      await tester.pump();
+
+      expect(tester.testTextInput.hasAnyClients, isTrue);
+
+      controller.selection = const RhwpSelectionRange(
+        start: RhwpCursorPosition(paragraph: 0, offset: 2),
+        end: RhwpCursorPosition(paragraph: 1, offset: 2),
+      );
+      await tester.pump();
+      session.renderedPages.clear();
+
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: 'Z',
+          selection: TextSelection.collapsed(offset: 1),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(changedCalls, 0);
+      expect(session.renderedPages, isEmpty);
+      expect(controller.cursor, const RhwpCursorPosition(offset: 3));
+      expect(session.commands.map(jsonDecode), [
+        {
+          'type': 'deleteRange',
+          'section': 0,
+          'startParagraph': 0,
+          'startOffset': 2,
+          'endParagraph': 1,
+          'endOffset': 2,
+        },
+      ]);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-pending-delete-mask')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-pending-delete-mask-1')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
+        findsOneWidget,
+      );
+      expect(find.text('Z'), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(changedCalls, 0);
+      expect(session.renderedPages, isEmpty);
+
+      deleteRangeGate.complete();
+      await tester.pump();
+      await tester.pump();
+
+      expect(session.commands.map(jsonDecode), [
+        {
+          'type': 'deleteRange',
+          'section': 0,
+          'startParagraph': 0,
+          'startOffset': 2,
+          'endParagraph': 1,
+          'endOffset': 2,
+        },
+        {
+          'type': 'insertText',
+          'section': 0,
+          'paragraph': 0,
+          'offset': 2,
+          'text': 'Z',
+        },
+      ]);
+      expect(changedCalls, 0);
+      expect(session.renderedPages, isEmpty);
+
+      await _releaseTextInputAction(tester);
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+      expect(session.renderedPages, [0]);
+    },
+  );
+
+  testWidgets(
     'RhwpCommandEditor paints page-local selection across paragraphs',
     (tester) async {
       final controller = RhwpEditorController();

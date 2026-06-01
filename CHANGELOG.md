@@ -494,6 +494,9 @@
 * Changed single-paragraph body selection replacement to show the Flutter
   pending delete mask, replacement text overlay, and collapsed caret before a
   slow Rust `deleteText` command finishes.
+* Changed multi-paragraph body selection replacement to show Flutter pending
+  delete masks and replacement text before a slow Rust `deleteRange` command
+  finishes.
 * Changed single-paragraph table-cell text selection replacement to show the
   Flutter pending delete mask, replacement text overlay, and cell caret before a
   slow Rust `deleteTextInTableCell` command finishes.

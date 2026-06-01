@@ -2615,10 +2615,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
     final start = selection.normalizedStart;
     final end = selection.normalizedEnd;
-    if (start.section != end.section || start.paragraph != end.paragraph) {
+    if (start.section != end.section) {
       return null;
     }
-    if (start.offset >= end.offset) {
+    if (start.paragraph == end.paragraph && start.offset >= end.offset) {
       return null;
     }
 
