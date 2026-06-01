@@ -67,6 +67,9 @@
 * Added Flutter-native Left/Right movement while editing table-cell text, so
   plain arrow keys update the active cell text offset and cross cell paragraphs
   instead of moving the rectangular cell selection.
+* Added Flutter-native Up/Down movement while editing table-cell text, using
+  page-layer text geometry first and core cell-paragraph metrics as a fallback
+  instead of moving the rectangular cell selection.
 * Limited deferred Flutter-native text-input refreshes to the edited page, so
   large documents do not re-render every mounted page when optimistic typing
   finally synchronizes with fresh SVG.

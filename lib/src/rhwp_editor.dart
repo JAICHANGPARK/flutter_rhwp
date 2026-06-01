@@ -6761,6 +6761,237 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
   }
 
+  Future<void> _moveTableCellCursorVertically(int delta) async {
+    final tableSelection = _editableTableCellSelection;
+    final activeCellIndex = tableSelection?.activeCellIndex;
+    if (tableSelection == null ||
+        activeCellIndex == null ||
+        !tableSelection.isTextEditing ||
+        _busy ||
+        delta == 0) {
+      return;
+    }
+
+    final current = tableSelection.copyWith(
+      activeOffset: _parseNonNegative(_offsetController.text),
+      isTextEditing: true,
+    );
+    try {
+      RhwpTableCellSelection? nextSelection;
+      final target = await _verticalTableCellTextPositionFrom(current, delta);
+      if (target != null) {
+        nextSelection = current.copyWith(
+          activeCellParagraph: target.cellParagraph,
+          activeOffset: target.offset,
+          isTextEditing: true,
+        );
+        unawaited(_controller.goToPage(target.page));
+      } else {
+        nextSelection = await _relativeTableCellParagraphPosition(
+          current,
+          delta,
+        );
+      }
+
+      if (!mounted || nextSelection == null || nextSelection == current) {
+        return;
+      }
+      _syncTableSelectionFields(nextSelection);
+      _controller.tableCellSelection = nextSelection;
+      _focusEditor();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    }
+  }
+
+  Future<({int cellParagraph, int offset, int page})?>
+  _verticalTableCellTextPositionFrom(
+    RhwpTableCellSelection selection,
+    int delta,
+  ) async {
+    final pageCount = await widget.document.pageCount;
+    final currentRun = await _tableCellTextRunContaining(selection);
+    if (currentRun == null) {
+      return null;
+    }
+
+    final currentPoint = currentRun.run.pagePointForOffset(
+      selection.activeOffset,
+    );
+    final currentY = currentRun.run.bounds.center.dy;
+    final samePageTarget = _nearestVerticalTableCellRun(
+      currentRun.tree,
+      selection: selection,
+      page: currentRun.page,
+      targetX: currentPoint.dx,
+      direction: delta,
+      currentY: currentY,
+    );
+    if (samePageTarget != null) {
+      return _tableCellPositionOnRun(samePageTarget, currentPoint.dx);
+    }
+
+    var page = currentRun.page + delta.sign;
+    while (page >= 0 && page < pageCount) {
+      final tree = await widget.document.pageLayerTreeModel(page);
+      final target = _nearestVerticalTableCellRun(
+        tree,
+        selection: selection,
+        page: page,
+        targetX: currentPoint.dx,
+        direction: delta,
+      );
+      if (target != null) {
+        return _tableCellPositionOnRun(target, currentPoint.dx);
+      }
+      page += delta.sign;
+    }
+
+    return null;
+  }
+
+  Future<({RhwpLayerTree tree, RhwpTextRunLayout run, int page})?>
+  _tableCellTextRunContaining(RhwpTableCellSelection selection) async {
+    final pageCount = await widget.document.pageCount;
+    for (var page = 0; page < pageCount; page += 1) {
+      final tree = await widget.document.pageLayerTreeModel(page);
+      for (final run in _tableCellTextRuns(tree, selection)) {
+        if (run.cellContext?.cellParagraph == selection.activeCellParagraph &&
+            run.containsPosition(
+              section: selection.section,
+              paragraph: selection.paragraph,
+              offset: selection.activeOffset,
+            )) {
+          return (tree: tree, run: run, page: page);
+        }
+      }
+    }
+    return null;
+  }
+
+  Iterable<RhwpTextRunLayout> _tableCellTextRuns(
+    RhwpLayerTree tree,
+    RhwpTableCellSelection selection,
+  ) sync* {
+    final activeCellIndex = selection.activeCellIndex;
+    if (activeCellIndex == null) {
+      return;
+    }
+
+    for (final run in tree.textRuns) {
+      final context = run.cellContext;
+      if (context == null ||
+          run.section != selection.section ||
+          run.paragraph != selection.paragraph ||
+          context.parentParagraph != selection.paragraph ||
+          context.controlIndex != selection.controlIndex ||
+          context.cellIndex != activeCellIndex ||
+          run.text.isEmpty) {
+        continue;
+      }
+      yield run;
+    }
+  }
+
+  ({RhwpTextRunLayout run, int page})? _nearestVerticalTableCellRun(
+    RhwpLayerTree tree, {
+    required RhwpTableCellSelection selection,
+    required int page,
+    required double targetX,
+    required int direction,
+    double? currentY,
+  }) {
+    ({RhwpTextRunLayout run, int page, double vertical, double horizontal})?
+    best;
+
+    for (final run in _tableCellTextRuns(tree, selection)) {
+      final runY = run.bounds.center.dy;
+      final vertical = currentY == null
+          ? (direction > 0 ? runY : -runY)
+          : (runY - currentY) * direction;
+      if (currentY != null && vertical <= 0) {
+        continue;
+      }
+
+      final offset = run.closestOffsetForPoint(Offset(targetX, runY));
+      final horizontal = (run.pagePointForOffset(offset).dx - targetX).abs();
+      final candidate = (
+        run: run,
+        page: page,
+        vertical: vertical,
+        horizontal: horizontal,
+      );
+      if (best == null ||
+          candidate.vertical < best.vertical ||
+          (candidate.vertical == best.vertical &&
+              candidate.horizontal < best.horizontal)) {
+        best = candidate;
+      }
+    }
+
+    if (best == null) {
+      return null;
+    }
+    return (run: best.run, page: best.page);
+  }
+
+  ({int cellParagraph, int offset, int page})? _tableCellPositionOnRun(
+    ({RhwpTextRunLayout run, int page}) target,
+    double x,
+  ) {
+    final run = target.run;
+    final context = run.cellContext;
+    if (context == null) {
+      return null;
+    }
+
+    return (
+      cellParagraph: context.cellParagraph,
+      offset: run.closestOffsetForPoint(Offset(x, run.bounds.center.dy)),
+      page: target.page,
+    );
+  }
+
+  Future<RhwpTableCellSelection?> _relativeTableCellParagraphPosition(
+    RhwpTableCellSelection selection,
+    int delta,
+  ) async {
+    final activeCellIndex = selection.activeCellIndex;
+    if (activeCellIndex == null) {
+      return null;
+    }
+
+    final paragraphCount = await widget.document.cellParagraphCount(
+      section: selection.section,
+      paragraph: selection.paragraph,
+      controlIndex: selection.controlIndex,
+      cellIndex: activeCellIndex,
+    );
+    final nextCellParagraph = selection.activeCellParagraph + delta.sign;
+    if (nextCellParagraph < 0 || nextCellParagraph >= paragraphCount) {
+      return null;
+    }
+
+    final next = selection.copyWith(activeCellParagraph: nextCellParagraph);
+    final nextEnd =
+        await _tableCellParagraphEndOffsetFor(next) ??
+        await widget.document.cellParagraphLength(
+          section: next.section,
+          paragraph: next.paragraph,
+          controlIndex: next.controlIndex,
+          cellIndex: activeCellIndex,
+          cellParagraph: next.activeCellParagraph,
+        );
+    return next.copyWith(
+      activeOffset: math.min(selection.activeOffset, nextEnd),
+      isTextEditing: true,
+    );
+  }
+
   Future<void> _moveTableCellCursorToParagraphBoundary({
     required bool end,
   }) async {
@@ -9445,13 +9676,20 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         if (_nudgeSelectedObject(Offset(0, -objectNudgeStep))) {
           return KeyEventResult.handled;
         }
-        if (_controller.tableCellSelection != null && !wordNavigationPressed) {
-          unawaited(
-            _moveTableCellSelection(
-              _TableCellNavigationDirection.up,
-              extendSelection: extendSelection,
-            ),
-          );
+        final upTableSelection = _controller.tableCellSelection;
+        if (upTableSelection != null) {
+          if (upTableSelection.isTextEditing) {
+            unawaited(_moveTableCellCursorVertically(-1));
+          } else if (!wordNavigationPressed) {
+            unawaited(
+              _moveTableCellSelection(
+                _TableCellNavigationDirection.up,
+                extendSelection: extendSelection,
+              ),
+            );
+          } else {
+            return KeyEventResult.ignored;
+          }
           return KeyEventResult.handled;
         }
         unawaited(_moveCursorVertically(-1, extendSelection: extendSelection));
@@ -9460,13 +9698,20 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         if (_nudgeSelectedObject(Offset(0, objectNudgeStep))) {
           return KeyEventResult.handled;
         }
-        if (_controller.tableCellSelection != null && !wordNavigationPressed) {
-          unawaited(
-            _moveTableCellSelection(
-              _TableCellNavigationDirection.down,
-              extendSelection: extendSelection,
-            ),
-          );
+        final downTableSelection = _controller.tableCellSelection;
+        if (downTableSelection != null) {
+          if (downTableSelection.isTextEditing) {
+            unawaited(_moveTableCellCursorVertically(1));
+          } else if (!wordNavigationPressed) {
+            unawaited(
+              _moveTableCellSelection(
+                _TableCellNavigationDirection.down,
+                extendSelection: extendSelection,
+              ),
+            );
+          } else {
+            return KeyEventResult.ignored;
+          }
           return KeyEventResult.handled;
         }
         unawaited(_moveCursorVertically(1, extendSelection: extendSelection));
