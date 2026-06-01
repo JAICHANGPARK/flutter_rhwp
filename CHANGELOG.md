@@ -53,6 +53,9 @@
   empty paragraph fallback through rhwp core paragraph metrics.
 * Added Flutter-native word navigation across body paragraph boundaries, so
   Ctrl/Alt+Left and Ctrl/Alt+Right can cross visible and empty paragraphs.
+* Added Flutter-native word deletion across body paragraph boundaries, so
+  Ctrl/Alt+Backspace and Ctrl/Alt+Delete reuse the same document-aware range
+  deletion path.
 * Stabilized programmatic viewer page navigation so `goToPage` requests are not
   immediately overwritten by stale visible-page sync during editor navigation.
 * Added Flutter-native Delete-at-cell-paragraph-end handling to merge the next

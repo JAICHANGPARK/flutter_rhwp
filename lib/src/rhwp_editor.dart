@@ -6436,30 +6436,33 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
       final cursor = _readCursor();
       final paragraphText = await _paragraphTextFor(cursor);
-      final targetOffset = paragraphText == null
-          ? (backward ? math.max(0, cursor.offset - 1) : cursor.offset + 1)
-          : _wordBoundaryOffset(
-              paragraphText.text,
-              cursor.offset,
-              backward ? -1 : 1,
-            );
-      final deleteOffset = math.min(cursor.offset, targetOffset);
-      final count = (cursor.offset - targetOffset).abs();
-      if (count == 0) {
+      final target = await _wordPositionFrom(
+        cursor,
+        paragraphText,
+        backward ? -1 : 1,
+      );
+      if (target == null) {
         return;
       }
 
-      deletedRange = RhwpSelectionRange(
-        start: cursor.copyWith(offset: deleteOffset),
-        end: cursor.copyWith(offset: deleteOffset + count),
-      );
-      await widget.document.deleteText(
-        section: cursor.section,
-        paragraph: cursor.paragraph,
-        offset: deleteOffset,
-        count: count,
-      );
-      _controller.cursor = cursor.copyWith(offset: deleteOffset);
+      final comparison = target.position.compareTo(cursor);
+      if (comparison == 0) {
+        return;
+      }
+
+      final range = comparison < 0
+          ? RhwpSelectionRange(start: target.position, end: cursor)
+          : RhwpSelectionRange(start: cursor, end: target.position);
+      if (await _deleteSelectedText(range)) {
+        deletedRange = range;
+        unawaited(
+          _controller.goToPage(
+            comparison < 0
+                ? target.page
+                : (paragraphText?.page ?? _controller.currentPage),
+          ),
+        );
+      }
     }, deferRefresh: true);
     if (edited && deletedRange != null) {
       _recordPendingDeletionOverlay(deletedRange!);
