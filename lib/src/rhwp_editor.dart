@@ -6018,6 +6018,24 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   ) async {
     final activeCellIndex = selection.activeCellIndex;
     if (selection.isTextEditing && activeCellIndex != null) {
+      final range = _editingTableCellTextSelectionRange(selection);
+      if (range != null) {
+        return [
+          for (
+            var cellParagraph = range.startCellParagraph;
+            cellParagraph <= range.endCellParagraph;
+            cellParagraph += 1
+          )
+            _TableCellParagraphTarget(
+              section: selection.section,
+              paragraph: selection.paragraph,
+              controlIndex: selection.controlIndex,
+              cellIndex: activeCellIndex,
+              cellParagraph: cellParagraph,
+            ),
+        ];
+      }
+
       return [
         _TableCellParagraphTarget(
           section: selection.section,

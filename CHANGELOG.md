@@ -101,6 +101,9 @@
 * Compacted the Flutter-native format toolbar by moving text colors and advanced
   effects into popup menus, and reset document click sequencing after toolbar
   actions so follow-up page taps do not become accidental double-clicks.
+* Applied Flutter-native paragraph formatting to every table-cell paragraph
+  covered by a selected cell text range, instead of only the active cell
+  paragraph.
 * Added Flutter-native Up/Down movement while editing table-cell text, using
   page-layer text geometry first and core cell-paragraph metrics as a fallback
   instead of moving the rectangular cell selection.
