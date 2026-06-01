@@ -15,6 +15,8 @@
   left/right insertion controls to the table ribbon and context menu.
 * Added Flutter-native body context-menu insertion actions for pictures, shape
   presets, paragraph insertion, page breaks, and column breaks.
+* Added Flutter-native body context-menu reference insertion actions for
+  footnotes, equations, and bookmarks.
 * Added upstream-style Flutter-native table object/cell mode switching: Escape
   promotes selected cells to a table object, and Enter/F5 re-enters cell
   selection.

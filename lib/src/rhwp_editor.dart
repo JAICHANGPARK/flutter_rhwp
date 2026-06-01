@@ -563,6 +563,9 @@ enum _EditorContextMenuAction {
   alignRight,
   alignJustify,
   insertPicture,
+  insertFootnote,
+  insertEquation,
+  bookmark,
   insertRectangle,
   insertEllipse,
   insertLine,
@@ -10272,6 +10275,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         await _applyParagraphAlignment('justify');
       case _EditorContextMenuAction.insertPicture:
         await _insertPicture();
+      case _EditorContextMenuAction.insertFootnote:
+        await _insertFootnote();
+      case _EditorContextMenuAction.insertEquation:
+        await _showInsertEquationDialog();
+      case _EditorContextMenuAction.bookmark:
+        await _showBookmarkDialog();
       case _EditorContextMenuAction.insertRectangle:
         await _insertShape(_EditorShapePreset.rectangle);
       case _EditorContextMenuAction.insertEllipse:
@@ -10687,6 +10696,24 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         icon: Icons.image_outlined,
         label: '그림 넣기',
         enabled: !_busy && widget.onImageRequested != null,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.insertFootnote,
+        icon: Icons.notes_outlined,
+        label: '각주 넣기',
+        enabled: !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.insertEquation,
+        icon: Icons.functions,
+        label: '수식 넣기',
+        enabled: !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.bookmark,
+        icon: Icons.bookmark_border,
+        label: '책갈피',
+        enabled: !_busy,
       ),
       _contextMenuItem(
         action: _EditorContextMenuAction.insertRectangle,

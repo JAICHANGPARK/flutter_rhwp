@@ -427,8 +427,9 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   text/table/picture/shape
   insert/delete from the ribbon and body context menu, with shape presets for
   rectangle, ellipse, line, and text box,
-  bookmark list/add/delete/rename through the input ribbon, page/column break
-  insertion, plus table
+  footnote, equation, and bookmark insertion from the input ribbon and body
+  context menu, bookmark list/add/delete/rename through the input ribbon,
+  page/column break insertion, plus table
   row above/below insertion and row deletion, column left/right insertion and
   column deletion, and cell
   merge/split/split-into-grid/range split command flow, selected-cell range

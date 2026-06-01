@@ -8413,7 +8413,7 @@ void main() {
   testWidgets('RhwpNativeEditor context menu inserts body objects and breaks', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(1200, 1600);
+    tester.view.physicalSize = const Size(1200, 2200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -8461,6 +8461,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('그림 넣기'), findsOneWidget);
+    expect(find.text('각주 넣기'), findsOneWidget);
+    expect(find.text('수식 넣기'), findsOneWidget);
+    expect(find.text('책갈피'), findsOneWidget);
     expect(find.text('사각형'), findsOneWidget);
     expect(find.text('타원'), findsOneWidget);
     expect(find.text('선'), findsOneWidget);
@@ -8520,6 +8523,108 @@ void main() {
       'paragraph': 0,
       'offset': 2,
     });
+  });
+
+  testWidgets('RhwpNativeEditor context menu inserts references', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 2200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 900,
+          height: 520,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    final menuPoint =
+        pageTopLeft +
+        Offset(pageSize.width * 105 / 240, pageSize.height * 48 / 180);
+
+    controller.cursor = const RhwpCursorPosition(offset: 2);
+    await tester.pump();
+
+    await tester.tapAt(menuPoint, buttons: kSecondaryMouseButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('각주 넣기'));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'insertFootnote',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 2,
+    });
+
+    await tester.tapAt(menuPoint, buttons: kSecondaryMouseButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('수식 넣기'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-equation-script-field')),
+      'sqrt x',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-equation-font-size-field')),
+      '12',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-equation-color-#2563eb')));
+    await tester.tap(find.byKey(const ValueKey('rhwp-equation-apply')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 2);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'insertEquation',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 2,
+      'script': 'sqrt x',
+      'fontSize': 1200,
+      'color': 0x2563eb,
+    });
+
+    await tester.tapAt(menuPoint, buttons: kSecondaryMouseButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('책갈피'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-bookmark-name-field')),
+      'context-mark',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-bookmark-add')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 3);
+    expect(session.commands.map(jsonDecode).toList().sublist(2), [
+      {'type': 'getBookmarks'},
+      {
+        'type': 'addBookmark',
+        'section': 0,
+        'paragraph': 0,
+        'offset': 2,
+        'name': 'context-mark',
+      },
+    ]);
   });
 
   testWidgets('RhwpNativeEditor context menu runs table cell actions', (
