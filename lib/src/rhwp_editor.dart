@@ -2876,28 +2876,44 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       if (_busy) {
         return;
       }
-      final selectedText = await _selectedEditingTableCellText(tableSelection!);
+      final current = tableSelection!.copyWith(
+        activeOffset: _parseNonNegative(_offsetController.text),
+        isTextEditing: true,
+      );
+      final selectedText = await _selectedEditingTableCellText(current);
       if (selectedText.isEmpty) {
         return;
       }
       await Clipboard.setData(ClipboardData(text: selectedText));
-      await _rememberEditingTableCellHtmlClipboard(
-        tableSelection,
-        selectedText,
+      await _rememberEditingTableCellHtmlClipboard(current, selectedText);
+      final deletedTextRange = _pendingTableCellDeletionRange(current);
+      final nextSelection = _tableCellPasteStartSelection(current);
+      _setTableSelectionForPendingText(nextSelection);
+      if (deletedTextRange != null) {
+        _recordPendingDeletionOverlay(
+          deletedTextRange,
+          cellContext: _pendingTextCellContext(nextSelection),
+        );
+      }
+      final cut = await _runEdit(
+        () async {
+          final deletedSelection = await _deleteEditingTableCellTextSelection(
+            current,
+          );
+          if (deletedSelection != null) {
+            _syncTableSelectionFields(deletedSelection);
+            _controller.tableCellSelection = deletedSelection;
+          }
+        },
+        deferRefresh: true,
+        visibleBusy: false,
       );
-      await _runEdit(() async {
-        final current = tableSelection.copyWith(
-          activeOffset: _parseNonNegative(_offsetController.text),
-          isTextEditing: true,
-        );
-        final nextSelection = await _deleteEditingTableCellTextSelection(
-          current,
-        );
-        if (nextSelection != null) {
-          _syncTableSelectionFields(nextSelection);
-          _controller.tableCellSelection = nextSelection;
+      if (!cut) {
+        _cancelDeferredEditRefresh();
+        if (mounted) {
+          setState(() {});
         }
-      });
+      }
       return;
     }
 
@@ -2917,11 +2933,25 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
+    final selection = _controller.selection;
+    final start = selection.normalizedStart;
     await Clipboard.setData(ClipboardData(text: text));
     await _rememberBodySelectionHtmlClipboard(text);
-    await _runEdit(() async {
-      await _deleteSelectedText(_controller.selection);
-    });
+    _recordPendingDeletionOverlay(selection);
+    _setCursorForPendingText(start);
+    final cut = await _runEdit(
+      () async {
+        await _deleteSelectedText(selection);
+      },
+      deferRefresh: true,
+      visibleBusy: false,
+    );
+    if (!cut) {
+      _cancelDeferredEditRefresh();
+      if (mounted) {
+        setState(() {});
+      }
+    }
   }
 
   Future<void> _pasteClipboard() async {

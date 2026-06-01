@@ -4597,6 +4597,134 @@ void main() {
   );
 
   testWidgets(
+    'RhwpNativeEditor previews table cell text cut while delete is pending',
+    (tester) async {
+      final clipboard = _MockClipboard();
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        clipboard.handleMethodCall,
+      );
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(
+        _tableCellEditorLayerTreeJson(cellText: 'hello'),
+      );
+      final deleteGate = Completer<void>();
+      session.commandGates['deleteTextInTableCell'] = deleteGate;
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      addTearDown(() {
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        );
+      });
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      await tester.tapAt(
+        tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+            const Offset(1, 6),
+      );
+      await tester.pump();
+
+      controller.tableCellSelection = const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+        activeOffset: 4,
+        isTextEditing: true,
+        selectionBaseCellParagraph: 0,
+        selectionBaseOffset: 1,
+      );
+      await tester.pump();
+      session.commands.clear();
+      session.renderedPages.clear();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyX);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      await tester.pump();
+
+      final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
+      expect(clipboardData?.text, 'ell');
+      expect(changedCalls, 0);
+      expect(session.renderedPages, isEmpty);
+      expect(controller.tableCellSelection?.activeCellParagraph, 0);
+      expect(controller.tableCellSelection?.activeOffset, 1);
+      expect(controller.tableCellSelection?.hasTextSelection, isFalse);
+      expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+        'saveSnapshot',
+      ]);
+      expect(session.commands.map(jsonDecode), [
+        {
+          'type': 'exportSelectionInCellHtml',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'startCellParagraph': 0,
+          'startOffset': 1,
+          'endCellParagraph': 0,
+          'endOffset': 4,
+        },
+        {
+          'type': 'deleteTextInTableCell',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 0,
+          'offset': 1,
+          'count': 3,
+        },
+      ]);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-pending-delete-mask')),
+        findsOneWidget,
+      );
+
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump();
+
+      expect(changedCalls, 0);
+      expect(session.renderedPages, isEmpty);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-pending-delete-mask')),
+        findsOneWidget,
+      );
+
+      deleteGate.complete();
+      await tester.pump();
+      await tester.pump();
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+      expect(session.renderedPages, [0]);
+    },
+  );
+
+  testWidgets(
     'RhwpNativeEditor copies multi paragraph selected table cell text range',
     (tester) async {
       final clipboard = _MockClipboard();
@@ -15096,6 +15224,112 @@ void main() {
       'text': 'ZZ',
     });
   });
+
+  testWidgets(
+    'RhwpNativeEditor previews body text cut while delete is pending',
+    (tester) async {
+      final clipboard = _MockClipboard();
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        clipboard.handleMethodCall,
+      );
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      final deleteGate = Completer<void>();
+      session.commandGates['deleteText'] = deleteGate;
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      addTearDown(() {
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        );
+      });
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      await tester.tapAt(
+        tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+            const Offset(1, 6),
+      );
+      await tester.pump();
+
+      controller.selection = const RhwpSelectionRange(
+        start: RhwpCursorPosition(offset: 1),
+        end: RhwpCursorPosition(offset: 3),
+      );
+      await tester.pump();
+      session.renderedPages.clear();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyX);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      await tester.pump();
+
+      final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
+      expect(clipboardData?.text, 'bc');
+      expect(changedCalls, 0);
+      expect(session.renderedPages, isEmpty);
+      expect(controller.cursor, const RhwpCursorPosition(offset: 1));
+      expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+        'saveSnapshot',
+      ]);
+      expect(session.commands.map(jsonDecode), [
+        {
+          'type': 'exportSelectionHtml',
+          'section': 0,
+          'startParagraph': 0,
+          'startOffset': 1,
+          'endParagraph': 0,
+          'endOffset': 3,
+        },
+        {
+          'type': 'deleteText',
+          'section': 0,
+          'paragraph': 0,
+          'offset': 1,
+          'count': 2,
+        },
+      ]);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-pending-delete-mask')),
+        findsOneWidget,
+      );
+
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump();
+
+      expect(changedCalls, 0);
+      expect(session.renderedPages, isEmpty);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-pending-delete-mask')),
+        findsOneWidget,
+      );
+
+      deleteGate.complete();
+      await tester.pump();
+      await tester.pump();
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+      expect(session.renderedPages, [0]);
+    },
+  );
 
   testWidgets('RhwpNativeEditor pastes copied body text through HTML import', (
     tester,

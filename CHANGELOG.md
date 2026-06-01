@@ -82,6 +82,8 @@
 * Changed multiline Flutter-native table-cell paste to show the first inserted
   line, pending deletion mask, and final cell caret immediately while slow Rust
   cell insert/split commands are still pending.
+* Changed Flutter-native body and table-cell text cut to show pending deletion
+  masks and collapsed caret positions before slow Rust delete commands finish.
 * Added Flutter-native select-all behavior while editing table-cell text, so
   `Ctrl+A`/`Cmd+A` selects the active cell's internal text instead of body text.
 * Changed Flutter-native table-cell search results and replacements to use the
