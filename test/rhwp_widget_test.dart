@@ -9665,6 +9665,8 @@ void main() {
       'properties': {'fontSize': 1450},
     });
 
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-text-color-menu')));
+    await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey('rhwp-editor-text-color-#2563eb')),
     );
@@ -9682,6 +9684,10 @@ void main() {
     });
 
     await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-shade-color-menu')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
       find.byKey(const ValueKey('rhwp-editor-shade-color-#fef08a')),
     );
     await _pumpDocumentFrame(tester);
@@ -9697,6 +9703,8 @@ void main() {
       'properties': {'shadeColor': '#fef08a'},
     });
 
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-effects-menu')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('rhwp-editor-superscript')));
     await _pumpDocumentFrame(tester);
 
@@ -9711,6 +9719,8 @@ void main() {
       'properties': {'superscript': true, 'subscript': false},
     });
 
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-effects-menu')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('rhwp-editor-subscript')));
     await _pumpDocumentFrame(tester);
 
@@ -9725,6 +9735,8 @@ void main() {
       'properties': {'superscript': false, 'subscript': true},
     });
 
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-effects-menu')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('rhwp-editor-emboss')));
     await _pumpDocumentFrame(tester);
 
@@ -9739,6 +9751,8 @@ void main() {
       'properties': {'emboss': true, 'engrave': false},
     });
 
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-effects-menu')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('rhwp-editor-engrave')));
     await _pumpDocumentFrame(tester);
 
@@ -9939,12 +9953,27 @@ void main() {
         find.byKey(const ValueKey('rhwp-editor-apply-font-size')),
       );
       await tester.tap(
+        find.byKey(const ValueKey('rhwp-editor-text-color-menu')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
         find.byKey(const ValueKey('rhwp-editor-text-color-#2563eb')),
       );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('rhwp-editor-shade-color-menu')),
+      );
+      await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(const ValueKey('rhwp-editor-shade-color-#fef08a')),
       );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('rhwp-editor-effects-menu')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('rhwp-editor-superscript')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('rhwp-editor-effects-menu')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('rhwp-editor-emboss')));
       await tester.pump();
 
@@ -10043,13 +10072,26 @@ void main() {
       '14.5',
     );
     await tester.tap(find.byKey(const ValueKey('rhwp-editor-apply-font-size')));
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-text-color-menu')));
+    await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey('rhwp-editor-text-color-#2563eb')),
     );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-shade-color-menu')),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey('rhwp-editor-shade-color-#fef08a')),
     );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-effects-menu')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('rhwp-editor-superscript')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-effects-menu')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('rhwp-editor-emboss')));
     await tester.pump();
 

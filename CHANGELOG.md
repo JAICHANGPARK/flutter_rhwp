@@ -98,6 +98,9 @@
   including context-menu formatting actions while cell text is selected.
 * Kept Flutter-native editor focus after character-format toolbar actions, so
   follow-up shortcuts continue to apply to the current editor selection.
+* Compacted the Flutter-native format toolbar by moving text colors and advanced
+  effects into popup menus, and reset document click sequencing after toolbar
+  actions so follow-up page taps do not become accidental double-clicks.
 * Added Flutter-native Up/Down movement while editing table-cell text, using
   page-layer text geometry first and core cell-paragraph metrics as a fallback
   instead of moving the rectangular cell selection.

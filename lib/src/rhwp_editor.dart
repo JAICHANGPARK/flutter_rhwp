@@ -1640,6 +1640,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   int? _pendingDeletionRefreshRevision;
   final _composingTextListenable = ValueNotifier<String?>(null);
   int _renderRevision = 0;
+  int _selectionGestureRevision = 0;
   Set<int>? _renderPages;
   List<_EditorSearchMatch> _searchMatches = const [];
   int _activeSearchMatch = -1;
@@ -5236,6 +5237,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
   void _runFocusedEditorAction(Future<void> Function() action) {
     _focusEditor();
+    setState(() {
+      _selectionGestureRevision += 1;
+    });
     unawaited(action());
   }
 
@@ -11848,6 +11852,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
                         .where((match) => match.page == page)
                         .toList(growable: false),
                     layerRevision: _renderRevision,
+                    gestureRevision: _selectionGestureRevision,
                     activeSearchMatch: _activeSearchMatch < 0
                         ? null
                         : _searchMatches[_activeSearchMatch],
@@ -12001,6 +12006,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
     required this.pendingDeletionOverlays,
     required this.searchMatches,
     required this.layerRevision,
+    required this.gestureRevision,
     required this.activeSearchMatch,
     required this.fallbackEnabled,
     required this.onCursorPosition,
@@ -12026,6 +12032,7 @@ class _EditorSelectionOverlay extends StatefulWidget {
   final List<_PendingDeletionOverlay> pendingDeletionOverlays;
   final List<_EditorSearchMatch> searchMatches;
   final int layerRevision;
+  final int gestureRevision;
   final _EditorSearchMatch? activeSearchMatch;
   final bool fallbackEnabled;
   final ValueChanged<RhwpCursorPosition> onCursorPosition;
@@ -12086,6 +12093,9 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
         oldWidget.page != widget.page ||
         oldWidget.layerRevision != widget.layerRevision) {
       _layerTree = _loadLayerTree();
+      _resetPrimaryClickSequence();
+    }
+    if (oldWidget.gestureRevision != widget.gestureRevision) {
       _resetPrimaryClickSequence();
     }
     if (oldWidget.pendingTextOverlaysListenable !=
@@ -15141,19 +15151,6 @@ class _EditorToolbarState extends State<_EditorToolbar> {
         : _toolbarFontFamily;
     return [
       _RibbonGroup(
-        label: '스타일',
-        child: Row(
-          children: [
-            _ToolbarIconButton(
-              tooltip: 'Style',
-              buttonKey: const ValueKey('rhwp-editor-style-picker'),
-              icon: Icons.style_outlined,
-              onPressed: widget.busy ? null : widget.onStylePicker,
-            ),
-          ],
-        ),
-      ),
-      _RibbonGroup(
         label: '글자 모양',
         child: Row(
           children: [
@@ -15181,37 +15178,9 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               selected: charFormat.strikethrough == true,
               onPressed: widget.busy ? null : widget.onStrikethrough,
             ),
-            _ToolbarIconButton(
-              tooltip: 'Superscript',
-              buttonKey: const ValueKey('rhwp-editor-superscript'),
-              icon: Icons.superscript,
-              selected: charFormat.superscript == true,
-              onPressed: widget.busy ? null : widget.onSuperscript,
-            ),
-            _ToolbarIconButton(
-              tooltip: 'Subscript',
-              buttonKey: const ValueKey('rhwp-editor-subscript'),
-              icon: Icons.subscript,
-              selected: charFormat.subscript == true,
-              onPressed: widget.busy ? null : widget.onSubscript,
-            ),
-            _ToolbarIconButton(
-              tooltip: 'Emboss',
-              buttonKey: const ValueKey('rhwp-editor-emboss'),
-              icon: Icons.layers_outlined,
-              selected: charFormat.emboss == true,
-              onPressed: widget.busy ? null : widget.onEmboss,
-            ),
-            _ToolbarIconButton(
-              tooltip: 'Engrave',
-              buttonKey: const ValueKey('rhwp-editor-engrave'),
-              icon: Icons.layers_clear_outlined,
-              selected: charFormat.engrave == true,
-              onPressed: widget.busy ? null : widget.onEngrave,
-            ),
             const SizedBox(width: 6),
             SizedBox(
-              width: 150,
+              width: 128,
               child: DropdownButtonFormField<String>(
                 key: const ValueKey('rhwp-editor-font-family-field'),
                 initialValue: fontFamilyValue,
@@ -15241,7 +15210,7 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               onPressed: widget.busy ? null : () => _stepToolbarFontSize(-1),
             ),
             SizedBox(
-              width: 86,
+              width: 78,
               child: TextField(
                 key: const ValueKey('rhwp-editor-font-size-field'),
                 controller: _toolbarFontSizeController,
@@ -15273,35 +15242,52 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               onPressed: widget.busy ? null : _applyToolbarFontSize,
             ),
             const SizedBox(width: 4),
-            for (final swatch in _charColorSwatches)
-              _ColorSwatchButton(
-                key: ValueKey('rhwp-editor-text-color-${swatch.value}'),
-                tooltip: 'Text color ${swatch.label}',
-                color: swatch.color,
-                selected:
-                    (charFormat.textColor ?? _toolbarTextColor) == swatch.value,
-                onPressed: widget.busy
-                    ? null
-                    : () => _applyToolbarTextColor(swatch.value),
-              ),
-            const SizedBox(width: 8),
-            for (final swatch in _charShadeSwatches)
-              _ColorSwatchButton(
-                key: ValueKey('rhwp-editor-shade-color-${swatch.value}'),
-                tooltip: 'Text background ${swatch.label}',
-                color: swatch.color,
-                selected:
-                    (charFormat.shadeColor ?? _toolbarShadeColor) ==
-                    swatch.value,
-                onPressed: widget.busy
-                    ? null
-                    : () => _applyToolbarShadeColor(swatch.value),
-              ),
+            _ToolbarColorMenu(
+              buttonKey: const ValueKey('rhwp-editor-text-color-menu'),
+              itemKeyPrefix: 'rhwp-editor-text-color',
+              tooltip: 'Text color',
+              icon: Icons.format_color_text,
+              swatches: _charColorSwatches,
+              selectedValue: charFormat.textColor ?? _toolbarTextColor,
+              enabled: !widget.busy,
+              onSelected: _applyToolbarTextColor,
+            ),
+            _ToolbarColorMenu(
+              buttonKey: const ValueKey('rhwp-editor-shade-color-menu'),
+              itemKeyPrefix: 'rhwp-editor-shade-color',
+              tooltip: 'Text background',
+              icon: Icons.format_color_fill,
+              swatches: _charShadeSwatches,
+              selectedValue: charFormat.shadeColor ?? _toolbarShadeColor,
+              enabled: !widget.busy,
+              onSelected: _applyToolbarShadeColor,
+            ),
+            _ToolbarEffectsMenu(
+              enabled: !widget.busy,
+              charFormat: charFormat,
+              onSuperscript: widget.onSuperscript,
+              onSubscript: widget.onSubscript,
+              onEmboss: widget.onEmboss,
+              onEngrave: widget.onEngrave,
+            ),
             _ToolbarIconButton(
               tooltip: 'Character shape',
               buttonKey: const ValueKey('rhwp-editor-character-shape'),
               icon: Icons.text_fields,
               onPressed: widget.busy ? null : widget.onCharShape,
+            ),
+          ],
+        ),
+      ),
+      _RibbonGroup(
+        label: '스타일',
+        child: Row(
+          children: [
+            _ToolbarIconButton(
+              tooltip: 'Style',
+              buttonKey: const ValueKey('rhwp-editor-style-picker'),
+              icon: Icons.style_outlined,
+              onPressed: widget.busy ? null : widget.onStylePicker,
             ),
           ],
         ),
@@ -19316,6 +19302,162 @@ class _ToolbarShapeMenu extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _ToolbarColorMenu extends StatelessWidget {
+  const _ToolbarColorMenu({
+    required this.buttonKey,
+    required this.itemKeyPrefix,
+    required this.tooltip,
+    required this.icon,
+    required this.swatches,
+    required this.selectedValue,
+    required this.enabled,
+    required this.onSelected,
+  });
+
+  final Key buttonKey;
+  final String itemKeyPrefix;
+  final String tooltip;
+  final IconData icon;
+  final List<({String label, Color color, String value})> swatches;
+  final String selectedValue;
+  final bool enabled;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<String>(
+      key: buttonKey,
+      tooltip: tooltip,
+      enabled: enabled,
+      icon: Icon(icon),
+      onSelected: onSelected,
+      itemBuilder: (context) => [
+        for (final swatch in swatches)
+          PopupMenuItem<String>(
+            key: ValueKey('$itemKeyPrefix-${swatch.value}'),
+            value: swatch.value,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox.square(
+                  dimension: 22,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: swatch.color,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Theme.of(context).dividerColor),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(swatch.label),
+                const SizedBox(width: 12),
+                if (selectedValue == swatch.value)
+                  Icon(
+                    Icons.check,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ToolbarEffectsMenu extends StatelessWidget {
+  const _ToolbarEffectsMenu({
+    required this.enabled,
+    required this.charFormat,
+    required this.onSuperscript,
+    required this.onSubscript,
+    required this.onEmboss,
+    required this.onEngrave,
+  });
+
+  final bool enabled;
+  final _PendingCharFormat charFormat;
+  final VoidCallback onSuperscript;
+  final VoidCallback onSubscript;
+  final VoidCallback onEmboss;
+  final VoidCallback onEngrave;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<VoidCallback>(
+      key: const ValueKey('rhwp-editor-effects-menu'),
+      tooltip: 'Text effects',
+      enabled: enabled,
+      icon: const Icon(Icons.auto_fix_high_outlined),
+      onSelected: (action) => action(),
+      itemBuilder: (context) => [
+        _effectItem(
+          context: context,
+          key: const ValueKey('rhwp-editor-superscript'),
+          icon: Icons.superscript,
+          label: 'Superscript',
+          selected: charFormat.superscript == true,
+          action: onSuperscript,
+        ),
+        _effectItem(
+          context: context,
+          key: const ValueKey('rhwp-editor-subscript'),
+          icon: Icons.subscript,
+          label: 'Subscript',
+          selected: charFormat.subscript == true,
+          action: onSubscript,
+        ),
+        _effectItem(
+          context: context,
+          key: const ValueKey('rhwp-editor-emboss'),
+          icon: Icons.layers_outlined,
+          label: 'Emboss',
+          selected: charFormat.emboss == true,
+          action: onEmboss,
+        ),
+        _effectItem(
+          context: context,
+          key: const ValueKey('rhwp-editor-engrave'),
+          icon: Icons.layers_clear_outlined,
+          label: 'Engrave',
+          selected: charFormat.engrave == true,
+          action: onEngrave,
+        ),
+      ],
+    );
+  }
+
+  PopupMenuItem<VoidCallback> _effectItem({
+    required BuildContext context,
+    required Key key,
+    required IconData icon,
+    required String label,
+    required bool selected,
+    required VoidCallback action,
+  }) {
+    return PopupMenuItem<VoidCallback>(
+      key: key,
+      value: action,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18),
+          const SizedBox(width: 10),
+          Text(label),
+          const SizedBox(width: 12),
+          if (selected)
+            Icon(
+              Icons.check,
+              size: 18,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+        ],
+      ),
     );
   }
 }
