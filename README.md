@@ -19,6 +19,7 @@ documents.
 - Use `RhwpFullEditor` for the upstream Web editor UI.
 - Use `RhwpNativeEditor` for the Flutter widget editor track.
 - Evaluate table formulas from the Flutter-native table ribbon or the Dart API.
+- Manage bookmarks from the Flutter-native input ribbon or the Dart API.
 - Split and merge paragraphs inside active table cells from the Flutter-native
   editor with Enter, Backspace, and Delete.
 - Keep native-editor typing, IME composing, caret, and selection overlays
@@ -168,6 +169,15 @@ await document.insertShape(
   offset: 0,
   shapeType: 'rectangle',
 );
+
+await document.addBookmark(
+  section: 0,
+  paragraph: 0,
+  offset: 0,
+  name: 'intro',
+);
+
+final bookmarks = await document.bookmarks();
 
 await document.createHeader(section: 0);
 await document.createFooter(section: 0);
@@ -385,7 +395,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   backed by text extraction, and basic
   text/table/picture/shape
   insert/delete, with shape presets for rectangle, ellipse, line, and text box,
-  page/column break insertion, plus table
+  bookmark list/add/delete/rename through the input ribbon, page/column break
+  insertion, plus table
   row above/below insertion and row deletion, column left/right insertion and
   column deletion, and cell
   merge/split/split-into-grid/range split command flow, selected-cell range

@@ -577,6 +577,60 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor insert ribbon adds a bookmark', (tester) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 900,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 0, offset: 2);
+    await tester.pump();
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-bookmark')),
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-bookmark')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('intro'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-bookmark-name-field')),
+      'chapter-start',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-bookmark-add')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+    ]);
+    expect(session.commands.map(jsonDecode).toList(), [
+      {'type': 'getBookmarks'},
+      {
+        'type': 'addBookmark',
+        'section': 0,
+        'paragraph': 0,
+        'offset': 2,
+        'name': 'chapter-start',
+      },
+    ]);
+  });
+
   testWidgets('RhwpNativeEditor inserts page and column breaks', (
     tester,
   ) async {
@@ -11543,6 +11597,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
     await _waitForCommandGate(commandType);
     if (command is Map && command['type'] == 'getStyleList') {
       return '[{"id":0,"name":"본문","englishName":"Body","type":0,"nextStyleId":0,"paraShapeId":0,"charShapeId":0},{"id":3,"name":"제목 1","englishName":"Heading 1","type":0,"nextStyleId":0,"paraShapeId":1,"charShapeId":1}]';
+    }
+    if (command is Map && command['type'] == 'getBookmarks') {
+      return '[{"name":"intro","sec":0,"para":0,"ctrlIdx":2,"charPos":1}]';
     }
     if (command is Map && command['type'] == 'insertTable') {
       final paragraph = command['paragraph'];

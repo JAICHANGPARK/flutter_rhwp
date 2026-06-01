@@ -332,6 +332,35 @@ class RhwpStyleInfo {
   }
 }
 
+class RhwpBookmark {
+  const RhwpBookmark({
+    required this.name,
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.charPosition,
+    this.raw,
+  });
+
+  factory RhwpBookmark.fromJson(Map<String, Object?> json) {
+    return RhwpBookmark(
+      name: json['name']?.toString() ?? '',
+      section: _intFromJson(json['sec']) ?? 0,
+      paragraph: _intFromJson(json['para']) ?? 0,
+      controlIndex: _intFromJson(json['ctrlIdx']) ?? 0,
+      charPosition: _intFromJson(json['charPos']) ?? 0,
+      raw: json,
+    );
+  }
+
+  final String name;
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int charPosition;
+  final Map<String, Object?>? raw;
+}
+
 class RhwpCharProperties {
   const RhwpCharProperties({
     required this.rawJson,
@@ -723,6 +752,28 @@ abstract class RhwpCommand {
     required int offset,
     required int startNumber,
   }) = RhwpInsertNewNumberCommand;
+
+  factory RhwpCommand.getBookmarks() = RhwpGetBookmarksCommand;
+
+  factory RhwpCommand.addBookmark({
+    required int section,
+    required int paragraph,
+    required int offset,
+    required String name,
+  }) = RhwpAddBookmarkCommand;
+
+  factory RhwpCommand.deleteBookmark({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+  }) = RhwpDeleteBookmarkCommand;
+
+  factory RhwpCommand.renameBookmark({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required String name,
+  }) = RhwpRenameBookmarkCommand;
 
   factory RhwpCommand.insertTable({
     required int section,
@@ -1725,6 +1776,79 @@ class RhwpInsertNewNumberCommand extends RhwpCommand {
     'paragraph': paragraph,
     'offset': offset,
     'startNumber': startNumber,
+  };
+}
+
+class RhwpGetBookmarksCommand extends RhwpCommand {
+  const RhwpGetBookmarksCommand();
+
+  @override
+  Map<String, Object?> toJson() => {'type': 'getBookmarks'};
+}
+
+class RhwpAddBookmarkCommand extends RhwpCommand {
+  const RhwpAddBookmarkCommand({
+    required this.section,
+    required this.paragraph,
+    required this.offset,
+    required this.name,
+  });
+
+  final int section;
+  final int paragraph;
+  final int offset;
+  final String name;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'addBookmark',
+    'section': section,
+    'paragraph': paragraph,
+    'offset': offset,
+    'name': name,
+  };
+}
+
+class RhwpDeleteBookmarkCommand extends RhwpCommand {
+  const RhwpDeleteBookmarkCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'deleteBookmark',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+  };
+}
+
+class RhwpRenameBookmarkCommand extends RhwpCommand {
+  const RhwpRenameBookmarkCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.name,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final String name;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'renameBookmark',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'name': name,
   };
 }
 
@@ -3817,6 +3941,65 @@ class RhwpDocument {
         paragraph: paragraph,
         offset: offset,
         startNumber: startNumber,
+      ),
+    );
+  }
+
+  Future<List<RhwpBookmark>> bookmarks() async {
+    final result = await apply(RhwpCommand.getBookmarks());
+    final decoded = jsonDecode(result);
+    if (decoded is! List) {
+      return const [];
+    }
+    return decoded
+        .whereType<Map>()
+        .map((item) => item.cast<String, Object?>())
+        .map(RhwpBookmark.fromJson)
+        .toList(growable: false);
+  }
+
+  Future<String> addBookmark({
+    required int section,
+    required int paragraph,
+    required int offset,
+    required String name,
+  }) {
+    return apply(
+      RhwpCommand.addBookmark(
+        section: section,
+        paragraph: paragraph,
+        offset: offset,
+        name: name,
+      ),
+    );
+  }
+
+  Future<String> deleteBookmark({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+  }) {
+    return apply(
+      RhwpCommand.deleteBookmark(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+      ),
+    );
+  }
+
+  Future<String> renameBookmark({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required String name,
+  }) {
+    return apply(
+      RhwpCommand.renameBookmark(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        name: name,
       ),
     );
   }

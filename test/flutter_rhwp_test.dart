@@ -109,6 +109,70 @@ void main() {
     });
   });
 
+  test('bookmark commands serialize to the Rust command envelope', () {
+    expect(jsonDecode(jsonEncode(RhwpCommand.getBookmarks().toJson())), {
+      'type': 'getBookmarks',
+    });
+
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.addBookmark(
+            section: 0,
+            paragraph: 1,
+            offset: 2,
+            name: 'intro',
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'addBookmark',
+        'section': 0,
+        'paragraph': 1,
+        'offset': 2,
+        'name': 'intro',
+      },
+    );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.deleteBookmark(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 3,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'deleteBookmark',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 3,
+      },
+    );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.renameBookmark(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 3,
+            name: 'intro-renamed',
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'renameBookmark',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 3,
+        'name': 'intro-renamed',
+      },
+    );
+  });
+
   test('insert picture command serializes to the Rust command envelope', () {
     final command = RhwpCommand.insertPicture(
       section: 0,
@@ -1834,6 +1898,55 @@ void main() {
       'color': 0x2563eb,
     });
 
+    final bookmarks = await document.bookmarks();
+
+    expect(jsonDecode(session.lastCommandJson!), {'type': 'getBookmarks'});
+    expect(bookmarks, hasLength(1));
+    expect(bookmarks.single.name, 'intro');
+    expect(bookmarks.single.section, 0);
+    expect(bookmarks.single.paragraph, 1);
+    expect(bookmarks.single.controlIndex, 3);
+    expect(bookmarks.single.charPosition, 2);
+
+    await document.addBookmark(
+      section: 0,
+      paragraph: 1,
+      offset: 2,
+      name: 'intro',
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'addBookmark',
+      'section': 0,
+      'paragraph': 1,
+      'offset': 2,
+      'name': 'intro',
+    });
+
+    await document.deleteBookmark(section: 0, paragraph: 1, controlIndex: 3);
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'deleteBookmark',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 3,
+    });
+
+    await document.renameBookmark(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 3,
+      name: 'intro-renamed',
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'renameBookmark',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 3,
+      'name': 'intro-renamed',
+    });
+
     await document.insertPicture(
       section: 0,
       paragraph: 1,
@@ -3420,6 +3533,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'getStyleList') {
       return '[{"id":0,"name":"본문","englishName":"Body","type":0,"nextStyleId":0,"paraShapeId":0,"charShapeId":0},{"id":3,"name":"제목 1","englishName":"Heading 1","type":0,"nextStyleId":0,"paraShapeId":1,"charShapeId":1}]';
+    }
+    if (command is Map && command['type'] == 'getBookmarks') {
+      return '[{"name":"intro","sec":0,"para":1,"ctrlIdx":3,"charPos":2}]';
     }
     if (command is Map &&
         (command['type'] == 'getCharPropertiesAt' ||

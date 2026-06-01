@@ -930,6 +930,20 @@ class _EquationDialogResult {
   final int color;
 }
 
+enum _BookmarkDialogAction { add, delete, rename }
+
+class _BookmarkDialogResult {
+  const _BookmarkDialogResult({
+    required this.action,
+    required this.name,
+    this.bookmark,
+  });
+
+  final _BookmarkDialogAction action;
+  final String name;
+  final RhwpBookmark? bookmark;
+}
+
 class _SplitTableCellIntoDialogResult {
   const _SplitTableCellIntoDialogResult({
     required this.rows,
@@ -3512,6 +3526,96 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       );
       _controller.cursor = cursor.copyWith(offset: cursor.offset + 1);
     });
+  }
+
+  Future<void> _showBookmarkDialog() async {
+    if (_busy || _controller.tableCellSelection != null) {
+      return;
+    }
+
+    final cursor = _readCursor();
+    setState(() {
+      _busy = true;
+      _visibleBusy = true;
+      _error = null;
+    });
+
+    late final List<RhwpBookmark> bookmarks;
+    try {
+      bookmarks = await widget.document.bookmarks();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _visibleBusy = false;
+          _error = error;
+        });
+      }
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _busy = false;
+      _visibleBusy = false;
+    });
+
+    final result = await showDialog<_BookmarkDialogResult>(
+      context: context,
+      builder: (context) => _BookmarkDialog(
+        bookmarks: bookmarks,
+        suggestedName: _suggestBookmarkName(bookmarks),
+      ),
+    );
+    if (!mounted || result == null) {
+      return;
+    }
+
+    await _runEdit(() async {
+      final response = switch (result.action) {
+        _BookmarkDialogAction.add => await widget.document.addBookmark(
+          section: cursor.section,
+          paragraph: cursor.paragraph,
+          offset: cursor.offset,
+          name: result.name,
+        ),
+        _BookmarkDialogAction.delete => await widget.document.deleteBookmark(
+          section: result.bookmark!.section,
+          paragraph: result.bookmark!.paragraph,
+          controlIndex: result.bookmark!.controlIndex,
+        ),
+        _BookmarkDialogAction.rename => await widget.document.renameBookmark(
+          section: result.bookmark!.section,
+          paragraph: result.bookmark!.paragraph,
+          controlIndex: result.bookmark!.controlIndex,
+          name: result.name,
+        ),
+      };
+      _throwIfCommandRejected(response);
+    });
+  }
+
+  String _suggestBookmarkName(List<RhwpBookmark> bookmarks) {
+    final existing = bookmarks.map((bookmark) => bookmark.name).toSet();
+    for (var index = bookmarks.length + 1; ; index += 1) {
+      final name = 'bookmark_$index';
+      if (!existing.contains(name)) {
+        return name;
+      }
+    }
+  }
+
+  void _throwIfCommandRejected(String response) {
+    try {
+      final decoded = jsonDecode(response);
+      if (decoded is Map && decoded['ok'] == false) {
+        throw StateError(decoded['error']?.toString() ?? 'Command failed');
+      }
+    } on FormatException {
+      return;
+    }
   }
 
   Future<void> _insertPicture() async {
@@ -9165,6 +9269,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           },
           onInsertFootnote: _insertFootnote,
           onInsertEquation: _showInsertEquationDialog,
+          onBookmark: _showBookmarkDialog,
           onInsertPicture: _insertPicture,
           onInsertShape: _insertShape,
           onInsertPageBreak: _insertPageBreak,
@@ -11384,6 +11489,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onToggleInsertTableTreatAsChar,
     required this.onInsertFootnote,
     required this.onInsertEquation,
+    required this.onBookmark,
     required this.onInsertPicture,
     required this.onInsertShape,
     required this.onInsertPageBreak,
@@ -11515,6 +11621,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onToggleInsertTableTreatAsChar;
   final VoidCallback onInsertFootnote;
   final VoidCallback onInsertEquation;
+  final VoidCallback onBookmark;
   final VoidCallback onInsertPicture;
   final ValueChanged<_EditorShapePreset> onInsertShape;
   final VoidCallback onInsertPageBreak;
@@ -12089,6 +12196,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               buttonKey: const ValueKey('rhwp-editor-insert-equation'),
               icon: Icons.functions,
               onPressed: widget.busy ? null : widget.onInsertEquation,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Bookmark',
+              buttonKey: const ValueKey('rhwp-editor-bookmark'),
+              icon: Icons.bookmark_border,
+              onPressed: widget.busy ? null : widget.onBookmark,
             ),
             _ToolbarIconButton(
               tooltip: 'Insert picture',
@@ -14369,6 +14482,168 @@ class _EquationDialogState extends State<_EquationDialog> {
 int _equationColorFromHex(String value) {
   final hex = value.replaceFirst('#', '');
   return int.tryParse(hex, radix: 16) ?? 0;
+}
+
+class _BookmarkDialog extends StatefulWidget {
+  const _BookmarkDialog({required this.bookmarks, required this.suggestedName});
+
+  final List<RhwpBookmark> bookmarks;
+  final String suggestedName;
+
+  @override
+  State<_BookmarkDialog> createState() => _BookmarkDialogState();
+}
+
+class _BookmarkDialogState extends State<_BookmarkDialog> {
+  late final TextEditingController _nameController;
+  RhwpBookmark? _selectedBookmark;
+
+  bool get _hasName => _nameController.text.trim().isNotEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.suggestedName);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedBookmark = _selectedBookmark;
+    return AlertDialog(
+      title: const Text('책갈피'),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              key: const ValueKey('rhwp-bookmark-name-field'),
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: 'Bookmark name',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              onChanged: (_) => setState(() {}),
+              onSubmitted: (_) {
+                if (_hasName) {
+                  _addBookmark();
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+            Text('Existing', style: Theme.of(context).textTheme.labelMedium),
+            const SizedBox(height: 8),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 180),
+              child: widget.bookmarks.isEmpty
+                  ? const SizedBox(
+                      height: 44,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text('No bookmarks'),
+                      ),
+                    )
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: widget.bookmarks.length,
+                      itemBuilder: (context, index) {
+                        final bookmark = widget.bookmarks[index];
+                        final selected =
+                            selectedBookmark?.section == bookmark.section &&
+                            selectedBookmark?.paragraph == bookmark.paragraph &&
+                            selectedBookmark?.controlIndex ==
+                                bookmark.controlIndex;
+                        return ListTile(
+                          key: ValueKey('rhwp-bookmark-${bookmark.name}'),
+                          dense: true,
+                          selected: selected,
+                          title: Text(bookmark.name),
+                          subtitle: Text(
+                            'Sec ${bookmark.section} / Para ${bookmark.paragraph} / Offset ${bookmark.charPosition}',
+                          ),
+                          onTap: () {
+                            setState(() {
+                              _selectedBookmark = bookmark;
+                              _nameController.text = bookmark.name;
+                            });
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          key: const ValueKey('rhwp-bookmark-delete'),
+          onPressed: selectedBookmark == null ? null : _deleteBookmark,
+          child: const Text('Delete'),
+        ),
+        TextButton(
+          key: const ValueKey('rhwp-bookmark-rename'),
+          onPressed: selectedBookmark == null || !_hasName
+              ? null
+              : _renameBookmark,
+          child: const Text('Rename'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const ValueKey('rhwp-bookmark-add'),
+          onPressed: _hasName ? _addBookmark : null,
+          child: const Text('Add'),
+        ),
+      ],
+    );
+  }
+
+  void _addBookmark() {
+    Navigator.of(context).pop(
+      _BookmarkDialogResult(
+        action: _BookmarkDialogAction.add,
+        name: _nameController.text.trim(),
+      ),
+    );
+  }
+
+  void _deleteBookmark() {
+    final bookmark = _selectedBookmark;
+    if (bookmark == null) {
+      return;
+    }
+    Navigator.of(context).pop(
+      _BookmarkDialogResult(
+        action: _BookmarkDialogAction.delete,
+        name: bookmark.name,
+        bookmark: bookmark,
+      ),
+    );
+  }
+
+  void _renameBookmark() {
+    final bookmark = _selectedBookmark;
+    if (bookmark == null) {
+      return;
+    }
+    Navigator.of(context).pop(
+      _BookmarkDialogResult(
+        action: _BookmarkDialogAction.rename,
+        name: _nameController.text.trim(),
+        bookmark: bookmark,
+      ),
+    );
+  }
 }
 
 Future<_ResolvedEditorImage> _resolveEditorImage(RhwpEditorImage image) async {

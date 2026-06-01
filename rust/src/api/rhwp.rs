@@ -428,6 +428,36 @@ impl RhwpSession {
                     )
                     .map_err(error_to_string)
             }
+            RhwpCommand::GetBookmarks => inner
+                .document
+                .get_bookmarks()
+                .map_err(|error| format!("{error:?}")),
+            RhwpCommand::AddBookmark {
+                section,
+                paragraph,
+                offset,
+                name,
+            } => inner
+                .document
+                .add_bookmark(section, paragraph, offset, &name)
+                .map_err(|error| format!("{error:?}")),
+            RhwpCommand::DeleteBookmark {
+                section,
+                paragraph,
+                control_index,
+            } => inner
+                .document
+                .delete_bookmark(section, paragraph, control_index)
+                .map_err(|error| format!("{error:?}")),
+            RhwpCommand::RenameBookmark {
+                section,
+                paragraph,
+                control_index,
+                name,
+            } => inner
+                .document
+                .rename_bookmark(section, paragraph, control_index, &name)
+                .map_err(|error| format!("{error:?}")),
             RhwpCommand::InsertTable {
                 section,
                 paragraph,
@@ -1455,6 +1485,26 @@ enum RhwpCommand {
         offset: u32,
         #[serde(rename = "startNumber")]
         start_number: u32,
+    },
+    GetBookmarks,
+    AddBookmark {
+        section: u32,
+        paragraph: u32,
+        offset: u32,
+        name: String,
+    },
+    DeleteBookmark {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+    },
+    RenameBookmark {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        name: String,
     },
     InsertTable {
         section: u32,
@@ -2699,6 +2749,34 @@ mod tests {
                     .to_string(),
             )
             .expect("insert equation command should be accepted");
+        session
+            .apply_command(
+                r#"{"type":"addBookmark","section":0,"paragraph":0,"offset":5,"name":"intro"}"#
+                    .to_string(),
+            )
+            .expect("add bookmark command should be accepted");
+        let bookmarks_result = session
+            .apply_command(r#"{"type":"getBookmarks"}"#.to_string())
+            .expect("get bookmarks command should be accepted");
+        let bookmarks: Value =
+            serde_json::from_str(&bookmarks_result).expect("bookmarks result should be JSON");
+        let first_bookmark = bookmarks
+            .as_array()
+            .and_then(|items| items.first())
+            .expect("bookmarks result should include the inserted bookmark");
+        let bookmark_control = first_bookmark["ctrlIdx"]
+            .as_u64()
+            .expect("bookmark should expose a control index");
+        session
+            .apply_command(format!(
+                r#"{{"type":"renameBookmark","section":0,"paragraph":0,"controlIndex":{bookmark_control},"name":"intro2"}}"#
+            ))
+            .expect("rename bookmark command should be accepted");
+        session
+            .apply_command(format!(
+                r#"{{"type":"deleteBookmark","section":0,"paragraph":0,"controlIndex":{bookmark_control}}}"#
+            ))
+            .expect("delete bookmark command should be accepted");
         session
             .apply_command(
                 r#"{"type":"insertPicture","section":0,"paragraph":0,"offset":6,"imageData":[137,80,78,71],"width":750,"height":750,"naturalWidthPx":10,"naturalHeightPx":10,"extension":"png","description":"test"}"#
