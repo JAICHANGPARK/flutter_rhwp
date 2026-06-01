@@ -11394,6 +11394,24 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('rhwp-editor-find')));
     await _pumpDocumentFrame(tester);
 
+    expect(controller.tableCellSelection?.activeCellIndex, 7);
+    expect(controller.tableCellSelection?.activeOffset, 4);
+    expect(controller.tableCellSelection?.selectionBaseCellParagraph, 0);
+    expect(controller.tableCellSelection?.selectionBaseOffset, 1);
+    expect(controller.tableCellSelection?.hasTextSelection, isTrue);
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('rhwp-editor-status-input-mode')),
+          )
+          .data,
+      'Selection',
+    );
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-table-text-selection')),
+      findsOneWidget,
+    );
+
     await tester.enterText(
       find.byKey(const ValueKey('rhwp-editor-replace-field')),
       'XX',
@@ -11430,6 +11448,9 @@ void main() {
     expect(find.text('0 / 0'), findsOneWidget);
     expect(controller.tableCellSelection?.activeCellIndex, 7);
     expect(controller.tableCellSelection?.activeOffset, 3);
+    expect(controller.tableCellSelection?.selectionBaseCellParagraph, 0);
+    expect(controller.tableCellSelection?.selectionBaseOffset, 1);
+    expect(controller.tableCellSelection?.hasTextSelection, isTrue);
     expect(controller.tableCellSelection?.isTextEditing, isTrue);
   });
 

@@ -1177,8 +1177,10 @@ class _EditorSearchMatch {
       endColumn: cellEndColumn,
       activeCellIndex: cellIndex,
       activeCellParagraph: cellParagraph,
-      activeOffset: startOffset,
+      activeOffset: endOffset,
       isTextEditing: true,
+      selectionBaseCellParagraph: cellParagraph,
+      selectionBaseOffset: startOffset,
     );
   }
 
@@ -5804,6 +5806,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       activeCellParagraph: tableSelection.activeCellParagraph,
       activeOffset: replacementEnd.offset,
       isTextEditing: true,
+      selectionBaseCellParagraph: replacementLength > 0
+          ? tableSelection.activeCellParagraph
+          : null,
+      selectionBaseOffset: replacementLength > 0 ? match.startOffset : null,
     );
     _controller.clearSelection();
     _syncTableSelectionFields(replacementSelection);
@@ -19061,9 +19067,9 @@ class _EditorStatusBar extends StatelessWidget {
               ),
               const VerticalDivider(width: 24),
               Text(
-                selection.isCollapsed
-                    ? (overwriteMode ? 'Overwrite' : 'Insert')
-                    : 'Selection',
+                _hasTextSelection()
+                    ? 'Selection'
+                    : (overwriteMode ? 'Overwrite' : 'Insert'),
                 key: const ValueKey('rhwp-editor-status-input-mode'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
@@ -19151,6 +19157,11 @@ class _EditorStatusBar extends StatelessWidget {
 
     final cursor = selection.end;
     return 'Sec ${cursor.section} / Para ${cursor.paragraph} / Offset ${cursor.offset}';
+  }
+
+  bool _hasTextSelection() {
+    return !selection.isCollapsed ||
+        (tableCellSelection?.hasTextSelection ?? false);
   }
 }
 
