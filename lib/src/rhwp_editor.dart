@@ -1626,7 +1626,6 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   bool _textInputUndoBatchOpen = false;
   bool _desktopTextInputConnectionChurnActive = false;
   bool _desktopTextInputConnectionCloseWindowActive = false;
-  bool _desktopTextInputActionReceivedSinceCommit = false;
   bool _suppressControllerChangedSetState = false;
   bool _showParagraphMarks = false;
   bool _showTransparentTableBorders = false;
@@ -1917,9 +1916,6 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       _cancelExternalFocusRefreshRelease();
       _textInputFocusReleaseTimer?.cancel();
       _textInputFocusReleaseTimer = null;
-      if (_hasDeferredEditRefresh && _hasPendingOptimisticTextEdit) {
-        _desktopTextInputActionReceivedSinceCommit = true;
-      }
       _desktopTextInputConnectionChurnActive = false;
       _clearDesktopTextInputConnectionCloseWindow();
       _holdDeferredEditRefreshForTextInput();
@@ -7217,12 +7213,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         _isDesktopTextInputPlatform &&
         _hasDeferredEditRefresh &&
         _hasPendingOptimisticTextEdit &&
-        !_hasExternalPrimaryFocusEndingTextInput &&
-        (_focusNode.hasFocus ||
-            _hasActiveTextInputConnection ||
-            _hasPendingDesktopTextInputFocusRelease ||
-            _desktopTextInputConnectionChurnActive ||
-            _desktopTextInputCommitHoldActive);
+        _textRefreshHeldForFocusedInput &&
+        !_hasExternalPrimaryFocusEndingTextInput;
   }
 
   bool get _shouldTreatPendingDesktopTextEditAsChurn {
@@ -7252,12 +7244,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         _textRefreshHeldForFocusedInput &&
         _hasDeferredEditRefresh &&
         _hasPendingOptimisticTextEdit &&
-        !_hasExternalPrimaryFocus &&
-        (_focusNode.hasFocus ||
-            _hasActiveTextInputConnection ||
-            _hasPendingDesktopTextInputFocusRelease ||
-            _desktopTextInputConnectionChurnActive ||
-            _desktopTextInputCommitHoldActive);
+        !_hasExternalPrimaryFocusEndingTextInput;
   }
 
   bool get _shouldHoldDeferredRefreshForTextInput {
@@ -7289,8 +7276,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         _pendingTextInputCommits <= 0 &&
         !_focusNode.hasFocus &&
         !_hasExternalPrimaryFocus &&
-        (!widget.holdTextRefreshWhileFocused ||
-            _desktopTextInputActionReceivedSinceCommit);
+        !widget.holdTextRefreshWhileFocused;
   }
 
   Duration get _desktopTextInputFocusReleaseDelay {
@@ -7556,7 +7542,6 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _textRefreshHeldForFocusedInput = false;
     _textInputUndoBatchOpen = false;
     _desktopTextInputConnectionChurnActive = false;
-    _desktopTextInputActionReceivedSinceCommit = false;
     _clearDesktopTextInputCommitHoldWindow();
     _clearDesktopTextInputConnectionCloseWindow();
     _cancelExternalFocusRefreshRelease();
@@ -8668,7 +8653,6 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     final hadComposingPreview = _composingText != null;
-    _desktopTextInputActionReceivedSinceCommit = false;
     _startTextInputActionIgnoreWindow();
     _startDesktopTextInputCommitHoldWindow();
     _resetTextInputValue(notify: hadComposingPreview);
@@ -8677,7 +8661,6 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
   @override
   void performAction(TextInputAction action) {
-    _desktopTextInputActionReceivedSinceCommit = true;
     _resetTextInputValue();
     final pendingDesktopEdit =
         _isDesktopTextInputPlatform &&

@@ -83,6 +83,8 @@
 * Delayed external-focus-triggered refresh release while desktop text input is
   still settling, so Space/text commits do not refresh the example document
   between keystrokes on macOS/Linux/Windows.
+* Kept desktop text-input `null` focus churn from releasing focused native-editor
+  page refresh; deferred refresh now waits for an actual external focus target.
 * Added Flutter-native file shortcuts for Ctrl/Cmd+Shift+S HWPX save and
   Ctrl/Cmd+P PDF export alongside the existing Ctrl/Cmd+S HWP save.
 * Changed Flutter-native character toolbar and shortcuts to toggle active

@@ -10152,6 +10152,7 @@ void main() {
     'RhwpNativeEditor holds text refresh across desktop input connection churn',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      final externalFocusNode = FocusNode();
       final controller = RhwpEditorController();
       final session = _FakeRhwpSession(pageCountValue: 1);
       final document = RhwpDocument.fromSession(session);
@@ -10159,15 +10160,29 @@ void main() {
 
       try {
         await tester.pumpWidget(
-          _WidgetHarness(
-            child: SizedBox(
-              width: 720,
-              height: 420,
-              child: RhwpNativeEditor(
-                document: document,
-                controller: controller,
-                editRefreshDelay: const Duration(milliseconds: 120),
-                onChanged: (_) => changedCalls += 1,
+          MaterialApp(
+            home: Scaffold(
+              body: Column(
+                children: [
+                  SizedBox(
+                    width: 720,
+                    height: 420,
+                    child: RhwpNativeEditor(
+                      document: document,
+                      controller: controller,
+                      editRefreshDelay: const Duration(milliseconds: 120),
+                      onChanged: (_) => changedCalls += 1,
+                    ),
+                  ),
+                  Focus(
+                    focusNode: externalFocusNode,
+                    child: const SizedBox(
+                      key: ValueKey('connection-churn-release-target'),
+                      width: 10,
+                      height: 10,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -10219,18 +10234,26 @@ void main() {
         FocusManager.instance.primaryFocus?.unfocus();
         await _pumpDesktopTextInputRelease(tester);
 
+        expect(changedCalls, 0);
+        expect(session.renderedPages, isEmpty);
+
+        externalFocusNode.requestFocus();
+        await _pumpDesktopTextInputRelease(tester);
+
         expect(changedCalls, 1);
         expect(session.renderedPages, [0]);
       } finally {
+        externalFocusNode.dispose();
         debugDefaultTargetPlatformOverride = null;
       }
     },
   );
 
   testWidgets(
-    'RhwpNativeEditor ignores delayed desktop text input action while focused',
+    'RhwpNativeEditor ignores delayed desktop text input action until external focus',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      final externalFocusNode = FocusNode();
       final controller = RhwpEditorController();
       final session = _FakeRhwpSession(pageCountValue: 1);
       final document = RhwpDocument.fromSession(session);
@@ -10238,15 +10261,29 @@ void main() {
 
       try {
         await tester.pumpWidget(
-          _WidgetHarness(
-            child: SizedBox(
-              width: 720,
-              height: 420,
-              child: RhwpNativeEditor(
-                document: document,
-                controller: controller,
-                editRefreshDelay: const Duration(milliseconds: 120),
-                onChanged: (_) => changedCalls += 1,
+          MaterialApp(
+            home: Scaffold(
+              body: Column(
+                children: [
+                  SizedBox(
+                    width: 720,
+                    height: 420,
+                    child: RhwpNativeEditor(
+                      document: document,
+                      controller: controller,
+                      editRefreshDelay: const Duration(milliseconds: 120),
+                      onChanged: (_) => changedCalls += 1,
+                    ),
+                  ),
+                  Focus(
+                    focusNode: externalFocusNode,
+                    child: const SizedBox(
+                      key: ValueKey('delayed-action-release-target'),
+                      width: 10,
+                      height: 10,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -10286,9 +10323,16 @@ void main() {
         FocusManager.instance.primaryFocus?.unfocus();
         await _pumpDesktopTextInputRelease(tester);
 
+        expect(changedCalls, 0);
+        expect(session.renderedPages, isEmpty);
+
+        externalFocusNode.requestFocus();
+        await _pumpDesktopTextInputRelease(tester);
+
         expect(changedCalls, 1);
         expect(session.renderedPages, [0]);
       } finally {
+        externalFocusNode.dispose();
         debugDefaultTargetPlatformOverride = null;
       }
     },
@@ -10382,6 +10426,7 @@ void main() {
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
       final ancestorFocusNode = FocusNode();
+      final externalFocusNode = FocusNode();
       final controller = RhwpEditorController();
       final session = _FakeRhwpSession(pageCountValue: 1);
       final document = RhwpDocument.fromSession(session);
@@ -10391,18 +10436,30 @@ void main() {
         await tester.pumpWidget(
           MaterialApp(
             home: Scaffold(
-              body: Focus(
-                focusNode: ancestorFocusNode,
-                child: SizedBox(
-                  width: 720,
-                  height: 420,
-                  child: RhwpNativeEditor(
-                    document: document,
-                    controller: controller,
-                    editRefreshDelay: const Duration(milliseconds: 120),
-                    onChanged: (_) => changedCalls += 1,
+              body: Column(
+                children: [
+                  Focus(
+                    focusNode: ancestorFocusNode,
+                    child: SizedBox(
+                      width: 720,
+                      height: 420,
+                      child: RhwpNativeEditor(
+                        document: document,
+                        controller: controller,
+                        editRefreshDelay: const Duration(milliseconds: 120),
+                        onChanged: (_) => changedCalls += 1,
+                      ),
+                    ),
                   ),
-                ),
+                  Focus(
+                    focusNode: externalFocusNode,
+                    child: const SizedBox(
+                      key: ValueKey('ancestor-focus-release-target'),
+                      width: 10,
+                      height: 10,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -10444,10 +10501,17 @@ void main() {
         FocusManager.instance.primaryFocus?.unfocus();
         await _pumpDesktopTextInputRelease(tester);
 
+        expect(changedCalls, 0);
+        expect(session.renderedPages, isEmpty);
+
+        externalFocusNode.requestFocus();
+        await _pumpDesktopTextInputRelease(tester);
+
         expect(changedCalls, 1);
         expect(session.renderedPages, [0]);
       } finally {
         ancestorFocusNode.dispose();
+        externalFocusNode.dispose();
         debugDefaultTargetPlatformOverride = null;
       }
     },
@@ -10606,6 +10670,7 @@ void main() {
     'RhwpNativeEditor holds text refresh across transient desktop focus loss',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      final externalFocusNode = FocusNode();
       final controller = RhwpEditorController();
       final session = _FakeRhwpSession(pageCountValue: 1);
       final document = RhwpDocument.fromSession(session);
@@ -10613,15 +10678,29 @@ void main() {
 
       try {
         await tester.pumpWidget(
-          _WidgetHarness(
-            child: SizedBox(
-              width: 720,
-              height: 420,
-              child: RhwpNativeEditor(
-                document: document,
-                controller: controller,
-                editRefreshDelay: const Duration(milliseconds: 120),
-                onChanged: (_) => changedCalls += 1,
+          MaterialApp(
+            home: Scaffold(
+              body: Column(
+                children: [
+                  SizedBox(
+                    width: 720,
+                    height: 420,
+                    child: RhwpNativeEditor(
+                      document: document,
+                      controller: controller,
+                      editRefreshDelay: const Duration(milliseconds: 120),
+                      onChanged: (_) => changedCalls += 1,
+                    ),
+                  ),
+                  Focus(
+                    focusNode: externalFocusNode,
+                    child: const SizedBox(
+                      key: ValueKey('transient-focus-release-target'),
+                      width: 10,
+                      height: 10,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -10668,9 +10747,16 @@ void main() {
         FocusManager.instance.primaryFocus?.unfocus();
         await _pumpDesktopTextInputRelease(tester);
 
+        expect(changedCalls, 0);
+        expect(session.renderedPages, isEmpty);
+
+        externalFocusNode.requestFocus();
+        await _pumpDesktopTextInputRelease(tester);
+
         expect(changedCalls, 1);
         expect(session.renderedPages, [0]);
       } finally {
+        externalFocusNode.dispose();
         debugDefaultTargetPlatformOverride = null;
       }
     },
@@ -10910,6 +10996,12 @@ void main() {
         FocusManager.instance.primaryFocus?.unfocus();
         await _pumpDesktopTextInputRelease(tester);
 
+        expect(changedCalls, 0);
+        expect(session.renderedPages, isEmpty);
+
+        externalFocusNode.requestFocus();
+        await _pumpDesktopTextInputRelease(tester);
+
         expect(changedCalls, 1);
         expect(session.renderedPages, [0]);
       } finally {
@@ -11013,6 +11105,7 @@ void main() {
     'RhwpNativeEditor cancels transient desktop focus release when focus returns',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      final externalFocusNode = FocusNode();
       final controller = RhwpEditorController();
       final session = _FakeRhwpSession(pageCountValue: 1);
       final document = RhwpDocument.fromSession(session);
@@ -11020,15 +11113,29 @@ void main() {
 
       try {
         await tester.pumpWidget(
-          _WidgetHarness(
-            child: SizedBox(
-              width: 720,
-              height: 420,
-              child: RhwpNativeEditor(
-                document: document,
-                controller: controller,
-                editRefreshDelay: const Duration(milliseconds: 120),
-                onChanged: (_) => changedCalls += 1,
+          MaterialApp(
+            home: Scaffold(
+              body: Column(
+                children: [
+                  SizedBox(
+                    width: 720,
+                    height: 420,
+                    child: RhwpNativeEditor(
+                      document: document,
+                      controller: controller,
+                      editRefreshDelay: const Duration(milliseconds: 120),
+                      onChanged: (_) => changedCalls += 1,
+                    ),
+                  ),
+                  Focus(
+                    focusNode: externalFocusNode,
+                    child: const SizedBox(
+                      key: ValueKey('cancel-focus-release-target'),
+                      width: 10,
+                      height: 10,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -11067,9 +11174,16 @@ void main() {
         FocusManager.instance.primaryFocus?.unfocus();
         await _pumpDesktopTextInputRelease(tester);
 
+        expect(changedCalls, 0);
+        expect(session.renderedPages, isEmpty);
+
+        externalFocusNode.requestFocus();
+        await _pumpDesktopTextInputRelease(tester);
+
         expect(changedCalls, 1);
         expect(session.renderedPages, [0]);
       } finally {
+        externalFocusNode.dispose();
         debugDefaultTargetPlatformOverride = null;
       }
     },
@@ -11079,6 +11193,7 @@ void main() {
     'RhwpNativeEditor reholds text refresh when focus returns after slow commit',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      final externalFocusNode = FocusNode();
       final controller = RhwpEditorController();
       final session = _FakeRhwpSession(pageCountValue: 1);
       final saveSnapshotGate = Completer<void>();
@@ -11088,15 +11203,29 @@ void main() {
 
       try {
         await tester.pumpWidget(
-          _WidgetHarness(
-            child: SizedBox(
-              width: 720,
-              height: 420,
-              child: RhwpNativeEditor(
-                document: document,
-                controller: controller,
-                editRefreshDelay: const Duration(milliseconds: 120),
-                onChanged: (_) => changedCalls += 1,
+          MaterialApp(
+            home: Scaffold(
+              body: Column(
+                children: [
+                  SizedBox(
+                    width: 720,
+                    height: 420,
+                    child: RhwpNativeEditor(
+                      document: document,
+                      controller: controller,
+                      editRefreshDelay: const Duration(milliseconds: 120),
+                      onChanged: (_) => changedCalls += 1,
+                    ),
+                  ),
+                  Focus(
+                    focusNode: externalFocusNode,
+                    child: const SizedBox(
+                      key: ValueKey('slow-commit-release-target'),
+                      width: 10,
+                      height: 10,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -11162,9 +11291,16 @@ void main() {
         FocusManager.instance.primaryFocus?.unfocus();
         await _pumpDesktopTextInputRelease(tester);
 
+        expect(changedCalls, 0);
+        expect(session.renderedPages, isEmpty);
+
+        externalFocusNode.requestFocus();
+        await _pumpDesktopTextInputRelease(tester);
+
         expect(changedCalls, 1);
         expect(session.renderedPages, [0]);
       } finally {
+        externalFocusNode.dispose();
         debugDefaultTargetPlatformOverride = null;
       }
     },
