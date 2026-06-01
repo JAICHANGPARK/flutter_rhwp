@@ -10351,8 +10351,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   List<PopupMenuEntry<_EditorContextMenuAction>> _contextMenuItems() {
     final hasSelection = !_controller.selection.isCollapsed;
     final hasTableSelection = _controller.tableCellSelection != null;
-    final hasTableTextSelection =
-        _controller.tableCellSelection?.hasTextSelection ?? false;
+    final tableSelection = _controller.tableCellSelection;
+    final hasTableTextSelection = tableSelection?.hasTextSelection ?? false;
+    final hasTableTextEditing =
+        tableSelection?.isTextEditing == true &&
+        tableSelection?.activeCellIndex != null;
+    final hasTableCharacterFormatTarget =
+        hasTableTextSelection || hasTableTextEditing;
     final hasObjectSelection = _controller.objectSelection != null;
 
     if (hasObjectSelection) {
@@ -10451,7 +10456,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           label: '붙여넣기',
           enabled: !_busy,
         ),
-        if (hasTableTextSelection) ...[
+        if (hasTableCharacterFormatTarget) ...[
           const PopupMenuDivider(),
           _contextMenuItem(
             action: _EditorContextMenuAction.bold,
