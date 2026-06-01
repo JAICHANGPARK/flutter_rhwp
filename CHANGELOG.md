@@ -26,6 +26,8 @@
   picker for text and background color swatches.
 * Added Flutter-native body and table-cell text context-menu font family and
   font size picker actions.
+* Kept Flutter-native table-cell text editing active while moving to the next
+  or previous cell with Tab and Shift+Tab.
 * Enabled Flutter-native table-cell text context-menu character formatting at
   a collapsed cell caret, so pending format can be applied to the next inserted
   cell text without selecting existing text.

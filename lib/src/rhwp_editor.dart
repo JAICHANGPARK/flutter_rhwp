@@ -8757,10 +8757,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       }
 
       final target = cells[targetIndex];
-      _setKeyboardTableCellSelection(
-        RhwpTableCellSelection.fromCell(target.cell),
-        page: target.page,
-      );
+      final nextSelection = selection.isTextEditing
+          ? _tableCellTextEditingSelection(target.cell)
+          : RhwpTableCellSelection.fromCell(target.cell);
+      _setKeyboardTableCellSelection(nextSelection, page: target.page);
     } catch (error) {
       if (mounted) {
         setState(() {
@@ -8768,6 +8768,24 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         });
       }
     }
+  }
+
+  RhwpTableCellSelection _tableCellTextEditingSelection(
+    RhwpTableCellLayout cell,
+  ) {
+    return RhwpTableCellSelection(
+      section: cell.section,
+      paragraph: cell.paragraph,
+      controlIndex: cell.controlIndex,
+      startRow: cell.row,
+      startColumn: cell.column,
+      endRow: cell.endRow,
+      endColumn: cell.endColumn,
+      activeCellIndex: cell.modelCellIndex,
+      activeCellParagraph: 0,
+      activeOffset: 0,
+      isTextEditing: true,
+    );
   }
 
   Future<void> _enterSelectedTableCell() async {
@@ -8790,17 +8808,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       }
 
       _setKeyboardTableCellSelection(
-        RhwpTableCellSelection(
-          section: active.cell.section,
-          paragraph: active.cell.paragraph,
-          controlIndex: active.cell.controlIndex,
-          startRow: active.cell.row,
-          startColumn: active.cell.column,
-          endRow: active.cell.endRow,
-          endColumn: active.cell.endColumn,
-          activeCellIndex: active.cell.modelCellIndex,
-          isTextEditing: true,
-        ),
+        _tableCellTextEditingSelection(active.cell),
         page: active.page,
       );
     } catch (error) {
