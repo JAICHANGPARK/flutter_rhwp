@@ -1622,6 +1622,40 @@ void main() {
     expect(
       jsonDecode(
         jsonEncode(
+          RhwpCommand.getHeaderFooterList(
+            section: 1,
+            isHeader: true,
+            applyTo: 2,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'getHeaderFooterList',
+        'section': 1,
+        'isHeader': true,
+        'applyTo': 2,
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.deleteHeaderFooter(
+            section: 1,
+            isHeader: false,
+            applyTo: 1,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'deleteHeaderFooter',
+        'section': 1,
+        'isHeader': false,
+        'applyTo': 1,
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
           RhwpCommand.insertTextInHeaderFooter(
             section: 1,
             isHeader: false,
@@ -2705,6 +2739,26 @@ void main() {
       'paragraph': 0,
       'offset': 0,
       'count': 6,
+    });
+
+    final headerFooterList = await document.headerFooterList(section: 0);
+    expect(headerFooterList.items, hasLength(2));
+    expect(headerFooterList.items.first.isHeader, isTrue);
+    expect(headerFooterList.items.last.isHeader, isFalse);
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'getHeaderFooterList',
+      'section': 0,
+      'isHeader': true,
+      'applyTo': 0,
+    });
+
+    await document.deleteHeaderFooter(section: 0, isHeader: false);
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'deleteHeaderFooter',
+      'section': 0,
+      'isHeader': false,
+      'applyTo': 0,
     });
 
     await document.insertTableRow(
@@ -3882,6 +3936,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'getHeaderFooter') {
       return '{"ok":true,"exists":true,"kind":"header","applyTo":0,"label":"양 쪽","paraIndex":0,"controlIndex":1,"paraCount":1,"text":"Header"}';
+    }
+    if (command is Map && command['type'] == 'getHeaderFooterList') {
+      return '{"ok":true,"items":[{"sectionIdx":0,"isHeader":true,"applyTo":0,"label":"머리말(양 쪽)"},{"sectionIdx":0,"isHeader":false,"applyTo":0,"label":"꼬리말(양 쪽)"}],"currentIndex":0}';
     }
     if (command is Map && command['type'] == 'getStyleList') {
       return '[{"id":0,"name":"본문","englishName":"Body","type":0,"nextStyleId":0,"paraShapeId":0,"charShapeId":0},{"id":3,"name":"제목 1","englishName":"Heading 1","type":0,"nextStyleId":0,"paraShapeId":1,"charShapeId":1}]';

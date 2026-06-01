@@ -936,6 +936,12 @@ class _HeaderFooterTextDialogResult {
   final bool replaceExisting;
 }
 
+class _HeaderFooterManagerResult {
+  const _HeaderFooterManagerResult({required this.item});
+
+  final RhwpHeaderFooterListItem item;
+}
+
 class _EquationDialogResult {
   const _EquationDialogResult({
     required this.script,
@@ -4469,6 +4475,47 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         );
       }
       _controller.cursor = _controller.cursor.copyWith(section: section);
+    });
+  }
+
+  Future<void> _showHeaderFooterManagerDialog() async {
+    if (_busy) {
+      return;
+    }
+
+    final section = _parseNonNegative(_sectionController.text);
+    late final RhwpHeaderFooterList list;
+    try {
+      list = await widget.document.headerFooterList(section: section);
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    final result = await showDialog<_HeaderFooterManagerResult>(
+      context: context,
+      builder: (context) => _HeaderFooterManagerDialog(list: list),
+    );
+    if (result == null) {
+      return;
+    }
+
+    final item = result.item;
+    await _runEdit(() async {
+      await widget.document.deleteHeaderFooter(
+        section: item.section,
+        isHeader: item.isHeader,
+        applyTo: item.applyTo,
+      );
+      _controller.cursor = _controller.cursor.copyWith(section: item.section);
     });
   }
 
@@ -9686,6 +9733,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onPageSetup: _showPageSetupDialog,
           onPageHide: _showPageHideDialog,
           onInsertNewNumber: _showInsertNewNumberDialog,
+          onHeaderFooterManager: _showHeaderFooterManagerDialog,
           onCreateHeader: () => _createHeaderFooter(isHeader: true),
           onCreateFooter: () => _createHeaderFooter(isHeader: false),
           onInsertHeaderText: () => _showHeaderFooterTextDialog(isHeader: true),
@@ -11894,6 +11942,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onPageSetup,
     required this.onPageHide,
     required this.onInsertNewNumber,
+    required this.onHeaderFooterManager,
     required this.onCreateHeader,
     required this.onCreateFooter,
     required this.onInsertHeaderText,
@@ -12030,6 +12079,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onPageSetup;
   final VoidCallback onPageHide;
   final VoidCallback onInsertNewNumber;
+  final VoidCallback onHeaderFooterManager;
   final VoidCallback onCreateHeader;
   final VoidCallback onCreateFooter;
   final VoidCallback onInsertHeaderText;
@@ -12931,6 +12981,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               buttonKey: const ValueKey('rhwp-editor-insert-new-number'),
               icon: Icons.format_list_numbered,
               onPressed: widget.busy ? null : widget.onInsertNewNumber,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Header/footer list',
+              buttonKey: const ValueKey('rhwp-editor-header-footer-list'),
+              icon: Icons.view_headline,
+              onPressed: widget.busy ? null : widget.onHeaderFooterManager,
             ),
             _ToolbarIconButton(
               tooltip: 'Header',
@@ -15541,6 +15597,94 @@ class _HeaderFooterTextDialogState extends State<_HeaderFooterTextDialog> {
   int _parseDialogNonNegative(String text) {
     final parsed = int.tryParse(text.trim()) ?? 0;
     return math.max(0, parsed);
+  }
+}
+
+class _HeaderFooterManagerDialog extends StatefulWidget {
+  const _HeaderFooterManagerDialog({required this.list});
+
+  final RhwpHeaderFooterList list;
+
+  @override
+  State<_HeaderFooterManagerDialog> createState() =>
+      _HeaderFooterManagerDialogState();
+}
+
+class _HeaderFooterManagerDialogState
+    extends State<_HeaderFooterManagerDialog> {
+  RhwpHeaderFooterListItem? _selectedItem;
+
+  @override
+  void initState() {
+    super.initState();
+    final items = widget.list.items;
+    if (items.isEmpty) {
+      _selectedItem = null;
+      return;
+    }
+    final currentIndex = widget.list.currentIndex;
+    _selectedItem = currentIndex >= 0 && currentIndex < items.length
+        ? items[currentIndex]
+        : items.first;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = widget.list.items;
+    final selectedItem = _selectedItem;
+    return AlertDialog(
+      title: const Text('머리말/꼬리말'),
+      content: SizedBox(
+        width: 420,
+        height: 320,
+        child: items.isEmpty
+            ? const Center(child: Text('No header/footer controls'))
+            : ListView.builder(
+                itemCount: items.length,
+                itemBuilder: (context, index) {
+                  final item = items[index];
+                  final selected = identical(item, selectedItem);
+                  return ListTile(
+                    key: ValueKey(
+                      'rhwp-header-footer-item-${item.section}-${item.isHeader}-${item.applyTo}',
+                    ),
+                    leading: Icon(
+                      selected
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_unchecked,
+                    ),
+                    selected: selected,
+                    title: Text(item.displayLabel),
+                    subtitle: Text(
+                      'Section ${item.section} / ${item.applyLabel}',
+                    ),
+                    onTap: () {
+                      setState(() {
+                        _selectedItem = item;
+                      });
+                    },
+                  );
+                },
+              ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const ValueKey('rhwp-header-footer-delete'),
+          onPressed: selectedItem == null
+              ? null
+              : () {
+                  Navigator.of(
+                    context,
+                  ).pop(_HeaderFooterManagerResult(item: selectedItem));
+                },
+          child: const Text('Delete'),
+        ),
+      ],
+    );
   }
 }
 

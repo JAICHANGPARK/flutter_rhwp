@@ -52,6 +52,8 @@
   HWP documents follow the upstream Web editor's editable-load path by default.
 * Added Flutter-native page hide commands and a page-ribbon dialog backed by
   rhwp core's PageHide API.
+* Added Flutter-native header/footer list and delete commands from the page
+  ribbon, backed by rhwp core's header/footer control APIs.
 * Added the upstream-style F6 shortcut to open the Flutter-native style picker.
 * Added the upstream-style `Alt+T` shortcut to open the Flutter-native paragraph
   shape dialog.

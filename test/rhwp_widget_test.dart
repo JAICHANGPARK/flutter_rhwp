@@ -2039,6 +2039,63 @@ void main() {
     ]);
   });
 
+  testWidgets('RhwpNativeEditor page ribbon deletes header footer controls', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1)
+      ..headerFooterExists = true
+      ..footerExists = true;
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('쪽'));
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-header-footer-list')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(jsonDecode(session.commands.single), {
+      'type': 'getHeaderFooterList',
+      'section': 0,
+      'isHeader': true,
+      'applyTo': 0,
+    });
+
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-header-footer-item-0-false-0')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-header-footer-delete')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.footerExists, isFalse);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'deleteHeaderFooter',
+      'section': 0,
+      'isHeader': false,
+      'applyTo': 0,
+    });
+  });
+
   testWidgets('RhwpNativeEditor page ribbon inserts new page number', (
     tester,
   ) async {
@@ -11825,6 +11882,7 @@ class _FakeRhwpSession implements rust.RhwpSession {
   bool convertToEditableConverted = false;
   bool hasObjectControlClipboard = false;
   bool headerFooterExists = false;
+  bool footerExists = false;
   String headerFooterText = '';
   String extractedText = 'alpha\nbeta';
   String charPropertiesJson =
@@ -11980,13 +12038,14 @@ class _FakeRhwpSession implements rust.RhwpSession {
       return '{"ok":true,"exists":false}';
     }
     if (command is Map && command['type'] == 'getHeaderFooter') {
-      if (!headerFooterExists) {
+      final isHeader = command['isHeader'] == true;
+      if (isHeader ? !headerFooterExists : !footerExists) {
         return '{"ok":true,"exists":false}';
       }
       return jsonEncode({
         'ok': true,
         'exists': true,
-        'kind': command['isHeader'] == true ? 'header' : 'footer',
+        'kind': isHeader ? 'header' : 'footer',
         'applyTo': command['applyTo'] ?? 0,
         'label': '양 쪽',
         'paraIndex': 0,
@@ -11995,16 +12054,54 @@ class _FakeRhwpSession implements rust.RhwpSession {
         'text': headerFooterText,
       });
     }
+    if (command is Map && command['type'] == 'getHeaderFooterList') {
+      return jsonEncode({
+        'ok': true,
+        'items': [
+          if (headerFooterExists)
+            {
+              'sectionIdx': 0,
+              'isHeader': true,
+              'applyTo': 0,
+              'label': '머리말(양 쪽)',
+            },
+          if (footerExists)
+            {
+              'sectionIdx': 0,
+              'isHeader': false,
+              'applyTo': 0,
+              'label': '꼬리말(양 쪽)',
+            },
+        ],
+        'currentIndex': 0,
+      });
+    }
     if (command is Map && command['type'] == 'createHeaderFooter') {
-      headerFooterExists = true;
+      if (command['isHeader'] == true) {
+        headerFooterExists = true;
+      } else {
+        footerExists = true;
+      }
       return '{"ok":true,"kind":"header","applyTo":0,"label":"양 쪽","paraIndex":0,"controlIndex":1}';
+    }
+    if (command is Map && command['type'] == 'deleteHeaderFooter') {
+      if (command['isHeader'] == true) {
+        headerFooterExists = false;
+      } else {
+        footerExists = false;
+      }
+      return '{"ok":true}';
     }
     if (command is Map && command['type'] == 'deleteTextInHeaderFooter') {
       headerFooterText = '';
       return '{"ok":true,"charOffset":0}';
     }
     if (command is Map && command['type'] == 'insertTextInHeaderFooter') {
-      headerFooterExists = true;
+      if (command['isHeader'] == true) {
+        headerFooterExists = true;
+      } else {
+        footerExists = true;
+      }
       headerFooterText = command['text']?.toString() ?? '';
       return '{"ok":true,"charOffset":0}';
     }

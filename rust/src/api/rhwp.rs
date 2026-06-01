@@ -1285,6 +1285,22 @@ impl RhwpSession {
                 .document
                 .get_header_footer_native(section as usize, is_header, apply_to as u8)
                 .map_err(error_to_string),
+            RhwpCommand::GetHeaderFooterList {
+                section,
+                is_header,
+                apply_to,
+            } => inner
+                .document
+                .get_header_footer_list_native(section as usize, is_header, apply_to as u8)
+                .map_err(error_to_string),
+            RhwpCommand::DeleteHeaderFooter {
+                section,
+                is_header,
+                apply_to,
+            } => inner
+                .document
+                .delete_header_footer_native(section as usize, is_header, apply_to as u8)
+                .map_err(error_to_string),
             RhwpCommand::InsertTextInHeaderFooter {
                 section,
                 is_header,
@@ -2081,6 +2097,20 @@ enum RhwpCommand {
         apply_to: u32,
     },
     GetHeaderFooter {
+        section: u32,
+        #[serde(rename = "isHeader")]
+        is_header: bool,
+        #[serde(rename = "applyTo")]
+        apply_to: u32,
+    },
+    GetHeaderFooterList {
+        section: u32,
+        #[serde(rename = "isHeader")]
+        is_header: bool,
+        #[serde(rename = "applyTo")]
+        apply_to: u32,
+    },
+    DeleteHeaderFooter {
         section: u32,
         #[serde(rename = "isHeader")]
         is_header: bool,
@@ -3075,6 +3105,23 @@ mod tests {
                     .to_string(),
             )
             .expect("delete header text command should be accepted");
+        let header_footer_list = session
+            .apply_command(
+                r#"{"type":"getHeaderFooterList","section":0,"isHeader":true,"applyTo":0}"#
+                    .to_string(),
+            )
+            .expect("header footer list command should be accepted");
+        let header_footer_list: Value = serde_json::from_str(&header_footer_list)
+            .expect("header footer list result should be JSON");
+        assert!(header_footer_list["items"]
+            .as_array()
+            .is_some_and(|items| items.len() >= 2));
+        session
+            .apply_command(
+                r#"{"type":"deleteHeaderFooter","section":0,"isHeader":true,"applyTo":0}"#
+                    .to_string(),
+            )
+            .expect("delete header footer command should be accepted");
         let page_setup = session
             .apply_command(r#"{"type":"getPageSetup","section":0}"#.to_string())
             .expect("page setup query should be accepted");

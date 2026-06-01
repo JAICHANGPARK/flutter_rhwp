@@ -704,6 +704,78 @@ class RhwpHeaderFooterInfo {
   final Map<String, Object?>? raw;
 }
 
+class RhwpHeaderFooterList {
+  const RhwpHeaderFooterList({
+    required this.items,
+    required this.currentIndex,
+    required this.rawJson,
+    this.raw,
+  });
+
+  factory RhwpHeaderFooterList.fromJsonString(String source) {
+    final decoded = RhwpDocument._tryDecodeObject(source);
+    final rawItems = decoded?['items'];
+    final items = rawItems is List
+        ? rawItems
+              .whereType<Map>()
+              .map((item) => RhwpHeaderFooterListItem.fromJson(item))
+              .toList(growable: false)
+        : const <RhwpHeaderFooterListItem>[];
+    return RhwpHeaderFooterList(
+      items: items,
+      currentIndex: _intFromJson(decoded?['currentIndex']) ?? -1,
+      rawJson: source,
+      raw: decoded,
+    );
+  }
+
+  final List<RhwpHeaderFooterListItem> items;
+  final int currentIndex;
+  final String rawJson;
+  final Map<String, Object?>? raw;
+}
+
+class RhwpHeaderFooterListItem {
+  const RhwpHeaderFooterListItem({
+    required this.section,
+    required this.isHeader,
+    required this.applyTo,
+    required this.label,
+    this.raw,
+  });
+
+  factory RhwpHeaderFooterListItem.fromJson(Map<Object?, Object?> json) {
+    return RhwpHeaderFooterListItem(
+      section: _intFromJson(json['sectionIdx']) ?? 0,
+      isHeader: _boolFromJson(json['isHeader']) ?? false,
+      applyTo: _intFromJson(json['applyTo']) ?? 0,
+      label: json['label']?.toString() ?? '',
+      raw: json.cast<String, Object?>(),
+    );
+  }
+
+  final int section;
+  final bool isHeader;
+  final int applyTo;
+  final String label;
+  final Map<String, Object?>? raw;
+
+  String get displayLabel {
+    if (label.trim().isNotEmpty) {
+      return label;
+    }
+    return isHeader ? 'Header' : 'Footer';
+  }
+
+  String get applyLabel {
+    return switch (applyTo) {
+      1 => 'Even',
+      2 => 'Odd',
+      _ => 'Both',
+    };
+  }
+}
+
 int? _intFromJson(Object? value) {
   if (value is int) {
     return value;
@@ -1410,6 +1482,18 @@ abstract class RhwpCommand {
     required bool isHeader,
     int applyTo,
   }) = RhwpGetHeaderFooterCommand;
+
+  factory RhwpCommand.getHeaderFooterList({
+    required int section,
+    required bool isHeader,
+    int applyTo,
+  }) = RhwpGetHeaderFooterListCommand;
+
+  factory RhwpCommand.deleteHeaderFooter({
+    required int section,
+    required bool isHeader,
+    int applyTo,
+  }) = RhwpDeleteHeaderFooterCommand;
 
   factory RhwpCommand.insertTextInHeaderFooter({
     required int section,
@@ -3715,6 +3799,50 @@ class RhwpGetHeaderFooterCommand extends RhwpCommand {
   };
 }
 
+class RhwpGetHeaderFooterListCommand extends RhwpCommand {
+  const RhwpGetHeaderFooterListCommand({
+    required this.section,
+    required this.isHeader,
+    this.applyTo = 0,
+  });
+
+  final int section;
+  final bool isHeader;
+
+  /// 0 applies to both pages, 1 to even pages, and 2 to odd pages.
+  final int applyTo;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'getHeaderFooterList',
+    'section': section,
+    'isHeader': isHeader,
+    'applyTo': applyTo,
+  };
+}
+
+class RhwpDeleteHeaderFooterCommand extends RhwpCommand {
+  const RhwpDeleteHeaderFooterCommand({
+    required this.section,
+    required this.isHeader,
+    this.applyTo = 0,
+  });
+
+  final int section;
+  final bool isHeader;
+
+  /// 0 applies to both pages, 1 to even pages, and 2 to odd pages.
+  final int applyTo;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'deleteHeaderFooter',
+    'section': section,
+    'isHeader': isHeader,
+    'applyTo': applyTo,
+  };
+}
+
 class RhwpInsertTextInHeaderFooterCommand extends RhwpCommand {
   const RhwpInsertTextInHeaderFooterCommand({
     required this.section,
@@ -5584,6 +5712,35 @@ class RhwpDocument {
       ),
     );
     return RhwpHeaderFooterInfo.fromJsonString(result);
+  }
+
+  Future<RhwpHeaderFooterList> headerFooterList({
+    int section = 0,
+    bool isHeader = true,
+    int applyTo = 0,
+  }) async {
+    final result = await apply(
+      RhwpCommand.getHeaderFooterList(
+        section: section,
+        isHeader: isHeader,
+        applyTo: applyTo,
+      ),
+    );
+    return RhwpHeaderFooterList.fromJsonString(result);
+  }
+
+  Future<String> deleteHeaderFooter({
+    required int section,
+    required bool isHeader,
+    int applyTo = 0,
+  }) {
+    return apply(
+      RhwpCommand.deleteHeaderFooter(
+        section: section,
+        isHeader: isHeader,
+        applyTo: applyTo,
+      ),
+    );
   }
 
   Future<String> insertTextInHeaderFooter({
