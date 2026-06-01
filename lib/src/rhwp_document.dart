@@ -269,6 +269,24 @@ class RhwpCellProperties {
   final Map<String, Object?>? raw;
 }
 
+class RhwpTableCellResize {
+  const RhwpTableCellResize({
+    required this.cellIndex,
+    this.widthDelta = 0,
+    this.heightDelta = 0,
+  });
+
+  final int cellIndex;
+  final int widthDelta;
+  final int heightDelta;
+
+  Map<String, Object?> toJson() => {
+    'cellIdx': cellIndex,
+    if (widthDelta != 0) 'widthDelta': widthDelta,
+    if (heightDelta != 0) 'heightDelta': heightDelta,
+  };
+}
+
 class RhwpStyleInfo {
   const RhwpStyleInfo({
     required this.id,
@@ -797,6 +815,13 @@ abstract class RhwpCommand {
     bool? isHeader,
     bool? cellProtect,
   }) = RhwpSetCellPropertiesCommand;
+
+  factory RhwpCommand.resizeTableCells({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required List<RhwpTableCellResize> updates,
+  }) = RhwpResizeTableCellsCommand;
 
   factory RhwpCommand.deleteTableControl({
     required int section,
@@ -1936,6 +1961,29 @@ class RhwpSetCellPropertiesCommand extends RhwpCommand {
       if (isHeader != null) 'isHeader': isHeader,
       if (cellProtect != null) 'cellProtect': cellProtect,
     },
+  };
+}
+
+class RhwpResizeTableCellsCommand extends RhwpCommand {
+  const RhwpResizeTableCellsCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.updates,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final List<RhwpTableCellResize> updates;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'resizeTableCells',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'updates': [for (final update in updates) update.toJson()],
   };
 }
 
@@ -3740,6 +3788,22 @@ class RhwpDocument {
         textDirection: textDirection,
         isHeader: isHeader,
         cellProtect: cellProtect,
+      ),
+    );
+  }
+
+  Future<String> resizeTableCells({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required List<RhwpTableCellResize> updates,
+  }) {
+    return apply(
+      RhwpCommand.resizeTableCells(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        updates: updates,
       ),
     );
   }

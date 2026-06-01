@@ -3800,14 +3800,35 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
+    final widthDelta = properties.width == null
+        ? 0
+        : result.width - properties.width!;
+    final heightDelta = properties.height == null
+        ? 0
+        : result.height - properties.height!;
+    final resizeUpdates = await _tableCellResizeUpdatesForSelection(
+      selection,
+      widthDelta: widthDelta,
+      heightDelta: heightDelta,
+    );
+    final resizeSelectedCells = resizeUpdates.length > 1;
+
     await _runEdit(() async {
+      if (resizeSelectedCells) {
+        await widget.document.resizeTableCells(
+          section: selection.section,
+          paragraph: selection.paragraph,
+          controlIndex: selection.controlIndex,
+          updates: resizeUpdates,
+        );
+      }
       await widget.document.setCellProperties(
         section: selection.section,
         paragraph: selection.paragraph,
         controlIndex: selection.controlIndex,
         cellIndex: cellIndex,
-        width: result.width,
-        height: result.height,
+        width: resizeSelectedCells ? null : result.width,
+        height: resizeSelectedCells ? null : result.height,
         paddingLeft: result.paddingLeft,
         paddingRight: result.paddingRight,
         paddingTop: result.paddingTop,
@@ -3819,6 +3840,29 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       );
       _controller.tableCellSelection = selection;
     });
+  }
+
+  Future<List<RhwpTableCellResize>> _tableCellResizeUpdatesForSelection(
+    RhwpTableCellSelection selection, {
+    required int widthDelta,
+    required int heightDelta,
+  }) async {
+    if (widthDelta == 0 && heightDelta == 0) {
+      return const [];
+    }
+
+    final targets = await _tableCellStyleTargets(selection);
+    final seen = <int>{};
+    return [
+      for (final target in targets)
+        if (target.cell.modelCellIndex != null &&
+            seen.add(target.cell.modelCellIndex!))
+          RhwpTableCellResize(
+            cellIndex: target.cell.modelCellIndex!,
+            widthDelta: widthDelta,
+            heightDelta: heightDelta,
+          ),
+    ];
   }
 
   Future<void> _applyTableCellStyle({

@@ -633,6 +633,15 @@ impl RhwpSession {
                     &properties.to_string(),
                 )
                 .map_err(|error| format!("{error:?}")),
+            RhwpCommand::ResizeTableCells {
+                section,
+                paragraph,
+                control_index,
+                updates,
+            } => inner
+                .document
+                .resize_table_cells(section, paragraph, control_index, &updates.to_string())
+                .map_err(|error| format!("{error:?}")),
             RhwpCommand::DeleteTableControl {
                 section,
                 paragraph,
@@ -1417,6 +1426,13 @@ enum RhwpCommand {
         #[serde(rename = "cellIndex")]
         cell_index: u32,
         properties: serde_json::Value,
+    },
+    ResizeTableCells {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        updates: serde_json::Value,
     },
     DeleteTableControl {
         section: u32,
@@ -2961,6 +2977,53 @@ mod tests {
             serde_json::from_str(&split_result).expect("split range result should be JSON");
         assert_eq!(split_result["ok"], true);
         assert!(split_result["cellCount"].as_u64().is_some());
+    }
+
+    #[test]
+    fn applies_resize_table_cells_command() {
+        let session =
+            open_bytes(BLANK_2010_HWP.to_vec(), None).expect("vendored sample should open");
+
+        let result = session
+            .apply_command(
+                r#"{"type":"insertTable","section":0,"paragraph":0,"offset":0,"rows":2,"columns":2}"#
+                    .to_string(),
+            )
+            .expect("table insert should be accepted");
+        let result: Value = serde_json::from_str(&result).expect("table result should be JSON");
+        let table_paragraph = result["paraIdx"]
+            .as_u64()
+            .expect("table insert should expose paraIdx");
+
+        let before = session
+            .apply_command(format!(
+                r#"{{"type":"getCellProperties","section":0,"paragraph":{},"controlIndex":0,"cellIndex":0}}"#,
+                table_paragraph
+            ))
+            .expect("cell properties query should be accepted");
+        let before: Value = serde_json::from_str(&before).expect("cell properties should be JSON");
+        let before_width = before["width"]
+            .as_i64()
+            .expect("cell width should be available");
+
+        let resize_result = session
+            .apply_command(format!(
+                r#"{{"type":"resizeTableCells","section":0,"paragraph":{},"controlIndex":0,"updates":[{{"cellIdx":0,"widthDelta":120,"heightDelta":-60}},{{"cellIdx":1,"widthDelta":120}}]}}"#,
+                table_paragraph
+            ))
+            .expect("resize table cells command should be accepted");
+        let resize_result: Value =
+            serde_json::from_str(&resize_result).expect("resize result should be JSON");
+        assert_eq!(resize_result["ok"], true);
+
+        let after = session
+            .apply_command(format!(
+                r#"{{"type":"getCellProperties","section":0,"paragraph":{},"controlIndex":0,"cellIndex":0}}"#,
+                table_paragraph
+            ))
+            .expect("cell properties query should be accepted");
+        let after: Value = serde_json::from_str(&after).expect("cell properties should be JSON");
+        assert_eq!(after["width"].as_i64(), Some(before_width + 120));
     }
 
     #[test]

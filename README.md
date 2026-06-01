@@ -195,6 +195,16 @@ await document.splitTableCellsInRange(
   equalRowHeight: true,
 );
 
+await document.resizeTableCells(
+  section: 0,
+  paragraph: 0,
+  controlIndex: 0,
+  updates: const [
+    RhwpTableCellResize(cellIndex: 0, widthDelta: 120),
+    RhwpTableCellResize(cellIndex: 1, heightDelta: -80),
+  ],
+);
+
 await document.moveTableOffset(
   section: 0,
   paragraph: 0,
@@ -339,7 +349,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   page/column break insertion, plus table
   row above/below insertion and row deletion, column left/right insertion and
   column deletion, and cell
-  merge/split/split-into-grid/range split command flow, table properties editing, and
+  merge/split/split-into-grid/range split command flow, selected-cell range
+  resize through rhwp table resize commands, table properties editing, and
   selected-cell properties, fill, border, and vertical alignment editing from
   the ribbon and context menu with table-cell hit testing, selected-cell
   highlighting, object/control hit testing, highlighting, pointer drag move and

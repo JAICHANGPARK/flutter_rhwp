@@ -689,6 +689,31 @@ void main() {
     expect(
       jsonDecode(
         jsonEncode(
+          RhwpCommand.resizeTableCells(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            updates: const [
+              RhwpTableCellResize(cellIndex: 3, widthDelta: 120),
+              RhwpTableCellResize(cellIndex: 4, heightDelta: -80),
+            ],
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'resizeTableCells',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'updates': [
+          {'cellIdx': 3, 'widthDelta': 120},
+          {'cellIdx': 4, 'heightDelta': -80},
+        ],
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
           RhwpCommand.deleteTableControl(
             section: 0,
             paragraph: 1,
@@ -2295,6 +2320,27 @@ void main() {
         'isHeader': true,
         'cellProtect': true,
       },
+    });
+
+    await document.resizeTableCells(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      updates: const [
+        RhwpTableCellResize(cellIndex: 2, widthDelta: 120),
+        RhwpTableCellResize(cellIndex: 3, heightDelta: -80),
+      ],
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'resizeTableCells',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'updates': [
+        {'cellIdx': 2, 'widthDelta': 120},
+        {'cellIdx': 3, 'heightDelta': -80},
+      ],
     });
 
     await document.deleteTableControl(

@@ -31,6 +31,8 @@
   `splitTableCellInto` command.
 * Added Flutter-native selected table-cell range split-into-grid editing
   through rhwp core's `splitTableCellsInRange` command.
+* Added Flutter-native selected table-cell range width/height resizing through
+  rhwp core's `resizeTableCells` command.
 * Added the upstream-style F6 shortcut to open the Flutter-native style picker.
 * Added the upstream-style `Alt+T` shortcut to open the Flutter-native paragraph
   shape dialog.

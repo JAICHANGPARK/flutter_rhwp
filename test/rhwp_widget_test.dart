@@ -2532,6 +2532,109 @@ void main() {
     },
   );
 
+  testWidgets(
+    'RhwpNativeEditor resizes selected table cells from cell properties',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      controller.tableCellSelection = const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 4,
+        activeCellIndex: 7,
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('표'));
+      await tester.pump();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('rhwp-editor-cell-properties')),
+      );
+      await tester.pump();
+      await tester.tap(
+        find.byKey(const ValueKey('rhwp-editor-cell-properties')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-cell-width-field')),
+        '5300',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-cell-height-field')),
+        '2800',
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('rhwp-cell-properties-apply')),
+      );
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+      expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+        'saveSnapshot',
+      ]);
+      expect(session.commands.map(jsonDecode).toList(), [
+        {
+          'type': 'getCellProperties',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+        },
+        {
+          'type': 'resizeTableCells',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'updates': [
+            {'cellIdx': 7, 'widthDelta': 300, 'heightDelta': -200},
+            {'cellIdx': 8, 'widthDelta': 300, 'heightDelta': -200},
+          ],
+        },
+        {
+          'type': 'setCellProperties',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'properties': {
+            'paddingLeft': 100,
+            'paddingRight': 110,
+            'paddingTop': 120,
+            'paddingBottom': 130,
+            'verticalAlign': 1,
+            'textDirection': 0,
+            'isHeader': false,
+            'cellProtect': false,
+          },
+        },
+      ]);
+    },
+  );
+
   testWidgets('RhwpNativeEditor taps table cell to set table edit context', (
     tester,
   ) async {
