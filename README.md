@@ -24,6 +24,8 @@ documents.
   Dart API.
 - Inspect, edit ClickHere field properties, and remove field markers at the
   Flutter-native caret through the tools ribbon or Dart API.
+- Convert distribution/read-only documents to editable mode when
+  `RhwpNativeEditor` loads, matching the upstream Web editor path.
 - Split and merge paragraphs inside active table cells from the Flutter-native
   editor with Enter, Backspace, and Delete.
 - Keep native-editor typing, IME composing, caret, and selection overlays
@@ -105,6 +107,7 @@ Flutter-native editor:
 ```dart
 RhwpNativeEditor(
   document: document,
+  convertToEditableOnLoad: true,
   editRefreshDelay: const Duration(milliseconds: 1200),
   holdTextRefreshWhileFocused: true,
   onOpenRequested: pickAndOpenDocument,
@@ -469,7 +472,10 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   updates during typing do not rebuild the page viewport unless zoom changes.
   The status bar reports body cursor, active table cell,
   and selected object context. The view ribbon also includes a paragraph mark toggle
-  that paints paragraph-end markers from page layer tree text runs.
+  that paints paragraph-end markers from page layer tree text runs. Documents
+  are converted to editable mode on load by default, matching upstream
+  `convertToEditable`; set `convertToEditableOnLoad: false` only when preserving
+  an original distribution/read-only state is required.
 - `rust/vendor/rhwp` should be committed. `rust/target` should stay ignored.
 
 ## License

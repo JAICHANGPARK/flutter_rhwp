@@ -1745,6 +1745,9 @@ void main() {
       'type': 'discardSnapshot',
       'snapshotId': 8,
     });
+    expect(jsonDecode(jsonEncode(RhwpCommand.convertToEditable().toJson())), {
+      'type': 'convertToEditable',
+    });
   });
 
   test('closed exception has a stable message', () {
@@ -3283,6 +3286,9 @@ void main() {
       'type': 'discardSnapshot',
       'snapshotId': 1,
     });
+
+    await document.convertToEditable();
+    expect(jsonDecode(session.lastCommandJson!), {'type': 'convertToEditable'});
   });
 
   test('document export helpers forward supported formats', () async {
@@ -3764,6 +3770,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
       final snapshotId = nextSnapshotId;
       nextSnapshotId += 1;
       return '{"ok":true,"snapshotId":$snapshotId}';
+    }
+    if (command is Map && command['type'] == 'convertToEditable') {
+      return '{"ok":true,"converted":false}';
     }
     if (command is Map && command['type'] == 'getObjectProperties') {
       return '{"width":1000,"height":2000,"horzOffset":30,"vertOffset":40}';

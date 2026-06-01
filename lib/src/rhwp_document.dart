@@ -1416,6 +1416,8 @@ abstract class RhwpCommand {
   factory RhwpCommand.discardSnapshot(int snapshotId) =
       RhwpDiscardSnapshotCommand;
 
+  factory RhwpCommand.convertToEditable() = RhwpConvertToEditableCommand;
+
   factory RhwpCommand.setFileName(String name) = RhwpSetFileNameCommand;
 }
 
@@ -3607,6 +3609,13 @@ class RhwpSetFileNameCommand extends RhwpCommand {
   Map<String, Object?> toJson() => {'type': 'setFileName', 'name': name};
 }
 
+class RhwpConvertToEditableCommand extends RhwpCommand {
+  const RhwpConvertToEditableCommand();
+
+  @override
+  Map<String, Object?> toJson() => {'type': 'convertToEditable'};
+}
+
 class RhwpCreateHeaderFooterCommand extends RhwpCommand {
   const RhwpCreateHeaderFooterCommand({
     required this.section,
@@ -5563,6 +5572,10 @@ class RhwpDocument {
 
   Future<String> discardSnapshot(int snapshotId) {
     return apply(RhwpCommand.discardSnapshot(snapshotId));
+  }
+
+  Future<String> convertToEditable() {
+    return apply(RhwpCommand.convertToEditable());
   }
 
   Future<String> setFileName(String name) {

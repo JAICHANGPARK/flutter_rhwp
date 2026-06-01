@@ -1344,6 +1344,10 @@ impl RhwpSession {
                 inner.document.discard_snapshot_native(snapshot_id);
                 Ok("{\"ok\":true}".to_string())
             }
+            RhwpCommand::ConvertToEditable => inner
+                .document
+                .convert_to_editable_native()
+                .map_err(error_to_string),
             RhwpCommand::SetFileName { name } => {
                 inner.document.set_file_name(&name);
                 inner.file_name = Some(name);
@@ -2093,6 +2097,7 @@ enum RhwpCommand {
         #[serde(rename = "snapshotId")]
         snapshot_id: u32,
     },
+    ConvertToEditable,
     SetFileName {
         name: String,
     },

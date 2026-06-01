@@ -1264,6 +1264,7 @@ class RhwpEditor extends StatefulWidget {
     this.onExported,
     this.editRefreshDelay = _defaultEditRefreshDelay,
     this.holdTextRefreshWhileFocused = false,
+    this.convertToEditableOnLoad = true,
   });
 
   final RhwpDocument document;
@@ -1287,6 +1288,12 @@ class RhwpEditor extends StatefulWidget {
   /// between Space/text commits.
   final bool holdTextRefreshWhileFocused;
 
+  /// Converts distribution/read-only HWP documents to editable documents.
+  ///
+  /// This mirrors the upstream Web editor's load path. Disable it when an app
+  /// wants to preserve a document's original read-only distribution state.
+  final bool convertToEditableOnLoad;
+
   @override
   State<RhwpEditor> createState() => _RhwpEditorState();
 }
@@ -1303,6 +1310,7 @@ class RhwpNativeEditor extends StatelessWidget {
     this.onExported,
     this.editRefreshDelay = _defaultEditRefreshDelay,
     this.holdTextRefreshWhileFocused = false,
+    this.convertToEditableOnLoad = true,
   });
 
   final RhwpDocument document;
@@ -1313,6 +1321,7 @@ class RhwpNativeEditor extends StatelessWidget {
   final FutureOr<void> Function(RhwpExportedDocument document)? onExported;
   final Duration editRefreshDelay;
   final bool holdTextRefreshWhileFocused;
+  final bool convertToEditableOnLoad;
 
   @override
   Widget build(BuildContext context) {
@@ -1325,6 +1334,7 @@ class RhwpNativeEditor extends StatelessWidget {
       onExported: onExported,
       editRefreshDelay: editRefreshDelay,
       holdTextRefreshWhileFocused: holdTextRefreshWhileFocused,
+      convertToEditableOnLoad: convertToEditableOnLoad,
     );
   }
 }
@@ -1344,6 +1354,7 @@ class RhwpCommandEditor extends StatelessWidget {
     this.onExported,
     this.editRefreshDelay = _defaultEditRefreshDelay,
     this.holdTextRefreshWhileFocused = false,
+    this.convertToEditableOnLoad = true,
   });
 
   final RhwpDocument document;
@@ -1354,6 +1365,7 @@ class RhwpCommandEditor extends StatelessWidget {
   final FutureOr<void> Function(RhwpExportedDocument document)? onExported;
   final Duration editRefreshDelay;
   final bool holdTextRefreshWhileFocused;
+  final bool convertToEditableOnLoad;
 
   @override
   Widget build(BuildContext context) {
@@ -1366,6 +1378,7 @@ class RhwpCommandEditor extends StatelessWidget {
       onExported: onExported,
       editRefreshDelay: editRefreshDelay,
       holdTextRefreshWhileFocused: holdTextRefreshWhileFocused,
+      convertToEditableOnLoad: convertToEditableOnLoad,
     );
   }
 }
@@ -1594,6 +1607,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   Object? _error;
   int _charFormatQueryRevision = 0;
   int _paraFormatQueryRevision = 0;
+  int _editableConversionRevision = 0;
+  RhwpDocument? _editableConvertedDocument;
 
   static const _maxUndoSnapshots = 100;
   static const _textInputActionIgnoreWindow = Duration(milliseconds: 800);
@@ -1613,6 +1628,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _focusNode.addListener(_handleFocusChanged);
     FocusManager.instance.addListener(_handlePrimaryFocusChanged);
     _syncCursorFields();
+    unawaited(_convertToEditableIfNeeded());
     unawaited(_syncCurrentCharFormat());
     unawaited(_syncCurrentParaFormat());
     _loadPageCount();
@@ -1629,9 +1645,14 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       _currentParaFormat = const _CurrentParaFormat();
       _charFormatQueryRevision += 1;
       _paraFormatQueryRevision += 1;
+      _editableConvertedDocument = null;
+      unawaited(_convertToEditableIfNeeded());
       unawaited(_syncCurrentCharFormat());
       unawaited(_syncCurrentParaFormat());
       _loadPageCount();
+    } else if (!oldWidget.convertToEditableOnLoad &&
+        widget.convertToEditableOnLoad) {
+      unawaited(_convertToEditableIfNeeded());
     }
   }
 
@@ -1932,6 +1953,46 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       });
     } catch (error) {
       if (!mounted) {
+        return;
+      }
+      setState(() {
+        _error = error;
+      });
+    }
+  }
+
+  Future<void> _convertToEditableIfNeeded() async {
+    if (!widget.convertToEditableOnLoad ||
+        _editableConvertedDocument == widget.document) {
+      return;
+    }
+
+    final document = widget.document;
+    _editableConvertedDocument = document;
+    final revision = ++_editableConversionRevision;
+
+    try {
+      final response = await document.convertToEditable();
+      if (!mounted ||
+          widget.document != document ||
+          revision != _editableConversionRevision) {
+        return;
+      }
+
+      final converted = _decodedBool(response, 'converted');
+      if (converted == true) {
+        setState(() {
+          _renderRevision += 1;
+          _error = null;
+        });
+        unawaited(_syncCurrentCharFormat());
+        unawaited(_syncCurrentParaFormat());
+        _loadPageCount();
+      }
+    } catch (error) {
+      if (!mounted ||
+          widget.document != document ||
+          revision != _editableConversionRevision) {
         return;
       }
       setState(() {
@@ -7681,6 +7742,21 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         final value = decoded[key];
         if (value is num) {
           return value.toInt();
+        }
+      }
+    } catch (_) {
+      return null;
+    }
+    return null;
+  }
+
+  bool? _decodedBool(String resultJson, String key) {
+    try {
+      final decoded = jsonDecode(resultJson);
+      if (decoded is Map) {
+        final value = decoded[key];
+        if (value is bool) {
+          return value;
         }
       }
     } catch (_) {

@@ -93,6 +93,50 @@ void main() {
     },
   );
 
+  testWidgets('RhwpNativeEditor converts documents to editable on load', (
+    tester,
+  ) async {
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 640,
+          height: 520,
+          child: RhwpNativeEditor(document: document),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(session.convertToEditableCalls, 1);
+    expect(session.commands, isNot(contains('{"type":"convertToEditable"}')));
+  });
+
+  testWidgets('RhwpNativeEditor can keep distribution state on load', (
+    tester,
+  ) async {
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 640,
+          height: 520,
+          child: RhwpNativeEditor(
+            document: document,
+            convertToEditableOnLoad: false,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(session.convertToEditableCalls, 0);
+  });
+
   testWidgets('RhwpViewer uses upstream-style zoom presets', (tester) async {
     final controller = RhwpViewerController(zoom: 1.1);
 
@@ -11719,6 +11763,8 @@ class _FakeRhwpSession implements rust.RhwpSession {
   int exportHwpxCalls = 0;
   int exportPdfCalls = 0;
   int nextSnapshotId = 1;
+  int convertToEditableCalls = 0;
+  bool convertToEditableConverted = false;
   bool hasObjectControlClipboard = false;
   bool headerFooterExists = false;
   String headerFooterText = '';
@@ -11760,6 +11806,10 @@ class _FakeRhwpSession implements rust.RhwpSession {
         (command['type'] == 'getParaPropertiesAt' ||
             command['type'] == 'getCellParaPropertiesAt')) {
       return paraPropertiesJson;
+    }
+    if (command is Map && command['type'] == 'convertToEditable') {
+      convertToEditableCalls += 1;
+      return '{"ok":true,"converted":$convertToEditableConverted}';
     }
 
     commands.add(commandJson);
