@@ -425,7 +425,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   replace-all, table-cell find/replace, and a tools-ribbon compare dialog
   backed by text extraction, and basic
   text/table/picture/shape
-  insert/delete, with shape presets for rectangle, ellipse, line, and text box,
+  insert/delete from the ribbon and body context menu, with shape presets for
+  rectangle, ellipse, line, and text box,
   bookmark list/add/delete/rename through the input ribbon, page/column break
   insertion, plus table
   row above/below insertion and row deletion, column left/right insertion and

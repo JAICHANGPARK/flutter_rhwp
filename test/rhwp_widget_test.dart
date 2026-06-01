@@ -8410,6 +8410,118 @@ void main() {
     ]);
   });
 
+  testWidgets('RhwpNativeEditor context menu inserts body objects and breaks', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 900,
+          height: 520,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onImageRequested: () => RhwpEditorImage(
+              bytes: Uint8List.fromList([1, 2, 3]),
+              extension: '.PNG',
+              width: 750,
+              height: 1500,
+              naturalWidthPx: 10,
+              naturalHeightPx: 20,
+              description: 'sample.png',
+            ),
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    final menuPoint =
+        pageTopLeft +
+        Offset(pageSize.width * 105 / 240, pageSize.height * 48 / 180);
+
+    controller.cursor = const RhwpCursorPosition(offset: 2);
+    await tester.pump();
+
+    await tester.tapAt(menuPoint, buttons: kSecondaryMouseButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('그림 넣기'), findsOneWidget);
+    expect(find.text('사각형'), findsOneWidget);
+    expect(find.text('타원'), findsOneWidget);
+    expect(find.text('선'), findsOneWidget);
+    expect(find.text('글상자'), findsOneWidget);
+    expect(find.text('쪽 나누기'), findsOneWidget);
+    expect(find.text('단 나누기'), findsOneWidget);
+
+    await tester.tap(find.text('그림 넣기'));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'insertPicture',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 2,
+      'imageData': [1, 2, 3],
+      'width': 750,
+      'height': 1500,
+      'naturalWidthPx': 10,
+      'naturalHeightPx': 20,
+      'extension': 'png',
+      'description': 'sample.png',
+    });
+
+    await tester.tapAt(menuPoint, buttons: kSecondaryMouseButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('사각형'));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 2);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'insertShape',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 2,
+      'width': 9000,
+      'height': 6750,
+      'horzOffset': 0,
+      'vertOffset': 0,
+      'shapeType': 'rectangle',
+      'treatAsChar': false,
+      'textWrap': 'InFrontOfText',
+      'lineFlipX': false,
+      'lineFlipY': false,
+    });
+
+    await tester.tapAt(menuPoint, buttons: kSecondaryMouseButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('쪽 나누기'));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 3);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'insertPageBreak',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 2,
+    });
+  });
+
   testWidgets('RhwpNativeEditor context menu runs table cell actions', (
     tester,
   ) async {

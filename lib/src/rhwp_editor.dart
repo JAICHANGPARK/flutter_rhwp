@@ -562,6 +562,14 @@ enum _EditorContextMenuAction {
   alignCenter,
   alignRight,
   alignJustify,
+  insertPicture,
+  insertRectangle,
+  insertEllipse,
+  insertLine,
+  insertTextBox,
+  insertParagraph,
+  insertPageBreak,
+  insertColumnBreak,
   insertTable,
   insertTableRowAbove,
   insertTableRowBelow,
@@ -10262,6 +10270,22 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         await _applyParagraphAlignment('right');
       case _EditorContextMenuAction.alignJustify:
         await _applyParagraphAlignment('justify');
+      case _EditorContextMenuAction.insertPicture:
+        await _insertPicture();
+      case _EditorContextMenuAction.insertRectangle:
+        await _insertShape(_EditorShapePreset.rectangle);
+      case _EditorContextMenuAction.insertEllipse:
+        await _insertShape(_EditorShapePreset.ellipse);
+      case _EditorContextMenuAction.insertLine:
+        await _insertShape(_EditorShapePreset.line);
+      case _EditorContextMenuAction.insertTextBox:
+        await _insertShape(_EditorShapePreset.textBox);
+      case _EditorContextMenuAction.insertParagraph:
+        await _insertParagraphAfterCursor();
+      case _EditorContextMenuAction.insertPageBreak:
+        await _insertPageBreak();
+      case _EditorContextMenuAction.insertColumnBreak:
+        await _insertColumnBreak();
       case _EditorContextMenuAction.insertTable:
         await _insertTable();
       case _EditorContextMenuAction.insertTableRowAbove:
@@ -10656,6 +10680,55 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         action: _EditorContextMenuAction.insertTable,
         icon: Icons.table_chart_outlined,
         label: '표 만들기',
+        enabled: !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.insertPicture,
+        icon: Icons.image_outlined,
+        label: '그림 넣기',
+        enabled: !_busy && widget.onImageRequested != null,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.insertRectangle,
+        icon: Icons.crop_square,
+        label: '사각형',
+        enabled: !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.insertEllipse,
+        icon: Icons.radio_button_unchecked,
+        label: '타원',
+        enabled: !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.insertLine,
+        icon: Icons.show_chart,
+        label: '선',
+        enabled: !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.insertTextBox,
+        icon: Icons.text_fields,
+        label: '글상자',
+        enabled: !_busy,
+      ),
+      const PopupMenuDivider(),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.insertParagraph,
+        icon: Icons.segment,
+        label: '문단 추가',
+        enabled: !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.insertPageBreak,
+        icon: Icons.article_outlined,
+        label: '쪽 나누기',
+        enabled: !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.insertColumnBreak,
+        icon: Icons.view_column_outlined,
+        label: '단 나누기',
         enabled: !_busy,
       ),
     ];
