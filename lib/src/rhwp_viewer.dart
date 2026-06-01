@@ -451,14 +451,6 @@ class _RhwpSvgPageState extends State<_RhwpSvgPage>
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _cachedSvg = null;
-    _cachedSvgBuilder = null;
-    _cachedSvgPage = null;
-  }
-
-  @override
   Widget build(BuildContext context) {
     super.build(context);
     return DecoratedBox(

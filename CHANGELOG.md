@@ -51,6 +51,8 @@
 * Kept Flutter-native IME composing previews and page overlays on their own
   listenable/repaint layers so Space/text input does not rebuild or repaint the
   rendered HWP page surface.
+* Kept cached SVG page widgets alive across desktop text-input dependency churn
+  so Space/text commits do not recreate the rendered page surface.
 * Added Flutter-native zoom preset menus to the view ribbon and status bar,
   matching the upstream web editor's direct percentage selection.
 * Matched Flutter-native viewer/editor zoom controls to the upstream web editor

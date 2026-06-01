@@ -381,6 +381,62 @@ void main() {
     );
   });
 
+  testWidgets('RhwpViewer keeps SVG widget cached across dependency churn', (
+    tester,
+  ) async {
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var viewInsetBottom = 0.0;
+    var svgBuildCount = 0;
+    StateSetter? updateHarness;
+
+    Widget svgBuilder(BuildContext context, String svg) {
+      svgBuildCount += 1;
+      return Text(
+        key: const ValueKey('rhwp-cached-svg-page'),
+        svg.contains('#dc2626') ? 'page' : 'other',
+      );
+    }
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: StatefulBuilder(
+          builder: (context, setState) {
+            updateHarness = setState;
+            return MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(viewInsets: EdgeInsets.only(bottom: viewInsetBottom)),
+              child: SizedBox(
+                width: 360,
+                height: 320,
+                child: RhwpViewer(
+                  document: document,
+                  padding: const EdgeInsets.all(12),
+                  pageGap: 0,
+                  svgBuilder: svgBuilder,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(svgBuildCount, 1);
+    expect(session.renderedPages, [0]);
+
+    updateHarness!(() {
+      viewInsetBottom = 24.0;
+    });
+    await tester.pump();
+
+    expect(svgBuildCount, 1);
+    expect(session.renderedPages, [0]);
+    expect(find.byKey(const ValueKey('rhwp-cached-svg-page')), findsOneWidget);
+  });
+
   testWidgets(
     'RhwpViewer keeps previous SVG while refreshed render is pending',
     (tester) async {
