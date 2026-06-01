@@ -1548,6 +1548,14 @@ void main() {
           .data,
       'Page 1 / 8',
     );
+    expect(
+      tester
+          .widget<IconButton>(
+            find.byKey(const ValueKey('rhwp-editor-status-previous-page')),
+          )
+          .onPressed,
+      isNull,
+    );
 
     final scroll = controller.goToPage(5);
     await tester.pumpAndSettle();
@@ -1559,6 +1567,48 @@ void main() {
           .widget<Text>(find.byKey(const ValueKey('rhwp-editor-status-page')))
           .data,
       'Page 6 / 8',
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-status-previous-page')),
+    );
+    await tester.pumpAndSettle();
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.currentPage, 4);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('rhwp-editor-status-page')))
+          .data,
+      'Page 5 / 8',
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-status-next-page')),
+    );
+    await tester.pumpAndSettle();
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.currentPage, 5);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('rhwp-editor-status-page')))
+          .data,
+      'Page 6 / 8',
+    );
+
+    final lastPageScroll = controller.goToPage(7);
+    await tester.pumpAndSettle();
+    await lastPageScroll;
+    await _pumpDocumentFrame(tester);
+
+    expect(
+      tester
+          .widget<IconButton>(
+            find.byKey(const ValueKey('rhwp-editor-status-next-page')),
+          )
+          .onPressed,
+      isNull,
     );
   });
 

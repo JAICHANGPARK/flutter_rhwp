@@ -12937,6 +12937,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onZoomIn: _controller.zoomIn,
           onFitWidth: _controller.fitWidth,
           onFitPage: _controller.fitPage,
+          onPreviousPage: () => unawaited(_controller.previousPage()),
+          onNextPage: () => unawaited(_controller.nextPage()),
           onZoomPreset: (zoom) => _controller.zoom = zoom,
         ),
       ],
@@ -21024,6 +21026,8 @@ class _EditorStatusBar extends StatelessWidget {
     required this.onZoomIn,
     required this.onFitWidth,
     required this.onFitPage,
+    required this.onPreviousPage,
+    required this.onNextPage,
     required this.onZoomPreset,
   });
 
@@ -21039,6 +21043,8 @@ class _EditorStatusBar extends StatelessWidget {
   final VoidCallback onZoomIn;
   final VoidCallback onFitWidth;
   final VoidCallback onFitPage;
+  final VoidCallback onPreviousPage;
+  final VoidCallback onNextPage;
   final ValueChanged<double> onZoomPreset;
 
   @override
@@ -21066,10 +21072,24 @@ class _EditorStatusBar extends StatelessWidget {
                 ),
               ),
               const VerticalDivider(width: 24),
+              _StatusBarIconButton(
+                tooltip: 'Previous page',
+                buttonKey: const ValueKey('rhwp-editor-status-previous-page'),
+                icon: Icons.keyboard_arrow_left,
+                onPressed: currentPage <= 0 ? null : onPreviousPage,
+              ),
               Text(
                 _pageStatusText(),
                 key: const ValueKey('rhwp-editor-status-page'),
                 style: Theme.of(context).textTheme.bodySmall,
+              ),
+              _StatusBarIconButton(
+                tooltip: 'Next page',
+                buttonKey: const ValueKey('rhwp-editor-status-next-page'),
+                icon: Icons.keyboard_arrow_right,
+                onPressed: pageCount != null && currentPage >= pageCount! - 1
+                    ? null
+                    : onNextPage,
               ),
               const VerticalDivider(width: 24),
               Text(
