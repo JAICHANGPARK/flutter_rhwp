@@ -44,6 +44,9 @@
   `insertParagraph` command and an input-ribbon button.
 * Added Flutter-native current paragraph deletion through rhwp core's
   `deleteParagraph` command and an edit-ribbon button.
+* Added Flutter-native body paragraph merging through rhwp core's
+  `mergeParagraph` command, including Backspace/Delete paragraph-boundary
+  handling.
 * Added Flutter-native Delete-at-cell-paragraph-end handling to merge the next
   table-cell paragraph.
 * Added Flutter-native bookmark list/add/delete/rename commands and an input

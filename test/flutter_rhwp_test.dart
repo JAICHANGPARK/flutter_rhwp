@@ -60,6 +60,16 @@ void main() {
     });
   });
 
+  test('merge paragraph command serializes to the Rust command envelope', () {
+    final command = RhwpCommand.mergeParagraph(section: 0, paragraph: 2);
+
+    expect(jsonDecode(jsonEncode(command.toJson())), {
+      'type': 'mergeParagraph',
+      'section': 0,
+      'paragraph': 2,
+    });
+  });
+
   test('insert page break command serializes to the Rust command envelope', () {
     final command = RhwpCommand.insertPageBreak(
       section: 0,
@@ -2089,6 +2099,14 @@ void main() {
 
     expect(jsonDecode(session.lastCommandJson!), {
       'type': 'insertParagraph',
+      'section': 0,
+      'paragraph': 2,
+    });
+
+    await document.mergeParagraph(section: 0, paragraph: 2);
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'mergeParagraph',
       'section': 0,
       'paragraph': 2,
     });

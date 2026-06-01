@@ -965,6 +965,11 @@ abstract class RhwpCommand {
     required int paragraph,
   }) = RhwpDeleteParagraphCommand;
 
+  factory RhwpCommand.mergeParagraph({
+    required int section,
+    required int paragraph,
+  }) = RhwpMergeParagraphCommand;
+
   factory RhwpCommand.insertPageBreak({
     required int section,
     required int paragraph,
@@ -2066,6 +2071,23 @@ class RhwpDeleteParagraphCommand extends RhwpCommand {
   @override
   Map<String, Object?> toJson() => {
     'type': 'deleteParagraph',
+    'section': section,
+    'paragraph': paragraph,
+  };
+}
+
+class RhwpMergeParagraphCommand extends RhwpCommand {
+  const RhwpMergeParagraphCommand({
+    required this.section,
+    required this.paragraph,
+  });
+
+  final int section;
+  final int paragraph;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'mergeParagraph',
     'section': section,
     'paragraph': paragraph,
   };
@@ -4578,6 +4600,15 @@ class RhwpDocument {
   }) {
     return apply(
       RhwpCommand.deleteParagraph(section: section, paragraph: paragraph),
+    );
+  }
+
+  Future<String> mergeParagraph({
+    required int section,
+    required int paragraph,
+  }) {
+    return apply(
+      RhwpCommand.mergeParagraph(section: section, paragraph: paragraph),
     );
   }
 

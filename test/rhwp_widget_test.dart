@@ -7043,12 +7043,9 @@ void main() {
     expect(changedCalls, 1);
     expect(controller.cursor, const RhwpCursorPosition(offset: 4));
     expect(jsonDecode(session.commands.single), {
-      'type': 'deleteRange',
+      'type': 'mergeParagraph',
       'section': 0,
-      'startParagraph': 0,
-      'startOffset': 4,
-      'endParagraph': 1,
-      'endOffset': 0,
+      'paragraph': 1,
     });
 
     session.commands.clear();
@@ -7061,12 +7058,9 @@ void main() {
     expect(changedCalls, 2);
     expect(controller.cursor, const RhwpCursorPosition(offset: 4));
     expect(jsonDecode(session.commands.single), {
-      'type': 'deleteRange',
+      'type': 'mergeParagraph',
       'section': 0,
-      'startParagraph': 0,
-      'startOffset': 4,
-      'endParagraph': 1,
-      'endOffset': 0,
+      'paragraph': 1,
     });
 
     session.commands.clear();
@@ -12125,6 +12119,13 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'mergeParagraphInTableCell') {
       return '{"ok":true,"cellParaIndex":0,"charOffset":2}';
+    }
+    if (command is Map && command['type'] == 'mergeParagraph') {
+      final paragraph = command['paragraph'];
+      if (paragraph is int && paragraph > 0) {
+        return '{"ok":true,"paraIdx":${paragraph - 1},"charOffset":4}';
+      }
+      return '{"ok":false,"error":"cannot merge first paragraph"}';
     }
     if (command is Map && command['type'] == 'deleteParagraph') {
       return '{"ok":true,"removedCharCount":4,"newParagraphCount":2}';

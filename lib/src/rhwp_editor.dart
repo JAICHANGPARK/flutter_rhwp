@@ -6299,14 +6299,15 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       paragraph: previous.paragraph,
       offset: previous.endOffset,
     );
-    await widget.document.deleteRange(
+    final result = await widget.document.mergeParagraph(
       section: cursor.section,
-      startParagraph: previous.paragraph,
-      startOffset: previous.endOffset,
-      endParagraph: cursor.paragraph,
-      endOffset: cursor.offset,
+      paragraph: cursor.paragraph,
     );
-    _controller.cursor = mergedCursor;
+    _controller.cursor = RhwpCursorPosition(
+      section: cursor.section,
+      paragraph: _readIntResult(result, 'paraIdx') ?? mergedCursor.paragraph,
+      offset: _readIntResult(result, 'charOffset') ?? mergedCursor.offset,
+    );
     unawaited(_controller.goToPage(previous.page));
     return true;
   }
@@ -6330,14 +6331,15 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return false;
     }
 
-    await widget.document.deleteRange(
+    final result = await widget.document.mergeParagraph(
       section: cursor.section,
-      startParagraph: cursor.paragraph,
-      startOffset: current.endOffset,
-      endParagraph: next.paragraph,
-      endOffset: 0,
+      paragraph: next.paragraph,
     );
-    _controller.cursor = cursor.copyWith(offset: current.endOffset);
+    _controller.cursor = RhwpCursorPosition(
+      section: cursor.section,
+      paragraph: _readIntResult(result, 'paraIdx') ?? cursor.paragraph,
+      offset: _readIntResult(result, 'charOffset') ?? current.endOffset,
+    );
     unawaited(_controller.goToPage(current.page));
     return true;
   }
