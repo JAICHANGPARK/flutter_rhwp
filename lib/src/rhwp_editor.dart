@@ -139,6 +139,8 @@ class RhwpTableCellSelection {
     this.activeCellParagraph = 0,
     this.activeOffset = 0,
     this.isTextEditing = false,
+    this.selectionBaseCellParagraph,
+    this.selectionBaseOffset,
   });
 
   /// Creates a selection from a decoded page layer tree cell.
@@ -256,6 +258,23 @@ class RhwpTableCellSelection {
   /// Whether keyboard deletion should edit text at [activeOffset].
   final bool isTextEditing;
 
+  /// The anchor table-cell paragraph for an active text range selection.
+  final int? selectionBaseCellParagraph;
+
+  /// The anchor UTF-16 offset for an active text range selection.
+  final int? selectionBaseOffset;
+
+  /// Whether this table-cell text editing state currently spans text.
+  bool get hasTextSelection {
+    final baseCellParagraph = selectionBaseCellParagraph;
+    final baseOffset = selectionBaseOffset;
+    return isTextEditing &&
+        baseCellParagraph != null &&
+        baseOffset != null &&
+        (baseCellParagraph != activeCellParagraph ||
+            baseOffset != activeOffset);
+  }
+
   /// Whether this selection intersects [cell].
   bool containsCell(RhwpTableCellLayout cell) {
     if (!isSameTableAs(cell)) {
@@ -281,7 +300,12 @@ class RhwpTableCellSelection {
     int? activeCellParagraph,
     int? activeOffset,
     bool? isTextEditing,
+    int? selectionBaseCellParagraph,
+    int? selectionBaseOffset,
+    bool clearTextSelection = false,
   }) {
+    final nextIsTextEditing = isTextEditing ?? this.isTextEditing;
+    final shouldClearTextSelection = clearTextSelection || !nextIsTextEditing;
     return RhwpTableCellSelection(
       section: section ?? this.section,
       paragraph: paragraph ?? this.paragraph,
@@ -293,7 +317,13 @@ class RhwpTableCellSelection {
       activeCellIndex: activeCellIndex ?? this.activeCellIndex,
       activeCellParagraph: activeCellParagraph ?? this.activeCellParagraph,
       activeOffset: activeOffset ?? this.activeOffset,
-      isTextEditing: isTextEditing ?? this.isTextEditing,
+      isTextEditing: nextIsTextEditing,
+      selectionBaseCellParagraph: shouldClearTextSelection
+          ? null
+          : selectionBaseCellParagraph ?? this.selectionBaseCellParagraph,
+      selectionBaseOffset: shouldClearTextSelection
+          ? null
+          : selectionBaseOffset ?? this.selectionBaseOffset,
     );
   }
 
@@ -317,11 +347,13 @@ class RhwpTableCellSelection {
         other.activeCellIndex == activeCellIndex &&
         other.activeCellParagraph == activeCellParagraph &&
         other.activeOffset == activeOffset &&
-        other.isTextEditing == isTextEditing;
+        other.isTextEditing == isTextEditing &&
+        other.selectionBaseCellParagraph == selectionBaseCellParagraph &&
+        other.selectionBaseOffset == selectionBaseOffset;
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     section,
     paragraph,
     controlIndex,
@@ -333,11 +365,13 @@ class RhwpTableCellSelection {
     activeCellParagraph,
     activeOffset,
     isTextEditing,
-  );
+    selectionBaseCellParagraph,
+    selectionBaseOffset,
+  ]);
 
   @override
   String toString() {
-    return 'RhwpTableCellSelection(section: $section, paragraph: $paragraph, controlIndex: $controlIndex, startRow: $startRow, startColumn: $startColumn, endRow: $endRow, endColumn: $endColumn, activeCellIndex: $activeCellIndex, activeCellParagraph: $activeCellParagraph, activeOffset: $activeOffset, isTextEditing: $isTextEditing)';
+    return 'RhwpTableCellSelection(section: $section, paragraph: $paragraph, controlIndex: $controlIndex, startRow: $startRow, startColumn: $startColumn, endRow: $endRow, endColumn: $endColumn, activeCellIndex: $activeCellIndex, activeCellParagraph: $activeCellParagraph, activeOffset: $activeOffset, isTextEditing: $isTextEditing, selectionBaseCellParagraph: $selectionBaseCellParagraph, selectionBaseOffset: $selectionBaseOffset)';
   }
 }
 
@@ -6624,7 +6658,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     );
   }
 
-  Future<void> _moveTableCellCursorByWord(int delta) async {
+  Future<void> _moveTableCellCursorByWord(
+    int delta, {
+    bool extendSelection = false,
+  }) async {
     final tableSelection = _editableTableCellSelection;
     if (tableSelection == null ||
         !tableSelection.isTextEditing ||
@@ -6651,10 +6688,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         return;
       }
 
-      final nextSelection = current.copyWith(
-        activeCellParagraph: target.cellParagraph,
-        activeOffset: target.offset,
-        isTextEditing: true,
+      final nextSelection = _tableCellSelectionWithTextCaret(
+        current,
+        cellParagraph: target.cellParagraph,
+        offset: target.offset,
+        extendSelection: extendSelection,
       );
       _syncTableSelectionFields(nextSelection);
       _controller.tableCellSelection = nextSelection;
@@ -6668,7 +6706,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
   }
 
-  Future<void> _moveTableCellCursorHorizontally(int delta) async {
+  Future<void> _moveTableCellCursorHorizontally(
+    int delta, {
+    bool extendSelection = false,
+  }) async {
     final tableSelection = _editableTableCellSelection;
     final activeCellIndex = tableSelection?.activeCellIndex;
     if (tableSelection == null ||
@@ -6749,6 +6790,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       if (!mounted || nextSelection == current) {
         return;
       }
+      nextSelection = _tableCellSelectionWithTextCaret(
+        current,
+        cellParagraph: nextSelection.activeCellParagraph,
+        offset: nextSelection.activeOffset,
+        extendSelection: extendSelection,
+      );
       _syncTableSelectionFields(nextSelection);
       _controller.tableCellSelection = nextSelection;
       _focusEditor();
@@ -6761,7 +6808,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
   }
 
-  Future<void> _moveTableCellCursorVertically(int delta) async {
+  Future<void> _moveTableCellCursorVertically(
+    int delta, {
+    bool extendSelection = false,
+  }) async {
     final tableSelection = _editableTableCellSelection;
     final activeCellIndex = tableSelection?.activeCellIndex;
     if (tableSelection == null ||
@@ -6780,10 +6830,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       RhwpTableCellSelection? nextSelection;
       final target = await _verticalTableCellTextPositionFrom(current, delta);
       if (target != null) {
-        nextSelection = current.copyWith(
-          activeCellParagraph: target.cellParagraph,
-          activeOffset: target.offset,
-          isTextEditing: true,
+        nextSelection = _tableCellSelectionWithTextCaret(
+          current,
+          cellParagraph: target.cellParagraph,
+          offset: target.offset,
+          extendSelection: extendSelection,
         );
         unawaited(_controller.goToPage(target.page));
       } else {
@@ -6791,6 +6842,14 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           current,
           delta,
         );
+        if (nextSelection != null) {
+          nextSelection = _tableCellSelectionWithTextCaret(
+            current,
+            cellParagraph: nextSelection.activeCellParagraph,
+            offset: nextSelection.activeOffset,
+            extendSelection: extendSelection,
+          );
+        }
       }
 
       if (!mounted || nextSelection == null || nextSelection == current) {
@@ -6806,6 +6865,26 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         });
       }
     }
+  }
+
+  RhwpTableCellSelection _tableCellSelectionWithTextCaret(
+    RhwpTableCellSelection current, {
+    required int cellParagraph,
+    required int offset,
+    required bool extendSelection,
+  }) {
+    return current.copyWith(
+      activeCellParagraph: cellParagraph,
+      activeOffset: offset,
+      isTextEditing: true,
+      selectionBaseCellParagraph: extendSelection
+          ? current.selectionBaseCellParagraph ?? current.activeCellParagraph
+          : null,
+      selectionBaseOffset: extendSelection
+          ? current.selectionBaseOffset ?? current.activeOffset
+          : null,
+      clearTextSelection: !extendSelection,
+    );
   }
 
   Future<({int cellParagraph, int offset, int page})?>
@@ -6994,6 +7073,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
   Future<void> _moveTableCellCursorToParagraphBoundary({
     required bool end,
+    bool extendSelection = false,
   }) async {
     final tableSelection = _editableTableCellSelection;
     final activeCellIndex = tableSelection?.activeCellIndex;
@@ -7023,9 +7103,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         return;
       }
 
-      final nextSelection = current.copyWith(
-        activeOffset: nextOffset,
-        isTextEditing: true,
+      final nextSelection = _tableCellSelectionWithTextCaret(
+        current,
+        cellParagraph: current.activeCellParagraph,
+        offset: nextOffset,
+        extendSelection: extendSelection,
       );
       _syncTableSelectionFields(nextSelection);
       _controller.tableCellSelection = nextSelection;
@@ -9620,9 +9702,19 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         if (leftTableSelection != null) {
           if (leftTableSelection.isTextEditing) {
             if (wordNavigationPressed) {
-              unawaited(_moveTableCellCursorByWord(-1));
+              unawaited(
+                _moveTableCellCursorByWord(
+                  -1,
+                  extendSelection: extendSelection,
+                ),
+              );
             } else {
-              unawaited(_moveTableCellCursorHorizontally(-1));
+              unawaited(
+                _moveTableCellCursorHorizontally(
+                  -1,
+                  extendSelection: extendSelection,
+                ),
+              );
             }
           } else {
             unawaited(
@@ -9650,9 +9742,16 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         if (rightTableSelection != null) {
           if (rightTableSelection.isTextEditing) {
             if (wordNavigationPressed) {
-              unawaited(_moveTableCellCursorByWord(1));
+              unawaited(
+                _moveTableCellCursorByWord(1, extendSelection: extendSelection),
+              );
             } else {
-              unawaited(_moveTableCellCursorHorizontally(1));
+              unawaited(
+                _moveTableCellCursorHorizontally(
+                  1,
+                  extendSelection: extendSelection,
+                ),
+              );
             }
           } else {
             unawaited(
@@ -9679,7 +9778,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         final upTableSelection = _controller.tableCellSelection;
         if (upTableSelection != null) {
           if (upTableSelection.isTextEditing) {
-            unawaited(_moveTableCellCursorVertically(-1));
+            unawaited(
+              _moveTableCellCursorVertically(
+                -1,
+                extendSelection: extendSelection,
+              ),
+            );
           } else if (!wordNavigationPressed) {
             unawaited(
               _moveTableCellSelection(
@@ -9701,7 +9805,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         final downTableSelection = _controller.tableCellSelection;
         if (downTableSelection != null) {
           if (downTableSelection.isTextEditing) {
-            unawaited(_moveTableCellCursorVertically(1));
+            unawaited(
+              _moveTableCellCursorVertically(
+                1,
+                extendSelection: extendSelection,
+              ),
+            );
           } else if (!wordNavigationPressed) {
             unawaited(
               _moveTableCellSelection(
@@ -9724,14 +9833,24 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         return KeyEventResult.handled;
       case LogicalKeyboardKey.home:
         if (_controller.tableCellSelection?.isTextEditing == true) {
-          unawaited(_moveTableCellCursorToParagraphBoundary(end: false));
+          unawaited(
+            _moveTableCellCursorToParagraphBoundary(
+              end: false,
+              extendSelection: extendSelection,
+            ),
+          );
           return KeyEventResult.handled;
         }
         unawaited(_moveCursorToLineStart(extendSelection: extendSelection));
         return KeyEventResult.handled;
       case LogicalKeyboardKey.end:
         if (_controller.tableCellSelection?.isTextEditing == true) {
-          unawaited(_moveTableCellCursorToParagraphBoundary(end: true));
+          unawaited(
+            _moveTableCellCursorToParagraphBoundary(
+              end: true,
+              extendSelection: extendSelection,
+            ),
+          );
           return KeyEventResult.handled;
         }
         unawaited(_moveCursorToLineEnd(extendSelection: extendSelection));
@@ -12048,6 +12167,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
   ) {
     final overlaySize = _overlaySize(constraints, tree);
     final tableSelectionRects = _tableSelectionRects(tree, overlaySize);
+    final tableTextSelectionRects = _tableTextSelectionRects(tree, overlaySize);
     final objectSelectionRects = _objectSelectionRects(tree, overlaySize);
     final searchRects = _searchRects(tree, overlaySize);
     final pendingDeletionRects = _pendingDeletionRects(tree, overlaySize);
@@ -12067,6 +12187,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     );
     if (caretRect == null &&
         tableSelectionRects.isEmpty &&
+        tableTextSelectionRects.isEmpty &&
         objectSelectionRects.isEmpty &&
         searchRects.isEmpty &&
         pendingDeletionRects.isEmpty &&
@@ -12129,6 +12250,20 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
                   color: color.withValues(alpha: 0.82),
                   width: 2,
                 ),
+              ),
+            ),
+          ),
+        for (final (index, rect) in tableTextSelectionRects.indexed)
+          _positionedRect(
+            key: index == 0
+                ? const ValueKey('rhwp-editor-table-text-selection')
+                : ValueKey('rhwp-editor-table-text-selection-$index'),
+            rect: rect,
+            constraints: constraints,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.24),
+                borderRadius: BorderRadius.circular(3),
               ),
             ),
           ),
@@ -12358,6 +12493,80 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
         if (tableSelection.containsCell(cell))
           _scalePageRect(cell.bounds, tree, overlaySize),
     ];
+  }
+
+  List<Rect> _tableTextSelectionRects(RhwpLayerTree tree, Size overlaySize) {
+    final tableSelection = widget.tableCellSelection;
+    final activeCellIndex = tableSelection?.activeCellIndex;
+    final baseCellParagraph = tableSelection?.selectionBaseCellParagraph;
+    final baseOffset = tableSelection?.selectionBaseOffset;
+    if (tableSelection == null ||
+        activeCellIndex == null ||
+        !tableSelection.hasTextSelection ||
+        baseCellParagraph == null ||
+        baseOffset == null) {
+      return const [];
+    }
+
+    var start = (cellParagraph: baseCellParagraph, offset: baseOffset);
+    var end = (
+      cellParagraph: tableSelection.activeCellParagraph,
+      offset: tableSelection.activeOffset,
+    );
+    if (_compareTableTextPosition(start, end) > 0) {
+      final previousStart = start;
+      start = end;
+      end = previousStart;
+    }
+
+    final rects = <Rect>[];
+    for (final run in tree.textRuns) {
+      final context = run.cellContext;
+      if (context == null ||
+          run.section != tableSelection.section ||
+          run.paragraph != tableSelection.paragraph ||
+          context.parentParagraph != tableSelection.paragraph ||
+          context.controlIndex != tableSelection.controlIndex ||
+          context.cellIndex != activeCellIndex) {
+        continue;
+      }
+
+      final runStart = (
+        cellParagraph: context.cellParagraph,
+        offset: run.charStart,
+      );
+      final runEnd = (
+        cellParagraph: context.cellParagraph,
+        offset: run.charEnd,
+      );
+      if (_compareTableTextPosition(runEnd, start) <= 0 ||
+          _compareTableTextPosition(runStart, end) >= 0) {
+        continue;
+      }
+
+      final startOffset = context.cellParagraph == start.cellParagraph
+          ? math.max(run.charStart, start.offset)
+          : run.charStart;
+      final endOffset = context.cellParagraph == end.cellParagraph
+          ? math.min(run.charEnd, end.offset)
+          : run.charEnd;
+      final rect = run.selectionRectForOffsets(startOffset, endOffset);
+      if (rect != null) {
+        rects.add(_scalePageRect(rect, tree, overlaySize));
+      }
+    }
+    return rects;
+  }
+
+  int _compareTableTextPosition(
+    ({int cellParagraph, int offset}) left,
+    ({int cellParagraph, int offset}) right,
+  ) {
+    final paragraph = left.cellParagraph.compareTo(right.cellParagraph);
+    if (paragraph != 0) {
+      return paragraph;
+    }
+    return left.offset.compareTo(right.offset);
   }
 
   List<Rect> _transparentTableBorderRects(

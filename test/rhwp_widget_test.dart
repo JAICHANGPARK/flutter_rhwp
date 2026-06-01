@@ -4182,6 +4182,81 @@ void main() {
   });
 
   testWidgets(
+    'RhwpNativeEditor extends table cell text selection with shift arrows',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(
+        _tableCellEditorLayerTreeJson(cellText: 'cell'),
+      );
+      final document = RhwpDocument.fromSession(session);
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(document: document, controller: controller),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      await tester.tapAt(
+        tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+            const Offset(1, 6),
+      );
+      await tester.pump();
+
+      controller.tableCellSelection = const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+        activeOffset: 2,
+        isTextEditing: true,
+      );
+      await tester.pump();
+      session.commands.clear();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await _pumpDocumentFrame(tester);
+
+      final extendedSelection = controller.tableCellSelection;
+      expect(extendedSelection?.activeCellParagraph, 0);
+      expect(extendedSelection?.activeOffset, 1);
+      expect(extendedSelection?.selectionBaseCellParagraph, 0);
+      expect(extendedSelection?.selectionBaseOffset, 2);
+      expect(extendedSelection?.hasTextSelection, isTrue);
+      expect(session.commands, isEmpty);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-table-text-selection')),
+        findsOneWidget,
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await _pumpDocumentFrame(tester);
+
+      final collapsedSelection = controller.tableCellSelection;
+      expect(collapsedSelection?.activeCellParagraph, 0);
+      expect(collapsedSelection?.activeOffset, 0);
+      expect(collapsedSelection?.selectionBaseCellParagraph, isNull);
+      expect(collapsedSelection?.selectionBaseOffset, isNull);
+      expect(collapsedSelection?.hasTextSelection, isFalse);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-table-text-selection')),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets(
     'RhwpNativeEditor moves table cell cursor vertically with arrow keys',
     (tester) async {
       final controller = RhwpEditorController();
