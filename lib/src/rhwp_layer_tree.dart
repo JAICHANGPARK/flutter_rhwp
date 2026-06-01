@@ -812,6 +812,7 @@ const _boundsKeys = ['bounds', 'bbox', 'rect', 'frame'];
 const _objectLayoutTypes = {
   'object',
   'control',
+  'table',
   'shape',
   'image',
   'picture',

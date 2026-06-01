@@ -3066,7 +3066,42 @@ void main() {
     );
     expect(session.commands, isEmpty);
 
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.tableCellSelection, isNull);
+    expect(
+      controller.objectSelection,
+      const RhwpObjectSelection(
+        page: 0,
+        bounds: Rect.fromLTRB(80, 40, 180, 120),
+        type: 'table',
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+      ),
+    );
+    expect(session.commands, isEmpty);
+
     await tester.sendKeyEvent(LogicalKeyboardKey.f5);
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.objectSelection, isNull);
+    expect(
+      controller.tableCellSelection,
+      const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+      ),
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await _pumpDocumentFrame(tester);
 
     expect(controller.tableCellSelection?.isTextEditing, isTrue);

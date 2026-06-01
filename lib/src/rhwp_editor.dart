@@ -403,6 +403,9 @@ class RhwpObjectSelection {
     return (lineStart != null && lineEnd != null) || _isLineObjectType(type);
   }
 
+  /// Whether this selected object represents a table control.
+  bool get isTableObject => _isTableObjectType(type);
+
   /// Creates a copy with selected fields changed.
   RhwpObjectSelection copyWith({
     int? page,
@@ -466,6 +469,11 @@ bool _isLineObjectType(String type) {
   return normalized == 'line' ||
       normalized == 'connector' ||
       normalized == 'straightline';
+}
+
+bool _isTableObjectType(String type) {
+  final normalized = type.toLowerCase().replaceAll(RegExp(r'[\s_-]+'), '');
+  return normalized == 'table' || normalized == 'tablecontrol';
 }
 
 Offset _lineStartForSelection(RhwpObjectSelection selection) {
@@ -5588,6 +5596,114 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
   }
 
+  Future<void> _enterSelectedTableObject() async {
+    final objectSelection = _controller.objectSelection;
+    final section = objectSelection?.section;
+    final paragraph = objectSelection?.paragraph;
+    final controlIndex = objectSelection?.controlIndex;
+    if (objectSelection == null ||
+        !objectSelection.isTableObject ||
+        section == null ||
+        paragraph == null ||
+        controlIndex == null ||
+        _busy) {
+      return;
+    }
+
+    final seedSelection = RhwpTableCellSelection(
+      section: section,
+      paragraph: paragraph,
+      controlIndex: controlIndex,
+      startRow: 0,
+      startColumn: 0,
+      endRow: 0,
+      endColumn: 0,
+    );
+
+    try {
+      final cells = await _tableCellsForSelection(seedSelection);
+      if (!mounted || cells.isEmpty) {
+        _focusEditor();
+        return;
+      }
+
+      final target = cells.first;
+      _setKeyboardTableCellSelection(
+        RhwpTableCellSelection.fromCell(target.cell),
+        page: target.page,
+      );
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    }
+  }
+
+  Future<void> _selectTableObjectFromTableSelection(
+    RhwpTableCellSelection selection,
+  ) async {
+    if (_busy) {
+      return;
+    }
+
+    try {
+      final cells = await _tableCellsForSelection(selection);
+      if (!mounted || cells.isEmpty) {
+        _controller.clearTableCellSelection();
+        _focusEditor();
+        return;
+      }
+
+      final active = _activeTableCellForSelection(selection, cells);
+      final page = active?.page ?? cells.first.page;
+      final tree = await widget.document.pageLayerTreeModel(page);
+      if (!mounted) {
+        return;
+      }
+
+      RhwpObjectLayout? tableObject;
+      for (final object in tree.objects) {
+        if (_isTableObjectType(object.type) &&
+            object.section == selection.section &&
+            object.paragraph == selection.paragraph &&
+            object.controlIndex == selection.controlIndex) {
+          tableObject = object;
+          break;
+        }
+      }
+
+      final pageCells = cells
+          .where((entry) => entry.page == page)
+          .map((entry) => entry.cell.bounds);
+      final bounds = tableObject?.bounds ?? _unionRects(pageCells);
+      if (bounds == null) {
+        _controller.clearTableCellSelection();
+        _focusEditor();
+        return;
+      }
+
+      _controller.objectSelection = RhwpObjectSelection(
+        page: page,
+        bounds: bounds,
+        type: tableObject?.type ?? 'table',
+        section: selection.section,
+        paragraph: selection.paragraph,
+        controlIndex: selection.controlIndex,
+        objectIndex: tableObject?.objectIndex,
+      );
+      unawaited(_controller.goToPage(page));
+      _focusEditor();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    }
+  }
+
   Future<List<({RhwpTableCellLayout cell, int page})>> _tableCellsForSelection(
     RhwpTableCellSelection selection,
   ) async {
@@ -5858,6 +5974,14 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _controller.tableCellSelection = selection;
     unawaited(_controller.goToPage(page));
     _focusEditor();
+  }
+
+  Rect? _unionRects(Iterable<Rect> rects) {
+    Rect? result;
+    for (final rect in rects) {
+      result = result == null ? rect : result.expandToInclude(rect);
+    }
+    return result;
   }
 
   Future<bool> _deleteSelectedText(RhwpSelectionRange selection) async {
@@ -7554,6 +7678,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     final objectNudgeStep = extendSelection ? 10.0 : 1.0;
     switch (event.logicalKey) {
       case LogicalKeyboardKey.escape:
+        final tableSelection = _controller.tableCellSelection;
+        if (tableSelection != null && !tableSelection.isTextEditing) {
+          unawaited(_selectTableObjectFromTableSelection(tableSelection));
+          return KeyEventResult.handled;
+        }
         return _handleEscapeKey()
             ? KeyEventResult.handled
             : KeyEventResult.ignored;
@@ -7573,6 +7702,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       case LogicalKeyboardKey.f5:
         if (!_busy && _controller.tableCellSelection != null) {
           unawaited(_enterSelectedTableCell());
+          return KeyEventResult.handled;
+        }
+        if (!_busy && _controller.objectSelection?.isTableObject == true) {
+          unawaited(_enterSelectedTableObject());
           return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
@@ -7668,6 +7801,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       case LogicalKeyboardKey.enter:
       case LogicalKeyboardKey.numpadEnter:
         if (!_busy) {
+          if (_controller.objectSelection?.isTableObject == true) {
+            unawaited(_enterSelectedTableObject());
+            return KeyEventResult.handled;
+          }
           if (shortcutPressed && _controller.tableCellSelection == null) {
             if (extendSelection) {
               _insertColumnBreak();

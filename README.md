@@ -307,7 +307,9 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   text insert/delete/clear/copy/cut/paste, tab/newline multi-cell paste,
   cell text offset hit testing, Arrow/Tab/Enter keyboard handling for selected
   table cells, F5 selected-cell edit entry, Esc return from active cell text
-  editing to cell selection, Arrow/Shift+Arrow object nudging, and Shift+drag
+  editing to cell selection and from cell selection to table-object selection,
+  Enter/F5 table-object re-entry to cell selection, Arrow/Shift+Arrow object
+  nudging, and Shift+drag
   aspect-ratio preserving object resize. Insert/Overwrite input mode toggles
   with the Insert key, and overwrite typing replaces body and active table cell
   text through Rust delete/insert commands. Text input, paste, tab input, and
