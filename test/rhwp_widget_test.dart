@@ -5504,6 +5504,132 @@ void main() {
   );
 
   testWidgets(
+    'RhwpNativeEditor previews rapid table cell text while insert is pending',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+      final insertGate = Completer<void>();
+      session.commandGates['insertTextInTableCell'] = insertGate;
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      final pageFinder = find.byType(SvgPicture);
+      final pageTopLeft = tester.getTopLeft(pageFinder);
+      final pageSize = tester.getSize(pageFinder);
+      await tester.tapAt(
+        pageTopLeft +
+            Offset(pageSize.width * 118 / 240, pageSize.height * 76 / 180),
+      );
+      await tester.pump();
+
+      expect(controller.tableCellSelection?.activeOffset, 2);
+      session.renderedPages.clear();
+
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: ' ',
+          selection: TextSelection.collapsed(offset: 1),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(changedCalls, 0);
+      expect(session.renderedPages, isEmpty);
+      expect(controller.tableCellSelection?.activeOffset, 3);
+      expect(session.commands.map(jsonDecode), [
+        {
+          'type': 'insertTextInTableCell',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 0,
+          'offset': 2,
+          'text': ' ',
+        },
+      ]);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
+        findsOneWidget,
+      );
+      expect(find.text(' '), findsOneWidget);
+
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: 'A',
+          selection: TextSelection.collapsed(offset: 1),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(changedCalls, 0);
+      expect(session.renderedPages, isEmpty);
+      expect(controller.tableCellSelection?.activeOffset, 4);
+      expect(session.commands.length, 1);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
+        findsOneWidget,
+      );
+      expect(find.text(' A'), findsOneWidget);
+
+      insertGate.complete();
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      expect(session.commands.map(jsonDecode), [
+        {
+          'type': 'insertTextInTableCell',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 0,
+          'offset': 2,
+          'text': ' ',
+        },
+        {
+          'type': 'insertTextInTableCell',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 0,
+          'offset': 3,
+          'text': 'A',
+        },
+      ]);
+      expect(changedCalls, 0);
+      expect(session.renderedPages, isEmpty);
+      expect(find.text(' A'), findsOneWidget);
+
+      await _releaseTextInputAction(tester);
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+      expect(session.renderedPages, [0]);
+    },
+  );
+
+  testWidgets(
     'RhwpNativeEditor anchors pending table cell text to the cell run',
     (tester) async {
       final controller = RhwpEditorController();

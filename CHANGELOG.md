@@ -488,6 +488,9 @@
 * Changed collapsed body text input to advance the Flutter pending text overlay
   and caret before a slow Rust `insertText` command finishes, so rapid Space and
   text entry stays visible without triggering per-character page SVG refresh.
+* Changed active table-cell text input to advance the Flutter pending text
+  overlay and cell caret before a slow Rust `insertTextInTableCell` command
+  finishes, keeping rapid Space/text entry visible inside the selected cell.
 * Added pending delete masks for Flutter-native body text deletion and
   selection replacement so removed text is hidden until the refreshed page SVG
   finishes rendering.
