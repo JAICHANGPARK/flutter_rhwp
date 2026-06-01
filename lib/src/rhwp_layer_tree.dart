@@ -136,8 +136,13 @@ class RhwpLayerTree {
     required int section,
     required int paragraph,
     required int offset,
+    RhwpCellTextContext? cellContext,
   }) {
     for (final run in textRuns) {
+      if (cellContext != null &&
+          !cellContext.hasSameTextPath(run.cellContext)) {
+        continue;
+      }
       if (run.containsPosition(
         section: section,
         paragraph: paragraph,
@@ -431,6 +436,15 @@ class RhwpCellTextContext {
 
   /// The rhwp text direction value for this cell path entry.
   final int textDirection;
+
+  /// Whether [other] points at the same table-cell text path.
+  bool hasSameTextPath(RhwpCellTextContext? other) {
+    return other != null &&
+        other.parentParagraph == parentParagraph &&
+        other.controlIndex == controlIndex &&
+        other.cellIndex == cellIndex &&
+        other.cellParagraph == cellParagraph;
+  }
 }
 
 /// A table cell decoded from a rhwp page layer tree.

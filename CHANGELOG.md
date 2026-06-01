@@ -113,6 +113,9 @@
 * Limited deferred Flutter-native text-input refreshes to the edited page, so
   large documents do not re-render every mounted page when optimistic typing
   finally synchronizes with fresh SVG.
+* Anchored Flutter-native pending text previews to table-cell text source
+  context, so optimistic table-cell input overlays do not snap to body text runs
+  that share the same section and paragraph identifiers.
 * Stabilized programmatic viewer page navigation so `goToPage` requests are not
   immediately overwritten by stale visible-page sync during editor navigation.
 * Added Flutter-native Delete-at-cell-paragraph-end handling to merge the next

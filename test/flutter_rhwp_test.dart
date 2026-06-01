@@ -3785,6 +3785,32 @@ void main() {
     expect(hit.cellContext!.textDirection, 0);
   });
 
+  test('page layer tree caret rect can filter table cell text context', () {
+    final tree = RhwpLayerTree.fromJsonString(
+      0,
+      jsonEncode(_ambiguousCellTextRunLayerTreeJson()),
+    );
+
+    final bodyCaret = tree.caretRectFor(section: 0, paragraph: 5, offset: 2);
+    final cellCaret = tree.caretRectFor(
+      section: 0,
+      paragraph: 5,
+      offset: 2,
+      cellContext: const RhwpCellTextContext(
+        parentParagraph: 5,
+        controlIndex: 2,
+        cellIndex: 7,
+        cellParagraph: 0,
+        textDirection: 0,
+      ),
+    );
+
+    expect(bodyCaret, isNotNull);
+    expect(cellCaret, isNotNull);
+    expect(bodyCaret!.left, closeTo(40, 0.001));
+    expect(cellCaret!.left, closeTo(110, 0.001));
+  });
+
   test('page layer tree model maps multi-paragraph selection ranges', () {
     final tree = RhwpLayerTree.fromJsonString(
       0,
@@ -3922,6 +3948,71 @@ Map<String, Object?> _cellTextRunLayerTreeJson() {
               'text': 'cell',
               'source': {
                 'id': 0,
+                'utf16Range': {'start': 0, 'end': 4},
+                'stableSourceKey': 'section:0/para:5/char:0/cell:5:2:7:0:0',
+              },
+              'placement': {
+                'runToPage': {'a': 1, 'b': 0, 'c': 0, 'd': 1, 'e': 90, 'f': 72},
+                'baselineY': 0,
+              },
+              'clusters': [
+                _textCluster(0, 1, 0),
+                _textCluster(1, 2, 10),
+                _textCluster(2, 3, 20),
+                _textCluster(3, 4, 30),
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  };
+}
+
+Map<String, Object?> _ambiguousCellTextRunLayerTreeJson() {
+  return {
+    'pageWidth': 240,
+    'pageHeight': 180,
+    'root': {
+      'kind': 'group',
+      'bounds': {'x': 0, 'y': 0, 'width': 240, 'height': 180},
+      'children': [
+        {
+          'kind': 'leaf',
+          'bounds': {'x': 20, 'y': 30, 'width': 80, 'height': 16},
+          'ops': [
+            {
+              'type': 'textRun',
+              'bbox': {'x': 20, 'y': 30, 'width': 80, 'height': 16},
+              'text': 'body',
+              'source': {
+                'id': 0,
+                'utf16Range': {'start': 0, 'end': 4},
+                'stableSourceKey': 'section:0/para:5/char:0',
+              },
+              'placement': {
+                'runToPage': {'a': 1, 'b': 0, 'c': 0, 'd': 1, 'e': 20, 'f': 42},
+                'baselineY': 0,
+              },
+              'clusters': [
+                _textCluster(0, 1, 0),
+                _textCluster(1, 2, 10),
+                _textCluster(2, 3, 20),
+                _textCluster(3, 4, 30),
+              ],
+            },
+          ],
+        },
+        {
+          'kind': 'leaf',
+          'bounds': {'x': 90, 'y': 60, 'width': 80, 'height': 16},
+          'ops': [
+            {
+              'type': 'textRun',
+              'bbox': {'x': 90, 'y': 60, 'width': 80, 'height': 16},
+              'text': 'cell',
+              'source': {
+                'id': 1,
                 'utf16Range': {'start': 0, 'end': 4},
                 'stableSourceKey': 'section:0/para:5/char:0/cell:5:2:7:0:0',
               },

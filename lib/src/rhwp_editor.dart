@@ -1502,17 +1502,20 @@ class _PendingTextOverlay {
     required this.page,
     required this.cursor,
     required this.text,
+    this.cellContext,
   });
 
   final int page;
   final RhwpCursorPosition cursor;
   final String text;
+  final RhwpCellTextContext? cellContext;
 
   _PendingTextOverlay copyWith({String? text}) {
     return _PendingTextOverlay(
       page: page,
       cursor: cursor,
       text: text ?? this.text,
+      cellContext: cellContext,
     );
   }
 }
@@ -2554,6 +2557,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           offset: insertSelection.activeOffset,
         ),
         text,
+        cellContext: _pendingTextCellContext(insertSelection),
       );
     }
   }
@@ -9159,7 +9163,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _pendingTextOverlaysListenable.value = nextOverlays;
   }
 
-  void _recordPendingTextOverlay(RhwpCursorPosition cursor, String text) {
+  void _recordPendingTextOverlay(
+    RhwpCursorPosition cursor,
+    String text, {
+    RhwpCellTextContext? cellContext,
+  }) {
     if (!mounted || text.isEmpty || text.contains('\n')) {
       return;
     }
@@ -9172,6 +9180,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       if (last.page == page &&
           last.cursor.section == cursor.section &&
           last.cursor.paragraph == cursor.paragraph &&
+          _samePendingCellContext(last.cellContext, cellContext) &&
           nextOffset == cursor.offset) {
         overlays[overlays.length - 1] = last.copyWith(text: last.text + text);
         _setPendingTextOverlays(overlays);
@@ -9180,9 +9189,42 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       }
     }
 
-    overlays.add(_PendingTextOverlay(page: page, cursor: cursor, text: text));
+    overlays.add(
+      _PendingTextOverlay(
+        page: page,
+        cursor: cursor,
+        text: text,
+        cellContext: cellContext,
+      ),
+    );
     _setPendingTextOverlays(overlays);
     _pendingTextRefreshRevision = null;
+  }
+
+  RhwpCellTextContext? _pendingTextCellContext(
+    RhwpTableCellSelection selection,
+  ) {
+    final cellIndex = selection.activeCellIndex;
+    if (cellIndex == null) {
+      return null;
+    }
+    return RhwpCellTextContext(
+      parentParagraph: selection.paragraph,
+      controlIndex: selection.controlIndex,
+      cellIndex: cellIndex,
+      cellParagraph: selection.activeCellParagraph,
+      textDirection: 0,
+    );
+  }
+
+  bool _samePendingCellContext(
+    RhwpCellTextContext? left,
+    RhwpCellTextContext? right,
+  ) {
+    if (left == null || right == null) {
+      return left == right;
+    }
+    return left.hasSameTextPath(right);
   }
 
   void _recordPendingDeletionOverlay(RhwpSelectionRange range) {
@@ -13775,6 +13817,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
         section: overlay.cursor.section,
         paragraph: overlay.cursor.paragraph,
         offset: overlay.cursor.offset,
+        cellContext: overlay.cellContext,
       );
       if (caretRect == null) {
         continue;
@@ -13845,6 +13888,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
       section: overlay.cursor.section,
       paragraph: overlay.cursor.paragraph,
       offset: overlay.cursor.offset,
+      cellContext: overlay.cellContext,
     );
     if (caretRect == null) {
       return null;

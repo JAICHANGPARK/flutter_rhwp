@@ -5486,6 +5486,67 @@ void main() {
     },
   );
 
+  testWidgets(
+    'RhwpNativeEditor anchors pending table cell text to the cell run',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(
+        _tableCellEditorLayerTreeJson(includeBodyParagraphFive: true),
+      );
+      final document = RhwpDocument.fromSession(session);
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(document: document, controller: controller),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      final pageFinder = find.byType(SvgPicture);
+      final pageTopLeft = tester.getTopLeft(pageFinder);
+      final pageSize = tester.getSize(pageFinder);
+      await tester.tapAt(
+        pageTopLeft +
+            Offset(pageSize.width * 118 / 240, pageSize.height * 76 / 180),
+      );
+      await tester.pump();
+
+      session.renderedPages.clear();
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: 'Z',
+          selection: TextSelection.collapsed(offset: 1),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(jsonDecode(session.commands.single), {
+        'type': 'insertTextInTableCell',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'cellIndex': 7,
+        'cellParagraph': 0,
+        'offset': 2,
+        'text': 'Z',
+      });
+      expect(session.renderedPages, isEmpty);
+
+      final previewTop = tester
+          .getTopLeft(
+            find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
+          )
+          .dy;
+      expect(previewTop, greaterThan(pageTopLeft.dy + pageSize.height * 0.3));
+    },
+  );
+
   testWidgets('RhwpNativeEditor inserts text into selected table cell', (
     tester,
   ) async {
@@ -15068,6 +15129,7 @@ Map<String, Object?> _editorLayerTreeJson({
 Map<String, Object?> _tableCellEditorLayerTreeJson({
   String cellText = 'cell',
   String? secondCellParagraphText,
+  bool includeBodyParagraphFive = false,
 }) {
   return {
     'pageWidth': 240,
@@ -15077,6 +15139,8 @@ Map<String, Object?> _tableCellEditorLayerTreeJson({
       'bounds': {'x': 0, 'y': 0, 'width': 240, 'height': 180},
       'children': [
         _editorTextRunLayerNode(paragraph: 0, y: 40),
+        if (includeBodyParagraphFive)
+          _editorTextRunLayerNode(paragraph: 5, y: 16),
         {
           'kind': 'group',
           'bounds': {'x': 80, 'y': 40, 'width': 100, 'height': 80},
