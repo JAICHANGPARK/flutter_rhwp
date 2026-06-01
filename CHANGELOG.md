@@ -67,6 +67,9 @@
 * Made focused text refresh holding the default for `RhwpNativeEditor`,
   `RhwpEditor`, and `RhwpCommandEditor`, with focus-loss release handling for
   delayed desktop text-input actions.
+* Stabilized desktop text-input focus churn handling so connection-close,
+  delayed action, transient focus loss, and explicit external focus transitions
+  release or hold native-editor page refresh at the right time.
 * Kept `holdTextRefreshWhileFocused` from treating transient desktop text-input
   focus churn as an external focus move, preventing per-key page refreshes in the
   example app.

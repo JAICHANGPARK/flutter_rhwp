@@ -10598,6 +10598,7 @@ void main() {
                 document: document,
                 controller: controller,
                 editRefreshDelay: const Duration(seconds: 2),
+                holdTextRefreshWhileFocused: false,
                 onChanged: (_) => changedCalls += 1,
               ),
             ),
