@@ -844,6 +844,17 @@ abstract class RhwpCommand {
     required int count,
   }) = RhwpDeleteTextInTableCellCommand;
 
+  factory RhwpCommand.deleteRangeInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int startCellParagraph,
+    required int startOffset,
+    required int endCellParagraph,
+    required int endOffset,
+  }) = RhwpDeleteRangeInTableCellCommand;
+
   factory RhwpCommand.splitParagraphInTableCell({
     required int section,
     required int paragraph,
@@ -1692,6 +1703,41 @@ class RhwpDeleteTextInTableCellCommand extends RhwpCommand {
     'cellParagraph': cellParagraph,
     'offset': offset,
     'count': count,
+  };
+}
+
+class RhwpDeleteRangeInTableCellCommand extends RhwpCommand {
+  const RhwpDeleteRangeInTableCellCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+    required this.startCellParagraph,
+    required this.startOffset,
+    required this.endCellParagraph,
+    required this.endOffset,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+  final int startCellParagraph;
+  final int startOffset;
+  final int endCellParagraph;
+  final int endOffset;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'deleteRangeInTableCell',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'cellIndex': cellIndex,
+    'startCellParagraph': startCellParagraph,
+    'startOffset': startOffset,
+    'endCellParagraph': endCellParagraph,
+    'endOffset': endOffset,
   };
 }
 
@@ -4381,6 +4427,30 @@ class RhwpDocument {
         cellParagraph: cellParagraph,
         offset: offset,
         count: count,
+      ),
+    );
+  }
+
+  Future<String> deleteRangeInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int startCellParagraph,
+    required int startOffset,
+    required int endCellParagraph,
+    required int endOffset,
+  }) {
+    return apply(
+      RhwpCommand.deleteRangeInTableCell(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        cellIndex: cellIndex,
+        startCellParagraph: startCellParagraph,
+        startOffset: startOffset,
+        endCellParagraph: endCellParagraph,
+        endOffset: endOffset,
       ),
     );
   }

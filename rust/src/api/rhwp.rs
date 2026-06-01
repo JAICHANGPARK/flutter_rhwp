@@ -303,6 +303,30 @@ impl RhwpSession {
                     None,
                 )
                 .map_err(error_to_string),
+            RhwpCommand::DeleteRangeInTableCell {
+                section,
+                paragraph,
+                control_index,
+                cell_index,
+                start_cell_paragraph,
+                start_offset,
+                end_cell_paragraph,
+                end_offset,
+            } => inner
+                .document
+                .delete_range_native(
+                    section as usize,
+                    start_cell_paragraph as usize,
+                    start_offset as usize,
+                    end_cell_paragraph as usize,
+                    end_offset as usize,
+                    Some((
+                        paragraph as usize,
+                        control_index as usize,
+                        cell_index as usize,
+                    )),
+                )
+                .map_err(error_to_string),
             RhwpCommand::InsertFootnote {
                 section,
                 paragraph,
@@ -1559,6 +1583,22 @@ enum RhwpCommand {
         start_offset: u32,
         #[serde(rename = "endParagraph")]
         end_paragraph: u32,
+        #[serde(rename = "endOffset")]
+        end_offset: u32,
+    },
+    DeleteRangeInTableCell {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "cellIndex")]
+        cell_index: u32,
+        #[serde(rename = "startCellParagraph")]
+        start_cell_paragraph: u32,
+        #[serde(rename = "startOffset")]
+        start_offset: u32,
+        #[serde(rename = "endCellParagraph")]
+        end_cell_paragraph: u32,
         #[serde(rename = "endOffset")]
         end_offset: u32,
     },
@@ -3348,6 +3388,14 @@ mod tests {
                 ),
             )
             .expect("delete text in table cell command should be accepted");
+        session
+            .apply_command(
+                format!(
+                    r#"{{"type":"deleteRangeInTableCell","section":0,"paragraph":{},"controlIndex":0,"cellIndex":0,"startCellParagraph":0,"startOffset":0,"endCellParagraph":0,"endOffset":1}}"#,
+                    table_paragraph
+                ),
+            )
+            .expect("delete range in table cell command should be accepted");
         session
             .apply_command(
                 format!(

@@ -5943,6 +5943,146 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     return endOffset;
   }
 
+  Future<String?> _tableCellParagraphTextFor(
+    RhwpTableCellSelection selection,
+  ) async {
+    final activeCellIndex = selection.activeCellIndex;
+    if (activeCellIndex == null) {
+      return null;
+    }
+
+    final runs = [
+      for (final segment in await _tableCellTextSegments(selection))
+        if (segment.cellIndex == activeCellIndex &&
+            segment.cellParagraph == selection.activeCellParagraph)
+          segment,
+    ]..sort((left, right) => left.startOffset.compareTo(right.startOffset));
+    if (runs.isEmpty) {
+      return null;
+    }
+
+    final buffer = StringBuffer();
+    var offset = 0;
+    for (final run in runs) {
+      if (run.startOffset > offset) {
+        buffer.write(List.filled(run.startOffset - offset, ' ').join());
+        offset = run.startOffset;
+      }
+      buffer.write(run.text);
+      offset = math.max(offset, run.endOffset);
+    }
+    return buffer.toString();
+  }
+
+  Future<({int cellParagraph, int offset})?> _tableCellWordPositionFrom(
+    RhwpTableCellSelection selection,
+    int delta,
+  ) async {
+    final paragraphText = await _tableCellParagraphTextFor(selection);
+    if (delta < 0) {
+      if (paragraphText == null || selection.activeOffset <= 0) {
+        return _previousTableCellParagraphWordStartFor(selection);
+      }
+      return (
+        cellParagraph: selection.activeCellParagraph,
+        offset: _wordBoundaryOffset(
+          paragraphText,
+          selection.activeOffset,
+          delta,
+        ),
+      );
+    }
+
+    if (paragraphText == null) {
+      return _nextTableCellParagraphWordStartFor(selection);
+    }
+
+    final nextOffset = _wordBoundaryOffset(
+      paragraphText,
+      selection.activeOffset,
+      delta,
+    );
+    if (nextOffset <= selection.activeOffset &&
+        selection.activeOffset >= paragraphText.length) {
+      return _nextTableCellParagraphWordStartFor(selection);
+    }
+    return (cellParagraph: selection.activeCellParagraph, offset: nextOffset);
+  }
+
+  Future<({int cellParagraph, int offset})?>
+  _previousTableCellParagraphWordStartFor(
+    RhwpTableCellSelection selection,
+  ) async {
+    if (selection.activeCellParagraph <= 0) {
+      return null;
+    }
+
+    final previous = selection.copyWith(
+      activeCellParagraph: selection.activeCellParagraph - 1,
+    );
+    final activeCellIndex = previous.activeCellIndex;
+    final previousEnd =
+        await _tableCellParagraphEndOffsetFor(previous) ??
+        (activeCellIndex == null
+            ? null
+            : await widget.document.cellParagraphLength(
+                section: previous.section,
+                paragraph: previous.paragraph,
+                controlIndex: previous.controlIndex,
+                cellIndex: activeCellIndex,
+                cellParagraph: previous.activeCellParagraph,
+              ));
+    if (previousEnd == null) {
+      return null;
+    }
+
+    final previousText = await _tableCellParagraphTextFor(previous);
+    if (previousText == null) {
+      return (cellParagraph: previous.activeCellParagraph, offset: previousEnd);
+    }
+    return (
+      cellParagraph: previous.activeCellParagraph,
+      offset: _wordBoundaryOffset(previousText, previousEnd, -1),
+    );
+  }
+
+  Future<({int cellParagraph, int offset})?>
+  _nextTableCellParagraphWordStartFor(RhwpTableCellSelection selection) async {
+    final activeCellIndex = selection.activeCellIndex;
+    if (activeCellIndex == null) {
+      return null;
+    }
+
+    final paragraphCount = await widget.document.cellParagraphCount(
+      section: selection.section,
+      paragraph: selection.paragraph,
+      controlIndex: selection.controlIndex,
+      cellIndex: activeCellIndex,
+    );
+    final nextCellParagraph = selection.activeCellParagraph + 1;
+    if (nextCellParagraph >= paragraphCount) {
+      return null;
+    }
+
+    final next = selection.copyWith(activeCellParagraph: nextCellParagraph);
+    final nextText = await _tableCellParagraphTextFor(next);
+    return (
+      cellParagraph: nextCellParagraph,
+      offset: nextText == null ? 0 : _firstWordStartOffset(nextText),
+    );
+  }
+
+  int _compareTableCellTextPosition(
+    ({int cellParagraph, int offset}) left,
+    ({int cellParagraph, int offset}) right,
+  ) {
+    final paragraph = left.cellParagraph.compareTo(right.cellParagraph);
+    if (paragraph != 0) {
+      return paragraph;
+    }
+    return left.offset.compareTo(right.offset);
+  }
+
   String _tableCellTextFromSegments(
     RhwpTableCellLayout cell,
     List<_TableCellTextSegment> segments,
@@ -6417,7 +6557,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     if (_editableTableCellSelection != null) {
-      await _deleteTextInSelectedTableCell(backward: backward);
+      await _deleteWordInSelectedTableCell(backward: backward);
       return;
     }
 
@@ -6475,6 +6615,90 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
+    await _deleteCharacterInSelectedTableCell(
+      tableSelection,
+      backward: backward,
+    );
+  }
+
+  Future<void> _deleteWordInSelectedTableCell({required bool backward}) async {
+    final tableSelection = _editableTableCellSelection;
+    final activeCellIndex = tableSelection?.activeCellIndex;
+    if (tableSelection == null || activeCellIndex == null || _busy) {
+      return;
+    }
+
+    final current = tableSelection.copyWith(
+      activeOffset: _parseNonNegative(_offsetController.text),
+      isTextEditing: true,
+    );
+    final target = await _tableCellWordPositionFrom(current, backward ? -1 : 1);
+    if (target == null) {
+      return;
+    }
+
+    final currentPosition = (
+      cellParagraph: current.activeCellParagraph,
+      offset: current.activeOffset,
+    );
+    final comparison = _compareTableCellTextPosition(target, currentPosition);
+    if (comparison == 0) {
+      return;
+    }
+
+    final start = comparison < 0 ? target : currentPosition;
+    final end = comparison < 0 ? currentPosition : target;
+    final edited = await _runEdit(() async {
+      String result;
+      if (start.cellParagraph == end.cellParagraph) {
+        result = await widget.document.deleteTextInTableCell(
+          section: current.section,
+          paragraph: current.paragraph,
+          controlIndex: current.controlIndex,
+          cellIndex: activeCellIndex,
+          cellParagraph: start.cellParagraph,
+          offset: start.offset,
+          count: end.offset - start.offset,
+        );
+      } else {
+        result = await widget.document.deleteRangeInTableCell(
+          section: current.section,
+          paragraph: current.paragraph,
+          controlIndex: current.controlIndex,
+          cellIndex: activeCellIndex,
+          startCellParagraph: start.cellParagraph,
+          startOffset: start.offset,
+          endCellParagraph: end.cellParagraph,
+          endOffset: end.offset,
+        );
+      }
+
+      final nextCellParagraph =
+          _readIntResult(result, 'cellParaIndex') ?? start.cellParagraph;
+      final nextOffset = _readIntResult(result, 'charOffset') ?? start.offset;
+      final nextSelection = current.copyWith(
+        activeCellParagraph: nextCellParagraph,
+        activeOffset: nextOffset,
+        isTextEditing: true,
+      );
+      _syncTableSelectionFields(nextSelection);
+      _controller.tableCellSelection = nextSelection;
+    }, deferRefresh: true);
+
+    if (edited) {
+      _focusEditor();
+    }
+  }
+
+  Future<void> _deleteCharacterInSelectedTableCell(
+    RhwpTableCellSelection tableSelection, {
+    required bool backward,
+  }) async {
+    final activeCellIndex = tableSelection.activeCellIndex;
+    if (activeCellIndex == null) {
+      return;
+    }
+
     final currentOffset = _parseNonNegative(_offsetController.text);
     final deleteOffset = backward ? currentOffset - 1 : currentOffset;
     if (backward &&
@@ -6485,7 +6709,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           section: tableSelection.section,
           paragraph: tableSelection.paragraph,
           controlIndex: tableSelection.controlIndex,
-          cellIndex: tableSelection.activeCellIndex!,
+          cellIndex: activeCellIndex,
           cellParagraph: tableSelection.activeCellParagraph,
         );
         final nextCellParagraph =
@@ -6501,7 +6725,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           startColumn: tableSelection.startColumn,
           endRow: tableSelection.endRow,
           endColumn: tableSelection.endColumn,
-          activeCellIndex: tableSelection.activeCellIndex,
+          activeCellIndex: activeCellIndex,
           activeCellParagraph: nextCellParagraph,
           activeOffset: nextOffset,
           isTextEditing: true,
@@ -6525,7 +6749,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         section: tableSelection.section,
         paragraph: tableSelection.paragraph,
         controlIndex: tableSelection.controlIndex,
-        cellIndex: tableSelection.activeCellIndex!,
+        cellIndex: activeCellIndex,
         cellParagraph: tableSelection.activeCellParagraph,
         offset: deleteOffset,
         count: 1,
@@ -6542,7 +6766,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         startColumn: tableSelection.startColumn,
         endRow: tableSelection.endRow,
         endColumn: tableSelection.endColumn,
-        activeCellIndex: tableSelection.activeCellIndex,
+        activeCellIndex: activeCellIndex,
         activeCellParagraph: tableSelection.activeCellParagraph,
         activeOffset: nextOffset,
         isTextEditing: true,

@@ -576,6 +576,33 @@ void main() {
     expect(
       jsonDecode(
         jsonEncode(
+          RhwpCommand.deleteRangeInTableCell(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            cellIndex: 3,
+            startCellParagraph: 0,
+            startOffset: 2,
+            endCellParagraph: 1,
+            endOffset: 3,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'deleteRangeInTableCell',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'cellIndex': 3,
+        'startCellParagraph': 0,
+        'startOffset': 2,
+        'endCellParagraph': 1,
+        'endOffset': 3,
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
           RhwpCommand.splitParagraphInTableCell(
             section: 0,
             paragraph: 1,
@@ -2548,6 +2575,29 @@ void main() {
       'cellParagraph': 0,
       'offset': 2,
       'count': 1,
+    });
+
+    await document.deleteRangeInTableCell(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      cellIndex: 2,
+      startCellParagraph: 0,
+      startOffset: 2,
+      endCellParagraph: 1,
+      endOffset: 0,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'deleteRangeInTableCell',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'cellIndex': 2,
+      'startCellParagraph': 0,
+      'startOffset': 2,
+      'endCellParagraph': 1,
+      'endOffset': 0,
     });
 
     await document.splitParagraphInTableCell(

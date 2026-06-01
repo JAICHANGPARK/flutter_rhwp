@@ -56,6 +56,9 @@
 * Added Flutter-native word deletion across body paragraph boundaries, so
   Ctrl/Alt+Backspace and Ctrl/Alt+Delete reuse the same document-aware range
   deletion path.
+* Added Flutter-native word deletion while editing table-cell text, including
+  multi-paragraph cell ranges through rhwp core's `deleteRangeInTableCell`
+  command.
 * Stabilized programmatic viewer page navigation so `goToPage` requests are not
   immediately overwritten by stale visible-page sync during editor navigation.
 * Added Flutter-native Delete-at-cell-paragraph-end handling to merge the next

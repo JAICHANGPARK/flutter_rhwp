@@ -3943,6 +3943,158 @@ void main() {
     },
   );
 
+  testWidgets(
+    'RhwpNativeEditor deletes table cell words with keyboard modifiers',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(
+        _tableCellEditorLayerTreeJson(
+          cellText: 'hello world',
+          secondCellParagraphText: 'tail',
+        ),
+      );
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      await tester.tapAt(
+        tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+            const Offset(1, 6),
+      );
+      await tester.pump();
+
+      controller.tableCellSelection = const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+        activeOffset: 8,
+        isTextEditing: true,
+      );
+      await tester.pump();
+      session.commands.clear();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+      expect(controller.tableCellSelection?.activeOffset, 6);
+      expect(jsonDecode(session.commands.single), {
+        'type': 'deleteTextInTableCell',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'cellIndex': 7,
+        'cellParagraph': 0,
+        'offset': 6,
+        'count': 2,
+      });
+
+      controller.tableCellSelection = controller.tableCellSelection?.copyWith(
+        activeOffset: 0,
+      );
+      await tester.pump();
+      session.commands.clear();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 2);
+      expect(controller.tableCellSelection?.activeOffset, 0);
+      expect(jsonDecode(session.commands.single), {
+        'type': 'deleteTextInTableCell',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'cellIndex': 7,
+        'cellParagraph': 0,
+        'offset': 0,
+        'count': 5,
+      });
+
+      controller.tableCellSelection = controller.tableCellSelection?.copyWith(
+        activeCellParagraph: 1,
+        activeOffset: 0,
+      );
+      await tester.pump();
+      session.commands.clear();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 3);
+      expect(controller.tableCellSelection?.activeCellParagraph, 0);
+      expect(controller.tableCellSelection?.activeOffset, 6);
+      expect(jsonDecode(session.commands.single), {
+        'type': 'deleteRangeInTableCell',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'cellIndex': 7,
+        'startCellParagraph': 0,
+        'startOffset': 6,
+        'endCellParagraph': 1,
+        'endOffset': 0,
+      });
+
+      controller.tableCellSelection = controller.tableCellSelection?.copyWith(
+        activeCellParagraph: 0,
+        activeOffset: 11,
+      );
+      await tester.pump();
+      session.commands.clear();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 4);
+      expect(controller.tableCellSelection?.activeCellParagraph, 0);
+      expect(controller.tableCellSelection?.activeOffset, 11);
+      expect(session.commands.map((json) => jsonDecode(json)['type']), [
+        'getCellParagraphCount',
+        'deleteRangeInTableCell',
+      ]);
+      expect(jsonDecode(session.commands.last), {
+        'type': 'deleteRangeInTableCell',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'cellIndex': 7,
+        'startCellParagraph': 0,
+        'startOffset': 11,
+        'endCellParagraph': 1,
+        'endOffset': 0,
+      });
+    },
+  );
+
   testWidgets('RhwpNativeEditor exits and re-enters table cell edit mode', (
     tester,
   ) async {
@@ -12871,7 +13023,10 @@ Map<String, Object?> _editorLayerTreeJson({
   };
 }
 
-Map<String, Object?> _tableCellEditorLayerTreeJson() {
+Map<String, Object?> _tableCellEditorLayerTreeJson({
+  String cellText = 'cell',
+  String? secondCellParagraphText,
+}) {
   return {
     'pageWidth': 240,
     'pageHeight': 180,
@@ -12903,7 +13058,15 @@ Map<String, Object?> _tableCellEditorLayerTreeJson() {
                 'colSpan': 1,
                 'modelCellIndex': 7,
               },
-              'children': [_editorCellTextRunLayerNode()],
+              'children': [
+                _editorCellTextRunLayerNode(text: cellText),
+                if (secondCellParagraphText != null)
+                  _editorCellTextRunLayerNode(
+                    text: secondCellParagraphText,
+                    cellParagraph: 1,
+                    y: 91,
+                  ),
+              ],
             },
             {
               'kind': 'group',
@@ -13073,6 +13236,7 @@ Map<String, Object?> _editorTableCellLayerNode({
 
 Map<String, Object?> _editorCellTextRunLayerNode({
   int cellIndex = 7,
+  int cellParagraph = 0,
   String text = 'cell',
   double x = 96,
   double y = 73,
@@ -13088,7 +13252,8 @@ Map<String, Object?> _editorCellTextRunLayerNode({
         'source': {
           'id': cellIndex,
           'utf16Range': {'start': 0, 'end': text.length},
-          'stableSourceKey': 'section:0/para:5/char:0/cell:5:2:$cellIndex:0:0',
+          'stableSourceKey':
+              'section:0/para:5/char:0/cell:5:2:$cellIndex:$cellParagraph:0',
         },
         'placement': {
           'runToPage': {'a': 1, 'b': 0, 'c': 0, 'd': 1, 'e': x, 'f': y + 10},
