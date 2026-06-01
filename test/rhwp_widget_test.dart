@@ -317,6 +317,67 @@ void main() {
     expect(session.renderedPages, contains(5));
   });
 
+  testWidgets('RhwpViewer can refresh only selected pages', (tester) async {
+    final session = _FakeRhwpSession(pageCountValue: 8);
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 420,
+          height: 320,
+          child: RhwpViewer(
+            document: document,
+            padding: const EdgeInsets.all(8),
+            pageGap: 8,
+            svgBuilder: _tallSvgBuilder,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+    expect(session.renderedPages, [0, 1]);
+
+    session.renderedPages.clear();
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 420,
+          height: 320,
+          child: RhwpViewer(
+            document: document,
+            padding: const EdgeInsets.all(8),
+            pageGap: 8,
+            svgBuilder: _tallSvgBuilder,
+            renderRevision: 1,
+            renderPages: const {1},
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+    expect(session.renderedPages, [1]);
+
+    session.renderedPages.clear();
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 420,
+          height: 320,
+          child: RhwpViewer(
+            document: document,
+            padding: const EdgeInsets.all(8),
+            pageGap: 8,
+            svgBuilder: _tallSvgBuilder,
+            renderRevision: 2,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+    expect(session.renderedPages, [0, 1]);
+  });
+
   testWidgets('RhwpViewer composes page overlay over rendered SVG', (
     tester,
   ) async {
@@ -10785,6 +10846,66 @@ void main() {
 
     expect(changedCalls, 1);
     expect(session.renderedPages, [0]);
+  });
+
+  testWidgets('RhwpNativeEditor refreshes only edited page after text input', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 8);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final scroll = controller.goToPage(2);
+    await tester.pumpAndSettle();
+    await scroll;
+    expect(controller.currentPage, 2);
+    expect(session.renderedPages, contains(2));
+
+    final caretFinder = find.byKey(const ValueKey('rhwp-editor-caret')).last;
+    await tester.tapAt(tester.getTopLeft(caretFinder) + const Offset(1, 6));
+    await tester.pump();
+
+    final focusedScroll = controller.goToPage(2);
+    await tester.pumpAndSettle();
+    await focusedScroll;
+    expect(controller.currentPage, 2);
+
+    controller.cursor = const RhwpCursorPosition(offset: 2);
+    session.renderedPages.clear();
+
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'Z',
+        selection: TextSelection.collapsed(offset: 1),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(changedCalls, 0);
+    expect(session.renderedPages, isEmpty);
+
+    await _releaseTextInputAction(tester);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.renderedPages, [2]);
   });
 
   testWidgets(

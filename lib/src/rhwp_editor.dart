@@ -1604,6 +1604,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   int? _pendingDeletionRefreshRevision;
   final _composingTextListenable = ValueNotifier<String?>(null);
   int _renderRevision = 0;
+  Set<int>? _renderPages;
   List<_EditorSearchMatch> _searchMatches = const [];
   int _activeSearchMatch = -1;
   int? _pageCountValue;
@@ -1667,6 +1668,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     if (oldWidget.document != widget.document) {
       _cancelDeferredEditRefresh();
       _renderRevision += 1;
+      _renderPages = null;
       _pageCountValue = null;
       _currentCharFormat = const _PendingCharFormat();
       _currentParaFormat = const _CurrentParaFormat();
@@ -2020,6 +2022,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       if (converted == true) {
         setState(() {
           _renderRevision += 1;
+          _renderPages = null;
           _error = null;
         });
         unawaited(_syncCurrentCharFormat());
@@ -8234,6 +8237,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
     setState(() {
       _renderRevision += 1;
+      _renderPages = _deferredEditRefreshPages();
       _pendingTextRefreshRevision = _pendingTextOverlays.isEmpty
           ? null
           : _renderRevision;
@@ -8244,6 +8248,17 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _textRefreshHeldForFocusedInput = false;
     _textInputUndoBatchOpen = false;
     widget.onChanged?.call(widget.document);
+  }
+
+  Set<int>? _deferredEditRefreshPages() {
+    final pages = <int>{
+      for (final overlay in _pendingTextOverlays) overlay.page,
+      for (final overlay in _pendingDeletionOverlays) overlay.page,
+    };
+    if (pages.isEmpty) {
+      return null;
+    }
+    return Set<int>.unmodifiable(pages);
   }
 
   Future<bool> _runEdit(
@@ -8302,6 +8317,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           _visibleBusy = false;
           if (!deferRefresh) {
             _renderRevision += 1;
+            _renderPages = null;
           }
         });
       } else {
@@ -8394,6 +8410,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         _busy = false;
         _visibleBusy = false;
         _renderRevision += 1;
+        _renderPages = null;
       });
       widget.onChanged?.call(widget.document);
     } catch (error) {
@@ -10653,6 +10670,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
                 document: widget.document,
                 controller: _controller,
                 renderRevision: _renderRevision,
+                renderPages: _renderPages,
                 onPageRendered: _handlePageRendered,
                 ignorePageOverlayPointer: false,
                 pageOverlayBuilder: (context, page, _) {

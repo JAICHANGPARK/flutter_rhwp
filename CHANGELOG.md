@@ -67,6 +67,9 @@
 * Added Flutter-native Left/Right movement while editing table-cell text, so
   plain arrow keys update the active cell text offset and cross cell paragraphs
   instead of moving the rectangular cell selection.
+* Limited deferred Flutter-native text-input refreshes to the edited page, so
+  large documents do not re-render every mounted page when optimistic typing
+  finally synchronizes with fresh SVG.
 * Stabilized programmatic viewer page navigation so `goToPage` requests are not
   immediately overwritten by stale visible-page sync during editor navigation.
 * Added Flutter-native Delete-at-cell-paragraph-end handling to merge the next

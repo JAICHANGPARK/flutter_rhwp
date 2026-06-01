@@ -144,6 +144,7 @@ class RhwpViewer extends StatefulWidget {
     this.pageOverlayBuilder,
     this.ignorePageOverlayPointer = true,
     this.renderRevision = 0,
+    this.renderPages,
     this.onPageRendered,
   });
 
@@ -155,6 +156,13 @@ class RhwpViewer extends StatefulWidget {
   final RhwpSvgBuilder svgBuilder;
   final RhwpPageOverlayBuilder? pageOverlayBuilder;
   final int renderRevision;
+
+  /// Restricts [renderRevision] to the listed page indexes.
+  ///
+  /// When null, every mounted page participates in the revision. Editors use
+  /// this for text-like edits so only pages with pending optimistic overlays
+  /// ask the document to render fresh SVG.
+  final Set<int>? renderPages;
   final RhwpPageRenderedCallback? onPageRendered;
 
   /// Whether page overlays should ignore pointer events.
@@ -264,6 +272,7 @@ class _RhwpViewerState extends State<RhwpViewer> {
                           document: widget.document,
                           page: index,
                           renderRevision: widget.renderRevision,
+                          renderPages: widget.renderPages,
                           svgBuilder: widget.svgBuilder,
                           pageOverlayBuilder: widget.pageOverlayBuilder,
                           onPageRendered: widget.onPageRendered,
@@ -428,6 +437,7 @@ class _RhwpSvgPage extends StatefulWidget {
     required this.document,
     required this.page,
     required this.renderRevision,
+    required this.renderPages,
     required this.svgBuilder,
     required this.pageOverlayBuilder,
     required this.onPageRendered,
@@ -437,6 +447,7 @@ class _RhwpSvgPage extends StatefulWidget {
   final RhwpDocument document;
   final int page;
   final int renderRevision;
+  final Set<int>? renderPages;
   final RhwpSvgBuilder svgBuilder;
   final RhwpPageOverlayBuilder? pageOverlayBuilder;
   final RhwpPageRenderedCallback? onPageRendered;
@@ -466,7 +477,8 @@ class _RhwpSvgPageState extends State<_RhwpSvgPage>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.document != widget.document ||
         oldWidget.page != widget.page ||
-        oldWidget.renderRevision != widget.renderRevision) {
+        (oldWidget.renderRevision != widget.renderRevision &&
+            _participatesInRenderRevision)) {
       _svg = widget.document.renderPageSvg(widget.page);
       _reportedRenderRevision = null;
     }
@@ -564,7 +576,9 @@ class _RhwpSvgPageState extends State<_RhwpSvgPage>
   void _reportRendered() {
     final callback = widget.onPageRendered;
     final renderRevision = widget.renderRevision;
-    if (callback == null || _reportedRenderRevision == renderRevision) {
+    if (callback == null ||
+        !_participatesInRenderRevision ||
+        _reportedRenderRevision == renderRevision) {
       return;
     }
 
@@ -578,4 +592,9 @@ class _RhwpSvgPageState extends State<_RhwpSvgPage>
 
   @override
   bool get wantKeepAlive => true;
+
+  bool get _participatesInRenderRevision {
+    final renderPages = widget.renderPages;
+    return renderPages == null || renderPages.contains(widget.page);
+  }
 }
