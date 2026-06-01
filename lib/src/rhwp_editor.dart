@@ -12035,6 +12035,18 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
           : _recordPrimaryClick(event, tableTextHit);
       if (tableTextHit == null) {
         _resetPrimaryClickSequence();
+      } else if (clickCount >= 3) {
+        _resetPrimaryClickSequence();
+        final paragraphSelection = _tableCellParagraphSelectionForHit(
+          tableCell,
+          tableTextHit,
+          tree,
+        );
+        if (paragraphSelection != null) {
+          widget.onTableCellSelection(paragraphSelection);
+          widget.onFocusRequested();
+          return;
+        }
       } else if (clickCount == 2) {
         final wordSelection = _tableCellWordSelectionForHit(
           tableCell,
@@ -12148,6 +12160,58 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     _primaryClickCount = 0;
     _lastPrimaryClickTime = null;
     _lastPrimaryClickPosition = null;
+  }
+
+  RhwpTableCellSelection? _tableCellParagraphSelectionForHit(
+    RhwpTableCellLayout cell,
+    RhwpTextHitResult hit,
+    RhwpLayerTree? tree,
+  ) {
+    final context = hit.cellContext;
+    final activeCellIndex = context?.cellIndex;
+    if (context == null ||
+        activeCellIndex == null ||
+        activeCellIndex != cell.modelCellIndex) {
+      return null;
+    }
+
+    var startOffset = hit.run.charStart;
+    var endOffset = hit.run.charEnd;
+    if (tree != null) {
+      for (final run in tree.textRuns) {
+        final runContext = run.cellContext;
+        if (run.section != cell.section ||
+            run.paragraph != cell.paragraph ||
+            runContext == null ||
+            runContext.controlIndex != cell.controlIndex ||
+            runContext.cellIndex != activeCellIndex ||
+            runContext.cellParagraph != context.cellParagraph) {
+          continue;
+        }
+        startOffset = math.min(startOffset, run.charStart);
+        endOffset = math.max(endOffset, run.charEnd);
+      }
+    }
+
+    if (startOffset >= endOffset) {
+      return null;
+    }
+
+    return RhwpTableCellSelection(
+      section: cell.section,
+      paragraph: cell.paragraph,
+      controlIndex: cell.controlIndex,
+      startRow: cell.row,
+      startColumn: cell.column,
+      endRow: cell.endRow,
+      endColumn: cell.endColumn,
+      activeCellIndex: activeCellIndex,
+      activeCellParagraph: context.cellParagraph,
+      activeOffset: endOffset,
+      isTextEditing: true,
+      selectionBaseCellParagraph: context.cellParagraph,
+      selectionBaseOffset: startOffset,
+    );
   }
 
   RhwpTableCellSelection? _tableCellWordSelectionForHit(

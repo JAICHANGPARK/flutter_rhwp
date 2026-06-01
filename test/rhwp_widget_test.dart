@@ -7835,6 +7835,59 @@ void main() {
     );
   });
 
+  testWidgets(
+    'RhwpNativeEditor selects a table cell paragraph on triple click',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1)
+        ..pageLayerTreeJson = jsonEncode(
+          _tableCellEditorLayerTreeJson(
+            cellText: 'hello world',
+            secondCellParagraphText: 'tail',
+          ),
+        );
+      final document = RhwpDocument.fromSession(session);
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(document: document, controller: controller),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      final pageFinder = find.byType(SvgPicture);
+      final pageTopLeft = tester.getTopLeft(pageFinder);
+      final pageSize = tester.getSize(pageFinder);
+      final paragraphPoint =
+          pageTopLeft +
+          Offset(pageSize.width * 116 / 240, pageSize.height * 73 / 180);
+
+      await tester.tapAt(paragraphPoint);
+      await tester.pump(const Duration(milliseconds: 80));
+      await tester.tapAt(paragraphPoint);
+      await tester.pump(const Duration(milliseconds: 80));
+      await tester.tapAt(paragraphPoint);
+      await tester.pump();
+
+      final selection = controller.tableCellSelection;
+      expect(selection?.activeCellIndex, 7);
+      expect(selection?.activeCellParagraph, 0);
+      expect(selection?.activeOffset, 11);
+      expect(selection?.selectionBaseCellParagraph, 0);
+      expect(selection?.selectionBaseOffset, 0);
+      expect(selection?.hasTextSelection, isTrue);
+      expect(controller.selection.isCollapsed, isTrue);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-table-text-selection')),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets('RhwpNativeEditor selects a paragraph on triple click', (
     tester,
   ) async {

@@ -85,6 +85,8 @@
   active cell text selection model, matching body search selection behavior.
 * Added Flutter-native double-click word selection while editing table-cell
   text, using the same page-layer word-boundary logic as body text selection.
+* Added Flutter-native triple-click paragraph selection while editing table-cell
+  text, scoped to the active cell paragraph.
 * Added Flutter-native Up/Down movement while editing table-cell text, using
   page-layer text geometry first and core cell-paragraph metrics as a fallback
   instead of moving the rectangular cell selection.
