@@ -195,6 +195,20 @@ await document.splitTableCellsInRange(
   equalRowHeight: true,
 );
 
+await document.moveTableOffset(
+  section: 0,
+  paragraph: 0,
+  controlIndex: 0,
+  deltaH: 120,
+  deltaV: -60,
+);
+
+await document.deleteTableControl(
+  section: 0,
+  paragraph: 0,
+  controlIndex: 0,
+);
+
 await document.setTableProperties(
   section: 0,
   paragraph: 0,
@@ -329,9 +343,11 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   selected-cell properties, fill, border, and vertical alignment editing from
   the ribbon and context menu with table-cell hit testing, selected-cell
   highlighting, object/control hit testing, highlighting, pointer drag move and
-  resize handles for selected objects, Delete/Backspace object deletion, object
-  size/position properties, and object z-order actions from the edit ribbon and
-  context menu, scroll-preserving page refresh after edits, and drag range
+  resize handles for selected non-table objects, dedicated table-object
+  movement through rhwp table offset commands, Delete/Backspace table-control
+  deletion, Delete/Backspace object deletion, object size/position properties,
+  and object z-order actions from the edit ribbon and context menu,
+  scroll-preserving page refresh after edits, and drag range
   selection and Shift+click range extension for rendered table cells, plus
   selected-cell
   text insert/delete/clear/copy/cut/paste, tab/newline multi-cell paste,

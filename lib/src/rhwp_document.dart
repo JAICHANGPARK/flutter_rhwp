@@ -798,6 +798,20 @@ abstract class RhwpCommand {
     bool? cellProtect,
   }) = RhwpSetCellPropertiesCommand;
 
+  factory RhwpCommand.deleteTableControl({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+  }) = RhwpDeleteTableControlCommand;
+
+  factory RhwpCommand.moveTableOffset({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int deltaH,
+    required int deltaV,
+  }) = RhwpMoveTableOffsetCommand;
+
   factory RhwpCommand.deleteObjectControl({
     required int section,
     required int paragraph,
@@ -1922,6 +1936,52 @@ class RhwpSetCellPropertiesCommand extends RhwpCommand {
       if (isHeader != null) 'isHeader': isHeader,
       if (cellProtect != null) 'cellProtect': cellProtect,
     },
+  };
+}
+
+class RhwpDeleteTableControlCommand extends RhwpCommand {
+  const RhwpDeleteTableControlCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'deleteTableControl',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+  };
+}
+
+class RhwpMoveTableOffsetCommand extends RhwpCommand {
+  const RhwpMoveTableOffsetCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.deltaH,
+    required this.deltaV,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int deltaH;
+  final int deltaV;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'moveTableOffset',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'deltaH': deltaH,
+    'deltaV': deltaV,
   };
 }
 
@@ -3680,6 +3740,38 @@ class RhwpDocument {
         textDirection: textDirection,
         isHeader: isHeader,
         cellProtect: cellProtect,
+      ),
+    );
+  }
+
+  Future<String> deleteTableControl({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+  }) {
+    return apply(
+      RhwpCommand.deleteTableControl(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+      ),
+    );
+  }
+
+  Future<String> moveTableOffset({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int deltaH,
+    required int deltaV,
+  }) {
+    return apply(
+      RhwpCommand.moveTableOffset(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        deltaH: deltaH,
+        deltaV: deltaV,
       ),
     );
   }

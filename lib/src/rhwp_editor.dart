@@ -2932,12 +2932,20 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     await _runEdit(() async {
-      await widget.document.deleteObjectControl(
-        section: target.section,
-        paragraph: target.paragraph,
-        controlIndex: target.controlIndex,
-        objectType: target.objectType,
-      );
+      if (_isTableObjectType(target.objectType)) {
+        await widget.document.deleteTableControl(
+          section: target.section,
+          paragraph: target.paragraph,
+          controlIndex: target.controlIndex,
+        );
+      } else {
+        await widget.document.deleteObjectControl(
+          section: target.section,
+          paragraph: target.paragraph,
+          controlIndex: target.controlIndex,
+          objectType: target.objectType,
+        );
+      }
       _controller.clearObjectSelection();
       _controller.cursor = RhwpCursorPosition(
         section: target.section,
@@ -3054,6 +3062,29 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     final committed = await _runEdit(() async {
+      if (original.isTableObject) {
+        final delta = updated.bounds.topLeft - original.bounds.topLeft;
+        final deltaH = delta.dx.round();
+        final deltaV = delta.dy.round();
+        if (deltaH == 0 && deltaV == 0) {
+          _controller.objectSelection = original;
+          return;
+        }
+        await widget.document.moveTableOffset(
+          section: section,
+          paragraph: paragraph,
+          controlIndex: controlIndex,
+          deltaH: deltaH,
+          deltaV: deltaV,
+        );
+        _controller.objectSelection = original.copyWith(
+          bounds: original.bounds.shift(
+            Offset(deltaH.toDouble(), deltaV.toDouble()),
+          ),
+        );
+        return;
+      }
+
       final properties = await widget.document.objectProperties(
         section: section,
         paragraph: paragraph,
@@ -9727,6 +9758,13 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
       return null;
     }
 
+    if (selection.isTableObject) {
+      if (rect.inflate(hitRadius).contains(localPosition)) {
+        return _ObjectDragHandle.move;
+      }
+      return null;
+    }
+
     for (final anchor in _objectHandleAnchors(rect)) {
       if ((anchor.center - localPosition).distance <= hitRadius) {
         return anchor.handle;
@@ -10414,7 +10452,10 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
   ) {
     final selection = widget.objectSelection;
     if (selection == null || !selection.isLineObject) {
-      return _ObjectSelectionBox(color: color);
+      return _ObjectSelectionBox(
+        color: color,
+        resizable: selection?.isTableObject != true,
+      );
     }
 
     final start = _scalePagePoint(
@@ -10720,9 +10761,10 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
 }
 
 class _ObjectSelectionBox extends StatelessWidget {
-  const _ObjectSelectionBox({required this.color});
+  const _ObjectSelectionBox({required this.color, this.resizable = true});
 
   final Color color;
+  final bool resizable;
 
   @override
   Widget build(BuildContext context) {
@@ -10748,29 +10790,30 @@ class _ObjectSelectionBox extends StatelessWidget {
                 ),
               ),
             ),
-            for (final anchor in _objectHandleAnchors(rect))
-              Positioned(
-                key: ValueKey(
-                  'rhwp-editor-object-resize-${anchor.handle.name}',
-                ),
-                left:
-                    anchor.center.dx -
-                    _EditorSelectionOverlayState._objectHandleSize / 2,
-                top:
-                    anchor.center.dy -
-                    _EditorSelectionOverlayState._objectHandleSize / 2,
-                width: _EditorSelectionOverlayState._objectHandleSize,
-                height: _EditorSelectionOverlayState._objectHandleSize,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    border: Border.all(
-                      color: color.withValues(alpha: 0.95),
-                      width: 1.5,
+            if (resizable)
+              for (final anchor in _objectHandleAnchors(rect))
+                Positioned(
+                  key: ValueKey(
+                    'rhwp-editor-object-resize-${anchor.handle.name}',
+                  ),
+                  left:
+                      anchor.center.dx -
+                      _EditorSelectionOverlayState._objectHandleSize / 2,
+                  top:
+                      anchor.center.dy -
+                      _EditorSelectionOverlayState._objectHandleSize / 2,
+                  width: _EditorSelectionOverlayState._objectHandleSize,
+                  height: _EditorSelectionOverlayState._objectHandleSize,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      border: Border.all(
+                        color: color.withValues(alpha: 0.95),
+                        width: 1.5,
+                      ),
                     ),
                   ),
                 ),
-              ),
           ],
         );
       },

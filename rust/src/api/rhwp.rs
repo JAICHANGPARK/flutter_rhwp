@@ -633,6 +633,24 @@ impl RhwpSession {
                     &properties.to_string(),
                 )
                 .map_err(|error| format!("{error:?}")),
+            RhwpCommand::DeleteTableControl {
+                section,
+                paragraph,
+                control_index,
+            } => inner
+                .document
+                .delete_table_control(section, paragraph, control_index)
+                .map_err(|error| format!("{error:?}")),
+            RhwpCommand::MoveTableOffset {
+                section,
+                paragraph,
+                control_index,
+                delta_h,
+                delta_v,
+            } => inner
+                .document
+                .move_table_offset(section, paragraph, control_index, delta_h, delta_v)
+                .map_err(|error| format!("{error:?}")),
             RhwpCommand::DeleteObjectControl {
                 section,
                 paragraph,
@@ -1399,6 +1417,22 @@ enum RhwpCommand {
         #[serde(rename = "cellIndex")]
         cell_index: u32,
         properties: serde_json::Value,
+    },
+    DeleteTableControl {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+    },
+    MoveTableOffset {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "deltaH")]
+        delta_h: i32,
+        #[serde(rename = "deltaV")]
+        delta_v: i32,
     },
     DeleteObjectControl {
         section: u32,
@@ -2927,6 +2961,43 @@ mod tests {
             serde_json::from_str(&split_result).expect("split range result should be JSON");
         assert_eq!(split_result["ok"], true);
         assert!(split_result["cellCount"].as_u64().is_some());
+    }
+
+    #[test]
+    fn applies_table_object_offset_and_delete_commands() {
+        let session =
+            open_bytes(BLANK_2010_HWP.to_vec(), None).expect("vendored sample should open");
+
+        let result = session
+            .apply_command(
+                r#"{"type":"insertTable","section":0,"paragraph":0,"offset":0,"rows":2,"columns":2}"#
+                    .to_string(),
+            )
+            .expect("table insert should be accepted");
+        let result: Value = serde_json::from_str(&result).expect("table result should be JSON");
+        let table_paragraph = result["paraIdx"]
+            .as_u64()
+            .expect("table insert should expose paraIdx");
+
+        let move_result = session
+            .apply_command(format!(
+                r#"{{"type":"moveTableOffset","section":0,"paragraph":{},"controlIndex":0,"deltaH":120,"deltaV":-60}}"#,
+                table_paragraph
+            ))
+            .expect("table offset move should be accepted");
+        let move_result: Value =
+            serde_json::from_str(&move_result).expect("move result should be JSON");
+        assert_eq!(move_result["ok"], true);
+
+        let delete_result = session
+            .apply_command(format!(
+                r#"{{"type":"deleteTableControl","section":0,"paragraph":{},"controlIndex":0}}"#,
+                table_paragraph
+            ))
+            .expect("table delete should be accepted");
+        let delete_result: Value =
+            serde_json::from_str(&delete_result).expect("delete result should be JSON");
+        assert_eq!(delete_result["ok"], true);
     }
 
     #[test]

@@ -686,6 +686,44 @@ void main() {
         },
       },
     );
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.deleteTableControl(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'deleteTableControl',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.moveTableOffset(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            deltaH: 12,
+            deltaV: -8,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'moveTableOffset',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'deltaH': 12,
+        'deltaV': -8,
+      },
+    );
   });
 
   test('object control commands serialize to Rust envelopes', () {
@@ -2257,6 +2295,36 @@ void main() {
         'isHeader': true,
         'cellProtect': true,
       },
+    });
+
+    await document.deleteTableControl(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'deleteTableControl',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+    });
+
+    await document.moveTableOffset(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      deltaH: 12,
+      deltaV: -8,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'moveTableOffset',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'deltaH': 12,
+      'deltaV': -8,
     });
 
     await document.deleteObjectControl(

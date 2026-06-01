@@ -4013,6 +4013,66 @@ void main() {
     );
   });
 
+  testWidgets('RhwpNativeEditor deletes selected table controls', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    Offset pagePoint(double x, double y) {
+      return pageTopLeft +
+          Offset(pageSize.width * x / 240, pageSize.height * y / 180);
+    }
+
+    await tester.tapAt(pagePoint(85, 45));
+    await tester.pump();
+
+    expect(
+      controller.objectSelection,
+      const RhwpObjectSelection(
+        page: 0,
+        bounds: Rect.fromLTRB(80, 40, 180, 120),
+        type: 'table',
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+      ),
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.objectSelection, isNull);
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.single), {
+      'type': 'deleteTableControl',
+      'section': 0,
+      'paragraph': 5,
+      'controlIndex': 2,
+    });
+  });
+
   testWidgets('RhwpNativeEditor context menu deletes selected objects', (
     tester,
   ) async {
@@ -4395,6 +4455,74 @@ void main() {
           'horzOffset': 132,
           'vertOffset': 68,
         },
+      },
+    ]);
+  });
+
+  testWidgets('RhwpNativeEditor moves selected table objects by offset', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    Offset pagePoint(double x, double y) {
+      return pageTopLeft +
+          Offset(pageSize.width * x / 240, pageSize.height * y / 180);
+    }
+
+    await tester.tapAt(pagePoint(85, 45));
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-object-resize-southEast')),
+      findsNothing,
+    );
+
+    final drag = await tester.startGesture(pagePoint(100, 45));
+    await drag.moveTo(pagePoint(112, 53));
+    await drag.up();
+    await _pumpDocumentFrame(tester);
+
+    expect(
+      controller.objectSelection,
+      const RhwpObjectSelection(
+        page: 0,
+        bounds: Rect.fromLTRB(92, 48, 192, 128),
+        type: 'table',
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+      ),
+    );
+    expect(changedCalls, 1);
+    expect(session.commands.map(jsonDecode).toList(), [
+      {
+        'type': 'moveTableOffset',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'deltaH': 12,
+        'deltaV': 8,
       },
     ]);
   });
