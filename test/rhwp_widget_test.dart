@@ -834,6 +834,120 @@ void main() {
     ]);
   });
 
+  testWidgets('RhwpNativeEditor insert ribbon renames a bookmark', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 900,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-bookmark')),
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-bookmark')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-bookmark-intro')));
+    await tester.pump();
+
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('rhwp-bookmark-name-field')),
+          )
+          .controller
+          ?.text,
+      'intro',
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-bookmark-name-field')),
+      'intro-renamed',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-bookmark-rename')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+    ]);
+    expect(session.commands.map(jsonDecode).toList(), [
+      {'type': 'getBookmarks'},
+      {
+        'type': 'renameBookmark',
+        'section': 0,
+        'paragraph': 0,
+        'controlIndex': 2,
+        'name': 'intro-renamed',
+      },
+    ]);
+  });
+
+  testWidgets('RhwpNativeEditor insert ribbon deletes a bookmark', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 900,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-bookmark')),
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-bookmark')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-bookmark-intro')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-bookmark-delete')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+    ]);
+    expect(session.commands.map(jsonDecode).toList(), [
+      {'type': 'getBookmarks'},
+      {
+        'type': 'deleteBookmark',
+        'section': 0,
+        'paragraph': 0,
+        'controlIndex': 2,
+      },
+    ]);
+  });
+
   testWidgets('RhwpNativeEditor tools ribbon edits field values', (
     tester,
   ) async {

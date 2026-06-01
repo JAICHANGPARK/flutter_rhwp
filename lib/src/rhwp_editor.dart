@@ -18715,7 +18715,7 @@ class _BookmarkDialogState extends State<_BookmarkDialog> {
               key: const ValueKey('rhwp-bookmark-name-field'),
               controller: _nameController,
               decoration: const InputDecoration(
-                labelText: 'Bookmark name',
+                labelText: '책갈피 이름',
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
@@ -18727,7 +18727,7 @@ class _BookmarkDialogState extends State<_BookmarkDialog> {
               },
             ),
             const SizedBox(height: 16),
-            Text('Existing', style: Theme.of(context).textTheme.labelMedium),
+            Text('기존 책갈피', style: Theme.of(context).textTheme.labelMedium),
             const SizedBox(height: 8),
             ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 180),
@@ -18736,7 +18736,7 @@ class _BookmarkDialogState extends State<_BookmarkDialog> {
                       height: 44,
                       child: Align(
                         alignment: Alignment.centerLeft,
-                        child: Text('No bookmarks'),
+                        child: Text('책갈피 없음'),
                       ),
                     )
                   : ListView.builder(
@@ -18774,23 +18774,23 @@ class _BookmarkDialogState extends State<_BookmarkDialog> {
         TextButton(
           key: const ValueKey('rhwp-bookmark-delete'),
           onPressed: selectedBookmark == null ? null : _deleteBookmark,
-          child: const Text('Delete'),
+          child: const Text('삭제'),
         ),
         TextButton(
           key: const ValueKey('rhwp-bookmark-rename'),
           onPressed: selectedBookmark == null || !_hasName
               ? null
               : _renameBookmark,
-          child: const Text('Rename'),
+          child: const Text('이름 바꾸기'),
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: const Text('취소'),
         ),
         FilledButton(
           key: const ValueKey('rhwp-bookmark-add'),
           onPressed: _hasName ? _addBookmark : null,
-          child: const Text('Add'),
+          child: const Text('추가'),
         ),
       ],
     );
