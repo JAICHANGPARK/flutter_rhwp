@@ -9174,6 +9174,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   bool get _shouldTreatExternalFocusAsDesktopTextInputChurn {
     return _isDesktopTextInputPlatform &&
         (_pendingTextInputCommits > 0 ||
+            (_hasDeferredEditRefresh &&
+                _hasPendingOptimisticTextEdit &&
+                _textRefreshHeldForFocusedInput &&
+                _hasActiveTextInputConnection &&
+                (_hasPendingDesktopTextInputFocusRelease ||
+                    _desktopTextInputConnectionCloseWindowActive)) ||
             _desktopTextInputConnectionChurnActive ||
             _desktopTextInputCommitHoldActive);
   }
