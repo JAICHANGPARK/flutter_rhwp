@@ -6297,6 +6297,20 @@ void main() {
         find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
         findsOneWidget,
       );
+      expect(
+        tester
+            .widget<Positioned>(
+              find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
+            )
+            .child,
+        isA<RepaintBoundary>(),
+      );
+      expect(
+        tester
+            .widget<Positioned>(find.byKey(const ValueKey('rhwp-editor-caret')))
+            .child,
+        isA<RepaintBoundary>(),
+      );
       expect(find.text(' '), findsOneWidget);
 
       tester.testTextInput.updateEditingValue(

@@ -30,6 +30,9 @@
   or previous cell with Tab and Shift+Tab.
 * Localized the Flutter-native bookmark management dialog and covered bookmark
   rename/delete flows from the insert ribbon.
+* Isolated Flutter-native typing overlay repaints for pending text, caret, and
+  IME composing previews so Space/text input does not repaint the rendered SVG
+  page surface.
 * Enabled Flutter-native table-cell text context-menu character formatting at
   a collapsed cell caret, so pending format can be applied to the next inserted
   cell text without selecting existing text.

@@ -14426,9 +14426,11 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
                 : ValueKey('rhwp-editor-pending-text-preview-$index'),
             rect: pending.rect,
             constraints: constraints,
-            child: _PendingTextPreview(
-              text: pending.text,
-              height: pending.rect.height,
+            child: RepaintBoundary(
+              child: _PendingTextPreview(
+                text: pending.text,
+                height: pending.rect.height,
+              ),
             ),
           ),
         for (final (index, rect) in paragraphMarkRects.indexed)
@@ -14445,7 +14447,9 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
             key: const ValueKey('rhwp-editor-caret'),
             rect: displayedCaretRect,
             constraints: constraints,
-            child: _EditorCaret(color: color, visible: _caretVisible),
+            child: RepaintBoundary(
+              child: _EditorCaret(color: color, visible: _caretVisible),
+            ),
           ),
         if (composingText != null && scaledCaretRect != null)
           _positionedRect(
@@ -14457,7 +14461,9 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
               32,
             ),
             constraints: constraints,
-            child: _ComposingPreview(text: composingText),
+            child: RepaintBoundary(
+              child: _ComposingPreview(text: composingText),
+            ),
           ),
       ],
     );
@@ -14513,7 +14519,9 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
           top: boundedTop,
           width: 2,
           height: height,
-          child: _EditorCaret(color: color, visible: _caretVisible),
+          child: RepaintBoundary(
+            child: _EditorCaret(color: color, visible: _caretVisible),
+          ),
         ),
         for (final (index, overlay) in _pendingTextOverlays.indexed)
           Positioned(
@@ -14532,7 +14540,9 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
             ),
             width: math.max(12, overlay.text.length * _characterWidth),
             height: height,
-            child: _PendingTextPreview(text: overlay.text, height: height),
+            child: RepaintBoundary(
+              child: _PendingTextPreview(text: overlay.text, height: height),
+            ),
           ),
         if (composingText != null)
           Positioned(
@@ -14541,7 +14551,9 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
             top: _bound(boundedTop, constraints.maxHeight, 32),
             width: 180,
             height: 32,
-            child: _ComposingPreview(text: composingText),
+            child: RepaintBoundary(
+              child: _ComposingPreview(text: composingText),
+            ),
           ),
         if (widget.showParagraphMarks)
           Positioned(
