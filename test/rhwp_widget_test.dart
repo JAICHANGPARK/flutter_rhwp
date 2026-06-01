@@ -8819,6 +8819,66 @@ void main() {
     ]);
   });
 
+  testWidgets('RhwpNativeEditor context menu applies document styles', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 2200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 900,
+          height: 520,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.selection = const RhwpSelectionRange(
+      start: RhwpCursorPosition(paragraph: 0, offset: 1),
+      end: RhwpCursorPosition(paragraph: 1, offset: 2),
+    );
+    await tester.pump();
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    final menuPoint =
+        pageTopLeft +
+        Offset(pageSize.width * 105 / 240, pageSize.height * 48 / 180);
+
+    await tester.tapAt(menuPoint, buttons: kSecondaryMouseButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('스타일'), findsOneWidget);
+    await tester.tap(find.text('스타일'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('rhwp-style-3')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('rhwp-style-3')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.commands.map(jsonDecode), [
+      {'type': 'getStyleList'},
+      {'type': 'applyStyle', 'section': 0, 'paragraph': 0, 'styleId': 3},
+      {'type': 'applyStyle', 'section': 0, 'paragraph': 1, 'styleId': 3},
+    ]);
+  });
+
   testWidgets('RhwpNativeEditor context menu runs table cell actions', (
     tester,
   ) async {
@@ -9490,6 +9550,83 @@ void main() {
       });
       expect(controller.tableCellSelection?.hasTextSelection, isFalse);
       expect(controller.tableCellSelection?.activeOffset, 2);
+    },
+  );
+
+  testWidgets(
+    'RhwpNativeEditor context menu applies document style to table text',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 2200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      controller.tableCellSelection = const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+        activeCellParagraph: 0,
+        activeOffset: 2,
+        isTextEditing: true,
+      );
+      await tester.pump();
+
+      final pageFinder = find.byType(SvgPicture);
+      final pageTopLeft = tester.getTopLeft(pageFinder);
+      final pageSize = tester.getSize(pageFinder);
+      final cellTextPoint =
+          pageTopLeft +
+          Offset(pageSize.width * 118 / 240, pageSize.height * 76 / 180);
+
+      await tester.tapAt(cellTextPoint, buttons: kSecondaryMouseButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('스타일'), findsOneWidget);
+      await tester.tap(find.text('스타일'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('rhwp-style-3')));
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+      expect(session.commands.map(jsonDecode), [
+        {'type': 'getStyleList'},
+        {
+          'type': 'applyCellStyle',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 0,
+          'styleId': 3,
+        },
+      ]);
     },
   );
 

@@ -558,6 +558,7 @@ enum _EditorContextMenuAction {
   strikethrough,
   charShape,
   paraShape,
+  stylePicker,
   alignLeft,
   alignCenter,
   alignRight,
@@ -10263,6 +10264,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         await _showCharShapeDialog();
       case _EditorContextMenuAction.paraShape:
         await _showParaShapeDialog();
+      case _EditorContextMenuAction.stylePicker:
+        await _showStylePicker();
       case _EditorContextMenuAction.alignLeft:
         await _applyParagraphAlignment('left');
       case _EditorContextMenuAction.alignCenter:
@@ -10496,6 +10499,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
             enabled: !_busy,
           ),
           _contextMenuItem(
+            action: _EditorContextMenuAction.stylePicker,
+            icon: Icons.style_outlined,
+            label: '스타일',
+            enabled: !_busy,
+          ),
+          _contextMenuItem(
             action: _EditorContextMenuAction.alignLeft,
             icon: Icons.format_align_left,
             label: '왼쪽 정렬',
@@ -10692,6 +10701,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         action: _EditorContextMenuAction.paraShape,
         icon: Icons.format_line_spacing,
         label: '문단 모양',
+        enabled: !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.stylePicker,
+        icon: Icons.style_outlined,
+        label: '스타일',
         enabled: !_busy,
       ),
       _contextMenuItem(
