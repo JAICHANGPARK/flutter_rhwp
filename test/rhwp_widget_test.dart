@@ -3516,6 +3516,68 @@ void main() {
     );
   });
 
+  testWidgets('RhwpNativeEditor shift-clicks table cell text to extend range', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(
+      _tableCellEditorLayerTreeJson(cellText: 'cell'),
+    );
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.tableCellSelection = const RhwpTableCellSelection(
+      section: 0,
+      paragraph: 5,
+      controlIndex: 2,
+      startRow: 1,
+      startColumn: 3,
+      endRow: 2,
+      endColumn: 3,
+      activeCellIndex: 7,
+      activeOffset: 1,
+      isTextEditing: true,
+    );
+    await tester.pump();
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    final targetPoint =
+        pageTopLeft +
+        Offset(pageSize.width * 126 / 240, pageSize.height * 73 / 180);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.tapAt(targetPoint);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pump();
+
+    final selection = controller.tableCellSelection;
+    expect(selection?.activeCellIndex, 7);
+    expect(selection?.activeCellParagraph, 0);
+    expect(selection?.activeOffset, 3);
+    expect(selection?.selectionBaseCellParagraph, 0);
+    expect(selection?.selectionBaseOffset, 1);
+    expect(selection?.hasTextSelection, isTrue);
+    expect(controller.selection.isCollapsed, isTrue);
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-table-text-selection')),
+      findsOneWidget,
+    );
+    expect(session.commands, isEmpty);
+  });
+
   testWidgets(
     'RhwpNativeEditor extends selected table cells with shift click',
     (tester) async {

@@ -12080,6 +12080,18 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
         _tableDragAnchor = null;
         _tableTextDragAnchor = null;
         _resetPrimaryClickSequence();
+        if (tableTextHit != null) {
+          final textSelection = _shiftTableCellTextSelectionForHit(
+            currentSelection,
+            tableCell,
+            tableTextHit,
+          );
+          if (textSelection != null) {
+            widget.onTableCellSelection(textSelection);
+            widget.onFocusRequested();
+            return;
+          }
+        }
         widget.onTableCellSelection(
           RhwpTableCellSelection.fromSelectionAndCell(
             currentSelection,
@@ -12232,6 +12244,36 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     _primaryClickCount = 0;
     _lastPrimaryClickTime = null;
     _lastPrimaryClickPosition = null;
+  }
+
+  RhwpTableCellSelection? _shiftTableCellTextSelectionForHit(
+    RhwpTableCellSelection currentSelection,
+    RhwpTableCellLayout cell,
+    RhwpTextHitResult hit,
+  ) {
+    final context = hit.cellContext;
+    if (!currentSelection.isTextEditing ||
+        context == null ||
+        !currentSelection.isSameTableAs(cell) ||
+        currentSelection.activeCellIndex != context.cellIndex ||
+        cell.modelCellIndex != context.cellIndex) {
+      return null;
+    }
+
+    return currentSelection.copyWith(
+      startRow: cell.row,
+      startColumn: cell.column,
+      endRow: cell.endRow,
+      endColumn: cell.endColumn,
+      activeCellParagraph: context.cellParagraph,
+      activeOffset: hit.offset,
+      isTextEditing: true,
+      selectionBaseCellParagraph:
+          currentSelection.selectionBaseCellParagraph ??
+          currentSelection.activeCellParagraph,
+      selectionBaseOffset:
+          currentSelection.selectionBaseOffset ?? currentSelection.activeOffset,
+    );
   }
 
   RhwpTableCellSelection? _tableCellParagraphSelectionForHit(
