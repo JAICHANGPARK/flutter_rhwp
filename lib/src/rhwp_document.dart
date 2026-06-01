@@ -955,6 +955,11 @@ abstract class RhwpCommand {
     required int offset,
   }) = RhwpSplitParagraphCommand;
 
+  factory RhwpCommand.insertParagraph({
+    required int section,
+    required int paragraph,
+  }) = RhwpInsertParagraphCommand;
+
   factory RhwpCommand.insertPageBreak({
     required int section,
     required int paragraph,
@@ -2024,6 +2029,23 @@ class RhwpSplitParagraphCommand extends RhwpCommand {
     'section': section,
     'paragraph': paragraph,
     'offset': offset,
+  };
+}
+
+class RhwpInsertParagraphCommand extends RhwpCommand {
+  const RhwpInsertParagraphCommand({
+    required this.section,
+    required this.paragraph,
+  });
+
+  final int section;
+  final int paragraph;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'insertParagraph',
+    'section': section,
+    'paragraph': paragraph,
   };
 }
 
@@ -4516,6 +4538,15 @@ class RhwpDocument {
         paragraph: paragraph,
         offset: offset,
       ),
+    );
+  }
+
+  Future<String> insertParagraph({
+    required int section,
+    required int paragraph,
+  }) {
+    return apply(
+      RhwpCommand.insertParagraph(section: section, paragraph: paragraph),
     );
   }
 

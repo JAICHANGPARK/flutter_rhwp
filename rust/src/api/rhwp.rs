@@ -394,6 +394,10 @@ impl RhwpSession {
                 .document
                 .split_paragraph_native(section as usize, paragraph as usize, offset as usize)
                 .map_err(error_to_string),
+            RhwpCommand::InsertParagraph { section, paragraph } => inner
+                .document
+                .insert_paragraph_native(section as usize, paragraph as usize)
+                .map_err(error_to_string),
             RhwpCommand::InsertPageBreak {
                 section,
                 paragraph,
@@ -1591,6 +1595,10 @@ enum RhwpCommand {
         section: u32,
         paragraph: u32,
         offset: u32,
+    },
+    InsertParagraph {
+        section: u32,
+        paragraph: u32,
     },
     InsertPageBreak {
         section: u32,
@@ -2961,6 +2969,9 @@ mod tests {
                 r#"{"type":"splitParagraph","section":0,"paragraph":0,"offset":4}"#.to_string(),
             )
             .expect("split paragraph command should be accepted");
+        session
+            .apply_command(r#"{"type":"insertParagraph","section":0,"paragraph":1}"#.to_string())
+            .expect("insert paragraph command should be accepted");
         session
             .apply_command(
                 r#"{"type":"insertFootnote","section":0,"paragraph":0,"offset":4}"#.to_string(),

@@ -40,6 +40,16 @@ void main() {
     });
   });
 
+  test('insert paragraph command serializes to the Rust command envelope', () {
+    final command = RhwpCommand.insertParagraph(section: 0, paragraph: 2);
+
+    expect(jsonDecode(jsonEncode(command.toJson())), {
+      'type': 'insertParagraph',
+      'section': 0,
+      'paragraph': 2,
+    });
+  });
+
   test('insert page break command serializes to the Rust command envelope', () {
     final command = RhwpCommand.insertPageBreak(
       section: 0,
@@ -2063,6 +2073,14 @@ void main() {
       'section': 0,
       'paragraph': 1,
       'offset': 2,
+    });
+
+    await document.insertParagraph(section: 0, paragraph: 2);
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'insertParagraph',
+      'section': 0,
+      'paragraph': 2,
     });
 
     await document.insertPageBreak(section: 0, paragraph: 1, offset: 2);

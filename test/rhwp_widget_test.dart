@@ -621,6 +621,54 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor insert ribbon adds a blank paragraph', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1000, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 1000,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 0, offset: 2);
+    await tester.pump();
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-insert-paragraph')),
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-insert-paragraph')),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.cursor, const RhwpCursorPosition(paragraph: 1));
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.single), {
+      'type': 'insertParagraph',
+      'section': 0,
+      'paragraph': 1,
+    });
+  });
+
   testWidgets('RhwpNativeEditor insert ribbon adds a bookmark', (tester) async {
     final controller = RhwpEditorController();
     final session = _FakeRhwpSession(pageCountValue: 1);
@@ -847,6 +895,11 @@ void main() {
   testWidgets('RhwpNativeEditor inserts page and column breaks', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(1000, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final controller = RhwpEditorController();
     final session = _FakeRhwpSession(pageCountValue: 1);
     final document = RhwpDocument.fromSession(session);

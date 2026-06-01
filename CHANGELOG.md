@@ -40,6 +40,8 @@
   `evaluateTableFormula` command.
 * Added Flutter-native table-cell paragraph split/merge editing through rhwp
   core's cell paragraph commands.
+* Added Flutter-native blank paragraph insertion through rhwp core's
+  `insertParagraph` command and an input-ribbon button.
 * Added Flutter-native Delete-at-cell-paragraph-end handling to merge the next
   table-cell paragraph.
 * Added Flutter-native bookmark list/add/delete/rename commands and an input

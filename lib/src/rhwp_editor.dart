@@ -3402,6 +3402,29 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
   }
 
+  Future<void> _insertParagraphAfterCursor() async {
+    if (_busy || _controller.tableCellSelection != null) {
+      return;
+    }
+
+    await _runEdit(() async {
+      final selection = _controller.selection;
+      final cursor = selection.isCollapsed
+          ? _controller.cursor
+          : selection.normalizedEnd;
+      final targetParagraph = cursor.paragraph + 1;
+      final result = await widget.document.insertParagraph(
+        section: cursor.section,
+        paragraph: targetParagraph,
+      );
+      _throwIfCommandRejected(result);
+      _controller.cursor = RhwpCursorPosition(
+        section: cursor.section,
+        paragraph: _readIntResult(result, 'paraIdx') ?? targetParagraph,
+      );
+    });
+  }
+
   Future<void> _splitParagraphInSelectedTableCell() async {
     final tableSelection = _editableTableCellSelection;
     if (tableSelection == null || _busy) {
@@ -9751,6 +9774,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onFields: _showFieldsDialog,
           onInsertPicture: _insertPicture,
           onInsertShape: _insertShape,
+          onInsertParagraph: _insertParagraphAfterCursor,
           onInsertPageBreak: _insertPageBreak,
           onInsertColumnBreak: _insertColumnBreak,
           onInsertTableRowAbove: () => _insertTableRow(below: false),
@@ -11976,6 +12000,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onFields,
     required this.onInsertPicture,
     required this.onInsertShape,
+    required this.onInsertParagraph,
     required this.onInsertPageBreak,
     required this.onInsertColumnBreak,
     required this.onInsertTableRowAbove,
@@ -12113,6 +12138,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onFields;
   final VoidCallback onInsertPicture;
   final ValueChanged<_EditorShapePreset> onInsertShape;
+  final VoidCallback onInsertParagraph;
   final VoidCallback onInsertPageBreak;
   final VoidCallback onInsertColumnBreak;
   final VoidCallback onInsertTableRowAbove;
@@ -12707,6 +12733,14 @@ class _EditorToolbarState extends State<_EditorToolbar> {
             _ToolbarShapeMenu(
               enabled: !widget.busy,
               onSelected: widget.onInsertShape,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Insert paragraph',
+              buttonKey: const ValueKey('rhwp-editor-insert-paragraph'),
+              icon: Icons.segment,
+              onPressed: widget.busy || widget.tableCellSelection != null
+                  ? null
+                  : widget.onInsertParagraph,
             ),
             _ToolbarIconButton(
               tooltip: 'Insert page break',
