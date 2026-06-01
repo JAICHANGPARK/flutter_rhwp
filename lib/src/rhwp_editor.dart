@@ -9203,17 +9203,16 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         return;
       }
 
-      final nextOffset = paragraphText == null
-          ? math.max(0, cursor.offset + delta)
-          : _wordBoundaryOffset(paragraphText.text, cursor.offset, delta);
+      final target = await _wordPositionFrom(cursor, paragraphText, delta);
+      if (!mounted || target == null) {
+        return;
+      }
       _setCursorOrSelection(
         current,
-        cursor.copyWith(offset: nextOffset),
+        target.position,
         extendSelection: extendSelection,
       );
-      if (paragraphText != null) {
-        unawaited(_controller.goToPage(paragraphText.page));
-      }
+      unawaited(_controller.goToPage(target.page));
       _focusEditor();
     } catch (error) {
       if (mounted) {
@@ -9222,6 +9221,42 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         });
       }
     }
+  }
+
+  Future<({RhwpCursorPosition position, int page})?> _wordPositionFrom(
+    RhwpCursorPosition cursor,
+    ({String text, int page})? paragraphText,
+    int delta,
+  ) async {
+    if (delta < 0) {
+      if (paragraphText == null || cursor.offset <= 0) {
+        return _previousParagraphWordStartFor(cursor);
+      }
+      return (
+        position: cursor.copyWith(
+          offset: _wordBoundaryOffset(paragraphText.text, cursor.offset, delta),
+        ),
+        page: paragraphText.page,
+      );
+    }
+
+    if (paragraphText == null) {
+      return _nextParagraphWordStartFor(cursor);
+    }
+
+    final nextOffset = _wordBoundaryOffset(
+      paragraphText.text,
+      cursor.offset,
+      delta,
+    );
+    if (nextOffset <= cursor.offset &&
+        cursor.offset >= paragraphText.text.length) {
+      return _nextParagraphWordStartFor(cursor);
+    }
+    return (
+      position: cursor.copyWith(offset: nextOffset),
+      page: paragraphText.page,
+    );
   }
 
   Future<void> _moveCursorToLineStart({required bool extendSelection}) async {
@@ -9557,6 +9592,49 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     );
   }
 
+  Future<({RhwpCursorPosition position, int page})?>
+  _previousParagraphWordStartFor(RhwpCursorPosition cursor) async {
+    final previousEnd = await _previousParagraphEndFor(cursor);
+    if (previousEnd == null) {
+      return null;
+    }
+
+    final paragraphText = await _paragraphTextFor(previousEnd.position);
+    if (paragraphText == null) {
+      return previousEnd;
+    }
+    return (
+      position: previousEnd.position.copyWith(
+        offset: _wordBoundaryOffset(
+          paragraphText.text,
+          previousEnd.position.offset,
+          -1,
+        ),
+      ),
+      page: paragraphText.page,
+    );
+  }
+
+  Future<({RhwpCursorPosition position, int page})?> _nextParagraphWordStartFor(
+    RhwpCursorPosition cursor,
+  ) async {
+    final nextStart = await _nextParagraphStartFor(cursor);
+    if (nextStart == null) {
+      return null;
+    }
+
+    final paragraphText = await _paragraphTextFor(nextStart.position);
+    if (paragraphText == null) {
+      return nextStart;
+    }
+    return (
+      position: nextStart.position.copyWith(
+        offset: _firstWordStartOffset(paragraphText.text),
+      ),
+      page: paragraphText.page,
+    );
+  }
+
   Future<void> _moveCursorToLineEnd({required bool extendSelection}) async {
     final current = _controller.selection;
     final cursor = current.end;
@@ -9687,6 +9765,14 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     while (cursor < length && _isWordSeparator(text.codeUnitAt(cursor))) {
+      cursor += 1;
+    }
+    return cursor;
+  }
+
+  int _firstWordStartOffset(String text) {
+    var cursor = 0;
+    while (cursor < text.length && _isWordSeparator(text.codeUnitAt(cursor))) {
       cursor += 1;
     }
     return cursor;
