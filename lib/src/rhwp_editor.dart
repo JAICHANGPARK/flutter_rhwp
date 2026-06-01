@@ -557,6 +557,7 @@ enum _EditorContextMenuAction {
   underline,
   strikethrough,
   charEffects,
+  charColor,
   charShape,
   paraShape,
   lineSpacingPicker,
@@ -610,6 +611,8 @@ enum _TableCellNavigationDirection { left, right, up, down }
 
 enum _CharEffectChoice { superscript, subscript, emboss, engrave }
 
+enum _CharColorTarget { text, shade }
+
 class _ObjectPropertiesDialogResult {
   const _ObjectPropertiesDialogResult({
     required this.width,
@@ -622,6 +625,13 @@ class _ObjectPropertiesDialogResult {
   final int height;
   final int horzOffset;
   final int vertOffset;
+}
+
+class _CharColorPickerResult {
+  const _CharColorPickerResult({required this.target, required this.value});
+
+  final _CharColorTarget target;
+  final String value;
 }
 
 class _CharShapeDialogResult {
@@ -5654,6 +5664,30 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _focusEditor();
   }
 
+  Future<void> _showCharColorPicker() async {
+    if (_busy) {
+      return;
+    }
+
+    final result = await showDialog<_CharColorPickerResult>(
+      context: context,
+      builder: (context) => _CharColorPickerDialog(
+        currentFormat: _pendingCharFormat.withFallback(_currentCharFormat),
+      ),
+    );
+    if (!mounted || result == null) {
+      return;
+    }
+
+    switch (result.target) {
+      case _CharColorTarget.text:
+        await _applyCharFormat(textColor: result.value);
+      case _CharColorTarget.shade:
+        await _applyCharFormat(shadeColor: result.value);
+    }
+    _focusEditor();
+  }
+
   void _runFocusedEditorAction(Future<void> Function() action) {
     _focusEditor();
     setState(() {
@@ -10326,6 +10360,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         await _toggleCharFormat(strikethrough: true);
       case _EditorContextMenuAction.charEffects:
         await _showCharEffectPicker();
+      case _EditorContextMenuAction.charColor:
+        await _showCharColorPicker();
       case _EditorContextMenuAction.charShape:
         await _showCharShapeDialog();
       case _EditorContextMenuAction.paraShape:
@@ -10564,6 +10600,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
             enabled: !_busy,
           ),
           _contextMenuItem(
+            action: _EditorContextMenuAction.charColor,
+            icon: Icons.format_color_text,
+            label: '글자 색상',
+            enabled: !_busy,
+          ),
+          _contextMenuItem(
             action: _EditorContextMenuAction.charShape,
             icon: Icons.text_fields,
             label: '글자 모양',
@@ -10790,6 +10832,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         action: _EditorContextMenuAction.charEffects,
         icon: Icons.filter_hdr,
         label: '글자 효과',
+        enabled: !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.charColor,
+        icon: Icons.format_color_text,
+        label: '글자 색상',
         enabled: !_busy,
       ),
       _contextMenuItem(
@@ -17962,6 +18010,92 @@ class _CharEffectPickerDialog extends StatelessWidget {
       avatar: Icon(icon),
       label: Text(label),
       onSelected: (_) => Navigator.of(context).pop(choice),
+    );
+  }
+}
+
+class _CharColorPickerDialog extends StatelessWidget {
+  const _CharColorPickerDialog({required this.currentFormat});
+
+  final _PendingCharFormat currentFormat;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('글자 색상'),
+      content: SizedBox(
+        width: 360,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('글자 색'),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final swatch in _charColorSwatches)
+                  _colorChip(
+                    context: context,
+                    key: ValueKey('rhwp-char-color-text-${swatch.value}'),
+                    target: _CharColorTarget.text,
+                    swatch: swatch,
+                    selected: currentFormat.textColor == swatch.value,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            const Text('배경 색'),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final swatch in _charShadeSwatches)
+                  _colorChip(
+                    context: context,
+                    key: ValueKey('rhwp-char-color-shade-${swatch.value}'),
+                    target: _CharColorTarget.shade,
+                    swatch: swatch,
+                    selected: currentFormat.shadeColor == swatch.value,
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
+
+  Widget _colorChip({
+    required BuildContext context,
+    required Key key,
+    required _CharColorTarget target,
+    required ({String label, Color color, String value}) swatch,
+    required bool selected,
+  }) {
+    return ChoiceChip(
+      key: key,
+      selected: selected,
+      avatar: DecoratedBox(
+        decoration: BoxDecoration(
+          color: swatch.color,
+          shape: BoxShape.circle,
+          border: Border.all(color: Theme.of(context).dividerColor),
+        ),
+        child: const SizedBox.square(dimension: 18),
+      ),
+      label: Text(swatch.label),
+      onSelected: (_) => Navigator.of(
+        context,
+      ).pop(_CharColorPickerResult(target: target, value: swatch.value)),
     );
   }
 }
