@@ -27,6 +27,9 @@
   so dialog-based font and style changes are verified before cell text input.
 * Added Flutter-native table-cell text context-menu paragraph actions,
   including paragraph shape and direct left/center/right/justify alignment.
+* Covered Flutter-native table-cell context-menu paragraph-shape dialog values
+  so line spacing, margins, spacing, and indent are verified for active cell
+  paragraphs.
 * Added upstream-style Flutter-native table object/cell mode switching: Escape
   promotes selected cells to a table object, and Enter/F5 re-enters cell
   selection.
