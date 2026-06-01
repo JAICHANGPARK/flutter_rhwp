@@ -6621,6 +6621,50 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     );
   }
 
+  Future<void> _moveTableCellCursorByWord(int delta) async {
+    final tableSelection = _editableTableCellSelection;
+    if (tableSelection == null ||
+        !tableSelection.isTextEditing ||
+        tableSelection.activeCellIndex == null ||
+        _busy) {
+      return;
+    }
+
+    final current = tableSelection.copyWith(
+      activeOffset: _parseNonNegative(_offsetController.text),
+      isTextEditing: true,
+    );
+    try {
+      final target = await _tableCellWordPositionFrom(current, delta);
+      if (!mounted || target == null) {
+        return;
+      }
+
+      final currentPosition = (
+        cellParagraph: current.activeCellParagraph,
+        offset: current.activeOffset,
+      );
+      if (_compareTableCellTextPosition(target, currentPosition) == 0) {
+        return;
+      }
+
+      final nextSelection = current.copyWith(
+        activeCellParagraph: target.cellParagraph,
+        activeOffset: target.offset,
+        isTextEditing: true,
+      );
+      _syncTableSelectionFields(nextSelection);
+      _controller.tableCellSelection = nextSelection;
+      _focusEditor();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    }
+  }
+
   Future<void> _deleteWordInSelectedTableCell({required bool backward}) async {
     final tableSelection = _editableTableCellSelection;
     final activeCellIndex = tableSelection?.activeCellIndex;
@@ -9184,13 +9228,20 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         if (_nudgeSelectedObject(Offset(-objectNudgeStep, 0))) {
           return KeyEventResult.handled;
         }
-        if (_controller.tableCellSelection != null && !wordNavigationPressed) {
-          unawaited(
-            _moveTableCellSelection(
-              _TableCellNavigationDirection.left,
-              extendSelection: extendSelection,
-            ),
-          );
+        final leftTableSelection = _controller.tableCellSelection;
+        if (leftTableSelection != null) {
+          if (wordNavigationPressed) {
+            if (leftTableSelection.isTextEditing) {
+              unawaited(_moveTableCellCursorByWord(-1));
+            }
+          } else {
+            unawaited(
+              _moveTableCellSelection(
+                _TableCellNavigationDirection.left,
+                extendSelection: extendSelection,
+              ),
+            );
+          }
           return KeyEventResult.handled;
         }
         if (wordNavigationPressed) {
@@ -9205,13 +9256,20 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         if (_nudgeSelectedObject(Offset(objectNudgeStep, 0))) {
           return KeyEventResult.handled;
         }
-        if (_controller.tableCellSelection != null && !wordNavigationPressed) {
-          unawaited(
-            _moveTableCellSelection(
-              _TableCellNavigationDirection.right,
-              extendSelection: extendSelection,
-            ),
-          );
+        final rightTableSelection = _controller.tableCellSelection;
+        if (rightTableSelection != null) {
+          if (wordNavigationPressed) {
+            if (rightTableSelection.isTextEditing) {
+              unawaited(_moveTableCellCursorByWord(1));
+            }
+          } else {
+            unawaited(
+              _moveTableCellSelection(
+                _TableCellNavigationDirection.right,
+                extendSelection: extendSelection,
+              ),
+            );
+          }
           return KeyEventResult.handled;
         }
         if (wordNavigationPressed) {
