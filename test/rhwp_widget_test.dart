@@ -669,6 +669,56 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor edit ribbon deletes the current paragraph', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1000, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 1000,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 1, offset: 3);
+    await tester.pump();
+
+    await tester.tap(find.text('편집'));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-delete-paragraph')),
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-delete-paragraph')),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.cursor, const RhwpCursorPosition(paragraph: 1));
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.single), {
+      'type': 'deleteParagraph',
+      'section': 0,
+      'paragraph': 1,
+    });
+  });
+
   testWidgets('RhwpNativeEditor insert ribbon adds a bookmark', (tester) async {
     final controller = RhwpEditorController();
     final session = _FakeRhwpSession(pageCountValue: 1);
@@ -12075,6 +12125,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'mergeParagraphInTableCell') {
       return '{"ok":true,"cellParaIndex":0,"charOffset":2}';
+    }
+    if (command is Map && command['type'] == 'deleteParagraph') {
+      return '{"ok":true,"removedCharCount":4,"newParagraphCount":2}';
     }
     if (command is Map && command['type'] == 'getCellParagraphCount') {
       return '{"count":2}';

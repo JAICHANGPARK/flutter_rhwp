@@ -50,6 +50,16 @@ void main() {
     });
   });
 
+  test('delete paragraph command serializes to the Rust command envelope', () {
+    final command = RhwpCommand.deleteParagraph(section: 0, paragraph: 2);
+
+    expect(jsonDecode(jsonEncode(command.toJson())), {
+      'type': 'deleteParagraph',
+      'section': 0,
+      'paragraph': 2,
+    });
+  });
+
   test('insert page break command serializes to the Rust command envelope', () {
     final command = RhwpCommand.insertPageBreak(
       section: 0,
@@ -2079,6 +2089,14 @@ void main() {
 
     expect(jsonDecode(session.lastCommandJson!), {
       'type': 'insertParagraph',
+      'section': 0,
+      'paragraph': 2,
+    });
+
+    await document.deleteParagraph(section: 0, paragraph: 2);
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'deleteParagraph',
       'section': 0,
       'paragraph': 2,
     });

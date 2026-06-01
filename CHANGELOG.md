@@ -42,6 +42,8 @@
   core's cell paragraph commands.
 * Added Flutter-native blank paragraph insertion through rhwp core's
   `insertParagraph` command and an input-ribbon button.
+* Added Flutter-native current paragraph deletion through rhwp core's
+  `deleteParagraph` command and an edit-ribbon button.
 * Added Flutter-native Delete-at-cell-paragraph-end handling to merge the next
   table-cell paragraph.
 * Added Flutter-native bookmark list/add/delete/rename commands and an input

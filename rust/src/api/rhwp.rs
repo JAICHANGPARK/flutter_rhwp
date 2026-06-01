@@ -398,6 +398,10 @@ impl RhwpSession {
                 .document
                 .insert_paragraph_native(section as usize, paragraph as usize)
                 .map_err(error_to_string),
+            RhwpCommand::DeleteParagraph { section, paragraph } => inner
+                .document
+                .delete_paragraph_native(section as usize, paragraph as usize)
+                .map_err(error_to_string),
             RhwpCommand::InsertPageBreak {
                 section,
                 paragraph,
@@ -1597,6 +1601,10 @@ enum RhwpCommand {
         offset: u32,
     },
     InsertParagraph {
+        section: u32,
+        paragraph: u32,
+    },
+    DeleteParagraph {
         section: u32,
         paragraph: u32,
     },
@@ -2972,6 +2980,9 @@ mod tests {
         session
             .apply_command(r#"{"type":"insertParagraph","section":0,"paragraph":1}"#.to_string())
             .expect("insert paragraph command should be accepted");
+        session
+            .apply_command(r#"{"type":"deleteParagraph","section":0,"paragraph":1}"#.to_string())
+            .expect("delete paragraph command should be accepted");
         session
             .apply_command(
                 r#"{"type":"insertFootnote","section":0,"paragraph":0,"offset":4}"#.to_string(),

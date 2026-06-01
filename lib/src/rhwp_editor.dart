@@ -3425,6 +3425,34 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
   }
 
+  Future<void> _deleteCurrentParagraph() async {
+    if (_busy ||
+        _controller.tableCellSelection != null ||
+        _controller.objectSelection != null) {
+      return;
+    }
+
+    await _runEdit(() async {
+      final selection = _controller.selection;
+      final cursor = selection.isCollapsed
+          ? _controller.cursor
+          : selection.normalizedStart;
+      final result = await widget.document.deleteParagraph(
+        section: cursor.section,
+        paragraph: cursor.paragraph,
+      );
+      _throwIfCommandRejected(result);
+      final newParagraphCount = _readIntResult(result, 'newParagraphCount');
+      final targetParagraph = newParagraphCount == null
+          ? math.max(0, cursor.paragraph - 1)
+          : math.min(cursor.paragraph, math.max(0, newParagraphCount - 1));
+      _controller.cursor = RhwpCursorPosition(
+        section: cursor.section,
+        paragraph: targetParagraph,
+      );
+    });
+  }
+
   Future<void> _splitParagraphInSelectedTableCell() async {
     final tableSelection = _editableTableCellSelection;
     if (tableSelection == null || _busy) {
@@ -9762,6 +9790,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onSaveHwpx: () => _exportFromEditor(RhwpExportFormat.hwpx),
           onExportPdf: () => _exportFromEditor(RhwpExportFormat.pdf),
           onDeleteBackward: _deleteBackward,
+          onDeleteParagraph: _deleteCurrentParagraph,
           onInsertTable: _insertTable,
           onToggleInsertTableTreatAsChar: () {
             setState(() {
@@ -11992,6 +12021,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onSaveHwpx,
     required this.onExportPdf,
     required this.onDeleteBackward,
+    required this.onDeleteParagraph,
     required this.onInsertTable,
     required this.onToggleInsertTableTreatAsChar,
     required this.onInsertFootnote,
@@ -12130,6 +12160,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onSaveHwpx;
   final VoidCallback onExportPdf;
   final VoidCallback onDeleteBackward;
+  final VoidCallback onDeleteParagraph;
   final VoidCallback onInsertTable;
   final VoidCallback onToggleInsertTableTreatAsChar;
   final VoidCallback onInsertFootnote;
@@ -12528,6 +12559,17 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               tooltip: 'Delete backward',
               icon: Icons.backspace_outlined,
               onPressed: widget.busy ? null : widget.onDeleteBackward,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Delete paragraph',
+              buttonKey: const ValueKey('rhwp-editor-delete-paragraph'),
+              icon: Icons.playlist_remove,
+              onPressed:
+                  widget.busy ||
+                      widget.tableCellSelection != null ||
+                      widget.objectSelection != null
+                  ? null
+                  : widget.onDeleteParagraph,
             ),
             _ToolbarIconButton(
               tooltip: 'Delete selected object',
