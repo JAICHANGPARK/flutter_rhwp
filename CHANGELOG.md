@@ -20,6 +20,8 @@
 * Enabled Flutter-native body context-menu character formatting at a collapsed
   caret, including pending character-shape dialog values for the next inserted
   text.
+* Added Flutter-native body and table-cell text context-menu character effects
+  picker for superscript, subscript, emboss, and engrave formatting.
 * Enabled Flutter-native table-cell text context-menu character formatting at
   a collapsed cell caret, so pending format can be applied to the next inserted
   cell text without selecting existing text.

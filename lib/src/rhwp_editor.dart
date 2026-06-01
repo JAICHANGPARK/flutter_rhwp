@@ -556,6 +556,7 @@ enum _EditorContextMenuAction {
   italic,
   underline,
   strikethrough,
+  charEffects,
   charShape,
   paraShape,
   lineSpacingPicker,
@@ -606,6 +607,8 @@ enum _EditorContextMenuAction {
 enum _EditorClipboardDomain { text, richText, objectControl }
 
 enum _TableCellNavigationDirection { left, right, up, down }
+
+enum _CharEffectChoice { superscript, subscript, emboss, engrave }
 
 class _ObjectPropertiesDialogResult {
   const _ObjectPropertiesDialogResult({
@@ -5623,6 +5626,34 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     );
   }
 
+  Future<void> _showCharEffectPicker() async {
+    if (_busy) {
+      return;
+    }
+
+    final effect = await showDialog<_CharEffectChoice>(
+      context: context,
+      builder: (context) => _CharEffectPickerDialog(
+        currentFormat: _pendingCharFormat.withFallback(_currentCharFormat),
+      ),
+    );
+    if (!mounted || effect == null) {
+      return;
+    }
+
+    switch (effect) {
+      case _CharEffectChoice.superscript:
+        await _toggleCharFormat(superscript: true);
+      case _CharEffectChoice.subscript:
+        await _toggleCharFormat(subscript: true);
+      case _CharEffectChoice.emboss:
+        await _toggleCharFormat(emboss: true);
+      case _CharEffectChoice.engrave:
+        await _toggleCharFormat(engrave: true);
+    }
+    _focusEditor();
+  }
+
   void _runFocusedEditorAction(Future<void> Function() action) {
     _focusEditor();
     setState(() {
@@ -10293,6 +10324,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         await _toggleCharFormat(underline: true);
       case _EditorContextMenuAction.strikethrough:
         await _toggleCharFormat(strikethrough: true);
+      case _EditorContextMenuAction.charEffects:
+        await _showCharEffectPicker();
       case _EditorContextMenuAction.charShape:
         await _showCharShapeDialog();
       case _EditorContextMenuAction.paraShape:
@@ -10525,6 +10558,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
             enabled: !_busy,
           ),
           _contextMenuItem(
+            action: _EditorContextMenuAction.charEffects,
+            icon: Icons.filter_hdr,
+            label: '글자 효과',
+            enabled: !_busy,
+          ),
+          _contextMenuItem(
             action: _EditorContextMenuAction.charShape,
             icon: Icons.text_fields,
             label: '글자 모양',
@@ -10745,6 +10784,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         action: _EditorContextMenuAction.strikethrough,
         icon: Icons.format_strikethrough,
         label: '취소선',
+        enabled: !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.charEffects,
+        icon: Icons.filter_hdr,
+        label: '글자 효과',
         enabled: !_busy,
       ),
       _contextMenuItem(
@@ -17840,6 +17885,83 @@ class _LineSpacingPickerDialog extends StatelessWidget {
           child: const Text('Cancel'),
         ),
       ],
+    );
+  }
+}
+
+class _CharEffectPickerDialog extends StatelessWidget {
+  const _CharEffectPickerDialog({required this.currentFormat});
+
+  final _PendingCharFormat currentFormat;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('글자 효과'),
+      content: SizedBox(
+        width: 320,
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _effectChip(
+              context: context,
+              key: const ValueKey('rhwp-char-effect-superscript'),
+              choice: _CharEffectChoice.superscript,
+              icon: Icons.superscript,
+              label: '위첨자',
+              selected: currentFormat.superscript == true,
+            ),
+            _effectChip(
+              context: context,
+              key: const ValueKey('rhwp-char-effect-subscript'),
+              choice: _CharEffectChoice.subscript,
+              icon: Icons.subscript,
+              label: '아래첨자',
+              selected: currentFormat.subscript == true,
+            ),
+            _effectChip(
+              context: context,
+              key: const ValueKey('rhwp-char-effect-emboss'),
+              choice: _CharEffectChoice.emboss,
+              icon: Icons.filter_hdr,
+              label: '양각',
+              selected: currentFormat.emboss == true,
+            ),
+            _effectChip(
+              context: context,
+              key: const ValueKey('rhwp-char-effect-engrave'),
+              choice: _CharEffectChoice.engrave,
+              icon: Icons.tonality,
+              label: '음각',
+              selected: currentFormat.engrave == true,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
+
+  Widget _effectChip({
+    required BuildContext context,
+    required Key key,
+    required _CharEffectChoice choice,
+    required IconData icon,
+    required String label,
+    required bool selected,
+  }) {
+    return ChoiceChip(
+      key: key,
+      selected: selected,
+      avatar: Icon(icon),
+      label: Text(label),
+      onSelected: (_) => Navigator.of(context).pop(choice),
     );
   }
 }
