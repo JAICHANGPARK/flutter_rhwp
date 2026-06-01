@@ -1,6 +1,9 @@
 ## 2026.5.24
 
 * Updated plugin release metadata for the `2026.5.24` release.
+* Added Flutter-native character effect shortcuts for strikethrough,
+  superscript, and subscript using the existing native character-format command
+  path.
 * Added Flutter-native Ctrl/Cmd+Shift+Period/Comma shortcuts for increasing
   and decreasing the active editor font size through the same character-format
   command path as the format ribbon.

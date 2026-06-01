@@ -11384,6 +11384,19 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           _runFocusedEditorAction(() => _stepKeyboardFontSize(-1));
           return KeyEventResult.handled;
         }
+        if (event.logicalKey == LogicalKeyboardKey.keyX) {
+          _runFocusedEditorAction(() => _toggleCharFormat(strikethrough: true));
+          return KeyEventResult.handled;
+        }
+      } else {
+        if (event.logicalKey == LogicalKeyboardKey.period) {
+          _runFocusedEditorAction(() => _toggleCharFormat(superscript: true));
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.comma) {
+          _runFocusedEditorAction(() => _toggleCharFormat(subscript: true));
+          return KeyEventResult.handled;
+        }
       }
       switch (event.logicalKey) {
         case LogicalKeyboardKey.keyC:
