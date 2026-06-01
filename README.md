@@ -26,6 +26,7 @@ documents.
   Flutter-native caret through the tools ribbon or Dart API.
 - Convert distribution/read-only documents to editable mode when
   `RhwpNativeEditor` loads, matching the upstream Web editor path.
+- Apply HWP page hide flags from the Flutter-native page ribbon or Dart API.
 - Split and merge paragraphs inside active table cells from the Flutter-native
   editor with Enter, Backspace, and Delete.
 - Keep native-editor typing, IME composing, caret, and selection overlays
@@ -411,6 +412,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   indent, and paragraph margins with `Alt+T` shortcut support, style picker
   command with F6 shortcut support, header/footer
   creation from the page ribbon,
+  page hide flags for header, footer, master page, border, fill, and page
+  number,
   snapshot-backed undo/redo from the edit ribbon with continuous text-input
   undo batching, layer-tree text search with
   Ctrl/Cmd+F focus and search-text selection, Ctrl/Cmd+H replace-field focus,

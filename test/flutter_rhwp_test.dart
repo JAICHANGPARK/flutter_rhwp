@@ -1711,6 +1711,42 @@ void main() {
     );
   });
 
+  test('page hide commands serialize to the Rust envelope', () {
+    expect(
+      jsonDecode(
+        jsonEncode(RhwpCommand.getPageHide(section: 1, paragraph: 2).toJson()),
+      ),
+      {'type': 'getPageHide', 'section': 1, 'paragraph': 2},
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.setPageHide(
+            section: 1,
+            paragraph: 2,
+            hideHeader: true,
+            hideFooter: true,
+            hideMasterPage: true,
+            hideBorder: true,
+            hideFill: true,
+            hidePageNumber: true,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'setPageHide',
+        'section': 1,
+        'paragraph': 2,
+        'hideHeader': true,
+        'hideFooter': true,
+        'hideMasterPage': true,
+        'hideBorder': true,
+        'hideFill': true,
+        'hidePageNum': true,
+      },
+    );
+  });
+
   test('new number command serializes to the Rust envelope', () {
     expect(
       jsonDecode(
@@ -3257,6 +3293,38 @@ void main() {
       },
     });
 
+    final pageHide = await document.pageHide(section: 0, paragraph: 2);
+    expect(pageHide.exists, isTrue);
+    expect(pageHide.hideHeader, isFalse);
+    expect(pageHide.hideFooter, isTrue);
+    expect(pageHide.hidePageNumber, isFalse);
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'getPageHide',
+      'section': 0,
+      'paragraph': 2,
+    });
+
+    await document.setPageHide(
+      section: 0,
+      paragraph: 2,
+      hideHeader: true,
+      hideFooter: true,
+      hideBorder: true,
+      hidePageNumber: true,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'setPageHide',
+      'section': 0,
+      'paragraph': 2,
+      'hideHeader': true,
+      'hideFooter': true,
+      'hideMasterPage': false,
+      'hideBorder': true,
+      'hideFill': false,
+      'hidePageNum': true,
+    });
+
     await document.insertNewNumber(
       section: 0,
       paragraph: 2,
@@ -3808,6 +3876,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'getPageSetup') {
       return '{"width":59528,"height":84189,"marginLeft":8504,"marginRight":8504,"marginTop":5669,"marginBottom":4252,"marginHeader":4252,"marginFooter":4252,"marginGutter":0,"landscape":false,"binding":0}';
+    }
+    if (command is Map && command['type'] == 'getPageHide') {
+      return '{"ok":true,"exists":true,"hideHeader":false,"hideFooter":true,"hideMasterPage":false,"hideBorder":false,"hideFill":true,"hidePageNum":false}';
     }
     if (command is Map && command['type'] == 'getHeaderFooter') {
       return '{"ok":true,"exists":true,"kind":"header","applyTo":0,"label":"양 쪽","paraIndex":0,"controlIndex":1,"paraCount":1,"text":"Header"}';

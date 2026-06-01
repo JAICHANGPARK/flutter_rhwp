@@ -2160,6 +2160,64 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor page ribbon applies page hide options', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 2);
+    await tester.pump();
+
+    await tester.tap(find.text('쪽'));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-page-hide')));
+    await tester.pumpAndSettle();
+
+    expect(jsonDecode(session.commands.single), {
+      'type': 'getPageHide',
+      'section': 0,
+      'paragraph': 2,
+    });
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-page-hide-header')));
+    await tester.tap(find.byKey(const ValueKey('rhwp-page-hide-border')));
+    await tester.tap(find.byKey(const ValueKey('rhwp-page-hide-page-number')));
+    await tester.tap(find.byKey(const ValueKey('rhwp-page-hide-apply')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'setPageHide',
+      'section': 0,
+      'paragraph': 2,
+      'hideHeader': true,
+      'hideFooter': false,
+      'hideMasterPage': false,
+      'hideBorder': true,
+      'hideFill': false,
+      'hidePageNum': true,
+    });
+  });
+
   testWidgets('RhwpNativeEditor opens page setup with F7 shortcut', (
     tester,
   ) async {
@@ -11917,6 +11975,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'getPageSetup') {
       return '{"width":59528,"height":84189,"marginLeft":8504,"marginRight":8504,"marginTop":5669,"marginBottom":4252,"marginHeader":4252,"marginFooter":4252,"marginGutter":0,"landscape":false,"binding":0}';
+    }
+    if (command is Map && command['type'] == 'getPageHide') {
+      return '{"ok":true,"exists":false}';
     }
     if (command is Map && command['type'] == 'getHeaderFooter') {
       if (!headerFooterExists) {

@@ -50,6 +50,8 @@
   editing, and field-marker removal through rhwp core's field APIs.
 * Added Flutter-native load-time `convertToEditable` support so distribution
   HWP documents follow the upstream Web editor's editable-load path by default.
+* Added Flutter-native page hide commands and a page-ribbon dialog backed by
+  rhwp core's PageHide API.
 * Added the upstream-style F6 shortcut to open the Flutter-native style picker.
 * Added the upstream-style `Alt+T` shortcut to open the Flutter-native paragraph
   shape dialog.

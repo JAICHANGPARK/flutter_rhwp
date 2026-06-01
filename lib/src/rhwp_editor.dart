@@ -896,6 +896,24 @@ class _PageSetupDialogResult {
   final int binding;
 }
 
+class _PageHideDialogResult {
+  const _PageHideDialogResult({
+    required this.hideHeader,
+    required this.hideFooter,
+    required this.hideMasterPage,
+    required this.hideBorder,
+    required this.hideFill,
+    required this.hidePageNumber,
+  });
+
+  final bool hideHeader;
+  final bool hideFooter;
+  final bool hideMasterPage;
+  final bool hideBorder;
+  final bool hideFill;
+  final bool hidePageNumber;
+}
+
 class _NewNumberDialogResult {
   const _NewNumberDialogResult({required this.startNumber});
 
@@ -4500,6 +4518,61 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         binding: result.binding,
       );
       _controller.cursor = _controller.cursor.copyWith(section: section);
+    });
+  }
+
+  Future<void> _showPageHideDialog() async {
+    if (_busy) {
+      return;
+    }
+
+    final tableSelection = _controller.tableCellSelection;
+    final cursor = _readCursor();
+    final section = tableSelection?.section ?? cursor.section;
+    final paragraph = tableSelection?.paragraph ?? cursor.paragraph;
+
+    late final RhwpPageHide current;
+    try {
+      current = await widget.document.pageHide(
+        section: section,
+        paragraph: paragraph,
+      );
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    final result = await showDialog<_PageHideDialogResult>(
+      context: context,
+      builder: (context) => _PageHideDialog(initial: current),
+    );
+    if (result == null) {
+      return;
+    }
+
+    await _runEdit(() async {
+      await widget.document.setPageHide(
+        section: section,
+        paragraph: paragraph,
+        hideHeader: result.hideHeader,
+        hideFooter: result.hideFooter,
+        hideMasterPage: result.hideMasterPage,
+        hideBorder: result.hideBorder,
+        hideFill: result.hideFill,
+        hidePageNumber: result.hidePageNumber,
+      );
+      _controller.cursor = _controller.cursor.copyWith(
+        section: section,
+        paragraph: paragraph,
+      );
     });
   }
 
@@ -9611,6 +9684,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onRemoveField: _removeFieldAtCursor,
           onCompare: _showCompareDialog,
           onPageSetup: _showPageSetupDialog,
+          onPageHide: _showPageHideDialog,
           onInsertNewNumber: _showInsertNewNumberDialog,
           onCreateHeader: () => _createHeaderFooter(isHeader: true),
           onCreateFooter: () => _createHeaderFooter(isHeader: false),
@@ -11818,6 +11892,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onRemoveField,
     required this.onCompare,
     required this.onPageSetup,
+    required this.onPageHide,
     required this.onInsertNewNumber,
     required this.onCreateHeader,
     required this.onCreateFooter,
@@ -11953,6 +12028,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onRemoveField;
   final VoidCallback onCompare;
   final VoidCallback onPageSetup;
+  final VoidCallback onPageHide;
   final VoidCallback onInsertNewNumber;
   final VoidCallback onCreateHeader;
   final VoidCallback onCreateFooter;
@@ -12843,6 +12919,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               buttonKey: const ValueKey('rhwp-editor-page-setup'),
               icon: Icons.description_outlined,
               onPressed: widget.busy ? null : widget.onPageSetup,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Page hide',
+              buttonKey: const ValueKey('rhwp-editor-page-hide'),
+              icon: Icons.visibility_off_outlined,
+              onPressed: widget.busy ? null : widget.onPageHide,
             ),
             _ToolbarIconButton(
               tooltip: 'Start new page number',
@@ -15741,6 +15823,117 @@ class _PageSetupDialogState extends State<_PageSetupDialog> {
         ),
         landscape: _landscape,
         binding: _binding,
+      ),
+    );
+  }
+}
+
+class _PageHideDialog extends StatefulWidget {
+  const _PageHideDialog({required this.initial});
+
+  final RhwpPageHide initial;
+
+  @override
+  State<_PageHideDialog> createState() => _PageHideDialogState();
+}
+
+class _PageHideDialogState extends State<_PageHideDialog> {
+  late bool _hideHeader;
+  late bool _hideFooter;
+  late bool _hideMasterPage;
+  late bool _hideBorder;
+  late bool _hideFill;
+  late bool _hidePageNumber;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    _hideHeader = initial.hideHeader;
+    _hideFooter = initial.hideFooter;
+    _hideMasterPage = initial.hideMasterPage;
+    _hideBorder = initial.hideBorder;
+    _hideFill = initial.hideFill;
+    _hidePageNumber = initial.hidePageNumber;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('쪽 감추기'),
+      content: SizedBox(
+        width: 360,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SwitchListTile(
+              key: const ValueKey('rhwp-page-hide-header'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Header'),
+              value: _hideHeader,
+              onChanged: (value) => setState(() => _hideHeader = value),
+            ),
+            SwitchListTile(
+              key: const ValueKey('rhwp-page-hide-footer'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Footer'),
+              value: _hideFooter,
+              onChanged: (value) => setState(() => _hideFooter = value),
+            ),
+            SwitchListTile(
+              key: const ValueKey('rhwp-page-hide-master-page'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Master page'),
+              value: _hideMasterPage,
+              onChanged: (value) => setState(() => _hideMasterPage = value),
+            ),
+            SwitchListTile(
+              key: const ValueKey('rhwp-page-hide-border'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Border'),
+              value: _hideBorder,
+              onChanged: (value) => setState(() => _hideBorder = value),
+            ),
+            SwitchListTile(
+              key: const ValueKey('rhwp-page-hide-fill'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Fill'),
+              value: _hideFill,
+              onChanged: (value) => setState(() => _hideFill = value),
+            ),
+            SwitchListTile(
+              key: const ValueKey('rhwp-page-hide-page-number'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Page number'),
+              value: _hidePageNumber,
+              onChanged: (value) => setState(() => _hidePageNumber = value),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const ValueKey('rhwp-page-hide-apply'),
+          onPressed: _apply,
+          child: const Text('Apply'),
+        ),
+      ],
+    );
+  }
+
+  void _apply() {
+    Navigator.of(context).pop(
+      _PageHideDialogResult(
+        hideHeader: _hideHeader,
+        hideFooter: _hideFooter,
+        hideMasterPage: _hideMasterPage,
+        hideBorder: _hideBorder,
+        hideFill: _hideFill,
+        hidePageNumber: _hidePageNumber,
       ),
     );
   }

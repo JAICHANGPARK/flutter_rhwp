@@ -1332,6 +1332,32 @@ impl RhwpSession {
                 .document
                 .set_page_def_native(section as usize, &properties.to_string())
                 .map_err(error_to_string),
+            RhwpCommand::GetPageHide { section, paragraph } => inner
+                .document
+                .get_page_hide_native(section as usize, paragraph as usize)
+                .map_err(error_to_string),
+            RhwpCommand::SetPageHide {
+                section,
+                paragraph,
+                hide_header,
+                hide_footer,
+                hide_master_page,
+                hide_border,
+                hide_fill,
+                hide_page_num,
+            } => inner
+                .document
+                .set_page_hide_native(
+                    section as usize,
+                    paragraph as usize,
+                    hide_header,
+                    hide_footer,
+                    hide_master_page,
+                    hide_border,
+                    hide_fill,
+                    hide_page_num,
+                )
+                .map_err(error_to_string),
             RhwpCommand::SaveSnapshot => {
                 let snapshot_id = inner.document.save_snapshot_native();
                 Ok(format!("{{\"ok\":true,\"snapshotId\":{snapshot_id}}}"))
@@ -2087,6 +2113,26 @@ enum RhwpCommand {
     SetPageSetup {
         section: u32,
         properties: serde_json::Value,
+    },
+    GetPageHide {
+        section: u32,
+        paragraph: u32,
+    },
+    SetPageHide {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "hideHeader")]
+        hide_header: bool,
+        #[serde(rename = "hideFooter")]
+        hide_footer: bool,
+        #[serde(rename = "hideMasterPage")]
+        hide_master_page: bool,
+        #[serde(rename = "hideBorder")]
+        hide_border: bool,
+        #[serde(rename = "hideFill")]
+        hide_fill: bool,
+        #[serde(rename = "hidePageNum")]
+        hide_page_num: bool,
     },
     SaveSnapshot,
     RestoreSnapshot {

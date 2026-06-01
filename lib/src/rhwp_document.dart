@@ -623,6 +623,45 @@ class RhwpPageSetup {
   final Map<String, Object?>? raw;
 }
 
+class RhwpPageHide {
+  const RhwpPageHide({
+    required this.exists,
+    required this.hideHeader,
+    required this.hideFooter,
+    required this.hideMasterPage,
+    required this.hideBorder,
+    required this.hideFill,
+    required this.hidePageNumber,
+    required this.rawJson,
+    this.raw,
+  });
+
+  factory RhwpPageHide.fromJsonString(String source) {
+    final decoded = RhwpDocument._tryDecodeObject(source);
+    return RhwpPageHide(
+      exists: _boolFromJson(decoded?['exists']) ?? false,
+      hideHeader: _boolFromJson(decoded?['hideHeader']) ?? false,
+      hideFooter: _boolFromJson(decoded?['hideFooter']) ?? false,
+      hideMasterPage: _boolFromJson(decoded?['hideMasterPage']) ?? false,
+      hideBorder: _boolFromJson(decoded?['hideBorder']) ?? false,
+      hideFill: _boolFromJson(decoded?['hideFill']) ?? false,
+      hidePageNumber: _boolFromJson(decoded?['hidePageNum']) ?? false,
+      rawJson: source,
+      raw: decoded,
+    );
+  }
+
+  final bool exists;
+  final bool hideHeader;
+  final bool hideFooter;
+  final bool hideMasterPage;
+  final bool hideBorder;
+  final bool hideFill;
+  final bool hidePageNumber;
+  final String rawJson;
+  final Map<String, Object?>? raw;
+}
+
 class RhwpHeaderFooterInfo {
   const RhwpHeaderFooterInfo({
     required this.exists,
@@ -1407,6 +1446,22 @@ abstract class RhwpCommand {
     bool? landscape,
     int? binding,
   }) = RhwpSetPageSetupCommand;
+
+  factory RhwpCommand.getPageHide({
+    required int section,
+    required int paragraph,
+  }) = RhwpGetPageHideCommand;
+
+  factory RhwpCommand.setPageHide({
+    required int section,
+    required int paragraph,
+    bool hideHeader,
+    bool hideFooter,
+    bool hideMasterPage,
+    bool hideBorder,
+    bool hideFill,
+    bool hidePageNumber,
+  }) = RhwpSetPageHideCommand;
 
   factory RhwpCommand.saveSnapshot() = RhwpSaveSnapshotCommand;
 
@@ -3780,6 +3835,58 @@ class RhwpSetPageSetupCommand extends RhwpCommand {
   };
 }
 
+class RhwpGetPageHideCommand extends RhwpCommand {
+  const RhwpGetPageHideCommand({
+    required this.section,
+    required this.paragraph,
+  });
+
+  final int section;
+  final int paragraph;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'getPageHide',
+    'section': section,
+    'paragraph': paragraph,
+  };
+}
+
+class RhwpSetPageHideCommand extends RhwpCommand {
+  const RhwpSetPageHideCommand({
+    required this.section,
+    required this.paragraph,
+    this.hideHeader = false,
+    this.hideFooter = false,
+    this.hideMasterPage = false,
+    this.hideBorder = false,
+    this.hideFill = false,
+    this.hidePageNumber = false,
+  });
+
+  final int section;
+  final int paragraph;
+  final bool hideHeader;
+  final bool hideFooter;
+  final bool hideMasterPage;
+  final bool hideBorder;
+  final bool hideFill;
+  final bool hidePageNumber;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'setPageHide',
+    'section': section,
+    'paragraph': paragraph,
+    'hideHeader': hideHeader,
+    'hideFooter': hideFooter,
+    'hideMasterPage': hideMasterPage,
+    'hideBorder': hideBorder,
+    'hideFill': hideFill,
+    'hidePageNum': hidePageNumber,
+  };
+}
+
 Map<String, Object?> _pageSetupProperties({
   int? width,
   int? height,
@@ -5552,6 +5659,40 @@ class RhwpDocument {
         marginGutter: marginGutter,
         landscape: landscape,
         binding: binding,
+      ),
+    );
+  }
+
+  Future<RhwpPageHide> pageHide({
+    required int section,
+    required int paragraph,
+  }) async {
+    final result = await apply(
+      RhwpCommand.getPageHide(section: section, paragraph: paragraph),
+    );
+    return RhwpPageHide.fromJsonString(result);
+  }
+
+  Future<String> setPageHide({
+    required int section,
+    required int paragraph,
+    bool hideHeader = false,
+    bool hideFooter = false,
+    bool hideMasterPage = false,
+    bool hideBorder = false,
+    bool hideFill = false,
+    bool hidePageNumber = false,
+  }) {
+    return apply(
+      RhwpCommand.setPageHide(
+        section: section,
+        paragraph: paragraph,
+        hideHeader: hideHeader,
+        hideFooter: hideFooter,
+        hideMasterPage: hideMasterPage,
+        hideBorder: hideBorder,
+        hideFill: hideFill,
+        hidePageNumber: hidePageNumber,
       ),
     );
   }
