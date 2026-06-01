@@ -2886,13 +2886,15 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       }
       await Clipboard.setData(ClipboardData(text: selectedText));
       await _rememberEditingTableCellHtmlClipboard(current, selectedText);
-      final deletedTextRange = _pendingTableCellDeletionRange(current);
+      final deletedTextOverlays = await _pendingTableCellDeletionOverlays(
+        current,
+      );
       final nextSelection = _tableCellPasteStartSelection(current);
       _setTableSelectionForPendingText(nextSelection);
-      if (deletedTextRange != null) {
+      for (final overlay in deletedTextOverlays) {
         _recordPendingDeletionOverlay(
-          deletedTextRange,
-          cellContext: _pendingTextCellContext(nextSelection),
+          overlay.range,
+          cellContext: overlay.cellContext,
         );
       }
       final cut = await _runEdit(
@@ -3223,14 +3225,14 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       optimisticStartSelection,
       lines,
     );
-    final deletedTextRange = _pendingTableCellDeletionRange(
+    final deletedTextOverlays = await _pendingTableCellDeletionOverlays(
       initialPasteSelection,
     );
     _setTableSelectionForPendingText(optimisticEndSelection);
-    if (deletedTextRange != null) {
+    for (final overlay in deletedTextOverlays) {
       _recordPendingDeletionOverlay(
-        deletedTextRange,
-        cellContext: _pendingTextCellContext(optimisticStartSelection),
+        overlay.range,
+        cellContext: overlay.cellContext,
       );
     }
     if (lines.first.isNotEmpty) {
@@ -9694,6 +9696,80 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       start: start,
       end: start.copyWith(offset: range.endOffset),
     );
+  }
+
+  Future<List<({RhwpSelectionRange range, RhwpCellTextContext cellContext})>>
+  _pendingTableCellDeletionOverlays(RhwpTableCellSelection selection) async {
+    final activeCellIndex = selection.activeCellIndex;
+    final range = _editingTableCellTextSelectionRange(selection);
+    if (activeCellIndex == null || range == null) {
+      return const [];
+    }
+
+    final overlays =
+        <({RhwpSelectionRange range, RhwpCellTextContext cellContext})>[];
+    final visibleEndOffsets = <int, int>{};
+    for (final segment in await _tableCellTextSegments(selection)) {
+      if (segment.cellIndex != activeCellIndex ||
+          segment.cellParagraph < range.startCellParagraph ||
+          segment.cellParagraph > range.endCellParagraph) {
+        continue;
+      }
+
+      final previous = visibleEndOffsets[segment.cellParagraph];
+      if (previous == null || segment.endOffset > previous) {
+        visibleEndOffsets[segment.cellParagraph] = segment.endOffset;
+      }
+    }
+
+    for (
+      var cellParagraph = range.startCellParagraph;
+      cellParagraph <= range.endCellParagraph;
+      cellParagraph += 1
+    ) {
+      final startOffset = cellParagraph == range.startCellParagraph
+          ? range.startOffset
+          : 0;
+      var endOffset = cellParagraph == range.endCellParagraph
+          ? range.endOffset
+          : visibleEndOffsets[cellParagraph];
+      if (endOffset == null) {
+        try {
+          endOffset = await widget.document.cellParagraphLength(
+            section: selection.section,
+            paragraph: selection.paragraph,
+            controlIndex: selection.controlIndex,
+            cellIndex: activeCellIndex,
+            cellParagraph: cellParagraph,
+          );
+        } catch (_) {
+          endOffset = null;
+        }
+      }
+      if (endOffset == null || endOffset <= startOffset) {
+        continue;
+      }
+
+      final start = RhwpCursorPosition(
+        section: selection.section,
+        paragraph: selection.paragraph,
+        offset: startOffset,
+      );
+      overlays.add((
+        range: RhwpSelectionRange(
+          start: start,
+          end: start.copyWith(offset: endOffset),
+        ),
+        cellContext: RhwpCellTextContext(
+          parentParagraph: selection.paragraph,
+          controlIndex: selection.controlIndex,
+          cellIndex: activeCellIndex,
+          cellParagraph: cellParagraph,
+          textDirection: 0,
+        ),
+      ));
+    }
+    return overlays;
   }
 
   void _handlePageRendered(int page, int renderRevision) {
