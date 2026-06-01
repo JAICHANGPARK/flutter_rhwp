@@ -11398,6 +11398,20 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           return KeyEventResult.handled;
         }
       }
+      if (event.logicalKey == LogicalKeyboardKey.bracketLeft ||
+          event.logicalKey == LogicalKeyboardKey.braceLeft) {
+        _runFocusedEditorAction(
+          () => _applyParagraphIndentDelta(-_paragraphIndentStep),
+        );
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.bracketRight ||
+          event.logicalKey == LogicalKeyboardKey.braceRight) {
+        _runFocusedEditorAction(
+          () => _applyParagraphIndentDelta(_paragraphIndentStep),
+        );
+        return KeyEventResult.handled;
+      }
       switch (event.logicalKey) {
         case LogicalKeyboardKey.keyC:
           _copySelection();

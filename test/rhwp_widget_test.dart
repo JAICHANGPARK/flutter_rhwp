@@ -14047,6 +14047,84 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor applies paragraph indent shortcuts', (
+    tester,
+  ) async {
+    Future<List<Object?>> runShortcut({
+      required LogicalKeyboardKey key,
+      String? paraPropertiesJson,
+    }) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      if (paraPropertiesJson != null) {
+        session.paraPropertiesJson = paraPropertiesJson;
+      }
+      final document = RhwpDocument.fromSession(session);
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              key: ValueKey('rhwp-indent-shortcut-${key.keyId}'),
+              document: document,
+              controller: controller,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      await tester.tapAt(
+        tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+            const Offset(1, 6),
+      );
+      await tester.pump();
+
+      controller.selection = const RhwpSelectionRange(
+        start: RhwpCursorPosition(paragraph: 0, offset: 1),
+        end: RhwpCursorPosition(paragraph: 1, offset: 2),
+      );
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(key);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await _pumpDocumentFrame(tester);
+
+      return session.commands.map(jsonDecode).toList();
+    }
+
+    final increaseCommands = await runShortcut(
+      key: LogicalKeyboardKey.bracketRight,
+    );
+    expect(increaseCommands, [
+      {
+        'type': 'applyParaFormatRange',
+        'section': 0,
+        'startParagraph': 0,
+        'endParagraph': 1,
+        'properties': {'marginLeft': 1000},
+      },
+    ]);
+
+    final decreaseCommands = await runShortcut(
+      key: LogicalKeyboardKey.bracketLeft,
+      paraPropertiesJson:
+          '{"alignment":"justify","lineSpacing":160.0,"lineSpacingType":"Percent","marginLeft":2000.0,"marginRight":0.0,"indent":0.0,"spacingBefore":0.0,"spacingAfter":0.0,"paraShapeId":0}',
+    );
+    expect(decreaseCommands, [
+      {
+        'type': 'applyParaFormatRange',
+        'section': 0,
+        'startParagraph': 0,
+        'endParagraph': 1,
+        'properties': {'marginLeft': 1000},
+      },
+    ]);
+  });
+
   testWidgets('RhwpNativeEditor applies document styles to paragraphs', (
     tester,
   ) async {

@@ -405,7 +405,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   text background,
   toggleable Bold/Italic/Underline/Strike, superscript, subscript, emboss, and
   engrave controls with Ctrl/Cmd+Shift+X and Ctrl/Cmd+Period/Comma shortcuts,
-  inline paragraph alignment, indent, and line spacing
+  inline paragraph alignment, indent with Ctrl/Cmd+BracketLeft/BracketRight
+  shortcuts, and line spacing
   controls, a character shape
   dialog with `Alt+L` shortcut support for font family, font size, text color,
   text background,
