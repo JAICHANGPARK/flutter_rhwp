@@ -9187,6 +9187,130 @@ void main() {
     },
   );
 
+  testWidgets(
+    'RhwpNativeEditor context menu character shape sets pending table format',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      controller.tableCellSelection = const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+        activeCellParagraph: 0,
+        activeOffset: 2,
+        isTextEditing: true,
+      );
+      await tester.pump();
+
+      final pageFinder = find.byType(SvgPicture);
+      final pageTopLeft = tester.getTopLeft(pageFinder);
+      final pageSize = tester.getSize(pageFinder);
+      final cellTextPoint =
+          pageTopLeft +
+          Offset(pageSize.width * 118 / 240, pageSize.height * 76 / 180);
+
+      await tester.tapAt(cellTextPoint, buttons: kSecondaryMouseButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('글자 모양'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(session.commands, isEmpty);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-char-shape-font-size-field')),
+        '12.5',
+      );
+      await tester.tap(find.byKey(const ValueKey('rhwp-char-shape-bold')));
+      await tester.tap(find.byKey(const ValueKey('rhwp-char-shape-apply')));
+      await tester.pumpAndSettle();
+
+      expect(changedCalls, 0);
+      expect(session.commands, isEmpty);
+
+      await tester.tapAt(cellTextPoint);
+      await tester.pump();
+
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: 'Q',
+          selection: TextSelection.collapsed(offset: 1),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(changedCalls, 0);
+      expect(session.commands.map(jsonDecode), [
+        {
+          'type': 'insertTextInTableCell',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 0,
+          'offset': 2,
+          'text': 'Q',
+        },
+        {
+          'type': 'applyCharFormatInTableCell',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 0,
+          'startOffset': 2,
+          'endOffset': 3,
+          'properties': {
+            'bold': true,
+            'italic': false,
+            'underline': false,
+            'strikethrough': false,
+            'superscript': false,
+            'subscript': false,
+            'emboss': false,
+            'engrave': false,
+            'fontFamily': '함초롬바탕',
+            'fontSize': 1250,
+            'textColor': '#000000',
+            'shadeColor': '#ffffff',
+          },
+        },
+      ]);
+
+      await _releaseTextInputAction(tester);
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+      expect(controller.tableCellSelection?.hasTextSelection, isFalse);
+      expect(controller.tableCellSelection?.activeOffset, 3);
+    },
+  );
+
   testWidgets('RhwpNativeEditor edit ribbon selects all body text', (
     tester,
   ) async {

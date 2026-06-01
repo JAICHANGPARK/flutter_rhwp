@@ -23,6 +23,8 @@
 * Enabled Flutter-native table-cell text context-menu character formatting at
   a collapsed cell caret, so pending format can be applied to the next inserted
   cell text without selecting existing text.
+* Covered Flutter-native table-cell context-menu character-shape pending values
+  so dialog-based font and style changes are verified before cell text input.
 * Added upstream-style Flutter-native table object/cell mode switching: Escape
   promotes selected cells to a table object, and Enter/F5 re-enters cell
   selection.
