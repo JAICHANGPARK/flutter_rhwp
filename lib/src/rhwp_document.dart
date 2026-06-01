@@ -361,6 +361,52 @@ class RhwpBookmark {
   final Map<String, Object?>? raw;
 }
 
+class RhwpFieldInfo {
+  const RhwpFieldInfo({
+    required this.fieldId,
+    required this.fieldType,
+    required this.name,
+    required this.guide,
+    required this.command,
+    required this.value,
+    this.location,
+    this.raw,
+  });
+
+  factory RhwpFieldInfo.fromJson(Map<String, Object?> json) {
+    final location = json['location'];
+    return RhwpFieldInfo(
+      fieldId: _intFromJson(json['fieldId']) ?? 0,
+      fieldType: json['fieldType']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      guide: json['guide']?.toString() ?? '',
+      command: json['command']?.toString() ?? '',
+      value: json['value']?.toString() ?? '',
+      location: location is Map ? location.cast<String, Object?>() : null,
+      raw: json,
+    );
+  }
+
+  final int fieldId;
+  final String fieldType;
+  final String name;
+  final String guide;
+  final String command;
+  final String value;
+  final Map<String, Object?>? location;
+  final Map<String, Object?>? raw;
+
+  String get displayName {
+    if (name.trim().isNotEmpty) {
+      return name;
+    }
+    if (guide.trim().isNotEmpty) {
+      return guide;
+    }
+    return 'Field $fieldId';
+  }
+}
+
 class RhwpCharProperties {
   const RhwpCharProperties({
     required this.rawJson,
@@ -774,6 +820,23 @@ abstract class RhwpCommand {
     required int controlIndex,
     required String name,
   }) = RhwpRenameBookmarkCommand;
+
+  factory RhwpCommand.getFieldList() = RhwpGetFieldListCommand;
+
+  factory RhwpCommand.getFieldValue(int fieldId) = RhwpGetFieldValueCommand;
+
+  factory RhwpCommand.getFieldValueByName(String name) =
+      RhwpGetFieldValueByNameCommand;
+
+  factory RhwpCommand.setFieldValue({
+    required int fieldId,
+    required String value,
+  }) = RhwpSetFieldValueCommand;
+
+  factory RhwpCommand.setFieldValueByName({
+    required String name,
+    required String value,
+  }) = RhwpSetFieldValueByNameCommand;
 
   factory RhwpCommand.insertTable({
     required int section,
@@ -1849,6 +1912,68 @@ class RhwpRenameBookmarkCommand extends RhwpCommand {
     'paragraph': paragraph,
     'controlIndex': controlIndex,
     'name': name,
+  };
+}
+
+class RhwpGetFieldListCommand extends RhwpCommand {
+  const RhwpGetFieldListCommand();
+
+  @override
+  Map<String, Object?> toJson() => {'type': 'getFieldList'};
+}
+
+class RhwpGetFieldValueCommand extends RhwpCommand {
+  const RhwpGetFieldValueCommand(this.fieldId);
+
+  final int fieldId;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'getFieldValue',
+    'fieldId': fieldId,
+  };
+}
+
+class RhwpGetFieldValueByNameCommand extends RhwpCommand {
+  const RhwpGetFieldValueByNameCommand(this.name);
+
+  final String name;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'getFieldValueByName',
+    'name': name,
+  };
+}
+
+class RhwpSetFieldValueCommand extends RhwpCommand {
+  const RhwpSetFieldValueCommand({required this.fieldId, required this.value});
+
+  final int fieldId;
+  final String value;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'setFieldValue',
+    'fieldId': fieldId,
+    'value': value,
+  };
+}
+
+class RhwpSetFieldValueByNameCommand extends RhwpCommand {
+  const RhwpSetFieldValueByNameCommand({
+    required this.name,
+    required this.value,
+  });
+
+  final String name;
+  final String value;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'setFieldValueByName',
+    'name': name,
+    'value': value,
   };
 }
 
@@ -4002,6 +4127,42 @@ class RhwpDocument {
         name: name,
       ),
     );
+  }
+
+  Future<List<RhwpFieldInfo>> fields() async {
+    final result = await apply(RhwpCommand.getFieldList());
+    final decoded = jsonDecode(result);
+    if (decoded is! List) {
+      return const [];
+    }
+    return decoded
+        .whereType<Map>()
+        .map((item) => item.cast<String, Object?>())
+        .map(RhwpFieldInfo.fromJson)
+        .toList(growable: false);
+  }
+
+  Future<String> fieldValue(int fieldId) async {
+    final result = await apply(RhwpCommand.getFieldValue(fieldId));
+    final decoded = _tryDecodeObject(result);
+    return decoded?['value']?.toString() ?? '';
+  }
+
+  Future<String> fieldValueByName(String name) async {
+    final result = await apply(RhwpCommand.getFieldValueByName(name));
+    final decoded = _tryDecodeObject(result);
+    return decoded?['value']?.toString() ?? '';
+  }
+
+  Future<String> setFieldValue({required int fieldId, required String value}) {
+    return apply(RhwpCommand.setFieldValue(fieldId: fieldId, value: value));
+  }
+
+  Future<String> setFieldValueByName({
+    required String name,
+    required String value,
+  }) {
+    return apply(RhwpCommand.setFieldValueByName(name: name, value: value));
   }
 
   Future<String> insertTable({

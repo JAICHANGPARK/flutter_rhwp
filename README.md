@@ -20,6 +20,8 @@ documents.
 - Use `RhwpNativeEditor` for the Flutter widget editor track.
 - Evaluate table formulas from the Flutter-native table ribbon or the Dart API.
 - Manage bookmarks from the Flutter-native input ribbon or the Dart API.
+- Manage HWP fields/누름틀 values from the Flutter-native tools ribbon or the
+  Dart API.
 - Split and merge paragraphs inside active table cells from the Flutter-native
   editor with Enter, Backspace, and Delete.
 - Keep native-editor typing, IME composing, caret, and selection overlays
@@ -178,6 +180,9 @@ await document.addBookmark(
 );
 
 final bookmarks = await document.bookmarks();
+
+final fields = await document.fields();
+await document.setFieldValue(fieldId: fields.first.fieldId, value: 'Updated');
 
 await document.createHeader(section: 0);
 await document.createFooter(section: 0);

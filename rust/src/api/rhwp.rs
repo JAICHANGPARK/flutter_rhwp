@@ -458,6 +458,23 @@ impl RhwpSession {
                 .document
                 .rename_bookmark(section, paragraph, control_index, &name)
                 .map_err(|error| format!("{error:?}")),
+            RhwpCommand::GetFieldList => Ok(inner.document.get_field_list()),
+            RhwpCommand::GetFieldValue { field_id } => inner
+                .document
+                .get_field_value(field_id)
+                .map_err(|error| format!("{error:?}")),
+            RhwpCommand::GetFieldValueByName { name } => inner
+                .document
+                .get_field_value_by_name_api(&name)
+                .map_err(|error| format!("{error:?}")),
+            RhwpCommand::SetFieldValue { field_id, value } => inner
+                .document
+                .set_field_value(field_id, &value)
+                .map_err(|error| format!("{error:?}")),
+            RhwpCommand::SetFieldValueByName { name, value } => inner
+                .document
+                .set_field_value_by_name_api(&name, &value)
+                .map_err(|error| format!("{error:?}")),
             RhwpCommand::InsertTable {
                 section,
                 paragraph,
@@ -1505,6 +1522,23 @@ enum RhwpCommand {
         #[serde(rename = "controlIndex")]
         control_index: u32,
         name: String,
+    },
+    GetFieldList,
+    GetFieldValue {
+        #[serde(rename = "fieldId")]
+        field_id: u32,
+    },
+    GetFieldValueByName {
+        name: String,
+    },
+    SetFieldValue {
+        #[serde(rename = "fieldId")]
+        field_id: u32,
+        value: String,
+    },
+    SetFieldValueByName {
+        name: String,
+        value: String,
     },
     InsertTable {
         section: u32,
@@ -2777,6 +2811,15 @@ mod tests {
                 r#"{{"type":"deleteBookmark","section":0,"paragraph":0,"controlIndex":{bookmark_control}}}"#
             ))
             .expect("delete bookmark command should be accepted");
+        let fields_result = session
+            .apply_command(r#"{"type":"getFieldList"}"#.to_string())
+            .expect("get field list command should be accepted");
+        let fields: Value =
+            serde_json::from_str(&fields_result).expect("field list result should be JSON");
+        assert!(
+            fields.as_array().is_some(),
+            "field list result should be a JSON array"
+        );
         session
             .apply_command(
                 r#"{"type":"insertPicture","section":0,"paragraph":0,"offset":6,"imageData":[137,80,78,71],"width":750,"height":750,"naturalWidthPx":10,"naturalHeightPx":10,"extension":"png","description":"test"}"#

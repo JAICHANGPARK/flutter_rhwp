@@ -173,6 +173,43 @@ void main() {
     );
   });
 
+  test('field commands serialize to the Rust command envelope', () {
+    expect(jsonDecode(jsonEncode(RhwpCommand.getFieldList().toJson())), {
+      'type': 'getFieldList',
+    });
+
+    expect(jsonDecode(jsonEncode(RhwpCommand.getFieldValue(7).toJson())), {
+      'type': 'getFieldValue',
+      'fieldId': 7,
+    });
+
+    expect(
+      jsonDecode(jsonEncode(RhwpCommand.getFieldValueByName('name').toJson())),
+      {'type': 'getFieldValueByName', 'name': 'name'},
+    );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.setFieldValue(fieldId: 7, value: 'updated').toJson(),
+        ),
+      ),
+      {'type': 'setFieldValue', 'fieldId': 7, 'value': 'updated'},
+    );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.setFieldValueByName(
+            name: 'name',
+            value: 'updated',
+          ).toJson(),
+        ),
+      ),
+      {'type': 'setFieldValueByName', 'name': 'name', 'value': 'updated'},
+    );
+  });
+
   test('insert picture command serializes to the Rust command envelope', () {
     final command = RhwpCommand.insertPicture(
       section: 0,
@@ -1947,6 +1984,44 @@ void main() {
       'name': 'intro-renamed',
     });
 
+    final fields = await document.fields();
+
+    expect(jsonDecode(session.lastCommandJson!), {'type': 'getFieldList'});
+    expect(fields, hasLength(1));
+    expect(fields.single.fieldId, 7);
+    expect(fields.single.fieldType, 'ClickHere');
+    expect(fields.single.name, 'customer');
+    expect(fields.single.guide, '고객명');
+    expect(fields.single.value, 'Old');
+
+    expect(await document.fieldValue(7), 'Old');
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'getFieldValue',
+      'fieldId': 7,
+    });
+
+    expect(await document.fieldValueByName('customer'), 'Old');
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'getFieldValueByName',
+      'name': 'customer',
+    });
+
+    await document.setFieldValue(fieldId: 7, value: 'New');
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'setFieldValue',
+      'fieldId': 7,
+      'value': 'New',
+    });
+
+    await document.setFieldValueByName(name: 'customer', value: 'New');
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'setFieldValueByName',
+      'name': 'customer',
+      'value': 'New',
+    });
+
     await document.insertPicture(
       section: 0,
       paragraph: 1,
@@ -3536,6 +3611,14 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'getBookmarks') {
       return '[{"name":"intro","sec":0,"para":1,"ctrlIdx":3,"charPos":2}]';
+    }
+    if (command is Map && command['type'] == 'getFieldList') {
+      return '[{"fieldId":7,"fieldType":"ClickHere","name":"customer","guide":"고객명","command":"ClickHere customer","value":"Old","location":{"section":0,"paragraph":1}}]';
+    }
+    if (command is Map &&
+        (command['type'] == 'getFieldValue' ||
+            command['type'] == 'getFieldValueByName')) {
+      return '{"value":"Old"}';
     }
     if (command is Map &&
         (command['type'] == 'getCharPropertiesAt' ||

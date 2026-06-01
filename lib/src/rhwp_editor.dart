@@ -944,6 +944,13 @@ class _BookmarkDialogResult {
   final RhwpBookmark? bookmark;
 }
 
+class _FieldDialogResult {
+  const _FieldDialogResult({required this.field, required this.value});
+
+  final RhwpFieldInfo field;
+  final String value;
+}
+
 class _SplitTableCellIntoDialogResult {
   const _SplitTableCellIntoDialogResult({
     required this.rows,
@@ -3593,6 +3600,56 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           name: result.name,
         ),
       };
+      _throwIfCommandRejected(response);
+    });
+  }
+
+  Future<void> _showFieldsDialog() async {
+    if (_busy) {
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _visibleBusy = true;
+      _error = null;
+    });
+
+    late final List<RhwpFieldInfo> fields;
+    try {
+      fields = await widget.document.fields();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _visibleBusy = false;
+          _error = error;
+        });
+      }
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _busy = false;
+      _visibleBusy = false;
+    });
+
+    final result = await showDialog<_FieldDialogResult>(
+      context: context,
+      builder: (context) => _FieldDialog(fields: fields),
+    );
+    if (!mounted || result == null) {
+      return;
+    }
+
+    await _runEdit(() async {
+      final response = await widget.document.setFieldValue(
+        fieldId: result.field.fieldId,
+        value: result.value,
+      );
       _throwIfCommandRejected(response);
     });
   }
@@ -9270,6 +9327,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onInsertFootnote: _insertFootnote,
           onInsertEquation: _showInsertEquationDialog,
           onBookmark: _showBookmarkDialog,
+          onFields: _showFieldsDialog,
           onInsertPicture: _insertPicture,
           onInsertShape: _insertShape,
           onInsertPageBreak: _insertPageBreak,
@@ -11490,6 +11548,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onInsertFootnote,
     required this.onInsertEquation,
     required this.onBookmark,
+    required this.onFields,
     required this.onInsertPicture,
     required this.onInsertShape,
     required this.onInsertPageBreak,
@@ -11622,6 +11681,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onInsertFootnote;
   final VoidCallback onInsertEquation;
   final VoidCallback onBookmark;
+  final VoidCallback onFields;
   final VoidCallback onInsertPicture;
   final ValueChanged<_EditorShapePreset> onInsertShape;
   final VoidCallback onInsertPageBreak;
@@ -12988,6 +13048,19 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               onPressed: widget.busy || widget.searchMatchCount == 0
                   ? null
                   : widget.onReplaceAll,
+            ),
+          ],
+        ),
+      ),
+      _RibbonGroup(
+        label: '필드',
+        child: Row(
+          children: [
+            _ToolbarIconButton(
+              tooltip: 'Fields',
+              buttonKey: const ValueKey('rhwp-editor-fields'),
+              icon: Icons.input,
+              onPressed: widget.busy ? null : widget.onFields,
             ),
           ],
         ),
@@ -14643,6 +14716,139 @@ class _BookmarkDialogState extends State<_BookmarkDialog> {
         bookmark: bookmark,
       ),
     );
+  }
+}
+
+class _FieldDialog extends StatefulWidget {
+  const _FieldDialog({required this.fields});
+
+  final List<RhwpFieldInfo> fields;
+
+  @override
+  State<_FieldDialog> createState() => _FieldDialogState();
+}
+
+class _FieldDialogState extends State<_FieldDialog> {
+  late final TextEditingController _valueController;
+  RhwpFieldInfo? _selectedField;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedField = widget.fields.isEmpty ? null : widget.fields.first;
+    _valueController = TextEditingController(text: _selectedField?.value ?? '');
+  }
+
+  @override
+  void dispose() {
+    _valueController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedField = _selectedField;
+    return AlertDialog(
+      title: const Text('필드 값'),
+      content: SizedBox(
+        width: 520,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Fields', style: Theme.of(context).textTheme.labelMedium),
+            const SizedBox(height: 8),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 220),
+              child: widget.fields.isEmpty
+                  ? const SizedBox(
+                      height: 44,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text('No fields'),
+                      ),
+                    )
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: widget.fields.length,
+                      itemBuilder: (context, index) {
+                        final field = widget.fields[index];
+                        final selected =
+                            field.fieldId == selectedField?.fieldId;
+                        return ListTile(
+                          key: ValueKey('rhwp-field-${field.fieldId}'),
+                          dense: true,
+                          selected: selected,
+                          title: Text(field.displayName),
+                          subtitle: Text(_fieldSubtitle(field)),
+                          onTap: () {
+                            setState(() {
+                              _selectedField = field;
+                              _valueController.text = field.value;
+                              _valueController.selection =
+                                  TextSelection.collapsed(
+                                    offset: _valueController.text.length,
+                                  );
+                            });
+                          },
+                        );
+                      },
+                    ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              key: const ValueKey('rhwp-field-value-field'),
+              controller: _valueController,
+              enabled: selectedField != null,
+              minLines: 1,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                labelText: 'Value',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              onSubmitted: (_) {
+                if (selectedField != null) {
+                  _apply();
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const ValueKey('rhwp-field-update'),
+          onPressed: selectedField == null ? null : _apply,
+          child: const Text('Update'),
+        ),
+      ],
+    );
+  }
+
+  String _fieldSubtitle(RhwpFieldInfo field) {
+    final parts = <String>[
+      if (field.fieldType.trim().isNotEmpty) field.fieldType,
+      if (field.guide.trim().isNotEmpty) field.guide,
+    ];
+    if (parts.isEmpty) {
+      return 'Field ${field.fieldId}';
+    }
+    return parts.join(' / ');
+  }
+
+  void _apply() {
+    final field = _selectedField;
+    if (field == null) {
+      return;
+    }
+    Navigator.of(
+      context,
+    ).pop(_FieldDialogResult(field: field, value: _valueController.text));
   }
 }
 

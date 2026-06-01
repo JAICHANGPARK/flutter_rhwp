@@ -631,6 +631,56 @@ void main() {
     ]);
   });
 
+  testWidgets('RhwpNativeEditor tools ribbon edits field values', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 1100,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('도구'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-fields')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-fields')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('customer'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-field-value-field')),
+      'New value',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-field-update')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+    ]);
+    expect(session.commands.map(jsonDecode).toList(), [
+      {'type': 'getFieldList'},
+      {'type': 'setFieldValue', 'fieldId': 7, 'value': 'New value'},
+    ]);
+  });
+
   testWidgets('RhwpNativeEditor inserts page and column breaks', (
     tester,
   ) async {
@@ -11600,6 +11650,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'getBookmarks') {
       return '[{"name":"intro","sec":0,"para":0,"ctrlIdx":2,"charPos":1}]';
+    }
+    if (command is Map && command['type'] == 'getFieldList') {
+      return '[{"fieldId":7,"fieldType":"ClickHere","name":"customer","guide":"고객명","command":"ClickHere customer","value":"Old","location":{"section":0,"paragraph":0}}]';
     }
     if (command is Map && command['type'] == 'insertTable') {
       final paragraph = command['paragraph'];
