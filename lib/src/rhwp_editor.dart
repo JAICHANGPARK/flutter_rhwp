@@ -6274,20 +6274,26 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   Future<bool> _hasPreviousParagraph(RhwpCursorPosition cursor) async {
     final paragraphs = await _bodyParagraphs();
     final previous = _paragraphRelativeTo(paragraphs, cursor, -1);
-    return previous != null && previous.section == cursor.section;
+    if (previous != null && previous.section == cursor.section) {
+      return true;
+    }
+    return _hasCorePreviousParagraph(cursor);
   }
 
   Future<bool> _hasNextParagraph(RhwpCursorPosition cursor) async {
     final paragraphs = await _bodyParagraphs();
     final next = _paragraphRelativeTo(paragraphs, cursor, 1);
-    return next != null && next.section == cursor.section;
+    if (next != null && next.section == cursor.section) {
+      return true;
+    }
+    return _hasCoreNextParagraph(cursor);
   }
 
   Future<bool> _mergeWithPreviousParagraph(RhwpCursorPosition cursor) async {
     final paragraphs = await _bodyParagraphs();
     final previous = _paragraphRelativeTo(paragraphs, cursor, -1);
     if (previous == null || previous.section != cursor.section) {
-      return false;
+      return _mergeWithPreviousParagraphFromCore(cursor);
     }
 
     final mergedCursor = RhwpCursorPosition(
@@ -6319,12 +6325,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       }
     }
     if (current == null || cursor.offset < current.endOffset) {
-      return false;
+      return _mergeWithNextParagraphFromCore(cursor);
     }
 
     final next = _paragraphRelativeTo(paragraphs, cursor, 1);
     if (next == null || next.section != cursor.section) {
-      return false;
+      return _mergeWithNextParagraphFromCore(cursor);
     }
 
     final result = await widget.document.mergeParagraph(
@@ -6337,6 +6343,69 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       offset: _readIntResult(result, 'charOffset') ?? current.endOffset,
     );
     unawaited(_controller.goToPage(current.page));
+    return true;
+  }
+
+  Future<bool> _hasCorePreviousParagraph(RhwpCursorPosition cursor) async {
+    if (cursor.paragraph <= 0) {
+      return false;
+    }
+    final count = await _coreParagraphCount(cursor.section);
+    return count != null && cursor.paragraph < count;
+  }
+
+  Future<bool> _hasCoreNextParagraph(RhwpCursorPosition cursor) async {
+    final count = await _coreParagraphCount(cursor.section);
+    return count != null && cursor.paragraph + 1 < count;
+  }
+
+  Future<bool> _mergeWithPreviousParagraphFromCore(
+    RhwpCursorPosition cursor,
+  ) async {
+    if (!await _hasCorePreviousParagraph(cursor)) {
+      return false;
+    }
+
+    final previousParagraph = cursor.paragraph - 1;
+    final previousEndOffset =
+        await _coreParagraphLength(
+          cursor.copyWith(paragraph: previousParagraph, offset: 0),
+        ) ??
+        0;
+    final result = await widget.document.mergeParagraph(
+      section: cursor.section,
+      paragraph: cursor.paragraph,
+    );
+    _controller.cursor = RhwpCursorPosition(
+      section: cursor.section,
+      paragraph: _readIntResult(result, 'paraIdx') ?? previousParagraph,
+      offset: _readIntResult(result, 'charOffset') ?? previousEndOffset,
+    );
+    return true;
+  }
+
+  Future<bool> _mergeWithNextParagraphFromCore(
+    RhwpCursorPosition cursor,
+  ) async {
+    final currentEndOffset = await _coreParagraphLength(cursor);
+    if (currentEndOffset == null || cursor.offset < currentEndOffset) {
+      return false;
+    }
+    if (!await _hasCoreNextParagraph(
+      cursor.copyWith(offset: currentEndOffset),
+    )) {
+      return false;
+    }
+
+    final result = await widget.document.mergeParagraph(
+      section: cursor.section,
+      paragraph: cursor.paragraph + 1,
+    );
+    _controller.cursor = RhwpCursorPosition(
+      section: cursor.section,
+      paragraph: _readIntResult(result, 'paraIdx') ?? cursor.paragraph,
+      offset: _readIntResult(result, 'charOffset') ?? currentEndOffset,
+    );
     return true;
   }
 
@@ -9683,6 +9752,25 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     return location?.offset;
   }
 
+  Future<int?> _coreParagraphCount(int section) async {
+    try {
+      return await widget.document.paragraphCount(section: section);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<int?> _coreParagraphLength(RhwpCursorPosition cursor) async {
+    try {
+      return await widget.document.paragraphLength(
+        section: cursor.section,
+        paragraph: cursor.paragraph,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<({int offset, int page})?> _paragraphEndLocationFor(
     RhwpCursorPosition cursor,
   ) async {
@@ -9706,7 +9794,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     if (endOffset == null) {
-      return null;
+      final coreEndOffset = await _coreParagraphLength(cursor);
+      if (coreEndOffset == null) {
+        return null;
+      }
+      return (offset: coreEndOffset, page: endPage);
     }
     return (offset: endOffset, page: endPage);
   }

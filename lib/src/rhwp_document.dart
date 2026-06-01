@@ -970,6 +970,16 @@ abstract class RhwpCommand {
     required int paragraph,
   }) = RhwpMergeParagraphCommand;
 
+  factory RhwpCommand.getSectionCount() = RhwpGetSectionCountCommand;
+
+  factory RhwpCommand.getParagraphCount({required int section}) =
+      RhwpGetParagraphCountCommand;
+
+  factory RhwpCommand.getParagraphLength({
+    required int section,
+    required int paragraph,
+  }) = RhwpGetParagraphLengthCommand;
+
   factory RhwpCommand.insertPageBreak({
     required int section,
     required int paragraph,
@@ -2088,6 +2098,42 @@ class RhwpMergeParagraphCommand extends RhwpCommand {
   @override
   Map<String, Object?> toJson() => {
     'type': 'mergeParagraph',
+    'section': section,
+    'paragraph': paragraph,
+  };
+}
+
+class RhwpGetSectionCountCommand extends RhwpCommand {
+  const RhwpGetSectionCountCommand();
+
+  @override
+  Map<String, Object?> toJson() => {'type': 'getSectionCount'};
+}
+
+class RhwpGetParagraphCountCommand extends RhwpCommand {
+  const RhwpGetParagraphCountCommand({required this.section});
+
+  final int section;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'getParagraphCount',
+    'section': section,
+  };
+}
+
+class RhwpGetParagraphLengthCommand extends RhwpCommand {
+  const RhwpGetParagraphLengthCommand({
+    required this.section,
+    required this.paragraph,
+  });
+
+  final int section;
+  final int paragraph;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'getParagraphLength',
     'section': section,
     'paragraph': paragraph,
   };
@@ -4610,6 +4656,26 @@ class RhwpDocument {
     return apply(
       RhwpCommand.mergeParagraph(section: section, paragraph: paragraph),
     );
+  }
+
+  Future<int> sectionCount() async {
+    final result = await apply(RhwpCommand.getSectionCount());
+    return _readIntResult(result, 'count');
+  }
+
+  Future<int> paragraphCount({required int section}) async {
+    final result = await apply(RhwpCommand.getParagraphCount(section: section));
+    return _readIntResult(result, 'count');
+  }
+
+  Future<int> paragraphLength({
+    required int section,
+    required int paragraph,
+  }) async {
+    final result = await apply(
+      RhwpCommand.getParagraphLength(section: section, paragraph: paragraph),
+    );
+    return _readIntResult(result, 'length');
   }
 
   Future<String> insertPageBreak({

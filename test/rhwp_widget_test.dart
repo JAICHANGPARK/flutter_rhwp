@@ -7080,7 +7080,94 @@ void main() {
     await _pumpDocumentFrame(tester);
 
     expect(changedCalls, 2);
-    expect(session.commands, isEmpty);
+    expect(session.commands.map(jsonDecode), [
+      {'type': 'getParagraphCount', 'section': 0},
+    ]);
+  });
+
+  testWidgets('RhwpNativeEditor merges empty paragraphs using core metrics', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    controller.cursor = const RhwpCursorPosition(paragraph: 1);
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.bodyParagraphLengths[0] = 0;
+    final layerTree = _editorLayerTreeJson(
+      firstText: 'abcd',
+      secondText: 'efgh',
+    );
+    final root = layerTree['root']! as Map<String, Object?>;
+    final children = root['children']! as List<Object?>;
+    children.removeAt(0);
+    session.pageLayerTreeJson = jsonEncode(layerTree);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    controller.cursor = const RhwpCursorPosition();
+    session.commands.clear();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(controller.cursor, const RhwpCursorPosition());
+    expect(
+      session.commands.map((json) => jsonDecode(json)['type']),
+      containsAll([
+        'getParagraphLength',
+        'getParagraphCount',
+        'mergeParagraph',
+      ]),
+    );
+    expect(jsonDecode(session.commands.last), {
+      'type': 'mergeParagraph',
+      'section': 0,
+      'paragraph': 1,
+    });
+
+    session.commands.clear();
+    controller.cursor = const RhwpCursorPosition(paragraph: 1);
+    await tester.pump();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 2);
+    expect(controller.cursor, const RhwpCursorPosition());
+    expect(
+      session.commands.map((json) => jsonDecode(json)['type']),
+      containsAll([
+        'getParagraphCount',
+        'getParagraphLength',
+        'mergeParagraph',
+      ]),
+    );
+    expect(jsonDecode(session.commands.last), {
+      'type': 'mergeParagraph',
+      'section': 0,
+      'paragraph': 1,
+    });
   });
 
   testWidgets('RhwpNativeEditor inserts tab from keyboard', (tester) async {
@@ -12112,6 +12199,8 @@ class _FakeRhwpSession implements rust.RhwpSession {
   int exportHwpxCalls = 0;
   int exportPdfCalls = 0;
   int nextSnapshotId = 1;
+  int sectionCountValue = 1;
+  int bodyParagraphCount = 2;
   int convertToEditableCalls = 0;
   bool convertToEditableConverted = false;
   bool hasObjectControlClipboard = false;
@@ -12125,6 +12214,7 @@ class _FakeRhwpSession implements rust.RhwpSession {
       '{"alignment":"justify","lineSpacing":160.0,"lineSpacingType":"Percent","marginLeft":0.0,"marginRight":0.0,"indent":0.0,"spacingBefore":0.0,"spacingAfter":0.0,"paraShapeId":0}';
   String pageLayerTreeJson = jsonEncode(_editorLayerTreeJson());
   final pageLayerTreeJsonByPage = <int, String>{};
+  final bodyParagraphLengths = <int, int>{0: 4, 1: 4};
   bool _disposed = false;
 
   @override
@@ -12259,12 +12349,26 @@ class _FakeRhwpSession implements rust.RhwpSession {
     if (command is Map && command['type'] == 'mergeParagraph') {
       final paragraph = command['paragraph'];
       if (paragraph is int && paragraph > 0) {
-        return '{"ok":true,"paraIdx":${paragraph - 1},"charOffset":4}';
+        final charOffset = bodyParagraphLengths[paragraph - 1] ?? 4;
+        return '{"ok":true,"paraIdx":${paragraph - 1},"charOffset":$charOffset}';
       }
       return '{"ok":false,"error":"cannot merge first paragraph"}';
     }
     if (command is Map && command['type'] == 'deleteParagraph') {
       return '{"ok":true,"removedCharCount":4,"newParagraphCount":2}';
+    }
+    if (command is Map && command['type'] == 'getSectionCount') {
+      return '{"count":$sectionCountValue}';
+    }
+    if (command is Map && command['type'] == 'getParagraphCount') {
+      return '{"count":$bodyParagraphCount}';
+    }
+    if (command is Map && command['type'] == 'getParagraphLength') {
+      final paragraph = command['paragraph'];
+      final length = paragraph is int
+          ? (bodyParagraphLengths[paragraph] ?? 4)
+          : 4;
+      return '{"length":$length}';
     }
     if (command is Map && command['type'] == 'getCellParagraphCount') {
       return '{"count":2}';

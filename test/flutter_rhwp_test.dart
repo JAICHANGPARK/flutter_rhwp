@@ -70,6 +70,28 @@ void main() {
     });
   });
 
+  test('paragraph metric commands serialize to the Rust command envelope', () {
+    expect(jsonDecode(jsonEncode(RhwpCommand.getSectionCount().toJson())), {
+      'type': 'getSectionCount',
+    });
+
+    expect(
+      jsonDecode(
+        jsonEncode(RhwpCommand.getParagraphCount(section: 1).toJson()),
+      ),
+      {'type': 'getParagraphCount', 'section': 1},
+    );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.getParagraphLength(section: 1, paragraph: 2).toJson(),
+        ),
+      ),
+      {'type': 'getParagraphLength', 'section': 1, 'paragraph': 2},
+    );
+  });
+
   test('insert page break command serializes to the Rust command envelope', () {
     final command = RhwpCommand.insertPageBreak(
       section: 0,
@@ -2111,6 +2133,25 @@ void main() {
       'paragraph': 2,
     });
 
+    expect(await document.sectionCount(), 1);
+
+    expect(jsonDecode(session.lastCommandJson!), {'type': 'getSectionCount'});
+
+    expect(await document.paragraphCount(section: 0), 2);
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'getParagraphCount',
+      'section': 0,
+    });
+
+    expect(await document.paragraphLength(section: 0, paragraph: 1), 4);
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'getParagraphLength',
+      'section': 0,
+      'paragraph': 1,
+    });
+
     await document.deleteParagraph(section: 0, paragraph: 2);
 
     expect(jsonDecode(session.lastCommandJson!), {
@@ -3963,6 +4004,15 @@ class _FakeRhwpSession implements rust.RhwpSession {
       return '{"count":2}';
     }
     if (command is Map && command['type'] == 'getCellParagraphLength') {
+      return '{"length":4}';
+    }
+    if (command is Map && command['type'] == 'getSectionCount') {
+      return '{"count":1}';
+    }
+    if (command is Map && command['type'] == 'getParagraphCount') {
+      return '{"count":2}';
+    }
+    if (command is Map && command['type'] == 'getParagraphLength') {
       return '{"length":4}';
     }
     if (command is Map && command['type'] == 'clipboardHasObjectControl') {

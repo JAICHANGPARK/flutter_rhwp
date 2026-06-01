@@ -47,6 +47,8 @@
 * Added Flutter-native body paragraph merging through rhwp core's
   `mergeParagraph` command, including Backspace/Delete paragraph-boundary
   handling.
+* Added Flutter-native body paragraph section/count/length metric commands and
+  used them as fallbacks for empty paragraph boundary merging.
 * Added Flutter-native Delete-at-cell-paragraph-end handling to merge the next
   table-cell paragraph.
 * Added Flutter-native bookmark list/add/delete/rename commands and an input

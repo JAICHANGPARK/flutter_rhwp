@@ -406,6 +406,20 @@ impl RhwpSession {
                 .document
                 .merge_paragraph_native(section as usize, paragraph as usize)
                 .map_err(error_to_string),
+            RhwpCommand::GetSectionCount => Ok(format!(
+                r#"{{"count":{}}}"#,
+                inner.document.get_section_count()
+            )),
+            RhwpCommand::GetParagraphCount { section } => inner
+                .document
+                .get_paragraph_count_native(section as usize)
+                .map(|count| format!(r#"{{"count":{count}}}"#))
+                .map_err(error_to_string),
+            RhwpCommand::GetParagraphLength { section, paragraph } => inner
+                .document
+                .get_paragraph_length_native(section as usize, paragraph as usize)
+                .map(|length| format!(r#"{{"length":{length}}}"#))
+                .map_err(error_to_string),
             RhwpCommand::InsertPageBreak {
                 section,
                 paragraph,
@@ -1613,6 +1627,14 @@ enum RhwpCommand {
         paragraph: u32,
     },
     MergeParagraph {
+        section: u32,
+        paragraph: u32,
+    },
+    GetSectionCount,
+    GetParagraphCount {
+        section: u32,
+    },
+    GetParagraphLength {
         section: u32,
         paragraph: u32,
     },
@@ -2994,6 +3016,24 @@ mod tests {
         session
             .apply_command(r#"{"type":"deleteParagraph","section":0,"paragraph":1}"#.to_string())
             .expect("delete paragraph command should be accepted");
+        let section_count = session
+            .apply_command(r#"{"type":"getSectionCount"}"#.to_string())
+            .expect("section count command should be accepted");
+        let section_count: Value =
+            serde_json::from_str(&section_count).expect("section count result should be JSON");
+        assert!(section_count["count"].as_u64().unwrap_or_default() > 0);
+        let paragraph_count = session
+            .apply_command(r#"{"type":"getParagraphCount","section":0}"#.to_string())
+            .expect("paragraph count command should be accepted");
+        let paragraph_count: Value =
+            serde_json::from_str(&paragraph_count).expect("paragraph count result should be JSON");
+        assert!(paragraph_count["count"].as_u64().unwrap_or_default() > 0);
+        let paragraph_length = session
+            .apply_command(r#"{"type":"getParagraphLength","section":0,"paragraph":0}"#.to_string())
+            .expect("paragraph length command should be accepted");
+        let paragraph_length: Value = serde_json::from_str(&paragraph_length)
+            .expect("paragraph length result should be JSON");
+        assert!(paragraph_length["length"].as_u64().is_some());
         session
             .apply_command(
                 r#"{"type":"insertFootnote","section":0,"paragraph":0,"offset":4}"#.to_string(),
