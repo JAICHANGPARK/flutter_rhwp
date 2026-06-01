@@ -2485,45 +2485,46 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
-    final offset = _parseNonNegative(_offsetController.text);
+    var insertSelection = tableSelection.copyWith(
+      activeOffset: _parseNonNegative(_offsetController.text),
+      isTextEditing: true,
+    );
     RhwpSelectionRange? deletedRange;
     final edited = await _runEdit(
       () async {
-        deletedRange = await _deleteOverwriteTextInSelectedTableCell(
-          tableSelection,
-          offset,
-          text,
-        );
+        insertSelection =
+            await _deleteEditingTableCellTextSelection(insertSelection) ??
+            insertSelection;
+        final offset = insertSelection.activeOffset;
+        if (!tableSelection.hasTextSelection) {
+          deletedRange = await _deleteOverwriteTextInSelectedTableCell(
+            insertSelection,
+            offset,
+            text,
+          );
+        }
         final result = await widget.document.insertTextInTableCell(
-          section: tableSelection.section,
-          paragraph: tableSelection.paragraph,
-          controlIndex: tableSelection.controlIndex,
-          cellIndex: tableSelection.activeCellIndex!,
-          cellParagraph: tableSelection.activeCellParagraph,
+          section: insertSelection.section,
+          paragraph: insertSelection.paragraph,
+          controlIndex: insertSelection.controlIndex,
+          cellIndex: insertSelection.activeCellIndex!,
+          cellParagraph: insertSelection.activeCellParagraph,
           offset: offset,
           text: text,
         );
         final nextOffset =
             _readIntResult(result, 'charOffset') ?? offset + text.length;
         await _applyPendingCharFormatToInsertedTableCellText(
-          tableSelection: tableSelection,
+          tableSelection: insertSelection,
           startOffset: offset,
           endOffset: nextOffset,
           text: text,
         );
         _setTextIfChanged(_offsetController, nextOffset.toString());
-        final nextSelection = RhwpTableCellSelection(
-          section: tableSelection.section,
-          paragraph: tableSelection.paragraph,
-          controlIndex: tableSelection.controlIndex,
-          startRow: tableSelection.startRow,
-          startColumn: tableSelection.startColumn,
-          endRow: tableSelection.endRow,
-          endColumn: tableSelection.endColumn,
-          activeCellIndex: tableSelection.activeCellIndex,
-          activeCellParagraph: tableSelection.activeCellParagraph,
+        final nextSelection = insertSelection.copyWith(
           activeOffset: nextOffset,
           isTextEditing: true,
+          clearTextSelection: true,
         );
         if (deferRefresh && awaitTextInputBeforeRefresh) {
           _setTableSelectionForPendingText(nextSelection);
@@ -2545,9 +2546,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       }
       _recordPendingTextOverlay(
         RhwpCursorPosition(
-          section: tableSelection.section,
-          paragraph: tableSelection.paragraph,
-          offset: offset,
+          section: insertSelection.section,
+          paragraph: insertSelection.paragraph,
+          offset: insertSelection.activeOffset,
         ),
         text,
       );
@@ -6120,6 +6121,88 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     return left.offset.compareTo(right.offset);
   }
 
+  ({
+    int startCellParagraph,
+    int startOffset,
+    int endCellParagraph,
+    int endOffset,
+  })?
+  _editingTableCellTextSelectionRange(RhwpTableCellSelection selection) {
+    final baseCellParagraph = selection.selectionBaseCellParagraph;
+    final baseOffset = selection.selectionBaseOffset;
+    if (!selection.hasTextSelection ||
+        baseCellParagraph == null ||
+        baseOffset == null) {
+      return null;
+    }
+
+    var start = (cellParagraph: baseCellParagraph, offset: baseOffset);
+    var end = (
+      cellParagraph: selection.activeCellParagraph,
+      offset: selection.activeOffset,
+    );
+    if (_compareTableCellTextPosition(start, end) > 0) {
+      final previousStart = start;
+      start = end;
+      end = previousStart;
+    }
+    return (
+      startCellParagraph: start.cellParagraph,
+      startOffset: start.offset,
+      endCellParagraph: end.cellParagraph,
+      endOffset: end.offset,
+    );
+  }
+
+  Future<RhwpTableCellSelection?> _deleteEditingTableCellTextSelection(
+    RhwpTableCellSelection selection,
+  ) async {
+    final activeCellIndex = selection.activeCellIndex;
+    final range = _editingTableCellTextSelectionRange(selection);
+    if (activeCellIndex == null || range == null) {
+      return null;
+    }
+
+    final String result;
+    if (range.startCellParagraph == range.endCellParagraph) {
+      final count = range.endOffset - range.startOffset;
+      if (count <= 0) {
+        return null;
+      }
+      result = await widget.document.deleteTextInTableCell(
+        section: selection.section,
+        paragraph: selection.paragraph,
+        controlIndex: selection.controlIndex,
+        cellIndex: activeCellIndex,
+        cellParagraph: range.startCellParagraph,
+        offset: range.startOffset,
+        count: count,
+      );
+    } else {
+      result = await widget.document.deleteRangeInTableCell(
+        section: selection.section,
+        paragraph: selection.paragraph,
+        controlIndex: selection.controlIndex,
+        cellIndex: activeCellIndex,
+        startCellParagraph: range.startCellParagraph,
+        startOffset: range.startOffset,
+        endCellParagraph: range.endCellParagraph,
+        endOffset: range.endOffset,
+      );
+    }
+
+    final nextCellParagraph =
+        _readIntResult(result, 'cellParaIndex') ?? range.startCellParagraph;
+    final nextOffset =
+        _readIntResult(result, 'charOffset') ?? range.startOffset;
+    return selection.copyWith(
+      activeCellParagraph: nextCellParagraph,
+      activeOffset: nextOffset,
+      isTextEditing: true,
+      clearTextSelection: true,
+    );
+  }
+
   String _tableCellTextFromSegments(
     RhwpTableCellLayout cell,
     List<_TableCellTextSegment> segments,
@@ -6652,10 +6735,28 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
-    await _deleteCharacterInSelectedTableCell(
-      tableSelection,
-      backward: backward,
+    final current = tableSelection.copyWith(
+      activeOffset: _parseNonNegative(_offsetController.text),
+      isTextEditing: true,
     );
+    if (current.hasTextSelection) {
+      final edited = await _runEdit(() async {
+        final nextSelection = await _deleteEditingTableCellTextSelection(
+          current,
+        );
+        if (nextSelection == null) {
+          return;
+        }
+        _syncTableSelectionFields(nextSelection);
+        _controller.tableCellSelection = nextSelection;
+      }, deferRefresh: true);
+      if (edited) {
+        _focusEditor();
+      }
+      return;
+    }
+
+    await _deleteCharacterInSelectedTableCell(current, backward: backward);
   }
 
   Future<void> _moveTableCellCursorByWord(
@@ -7132,6 +7233,23 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       activeOffset: _parseNonNegative(_offsetController.text),
       isTextEditing: true,
     );
+    if (current.hasTextSelection) {
+      final edited = await _runEdit(() async {
+        final nextSelection = await _deleteEditingTableCellTextSelection(
+          current,
+        );
+        if (nextSelection == null) {
+          return;
+        }
+        _syncTableSelectionFields(nextSelection);
+        _controller.tableCellSelection = nextSelection;
+      }, deferRefresh: true);
+      if (edited) {
+        _focusEditor();
+      }
+      return;
+    }
+
     final target = await _tableCellWordPositionFrom(current, backward ? -1 : 1);
     if (target == null) {
       return;

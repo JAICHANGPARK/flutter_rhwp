@@ -69,6 +69,8 @@
   instead of moving the rectangular cell selection.
 * Added Flutter-native Shift+arrow text range selection state and overlay while
   editing table-cell text, starting with horizontal caret extension.
+* Wired Flutter-native table-cell text selections into editing commands, so
+  Backspace/Delete remove the selected cell text and typed input replaces it.
 * Added Flutter-native Up/Down movement while editing table-cell text, using
   page-layer text geometry first and core cell-paragraph metrics as a fallback
   instead of moving the rectangular cell selection.
