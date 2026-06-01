@@ -64,6 +64,8 @@
   of leaking to the body cursor.
 * Added Flutter-native Home/End movement while editing table-cell text, including
   a core length fallback for cell paragraphs without visible text runs.
+* Added Flutter-native Ctrl/Cmd+Home and Ctrl/Cmd+End movement while editing
+  table-cell text, keeping document-boundary shortcuts scoped to the active cell.
 * Added Flutter-native Left/Right movement while editing table-cell text, so
   plain arrow keys update the active cell text offset and cross cell paragraphs
   instead of moving the rectangular cell selection.

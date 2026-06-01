@@ -7522,6 +7522,76 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
   }
 
+  Future<void> _moveTableCellCursorToCellBoundary({
+    required bool end,
+    bool extendSelection = false,
+  }) async {
+    final tableSelection = _editableTableCellSelection;
+    final activeCellIndex = tableSelection?.activeCellIndex;
+    if (tableSelection == null ||
+        activeCellIndex == null ||
+        !tableSelection.isTextEditing ||
+        _busy) {
+      return;
+    }
+
+    final current = tableSelection.copyWith(
+      activeOffset: _parseNonNegative(_offsetController.text),
+      isTextEditing: true,
+    );
+    try {
+      final int targetCellParagraph;
+      final int targetOffset;
+      if (end) {
+        final paragraphCount = await widget.document.cellParagraphCount(
+          section: current.section,
+          paragraph: current.paragraph,
+          controlIndex: current.controlIndex,
+          cellIndex: activeCellIndex,
+        );
+        targetCellParagraph = math.max(0, paragraphCount - 1);
+        final target = current.copyWith(
+          activeCellParagraph: targetCellParagraph,
+        );
+        targetOffset =
+            await _tableCellParagraphEndOffsetFor(target) ??
+            await widget.document.cellParagraphLength(
+              section: target.section,
+              paragraph: target.paragraph,
+              controlIndex: target.controlIndex,
+              cellIndex: activeCellIndex,
+              cellParagraph: target.activeCellParagraph,
+            );
+      } else {
+        targetCellParagraph = 0;
+        targetOffset = 0;
+      }
+
+      if (!mounted ||
+          (!extendSelection &&
+              targetCellParagraph == current.activeCellParagraph &&
+              targetOffset == current.activeOffset)) {
+        return;
+      }
+
+      final nextSelection = _tableCellSelectionWithTextCaret(
+        current,
+        cellParagraph: targetCellParagraph,
+        offset: targetOffset,
+        extendSelection: extendSelection,
+      );
+      _syncTableSelectionFields(nextSelection);
+      _controller.tableCellSelection = nextSelection;
+      _focusEditor();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    }
+  }
+
   Future<void> _deleteWordInSelectedTableCell({required bool backward}) async {
     final tableSelection = _editableTableCellSelection;
     final activeCellIndex = tableSelection?.activeCellIndex;
@@ -10015,6 +10085,15 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           _applyParagraphFormat(alignment: 'justify');
           return KeyEventResult.handled;
         case LogicalKeyboardKey.home:
+          if (_controller.tableCellSelection?.isTextEditing == true) {
+            unawaited(
+              _moveTableCellCursorToCellBoundary(
+                end: false,
+                extendSelection: extendSelection,
+              ),
+            );
+            return KeyEventResult.handled;
+          }
           unawaited(
             _moveCursorToDocumentBoundary(
               end: false,
@@ -10023,6 +10102,15 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           );
           return KeyEventResult.handled;
         case LogicalKeyboardKey.end:
+          if (_controller.tableCellSelection?.isTextEditing == true) {
+            unawaited(
+              _moveTableCellCursorToCellBoundary(
+                end: true,
+                extendSelection: extendSelection,
+              ),
+            );
+            return KeyEventResult.handled;
+          }
           unawaited(
             _moveCursorToDocumentBoundary(
               end: true,
