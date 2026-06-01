@@ -6665,6 +6665,99 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
   }
 
+  Future<void> _moveTableCellCursorHorizontally(int delta) async {
+    final tableSelection = _editableTableCellSelection;
+    final activeCellIndex = tableSelection?.activeCellIndex;
+    if (tableSelection == null ||
+        activeCellIndex == null ||
+        !tableSelection.isTextEditing ||
+        _busy ||
+        delta == 0) {
+      return;
+    }
+
+    final current = tableSelection.copyWith(
+      activeOffset: _parseNonNegative(_offsetController.text),
+      isTextEditing: true,
+    );
+    try {
+      RhwpTableCellSelection? nextSelection;
+      if (delta < 0) {
+        if (current.activeOffset <= 0) {
+          if (current.activeCellParagraph <= 0) {
+            return;
+          }
+          final previous = current.copyWith(
+            activeCellParagraph: current.activeCellParagraph - 1,
+          );
+          final previousEnd =
+              await _tableCellParagraphEndOffsetFor(previous) ??
+              await widget.document.cellParagraphLength(
+                section: previous.section,
+                paragraph: previous.paragraph,
+                controlIndex: previous.controlIndex,
+                cellIndex: activeCellIndex,
+                cellParagraph: previous.activeCellParagraph,
+              );
+          nextSelection = previous.copyWith(
+            activeOffset: previousEnd,
+            isTextEditing: true,
+          );
+        } else {
+          nextSelection = current.copyWith(
+            activeOffset: math.max(0, current.activeOffset - 1),
+            isTextEditing: true,
+          );
+        }
+      } else {
+        final currentEnd =
+            await _tableCellParagraphEndOffsetFor(current) ??
+            await widget.document.cellParagraphLength(
+              section: current.section,
+              paragraph: current.paragraph,
+              controlIndex: current.controlIndex,
+              cellIndex: activeCellIndex,
+              cellParagraph: current.activeCellParagraph,
+            );
+        if (current.activeOffset >= currentEnd) {
+          final paragraphCount = await widget.document.cellParagraphCount(
+            section: current.section,
+            paragraph: current.paragraph,
+            controlIndex: current.controlIndex,
+            cellIndex: activeCellIndex,
+          );
+          final nextCellParagraph = current.activeCellParagraph + 1;
+          if (nextCellParagraph >= paragraphCount) {
+            return;
+          }
+          nextSelection = current.copyWith(
+            activeCellParagraph: nextCellParagraph,
+            activeOffset: 0,
+            isTextEditing: true,
+          );
+        } else {
+          nextSelection = current.copyWith(
+            activeOffset: math.min(currentEnd, current.activeOffset + 1),
+            isTextEditing: true,
+          );
+        }
+      }
+
+      if (!mounted || nextSelection == current) {
+        return;
+      }
+      _syncTableSelectionFields(nextSelection);
+      _controller.tableCellSelection = nextSelection;
+      _focusEditor();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    }
+  }
+
   Future<void> _moveTableCellCursorToParagraphBoundary({
     required bool end,
   }) async {
@@ -9277,9 +9370,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         }
         final leftTableSelection = _controller.tableCellSelection;
         if (leftTableSelection != null) {
-          if (wordNavigationPressed) {
-            if (leftTableSelection.isTextEditing) {
+          if (leftTableSelection.isTextEditing) {
+            if (wordNavigationPressed) {
               unawaited(_moveTableCellCursorByWord(-1));
+            } else {
+              unawaited(_moveTableCellCursorHorizontally(-1));
             }
           } else {
             unawaited(
@@ -9305,9 +9400,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         }
         final rightTableSelection = _controller.tableCellSelection;
         if (rightTableSelection != null) {
-          if (wordNavigationPressed) {
-            if (rightTableSelection.isTextEditing) {
+          if (rightTableSelection.isTextEditing) {
+            if (wordNavigationPressed) {
               unawaited(_moveTableCellCursorByWord(1));
+            } else {
+              unawaited(_moveTableCellCursorHorizontally(1));
             }
           } else {
             unawaited(

@@ -64,6 +64,9 @@
   of leaking to the body cursor.
 * Added Flutter-native Home/End movement while editing table-cell text, including
   a core length fallback for cell paragraphs without visible text runs.
+* Added Flutter-native Left/Right movement while editing table-cell text, so
+  plain arrow keys update the active cell text offset and cross cell paragraphs
+  instead of moving the rectangular cell selection.
 * Stabilized programmatic viewer page navigation so `goToPage` requests are not
   immediately overwritten by stale visible-page sync during editor navigation.
 * Added Flutter-native Delete-at-cell-paragraph-end handling to merge the next
