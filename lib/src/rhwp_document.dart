@@ -594,6 +594,38 @@ abstract class RhwpCommand {
     required int count,
   }) = RhwpDeleteTextInTableCellCommand;
 
+  factory RhwpCommand.splitParagraphInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int offset,
+  }) = RhwpSplitParagraphInTableCellCommand;
+
+  factory RhwpCommand.mergeParagraphInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+  }) = RhwpMergeParagraphInTableCellCommand;
+
+  factory RhwpCommand.getCellParagraphCount({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+  }) = RhwpGetCellParagraphCountCommand;
+
+  factory RhwpCommand.getCellParagraphLength({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+  }) = RhwpGetCellParagraphLengthCommand;
+
   factory RhwpCommand.applyCharFormatInTableCell({
     required int section,
     required int paragraph,
@@ -1273,6 +1305,110 @@ class RhwpDeleteTextInTableCellCommand extends RhwpCommand {
     'cellParagraph': cellParagraph,
     'offset': offset,
     'count': count,
+  };
+}
+
+class RhwpSplitParagraphInTableCellCommand extends RhwpCommand {
+  const RhwpSplitParagraphInTableCellCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+    required this.cellParagraph,
+    required this.offset,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+  final int cellParagraph;
+  final int offset;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'splitParagraphInTableCell',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'cellIndex': cellIndex,
+    'cellParagraph': cellParagraph,
+    'offset': offset,
+  };
+}
+
+class RhwpMergeParagraphInTableCellCommand extends RhwpCommand {
+  const RhwpMergeParagraphInTableCellCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+    required this.cellParagraph,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+  final int cellParagraph;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'mergeParagraphInTableCell',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'cellIndex': cellIndex,
+    'cellParagraph': cellParagraph,
+  };
+}
+
+class RhwpGetCellParagraphCountCommand extends RhwpCommand {
+  const RhwpGetCellParagraphCountCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'getCellParagraphCount',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'cellIndex': cellIndex,
+  };
+}
+
+class RhwpGetCellParagraphLengthCommand extends RhwpCommand {
+  const RhwpGetCellParagraphLengthCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+    required this.cellParagraph,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+  final int cellParagraph;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'getCellParagraphLength',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'cellIndex': cellIndex,
+    'cellParagraph': cellParagraph,
   };
 }
 
@@ -3395,6 +3531,80 @@ class RhwpDocument {
     );
   }
 
+  Future<String> splitParagraphInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int offset,
+  }) {
+    return apply(
+      RhwpCommand.splitParagraphInTableCell(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        cellIndex: cellIndex,
+        cellParagraph: cellParagraph,
+        offset: offset,
+      ),
+    );
+  }
+
+  Future<String> mergeParagraphInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+  }) {
+    return apply(
+      RhwpCommand.mergeParagraphInTableCell(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        cellIndex: cellIndex,
+        cellParagraph: cellParagraph,
+      ),
+    );
+  }
+
+  Future<int> cellParagraphCount({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+  }) async {
+    final result = await apply(
+      RhwpCommand.getCellParagraphCount(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        cellIndex: cellIndex,
+      ),
+    );
+    return _readIntResult(result, 'count');
+  }
+
+  Future<int> cellParagraphLength({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+  }) async {
+    final result = await apply(
+      RhwpCommand.getCellParagraphLength(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        cellIndex: cellIndex,
+        cellParagraph: cellParagraph,
+      ),
+    );
+    return _readIntResult(result, 'length');
+  }
+
   Future<String> applyCharFormatInTableCell({
     required int section,
     required int paragraph,
@@ -4703,6 +4913,15 @@ class RhwpDocument {
     if (page < 0) {
       throw RhwpException('Page index must be zero or greater: $page');
     }
+  }
+
+  static int _readIntResult(String source, String key) {
+    final decoded = _tryDecodeObject(source);
+    final value = decoded?[key];
+    if (value is num) {
+      return value.toInt();
+    }
+    throw RhwpException('Command result did not include integer "$key".');
   }
 
   static Map<String, Object?>? _tryDecodeObject(String source) {

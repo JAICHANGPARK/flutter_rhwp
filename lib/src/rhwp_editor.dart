@@ -3265,6 +3265,43 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
   }
 
+  Future<void> _splitParagraphInSelectedTableCell() async {
+    final tableSelection = _editableTableCellSelection;
+    if (tableSelection == null || _busy) {
+      return;
+    }
+
+    final offset = _parseNonNegative(_offsetController.text);
+    await _runEdit(() async {
+      final result = await widget.document.splitParagraphInTableCell(
+        section: tableSelection.section,
+        paragraph: tableSelection.paragraph,
+        controlIndex: tableSelection.controlIndex,
+        cellIndex: tableSelection.activeCellIndex!,
+        cellParagraph: tableSelection.activeCellParagraph,
+        offset: offset,
+      );
+      final nextCellParagraph =
+          _readIntResult(result, 'cellParaIndex') ??
+          tableSelection.activeCellParagraph + 1;
+      final nextOffset = _readIntResult(result, 'charOffset') ?? 0;
+      _setTextIfChanged(_offsetController, nextOffset.toString());
+      _controller.tableCellSelection = RhwpTableCellSelection(
+        section: tableSelection.section,
+        paragraph: tableSelection.paragraph,
+        controlIndex: tableSelection.controlIndex,
+        startRow: tableSelection.startRow,
+        startColumn: tableSelection.startColumn,
+        endRow: tableSelection.endRow,
+        endColumn: tableSelection.endColumn,
+        activeCellIndex: tableSelection.activeCellIndex,
+        activeCellParagraph: nextCellParagraph,
+        activeOffset: nextOffset,
+        isTextEditing: true,
+      );
+    });
+  }
+
   Future<void> _insertPageBreak() async {
     await _insertDocumentBreak(columnBreak: false);
   }
@@ -5838,6 +5875,38 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
     final currentOffset = _parseNonNegative(_offsetController.text);
     final deleteOffset = backward ? currentOffset - 1 : currentOffset;
+    if (backward &&
+        currentOffset == 0 &&
+        tableSelection.activeCellParagraph > 0) {
+      await _runEdit(() async {
+        final result = await widget.document.mergeParagraphInTableCell(
+          section: tableSelection.section,
+          paragraph: tableSelection.paragraph,
+          controlIndex: tableSelection.controlIndex,
+          cellIndex: tableSelection.activeCellIndex!,
+          cellParagraph: tableSelection.activeCellParagraph,
+        );
+        final nextCellParagraph =
+            _readIntResult(result, 'cellParaIndex') ??
+            tableSelection.activeCellParagraph - 1;
+        final nextOffset = _readIntResult(result, 'charOffset') ?? 0;
+        _setTextIfChanged(_offsetController, nextOffset.toString());
+        _controller.tableCellSelection = RhwpTableCellSelection(
+          section: tableSelection.section,
+          paragraph: tableSelection.paragraph,
+          controlIndex: tableSelection.controlIndex,
+          startRow: tableSelection.startRow,
+          startColumn: tableSelection.startColumn,
+          endRow: tableSelection.endRow,
+          endColumn: tableSelection.endColumn,
+          activeCellIndex: tableSelection.activeCellIndex,
+          activeCellParagraph: nextCellParagraph,
+          activeOffset: nextOffset,
+          isTextEditing: true,
+        );
+      });
+      return;
+    }
     if (deleteOffset < 0) {
       return;
     }
@@ -8228,6 +8297,16 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
               _insertColumnBreak();
             } else {
               _insertPageBreak();
+            }
+            return KeyEventResult.handled;
+          }
+          final editableTableSelection = _editableTableCellSelection;
+          if (editableTableSelection != null &&
+              editableTableSelection.isTextEditing) {
+            if (extendSelection) {
+              unawaited(_insertCommittedText('\n'));
+            } else {
+              unawaited(_splitParagraphInSelectedTableCell());
             }
             return KeyEventResult.handled;
           }

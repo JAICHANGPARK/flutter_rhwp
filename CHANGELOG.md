@@ -38,6 +38,8 @@
   optional column width input.
 * Added Flutter-native table formula evaluation through rhwp core's
   `evaluateTableFormula` command.
+* Added Flutter-native table-cell paragraph split/merge editing through rhwp
+  core's cell paragraph commands.
 * Added the upstream-style F6 shortcut to open the Flutter-native style picker.
 * Added the upstream-style `Alt+T` shortcut to open the Flutter-native paragraph
   shape dialog.

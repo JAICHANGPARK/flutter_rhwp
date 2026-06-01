@@ -225,6 +225,67 @@ impl RhwpSession {
                     count as usize,
                 )
                 .map_err(error_to_string),
+            RhwpCommand::SplitParagraphInTableCell {
+                section,
+                paragraph,
+                control_index,
+                cell_index,
+                cell_paragraph,
+                offset,
+            } => inner
+                .document
+                .split_paragraph_in_cell(
+                    section,
+                    paragraph,
+                    control_index,
+                    cell_index,
+                    cell_paragraph,
+                    offset,
+                )
+                .map_err(|error| format!("{error:?}")),
+            RhwpCommand::MergeParagraphInTableCell {
+                section,
+                paragraph,
+                control_index,
+                cell_index,
+                cell_paragraph,
+            } => inner
+                .document
+                .merge_paragraph_in_cell(
+                    section,
+                    paragraph,
+                    control_index,
+                    cell_index,
+                    cell_paragraph,
+                )
+                .map_err(|error| format!("{error:?}")),
+            RhwpCommand::GetCellParagraphCount {
+                section,
+                paragraph,
+                control_index,
+                cell_index,
+            } => inner
+                .document
+                .get_cell_paragraph_count(section, paragraph, control_index, cell_index)
+                .map(|count| format!(r#"{{"count":{count}}}"#))
+                .map_err(|error| format!("{error:?}")),
+            RhwpCommand::GetCellParagraphLength {
+                section,
+                paragraph,
+                control_index,
+                cell_index,
+                cell_paragraph,
+            } => inner
+                .document
+                .get_cell_paragraph_length(
+                    section,
+                    paragraph,
+                    control_index,
+                    cell_index,
+                    cell_paragraph,
+                )
+                .map(|length| format!(r#"{{"length":{length}}}"#))
+                .map_err(|error| format!("{error:?}")),
             RhwpCommand::DeleteRange {
                 section,
                 start_paragraph,
@@ -1271,6 +1332,45 @@ enum RhwpCommand {
         cell_paragraph: u32,
         offset: u32,
         count: u32,
+    },
+    SplitParagraphInTableCell {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "cellIndex")]
+        cell_index: u32,
+        #[serde(rename = "cellParagraph")]
+        cell_paragraph: u32,
+        offset: u32,
+    },
+    MergeParagraphInTableCell {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "cellIndex")]
+        cell_index: u32,
+        #[serde(rename = "cellParagraph")]
+        cell_paragraph: u32,
+    },
+    GetCellParagraphCount {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "cellIndex")]
+        cell_index: u32,
+    },
+    GetCellParagraphLength {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "cellIndex")]
+        cell_index: u32,
+        #[serde(rename = "cellParagraph")]
+        cell_paragraph: u32,
     },
     DeleteRange {
         section: u32,
@@ -3164,6 +3264,74 @@ mod tests {
         assert_eq!(formula_result["ok"], true);
         assert_eq!(formula_result["result"].as_f64(), Some(3.0));
         assert_eq!(formula_result["formula"], "=SUM(A1:B1)");
+    }
+
+    #[test]
+    fn applies_table_cell_paragraph_split_and_merge_commands() {
+        let session =
+            open_bytes(BLANK_2010_HWP.to_vec(), None).expect("vendored sample should open");
+
+        let result = session
+            .apply_command(
+                r#"{"type":"insertTable","section":0,"paragraph":0,"offset":0,"rows":1,"columns":1}"#
+                    .to_string(),
+            )
+            .expect("table insert should be accepted");
+        let result: Value = serde_json::from_str(&result).expect("table result should be JSON");
+        let table_paragraph = result["paraIdx"]
+            .as_u64()
+            .expect("table insert should expose paraIdx");
+
+        session
+            .apply_command(format!(
+                r#"{{"type":"insertTextInTableCell","section":0,"paragraph":{},"controlIndex":0,"cellIndex":0,"cellParagraph":0,"offset":0,"text":"cell"}}"#,
+                table_paragraph
+            ))
+            .expect("cell text insert should be accepted");
+
+        let split_result = session
+            .apply_command(format!(
+                r#"{{"type":"splitParagraphInTableCell","section":0,"paragraph":{},"controlIndex":0,"cellIndex":0,"cellParagraph":0,"offset":2}}"#,
+                table_paragraph
+            ))
+            .expect("cell paragraph split should be accepted");
+        let split_result: Value =
+            serde_json::from_str(&split_result).expect("split result should be JSON");
+        assert_eq!(split_result["ok"], true);
+        assert_eq!(split_result["cellParaIndex"], 1);
+        assert_eq!(split_result["charOffset"], 0);
+
+        let count_result = session
+            .apply_command(format!(
+                r#"{{"type":"getCellParagraphCount","section":0,"paragraph":{},"controlIndex":0,"cellIndex":0}}"#,
+                table_paragraph
+            ))
+            .expect("cell paragraph count should be accepted");
+        let count_result: Value =
+            serde_json::from_str(&count_result).expect("count result should be JSON");
+        assert_eq!(count_result["count"], 2);
+
+        let length_result = session
+            .apply_command(format!(
+                r#"{{"type":"getCellParagraphLength","section":0,"paragraph":{},"controlIndex":0,"cellIndex":0,"cellParagraph":0}}"#,
+                table_paragraph
+            ))
+            .expect("cell paragraph length should be accepted");
+        let length_result: Value =
+            serde_json::from_str(&length_result).expect("length result should be JSON");
+        assert_eq!(length_result["length"], 2);
+
+        let merge_result = session
+            .apply_command(format!(
+                r#"{{"type":"mergeParagraphInTableCell","section":0,"paragraph":{},"controlIndex":0,"cellIndex":0,"cellParagraph":1}}"#,
+                table_paragraph
+            ))
+            .expect("cell paragraph merge should be accepted");
+        let merge_result: Value =
+            serde_json::from_str(&merge_result).expect("merge result should be JSON");
+        assert_eq!(merge_result["ok"], true);
+        assert_eq!(merge_result["cellParaIndex"], 0);
+        assert_eq!(merge_result["charOffset"], 2);
     }
 
     #[test]

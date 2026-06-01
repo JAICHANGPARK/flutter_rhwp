@@ -19,6 +19,8 @@ documents.
 - Use `RhwpFullEditor` for the upstream Web editor UI.
 - Use `RhwpNativeEditor` for the Flutter widget editor track.
 - Evaluate table formulas from the Flutter-native table ribbon or the Dart API.
+- Split and merge paragraphs inside active table cells from the Flutter-native
+  editor.
 - Keep native-editor typing, IME composing, caret, and selection overlays
   separate from the rendered SVG page surface to reduce refresh churn on large
   documents.
@@ -225,6 +227,23 @@ await document.evaluateTableFormula(
   formula: '=SUM(A1:B1)',
 );
 
+await document.splitParagraphInTableCell(
+  section: 0,
+  paragraph: 0,
+  controlIndex: 0,
+  cellIndex: 0,
+  cellParagraph: 0,
+  offset: 2,
+);
+
+await document.mergeParagraphInTableCell(
+  section: 0,
+  paragraph: 0,
+  controlIndex: 0,
+  cellIndex: 0,
+  cellParagraph: 1,
+);
+
 await document.moveTableOffset(
   section: 0,
   paragraph: 0,
@@ -384,6 +403,7 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   selection and Shift+click range extension for rendered table cells, plus
   selected-cell
   text insert/delete/clear/copy/cut/paste, tab/newline multi-cell paste,
+  active-cell paragraph split/merge with Enter and Backspace,
   cell text offset hit testing, Arrow/Tab/Enter keyboard handling for selected
   table cells, F5 selected-cell edit entry, Esc return from active cell text
   editing to cell selection and from cell selection to table-object selection,

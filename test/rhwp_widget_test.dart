@@ -3304,6 +3304,102 @@ void main() {
     expect(changedCalls, 1);
   });
 
+  testWidgets(
+    'RhwpNativeEditor splits and merges table cell paragraphs with keys',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      final pageFinder = find.byType(SvgPicture);
+      final pageTopLeft = tester.getTopLeft(pageFinder);
+      final pageSize = tester.getSize(pageFinder);
+      await tester.tapAt(
+        pageTopLeft +
+            Offset(pageSize.width * 118 / 240, pageSize.height * 76 / 180),
+      );
+      await tester.pump();
+
+      expect(controller.tableCellSelection?.activeOffset, 2);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+      expect(
+        controller.tableCellSelection,
+        const RhwpTableCellSelection(
+          section: 0,
+          paragraph: 5,
+          controlIndex: 2,
+          startRow: 1,
+          startColumn: 3,
+          endRow: 2,
+          endColumn: 3,
+          activeCellIndex: 7,
+          activeCellParagraph: 1,
+          activeOffset: 0,
+          isTextEditing: true,
+        ),
+      );
+      expect(jsonDecode(session.commands.single), {
+        'type': 'splitParagraphInTableCell',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'cellIndex': 7,
+        'cellParagraph': 0,
+        'offset': 2,
+      });
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 2);
+      expect(
+        controller.tableCellSelection,
+        const RhwpTableCellSelection(
+          section: 0,
+          paragraph: 5,
+          controlIndex: 2,
+          startRow: 1,
+          startColumn: 3,
+          endRow: 2,
+          endColumn: 3,
+          activeCellIndex: 7,
+          activeCellParagraph: 0,
+          activeOffset: 2,
+          isTextEditing: true,
+        ),
+      );
+      expect(jsonDecode(session.commands.last), {
+        'type': 'mergeParagraphInTableCell',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'cellIndex': 7,
+        'cellParagraph': 1,
+      });
+    },
+  );
+
   testWidgets('RhwpNativeEditor exits and re-enters table cell edit mode', (
     tester,
   ) async {
@@ -11458,6 +11554,18 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'getCellProperties') {
       return '{"width":5000,"height":3000,"paddingLeft":100,"paddingRight":110,"paddingTop":120,"paddingBottom":130,"verticalAlign":1,"textDirection":0,"isHeader":false,"cellProtect":false}';
+    }
+    if (command is Map && command['type'] == 'splitParagraphInTableCell') {
+      return '{"ok":true,"cellParaIndex":1,"charOffset":0}';
+    }
+    if (command is Map && command['type'] == 'mergeParagraphInTableCell') {
+      return '{"ok":true,"cellParaIndex":0,"charOffset":2}';
+    }
+    if (command is Map && command['type'] == 'getCellParagraphCount') {
+      return '{"count":2}';
+    }
+    if (command is Map && command['type'] == 'getCellParagraphLength') {
+      return '{"length":4}';
     }
     if (command is Map && command['type'] == 'evaluateTableFormula') {
       return '{"ok":true,"result":3,"formula":"=SUM(A1:B1)"}';

@@ -320,6 +320,90 @@ void main() {
     expect(
       jsonDecode(
         jsonEncode(
+          RhwpCommand.splitParagraphInTableCell(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            cellIndex: 3,
+            cellParagraph: 0,
+            offset: 2,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'splitParagraphInTableCell',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'cellIndex': 3,
+        'cellParagraph': 0,
+        'offset': 2,
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.mergeParagraphInTableCell(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            cellIndex: 3,
+            cellParagraph: 1,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'mergeParagraphInTableCell',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'cellIndex': 3,
+        'cellParagraph': 1,
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.getCellParagraphCount(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            cellIndex: 3,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'getCellParagraphCount',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'cellIndex': 3,
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.getCellParagraphLength(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            cellIndex: 3,
+            cellParagraph: 0,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'getCellParagraphLength',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'cellIndex': 3,
+        'cellParagraph': 0,
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
           RhwpCommand.applyCharFormatInTableCell(
             section: 0,
             paragraph: 1,
@@ -1913,6 +1997,74 @@ void main() {
       'count': 1,
     });
 
+    await document.splitParagraphInTableCell(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      cellIndex: 2,
+      cellParagraph: 0,
+      offset: 2,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'splitParagraphInTableCell',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'cellIndex': 2,
+      'cellParagraph': 0,
+      'offset': 2,
+    });
+
+    await document.mergeParagraphInTableCell(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      cellIndex: 2,
+      cellParagraph: 1,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'mergeParagraphInTableCell',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'cellIndex': 2,
+      'cellParagraph': 1,
+    });
+
+    await document.cellParagraphCount(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      cellIndex: 2,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'getCellParagraphCount',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'cellIndex': 2,
+    });
+
+    await document.cellParagraphLength(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      cellIndex: 2,
+      cellParagraph: 0,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'getCellParagraphLength',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'cellIndex': 2,
+      'cellParagraph': 0,
+    });
+
     await document.applyCharFormatInTableCell(
       section: 0,
       paragraph: 1,
@@ -3236,6 +3388,12 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'getCellProperties') {
       return '{"width":5000,"height":3000,"paddingLeft":100,"paddingRight":110,"paddingTop":120,"paddingBottom":130,"verticalAlign":1,"textDirection":0,"isHeader":false,"cellProtect":false}';
+    }
+    if (command is Map && command['type'] == 'getCellParagraphCount') {
+      return '{"count":2}';
+    }
+    if (command is Map && command['type'] == 'getCellParagraphLength') {
+      return '{"length":4}';
     }
     if (command is Map && command['type'] == 'clipboardHasObjectControl') {
       return '{"ok":true,"hasControl":true}';
