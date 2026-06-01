@@ -3082,6 +3082,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
+    if (await _selectAllEditingTableCellText()) {
+      return;
+    }
+
     setState(() {
       _busy = true;
       _visibleBusy = true;
@@ -3150,6 +3154,52 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         });
       }
     }
+  }
+
+  Future<bool> _selectAllEditingTableCellText() async {
+    final selection = _editableTableCellSelection;
+    final activeCellIndex = selection?.activeCellIndex;
+    if (selection == null ||
+        !selection.isTextEditing ||
+        activeCellIndex == null) {
+      return false;
+    }
+
+    final segments = [
+      for (final segment in await _tableCellTextSegments(selection))
+        if (segment.cellIndex == activeCellIndex) segment,
+    ];
+    if (segments.isEmpty) {
+      return false;
+    }
+
+    var endCellParagraph = segments.first.cellParagraph;
+    var endOffset = segments.first.endOffset;
+    for (final segment in segments.skip(1)) {
+      if (segment.cellParagraph > endCellParagraph) {
+        endCellParagraph = segment.cellParagraph;
+        endOffset = segment.endOffset;
+      } else if (segment.cellParagraph == endCellParagraph &&
+          segment.endOffset > endOffset) {
+        endOffset = segment.endOffset;
+      }
+    }
+    if (endCellParagraph == 0 && endOffset == 0) {
+      return false;
+    }
+
+    final nextSelection = selection.copyWith(
+      activeCellParagraph: endCellParagraph,
+      activeOffset: endOffset,
+      isTextEditing: true,
+      selectionBaseCellParagraph: 0,
+      selectionBaseOffset: 0,
+    );
+    _controller.clearSelection();
+    _syncTableSelectionFields(nextSelection);
+    _controller.tableCellSelection = nextSelection;
+    _focusEditor();
+    return true;
   }
 
   Future<void> _insertLineBreak() async {

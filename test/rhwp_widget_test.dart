@@ -7312,6 +7312,73 @@ void main() {
     expect(session.historyCommands, isEmpty);
   });
 
+  testWidgets(
+    'RhwpNativeEditor selects all active table cell text with shortcut',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(
+        _tableCellEditorLayerTreeJson(
+          cellText: 'hello',
+          secondCellParagraphText: 'tail',
+        ),
+      );
+      final document = RhwpDocument.fromSession(session);
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(document: document, controller: controller),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      await tester.tapAt(
+        tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+            const Offset(1, 6),
+      );
+      await tester.pump();
+
+      controller.tableCellSelection = const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+        activeCellParagraph: 1,
+        activeOffset: 2,
+        isTextEditing: true,
+      );
+      await tester.pump();
+      session.commands.clear();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await _pumpDocumentFrame(tester);
+
+      final selection = controller.tableCellSelection;
+      expect(selection?.activeCellParagraph, 1);
+      expect(selection?.activeOffset, 4);
+      expect(selection?.selectionBaseCellParagraph, 0);
+      expect(selection?.selectionBaseOffset, 0);
+      expect(selection?.hasTextSelection, isTrue);
+      expect(controller.selection.isCollapsed, isTrue);
+      expect(session.commands, isEmpty);
+      expect(session.historyCommands, isEmpty);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-table-text-selection')),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets('RhwpCommandEditor paints caret and selection target overlay', (
     tester,
   ) async {
