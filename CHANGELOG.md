@@ -91,6 +91,9 @@
   text drags scoped to the active cell instead of rectangular cell selection.
 * Changed Flutter-native Shift+click in active table-cell text editing to extend
   the cell text range instead of switching to rectangular cell selection.
+* Kept Flutter-native table-cell text selections intact when secondary-clicking
+  inside the selected cell text range, so context-menu actions operate on the
+  existing selection.
 * Added Flutter-native Up/Down movement while editing table-cell text, using
   page-layer text geometry first and core cell-paragraph metrics as a fallback
   instead of moving the rectangular cell selection.

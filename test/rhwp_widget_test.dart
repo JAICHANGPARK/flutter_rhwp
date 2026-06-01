@@ -7529,6 +7529,66 @@ void main() {
     ]);
   });
 
+  testWidgets(
+    'RhwpNativeEditor keeps table cell text selection on secondary click',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(
+        _tableCellEditorLayerTreeJson(cellText: 'hello'),
+      );
+      final document = RhwpDocument.fromSession(session);
+      const selectedCellText = RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+        activeCellParagraph: 0,
+        activeOffset: 4,
+        isTextEditing: true,
+        selectionBaseCellParagraph: 0,
+        selectionBaseOffset: 1,
+      );
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(document: document, controller: controller),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      controller.tableCellSelection = selectedCellText;
+      await tester.pump();
+
+      final pageFinder = find.byType(SvgPicture);
+      final pageTopLeft = tester.getTopLeft(pageFinder);
+      final pageSize = tester.getSize(pageFinder);
+      final selectedTextPoint =
+          pageTopLeft +
+          Offset(pageSize.width * 116 / 240, pageSize.height * 73 / 180);
+
+      await tester.tapAt(selectedTextPoint, buttons: kSecondaryMouseButton);
+      await tester.pumpAndSettle();
+
+      expect(controller.tableCellSelection, selectedCellText);
+      expect(controller.selection.isCollapsed, isTrue);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-table-text-selection')),
+        findsOneWidget,
+      );
+      expect(find.text('복사'), findsOneWidget);
+      expect(session.commands, isEmpty);
+    },
+  );
+
   testWidgets('RhwpNativeEditor edit ribbon selects all body text', (
     tester,
   ) async {

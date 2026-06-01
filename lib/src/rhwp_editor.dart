@@ -12455,6 +12455,12 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
       _tableDragAnchor = null;
       _tableTextDragAnchor = null;
       _dragAnchor = null;
+      if (tableTextHit != null &&
+          _tableTextSelectionContainsHit(tableTextHit)) {
+        widget.onObjectSelection(null);
+        widget.onFocusRequested();
+        return;
+      }
       widget.onTableCellSelection(
         tableTextHit == null
             ? RhwpTableCellSelection.fromCell(tableCell)
@@ -13008,6 +13014,42 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     );
     return selection.normalizedStart.compareTo(position) <= 0 &&
         position.compareTo(selection.normalizedEnd) <= 0;
+  }
+
+  bool _tableTextSelectionContainsHit(RhwpTextHitResult hit) {
+    final selection = widget.tableCellSelection;
+    final context = hit.cellContext;
+    final activeCellIndex = selection?.activeCellIndex;
+    final baseCellParagraph = selection?.selectionBaseCellParagraph;
+    final baseOffset = selection?.selectionBaseOffset;
+    if (selection == null ||
+        context == null ||
+        activeCellIndex == null ||
+        !selection.hasTextSelection ||
+        baseCellParagraph == null ||
+        baseOffset == null ||
+        hit.section != selection.section ||
+        hit.paragraph != selection.paragraph ||
+        context.parentParagraph != selection.paragraph ||
+        context.controlIndex != selection.controlIndex ||
+        context.cellIndex != activeCellIndex) {
+      return false;
+    }
+
+    var start = (cellParagraph: baseCellParagraph, offset: baseOffset);
+    var end = (
+      cellParagraph: selection.activeCellParagraph,
+      offset: selection.activeOffset,
+    );
+    if (_compareTableTextPosition(start, end) > 0) {
+      final previousStart = start;
+      start = end;
+      end = previousStart;
+    }
+
+    final position = (cellParagraph: context.cellParagraph, offset: hit.offset);
+    return _compareTableTextPosition(start, position) <= 0 &&
+        _compareTableTextPosition(position, end) <= 0;
   }
 
   RhwpCursorPosition _fallbackCursorFor(Offset localPosition) {
