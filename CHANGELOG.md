@@ -83,6 +83,8 @@
   `Ctrl+A`/`Cmd+A` selects the active cell's internal text instead of body text.
 * Changed Flutter-native table-cell search results and replacements to use the
   active cell text selection model, matching body search selection behavior.
+* Added Flutter-native double-click word selection while editing table-cell
+  text, using the same page-layer word-boundary logic as body text selection.
 * Added Flutter-native Up/Down movement while editing table-cell text, using
   page-layer text geometry first and core cell-paragraph metrics as a fallback
   instead of moving the rectangular cell selection.

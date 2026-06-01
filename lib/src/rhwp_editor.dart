@@ -11851,6 +11851,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
         oldWidget.page != widget.page ||
         oldWidget.layerRevision != widget.layerRevision) {
       _layerTree = _loadLayerTree();
+      _resetPrimaryClickSequence();
     }
     if (oldWidget.pendingTextOverlaysListenable !=
         widget.pendingTextOverlaysListenable) {
@@ -12018,9 +12019,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
       if (HardwareKeyboard.instance.isShiftPressed &&
           currentSelection != null) {
         _tableDragAnchor = null;
-        _primaryClickCount = 0;
-        _lastPrimaryClickTime = null;
-        _lastPrimaryClickPosition = null;
+        _resetPrimaryClickSequence();
         widget.onTableCellSelection(
           RhwpTableCellSelection.fromSelectionAndCell(
             currentSelection,
@@ -12029,6 +12028,23 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
         );
         widget.onFocusRequested();
         return;
+      }
+
+      final clickCount = tableTextHit == null
+          ? 1
+          : _recordPrimaryClick(event, tableTextHit);
+      if (tableTextHit == null) {
+        _resetPrimaryClickSequence();
+      } else if (clickCount == 2) {
+        final wordSelection = _tableCellWordSelectionForHit(
+          tableCell,
+          tableTextHit,
+        );
+        if (wordSelection != null) {
+          widget.onTableCellSelection(wordSelection);
+          widget.onFocusRequested();
+          return;
+        }
       }
 
       widget.onTableCellSelection(
@@ -12064,9 +12080,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
       tree,
     );
     if (HardwareKeyboard.instance.isShiftPressed && cursor != null) {
-      _primaryClickCount = 0;
-      _lastPrimaryClickTime = null;
-      _lastPrimaryClickPosition = null;
+      _resetPrimaryClickSequence();
       widget.onFocusRequested();
       _dragAnchor = widget.selection.start;
       widget.onSelectionRange(
@@ -12077,9 +12091,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
 
     final clickCount = _recordPrimaryClick(event, textHit);
     if (clickCount >= 3) {
-      _primaryClickCount = 0;
-      _lastPrimaryClickTime = null;
-      _lastPrimaryClickPosition = null;
+      _resetPrimaryClickSequence();
       if (textHit != null && textHit.cellContext == null) {
         widget.onFocusRequested();
         _dragAnchor = null;
@@ -12114,10 +12126,8 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
   }
 
   int _recordPrimaryClick(PointerDownEvent event, RhwpTextHitResult? hit) {
-    if (hit == null || hit.cellContext != null) {
-      _primaryClickCount = 0;
-      _lastPrimaryClickTime = null;
-      _lastPrimaryClickPosition = null;
+    if (hit == null) {
+      _resetPrimaryClickSequence();
       return 1;
     }
 
@@ -12134,11 +12144,70 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     return _primaryClickCount;
   }
 
+  void _resetPrimaryClickSequence() {
+    _primaryClickCount = 0;
+    _lastPrimaryClickTime = null;
+    _lastPrimaryClickPosition = null;
+  }
+
+  RhwpTableCellSelection? _tableCellWordSelectionForHit(
+    RhwpTableCellLayout cell,
+    RhwpTextHitResult hit,
+  ) {
+    final context = hit.cellContext;
+    final activeCellIndex = context?.cellIndex;
+    final wordOffsets = _wordOffsetsForHit(hit);
+    if (context == null ||
+        activeCellIndex == null ||
+        activeCellIndex != cell.modelCellIndex ||
+        wordOffsets == null) {
+      return null;
+    }
+
+    return RhwpTableCellSelection(
+      section: cell.section,
+      paragraph: cell.paragraph,
+      controlIndex: cell.controlIndex,
+      startRow: cell.row,
+      startColumn: cell.column,
+      endRow: cell.endRow,
+      endColumn: cell.endColumn,
+      activeCellIndex: activeCellIndex,
+      activeCellParagraph: context.cellParagraph,
+      activeOffset: wordOffsets.endOffset,
+      isTextEditing: true,
+      selectionBaseCellParagraph: context.cellParagraph,
+      selectionBaseOffset: wordOffsets.startOffset,
+    );
+  }
+
   RhwpSelectionRange? _wordSelectionForHit(RhwpTextHitResult? hit) {
     if (hit == null || hit.cellContext != null) {
       return null;
     }
 
+    final wordOffsets = _wordOffsetsForHit(hit);
+    if (wordOffsets == null) {
+      return null;
+    }
+
+    return RhwpSelectionRange(
+      start: RhwpCursorPosition(
+        section: hit.section,
+        paragraph: hit.paragraph,
+        offset: wordOffsets.startOffset,
+      ),
+      end: RhwpCursorPosition(
+        section: hit.section,
+        paragraph: hit.paragraph,
+        offset: wordOffsets.endOffset,
+      ),
+    );
+  }
+
+  ({int startOffset, int endOffset})? _wordOffsetsForHit(
+    RhwpTextHitResult hit,
+  ) {
     final run = hit.run;
     if (run.text.isEmpty) {
       return null;
@@ -12172,18 +12241,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
       end += 1;
     }
 
-    return RhwpSelectionRange(
-      start: RhwpCursorPosition(
-        section: hit.section,
-        paragraph: hit.paragraph,
-        offset: run.charStart + start,
-      ),
-      end: RhwpCursorPosition(
-        section: hit.section,
-        paragraph: hit.paragraph,
-        offset: run.charStart + end,
-      ),
-    );
+    return (startOffset: run.charStart + start, endOffset: run.charStart + end);
   }
 
   bool _isWordCodeUnit(int codeUnit) {
