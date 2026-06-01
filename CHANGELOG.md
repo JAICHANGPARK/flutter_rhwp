@@ -94,6 +94,8 @@
 * Kept Flutter-native table-cell text selections intact when secondary-clicking
   inside the selected cell text range, so context-menu actions operate on the
   existing selection.
+* Added Flutter-native character formatting for selected table-cell text ranges,
+  including context-menu formatting actions while cell text is selected.
 * Added Flutter-native Up/Down movement while editing table-cell text, using
   page-layer text geometry first and core cell-paragraph metrics as a fallback
   instead of moving the rectangular cell selection.

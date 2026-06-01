@@ -7589,6 +7589,102 @@ void main() {
     },
   );
 
+  testWidgets(
+    'RhwpNativeEditor context menu formats selected table cell text',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(
+        _tableCellEditorLayerTreeJson(
+          cellText: 'hello',
+          secondCellParagraphText: 'tail',
+        ),
+      );
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      controller.tableCellSelection = const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+        activeCellParagraph: 1,
+        activeOffset: 2,
+        isTextEditing: true,
+        selectionBaseCellParagraph: 0,
+        selectionBaseOffset: 1,
+      );
+      await tester.pump();
+
+      final pageFinder = find.byType(SvgPicture);
+      final pageTopLeft = tester.getTopLeft(pageFinder);
+      final pageSize = tester.getSize(pageFinder);
+      final selectedTextPoint =
+          pageTopLeft +
+          Offset(pageSize.width * 116 / 240, pageSize.height * 73 / 180);
+
+      await tester.tapAt(selectedTextPoint, buttons: kSecondaryMouseButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('굵게'), findsOneWidget);
+      await tester.tap(find.text('굵게'));
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+      expect(session.commands.map(jsonDecode).toList(), [
+        {
+          'type': 'applyCharFormatInTableCell',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 0,
+          'startOffset': 1,
+          'endOffset': 5,
+          'properties': {'bold': true},
+        },
+        {
+          'type': 'applyCharFormatInTableCell',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 1,
+          'startOffset': 0,
+          'endOffset': 2,
+          'properties': {'bold': true},
+        },
+      ]);
+      expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+        'saveSnapshot',
+      ]);
+      expect(controller.tableCellSelection?.hasTextSelection, isTrue);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-table-text-selection')),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets('RhwpNativeEditor edit ribbon selects all body text', (
     tester,
   ) async {

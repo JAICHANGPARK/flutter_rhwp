@@ -4974,6 +4974,64 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     final tableSelection = _controller.tableCellSelection;
     if (tableSelection != null) {
       if (tableSelection.isTextEditing) {
+        final activeCellIndex = tableSelection.activeCellIndex;
+        final selectedRange = _editingTableCellTextSelectionRange(
+          tableSelection,
+        );
+        if (activeCellIndex != null && selectedRange != null) {
+          final ranges = await _editingTableCellCharFormatRanges(
+            tableSelection,
+            selectedRange,
+          );
+          if (ranges.isNotEmpty) {
+            final edited = await _runEdit(() async {
+              for (final range in ranges) {
+                await widget.document.applyCharFormatInTableCell(
+                  section: tableSelection.section,
+                  paragraph: tableSelection.paragraph,
+                  controlIndex: tableSelection.controlIndex,
+                  cellIndex: activeCellIndex,
+                  cellParagraph: range.cellParagraph,
+                  startOffset: range.startOffset,
+                  endOffset: range.endOffset,
+                  bold: bold,
+                  italic: italic,
+                  underline: underline,
+                  strikethrough: strikethrough,
+                  superscript: superscript,
+                  subscript: subscript,
+                  emboss: emboss,
+                  engrave: engrave,
+                  fontFamily: fontFamily,
+                  fontSize: fontSize,
+                  textColor: textColor,
+                  shadeColor: shadeColor,
+                );
+              }
+              _controller.clearSelection();
+              _syncTableSelectionFields(tableSelection);
+              _controller.tableCellSelection = tableSelection;
+            });
+            if (edited) {
+              _rememberAppliedCharFormat(
+                bold: bold,
+                italic: italic,
+                underline: underline,
+                strikethrough: strikethrough,
+                superscript: superscript,
+                subscript: subscript,
+                emboss: emboss,
+                engrave: engrave,
+                fontFamily: fontFamily,
+                fontSize: fontSize,
+                textColor: textColor,
+                shadeColor: shadeColor,
+              );
+            }
+            return;
+          }
+        }
+
         _mergePendingCharFormat(
           bold: bold,
           italic: italic,
@@ -6458,6 +6516,71 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       endCellParagraph: end.cellParagraph,
       endOffset: end.offset,
     );
+  }
+
+  Future<List<({int cellParagraph, int startOffset, int endOffset})>>
+  _editingTableCellCharFormatRanges(
+    RhwpTableCellSelection selection,
+    ({
+      int startCellParagraph,
+      int startOffset,
+      int endCellParagraph,
+      int endOffset,
+    })
+    range,
+  ) async {
+    final activeCellIndex = selection.activeCellIndex;
+    if (activeCellIndex == null) {
+      return const [];
+    }
+
+    final paragraphEndOffsets = <int, int>{};
+    for (final segment in await _tableCellTextSegments(selection)) {
+      if (segment.cellIndex != activeCellIndex ||
+          segment.cellParagraph < range.startCellParagraph ||
+          segment.cellParagraph > range.endCellParagraph) {
+        continue;
+      }
+      final current = paragraphEndOffsets[segment.cellParagraph];
+      if (current == null || segment.endOffset > current) {
+        paragraphEndOffsets[segment.cellParagraph] = segment.endOffset;
+      }
+    }
+
+    final ranges = <({int cellParagraph, int startOffset, int endOffset})>[];
+    for (
+      var cellParagraph = range.startCellParagraph;
+      cellParagraph <= range.endCellParagraph;
+      cellParagraph += 1
+    ) {
+      final startOffset = cellParagraph == range.startCellParagraph
+          ? range.startOffset
+          : 0;
+      var endOffset = cellParagraph == range.endCellParagraph
+          ? range.endOffset
+          : paragraphEndOffsets[cellParagraph];
+      if (endOffset == null) {
+        try {
+          endOffset = await widget.document.cellParagraphLength(
+            section: selection.section,
+            paragraph: selection.paragraph,
+            controlIndex: selection.controlIndex,
+            cellIndex: activeCellIndex,
+            cellParagraph: cellParagraph,
+          );
+        } catch (_) {
+          endOffset = null;
+        }
+      }
+      if (endOffset != null && endOffset > startOffset) {
+        ranges.add((
+          cellParagraph: cellParagraph,
+          startOffset: startOffset,
+          endOffset: endOffset,
+        ));
+      }
+    }
+    return ranges;
   }
 
   Future<RhwpTableCellSelection?> _deleteEditingTableCellTextSelection(
@@ -9569,6 +9692,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   List<PopupMenuEntry<_EditorContextMenuAction>> _contextMenuItems() {
     final hasSelection = !_controller.selection.isCollapsed;
     final hasTableSelection = _controller.tableCellSelection != null;
+    final hasTableTextSelection =
+        _controller.tableCellSelection?.hasTextSelection ?? false;
     final hasObjectSelection = _controller.objectSelection != null;
 
     if (hasObjectSelection) {
@@ -9667,6 +9792,39 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           label: '붙여넣기',
           enabled: !_busy,
         ),
+        if (hasTableTextSelection) ...[
+          const PopupMenuDivider(),
+          _contextMenuItem(
+            action: _EditorContextMenuAction.bold,
+            icon: Icons.format_bold,
+            label: '굵게',
+            enabled: !_busy,
+          ),
+          _contextMenuItem(
+            action: _EditorContextMenuAction.italic,
+            icon: Icons.format_italic,
+            label: '기울임',
+            enabled: !_busy,
+          ),
+          _contextMenuItem(
+            action: _EditorContextMenuAction.underline,
+            icon: Icons.format_underlined,
+            label: '밑줄',
+            enabled: !_busy,
+          ),
+          _contextMenuItem(
+            action: _EditorContextMenuAction.strikethrough,
+            icon: Icons.format_strikethrough,
+            label: '취소선',
+            enabled: !_busy,
+          ),
+          _contextMenuItem(
+            action: _EditorContextMenuAction.charShape,
+            icon: Icons.text_fields,
+            label: '글자 모양',
+            enabled: !_busy,
+          ),
+        ],
         const PopupMenuDivider(),
         _contextMenuItem(
           action: _EditorContextMenuAction.insertTableRowAbove,
