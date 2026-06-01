@@ -86,6 +86,9 @@
   masks and collapsed caret positions before slow Rust delete commands finish.
 * Changed multi-paragraph Flutter-native table-cell text cut and paste
   replacement previews to split pending deletion masks per cell paragraph.
+* Changed multi-paragraph Flutter-native table-cell keyboard delete previews to
+  split pending deletion masks per cell paragraph before Rust range deletion
+  commands finish.
 * Added Flutter-native select-all behavior while editing table-cell text, so
   `Ctrl+A`/`Cmd+A` selects the active cell's internal text instead of body text.
 * Changed Flutter-native table-cell search results and replacements to use the

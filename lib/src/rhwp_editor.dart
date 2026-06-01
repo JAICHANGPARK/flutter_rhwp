@@ -7575,25 +7575,38 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       isTextEditing: true,
     );
     if (current.hasTextSelection) {
-      final deletedTextRange = _pendingTableCellDeletionRange(current);
-      final edited = await _runEdit(() async {
-        final nextSelection = await _deleteEditingTableCellTextSelection(
-          current,
+      final deletedTextOverlays = await _pendingTableCellDeletionOverlays(
+        current,
+      );
+      final nextSelection = _tableCellPasteStartSelection(current);
+      _setTableSelectionForPendingText(nextSelection);
+      for (final overlay in deletedTextOverlays) {
+        _recordPendingDeletionOverlay(
+          overlay.range,
+          cellContext: overlay.cellContext,
         );
-        if (nextSelection == null) {
-          return;
-        }
-        _syncTableSelectionFields(nextSelection);
-        _controller.tableCellSelection = nextSelection;
-      }, deferRefresh: true);
-      if (edited) {
-        if (deletedTextRange != null) {
-          _recordPendingDeletionOverlay(
-            deletedTextRange,
-            cellContext: _pendingTextCellContext(current),
+      }
+      final edited = await _runEdit(
+        () async {
+          final deletedSelection = await _deleteEditingTableCellTextSelection(
+            current,
           );
-        }
+          if (deletedSelection == null) {
+            return;
+          }
+          _syncTableSelectionFields(deletedSelection);
+          _controller.tableCellSelection = deletedSelection;
+        },
+        deferRefresh: true,
+        visibleBusy: false,
+      );
+      if (edited) {
         _focusEditor();
+      } else {
+        _cancelDeferredEditRefresh();
+        if (mounted) {
+          setState(() {});
+        }
       }
       return;
     }
@@ -8235,25 +8248,38 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       isTextEditing: true,
     );
     if (current.hasTextSelection) {
-      final deletedTextRange = _pendingTableCellDeletionRange(current);
-      final edited = await _runEdit(() async {
-        final nextSelection = await _deleteEditingTableCellTextSelection(
-          current,
+      final deletedTextOverlays = await _pendingTableCellDeletionOverlays(
+        current,
+      );
+      final nextSelection = _tableCellPasteStartSelection(current);
+      _setTableSelectionForPendingText(nextSelection);
+      for (final overlay in deletedTextOverlays) {
+        _recordPendingDeletionOverlay(
+          overlay.range,
+          cellContext: overlay.cellContext,
         );
-        if (nextSelection == null) {
-          return;
-        }
-        _syncTableSelectionFields(nextSelection);
-        _controller.tableCellSelection = nextSelection;
-      }, deferRefresh: true);
-      if (edited) {
-        if (deletedTextRange != null) {
-          _recordPendingDeletionOverlay(
-            deletedTextRange,
-            cellContext: _pendingTextCellContext(current),
+      }
+      final edited = await _runEdit(
+        () async {
+          final deletedSelection = await _deleteEditingTableCellTextSelection(
+            current,
           );
-        }
+          if (deletedSelection == null) {
+            return;
+          }
+          _syncTableSelectionFields(deletedSelection);
+          _controller.tableCellSelection = deletedSelection;
+        },
+        deferRefresh: true,
+        visibleBusy: false,
+      );
+      if (edited) {
         _focusEditor();
+      } else {
+        _cancelDeferredEditRefresh();
+        if (mounted) {
+          setState(() {});
+        }
       }
       return;
     }
