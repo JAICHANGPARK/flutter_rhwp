@@ -8410,6 +8410,198 @@ void main() {
     ]);
   });
 
+  testWidgets(
+    'RhwpNativeEditor context menu applies pending character format to input',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      controller.cursor = const RhwpCursorPosition(offset: 2);
+      await tester.pump();
+
+      final pageFinder = find.byType(SvgPicture);
+      final pageTopLeft = tester.getTopLeft(pageFinder);
+      final pageSize = tester.getSize(pageFinder);
+      final menuPoint =
+          pageTopLeft +
+          Offset(pageSize.width * 105 / 240, pageSize.height * 48 / 180);
+
+      await tester.tapAt(menuPoint, buttons: kSecondaryMouseButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('굵게'), findsOneWidget);
+      await tester.tap(find.text('굵게'));
+      await tester.pumpAndSettle();
+
+      expect(changedCalls, 0);
+      expect(session.commands, isEmpty);
+
+      await tester.tapAt(
+        tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+            const Offset(1, 6),
+      );
+      await tester.pump();
+
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: 'Z',
+          selection: TextSelection.collapsed(offset: 1),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(changedCalls, 0);
+      expect(session.commands.map(jsonDecode), [
+        {
+          'type': 'insertText',
+          'section': 0,
+          'paragraph': 0,
+          'offset': 2,
+          'text': 'Z',
+        },
+        {
+          'type': 'applyCharFormatRange',
+          'section': 0,
+          'startParagraph': 0,
+          'startOffset': 2,
+          'endParagraph': 0,
+          'endOffset': 3,
+          'properties': {'bold': true},
+        },
+      ]);
+
+      await _releaseTextInputAction(tester);
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+    },
+  );
+
+  testWidgets(
+    'RhwpNativeEditor context menu character shape sets pending format at caret',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      controller.cursor = const RhwpCursorPosition(offset: 2);
+      await tester.pump();
+
+      final pageFinder = find.byType(SvgPicture);
+      final pageTopLeft = tester.getTopLeft(pageFinder);
+      final pageSize = tester.getSize(pageFinder);
+      final menuPoint =
+          pageTopLeft +
+          Offset(pageSize.width * 105 / 240, pageSize.height * 48 / 180);
+
+      await tester.tapAt(menuPoint, buttons: kSecondaryMouseButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('글자 모양'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(session.commands, isEmpty);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-char-shape-font-size-field')),
+        '12.5',
+      );
+      await tester.tap(find.byKey(const ValueKey('rhwp-char-shape-bold')));
+      await tester.tap(find.byKey(const ValueKey('rhwp-char-shape-apply')));
+      await tester.pumpAndSettle();
+
+      expect(changedCalls, 0);
+      expect(session.commands, isEmpty);
+
+      await tester.tapAt(
+        tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+            const Offset(1, 6),
+      );
+      await tester.pump();
+
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: 'Q',
+          selection: TextSelection.collapsed(offset: 1),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(changedCalls, 0);
+      expect(session.commands.map(jsonDecode), [
+        {
+          'type': 'insertText',
+          'section': 0,
+          'paragraph': 0,
+          'offset': 2,
+          'text': 'Q',
+        },
+        {
+          'type': 'applyCharFormatRange',
+          'section': 0,
+          'startParagraph': 0,
+          'startOffset': 2,
+          'endParagraph': 0,
+          'endOffset': 3,
+          'properties': {
+            'bold': true,
+            'italic': false,
+            'underline': false,
+            'strikethrough': false,
+            'superscript': false,
+            'subscript': false,
+            'emboss': false,
+            'engrave': false,
+            'fontFamily': '함초롬바탕',
+            'fontSize': 1250,
+            'textColor': '#000000',
+            'shadeColor': '#ffffff',
+          },
+        },
+      ]);
+
+      await _releaseTextInputAction(tester);
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+    },
+  );
+
   testWidgets('RhwpNativeEditor context menu inserts body objects and breaks', (
     tester,
   ) async {
@@ -8630,6 +8822,11 @@ void main() {
   testWidgets('RhwpNativeEditor context menu runs table cell actions', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(1200, 2200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final controller = RhwpEditorController();
     final session = _FakeRhwpSession(pageCountValue: 1);
     session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
@@ -9097,7 +9294,7 @@ void main() {
     expect(caretFinder, findsOneWidget);
     expect(tester.widget<Opacity>(opacityFinder).opacity, 1);
 
-    await tester.pump(const Duration(milliseconds: 150));
+    await tester.pump(const Duration(milliseconds: 550));
 
     expect(caretFinder, findsOneWidget);
     expect(tester.widget<Opacity>(opacityFinder).opacity, 0);
@@ -11031,6 +11228,10 @@ void main() {
       'properties': {'fontSize': 1100},
     });
 
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-font-size-decrease')),
+    );
+    await tester.pump();
     await tester.tap(
       find.byKey(const ValueKey('rhwp-editor-font-size-decrease')),
     );
@@ -11553,6 +11754,11 @@ void main() {
   testWidgets('RhwpNativeEditor applies character shape dialog values', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(1200, 2200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final controller = RhwpEditorController();
     final session = _FakeRhwpSession(pageCountValue: 1);
     final document = RhwpDocument.fromSession(session);
@@ -11580,6 +11786,10 @@ void main() {
     await tester.pump();
 
     await tester.tap(find.text('서식'));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-character-shape')),
+    );
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('rhwp-editor-character-shape')));
     await tester.pumpAndSettle();
@@ -11666,6 +11876,10 @@ void main() {
     await _pumpDocumentFrame(tester);
 
     await tester.tap(find.text('서식'));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-character-shape')),
+    );
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('rhwp-editor-character-shape')));
     await tester.pumpAndSettle();
@@ -12909,8 +13123,10 @@ void main() {
         endColumn: 3,
         activeCellIndex: 7,
         activeCellParagraph: 0,
-        activeOffset: 1,
+        activeOffset: 4,
         isTextEditing: true,
+        selectionBaseCellParagraph: 0,
+        selectionBaseOffset: 1,
       ),
     );
     expect(controller.selection.isCollapsed, isTrue);

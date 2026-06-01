@@ -17,6 +17,9 @@
   presets, paragraph insertion, page breaks, and column breaks.
 * Added Flutter-native body context-menu reference insertion actions for
   footnotes, equations, and bookmarks.
+* Enabled Flutter-native body context-menu character formatting at a collapsed
+  caret, including pending character-shape dialog values for the next inserted
+  text.
 * Added upstream-style Flutter-native table object/cell mode switching: Escape
   promotes selected cells to a table object, and Enter/F5 re-enters cell
   selection.

@@ -5696,9 +5696,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   }
 
   Future<void> _showCharShapeDialog() async {
-    if (_busy ||
-        (_controller.selection.isCollapsed &&
-            _controller.tableCellSelection == null)) {
+    if (_busy) {
       return;
     }
 
@@ -10627,31 +10625,31 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         action: _EditorContextMenuAction.bold,
         icon: Icons.format_bold,
         label: '굵게',
-        enabled: hasSelection && !_busy,
+        enabled: !_busy,
       ),
       _contextMenuItem(
         action: _EditorContextMenuAction.italic,
         icon: Icons.format_italic,
         label: '기울임',
-        enabled: hasSelection && !_busy,
+        enabled: !_busy,
       ),
       _contextMenuItem(
         action: _EditorContextMenuAction.underline,
         icon: Icons.format_underlined,
         label: '밑줄',
-        enabled: hasSelection && !_busy,
+        enabled: !_busy,
       ),
       _contextMenuItem(
         action: _EditorContextMenuAction.strikethrough,
         icon: Icons.format_strikethrough,
         label: '취소선',
-        enabled: hasSelection && !_busy,
+        enabled: !_busy,
       ),
       _contextMenuItem(
         action: _EditorContextMenuAction.charShape,
         icon: Icons.text_fields,
         label: '글자 모양',
-        enabled: hasSelection && !_busy,
+        enabled: !_busy,
       ),
       const PopupMenuDivider(),
       _contextMenuItem(
