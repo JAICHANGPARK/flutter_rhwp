@@ -15083,6 +15083,124 @@ void main() {
     ]);
   });
 
+  testWidgets(
+    'RhwpNativeEditor previews multiline body paste while insert is pending',
+    (tester) async {
+      final clipboard = _MockClipboard();
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        clipboard.handleMethodCall,
+      );
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      final insertGate = Completer<void>();
+      session.commandGates['insertText'] = insertGate;
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      addTearDown(() {
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        );
+      });
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      await tester.tapAt(
+        tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+            const Offset(1, 6),
+      );
+      await tester.pump();
+
+      controller.cursor = const RhwpCursorPosition(offset: 1);
+      session.renderedPages.clear();
+      await Clipboard.setData(const ClipboardData(text: 'AA\nBB'));
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      await tester.pump();
+
+      expect(changedCalls, 0);
+      expect(session.renderedPages, isEmpty);
+      expect(
+        controller.cursor,
+        const RhwpCursorPosition(paragraph: 1, offset: 2),
+      );
+      expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+        'saveSnapshot',
+      ]);
+      expect(session.commands.map(jsonDecode), [
+        {
+          'type': 'insertText',
+          'section': 0,
+          'paragraph': 0,
+          'offset': 1,
+          'text': 'AA',
+        },
+      ]);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
+        findsOneWidget,
+      );
+      expect(find.text('AA'), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump();
+
+      expect(changedCalls, 0);
+      expect(session.renderedPages, isEmpty);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
+        findsOneWidget,
+      );
+
+      insertGate.complete();
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      expect(session.commands.map(jsonDecode), [
+        {
+          'type': 'insertText',
+          'section': 0,
+          'paragraph': 0,
+          'offset': 1,
+          'text': 'AA',
+        },
+        {'type': 'splitParagraph', 'section': 0, 'paragraph': 0, 'offset': 3},
+        {
+          'type': 'insertText',
+          'section': 0,
+          'paragraph': 1,
+          'offset': 0,
+          'text': 'BB',
+        },
+      ]);
+      expect(changedCalls, 0);
+      expect(session.renderedPages, isEmpty);
+
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+      expect(session.renderedPages, [0]);
+    },
+  );
+
   testWidgets('RhwpNativeEditor replaces multi-paragraph selection', (
     tester,
   ) async {

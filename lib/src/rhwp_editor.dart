@@ -3264,43 +3264,85 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
-    await _runEdit(() async {
-      final selection = _controller.selection;
-      var cursor = selection.isCollapsed
-          ? _controller.cursor
-          : selection.normalizedStart;
-      if (!selection.isCollapsed) {
-        await _deleteSelectedText(selection);
-      }
+    _clipboardDomain = _EditorClipboardDomain.text;
+    _clearHtmlClipboard();
 
-      for (var index = 0; index < lines.length; index += 1) {
-        final line = lines[index];
-        if (line.isNotEmpty) {
-          await widget.document.insertText(
-            section: cursor.section,
-            paragraph: cursor.paragraph,
-            offset: cursor.offset,
-            text: line,
-          );
-          await _applyPendingCharFormatToInsertedText(
-            cursor: cursor,
-            text: line,
-          );
-          cursor = cursor.copyWith(offset: cursor.offset + line.length);
+    final selection = _controller.selection;
+    final pasteStart = selection.isCollapsed
+        ? _controller.cursor
+        : selection.normalizedStart;
+    final optimisticCursor = _cursorAfterMultiParagraphPaste(pasteStart, lines);
+    if (!selection.isCollapsed) {
+      _recordPendingDeletionOverlay(selection);
+    }
+    if (lines.first.isNotEmpty) {
+      _recordPendingTextOverlay(pasteStart, lines.first);
+    }
+    _setCursorForPendingText(optimisticCursor);
+
+    final pasted = await _runEdit(
+      () async {
+        var cursor = pasteStart;
+        if (!selection.isCollapsed) {
+          await _deleteSelectedText(selection);
         }
 
-        if (index < lines.length - 1) {
-          await widget.document.splitParagraph(
-            section: cursor.section,
-            paragraph: cursor.paragraph,
-            offset: cursor.offset,
-          );
-          cursor = cursor.copyWith(paragraph: cursor.paragraph + 1, offset: 0);
-        }
-      }
+        for (var index = 0; index < lines.length; index += 1) {
+          final line = lines[index];
+          if (line.isNotEmpty) {
+            await widget.document.insertText(
+              section: cursor.section,
+              paragraph: cursor.paragraph,
+              offset: cursor.offset,
+              text: line,
+            );
+            await _applyPendingCharFormatToInsertedText(
+              cursor: cursor,
+              text: line,
+            );
+            cursor = cursor.copyWith(offset: cursor.offset + line.length);
+          }
 
-      _controller.cursor = cursor;
-    });
+          if (index < lines.length - 1) {
+            await widget.document.splitParagraph(
+              section: cursor.section,
+              paragraph: cursor.paragraph,
+              offset: cursor.offset,
+            );
+            cursor = cursor.copyWith(
+              paragraph: cursor.paragraph + 1,
+              offset: 0,
+            );
+          }
+        }
+
+        _controller.cursor = cursor;
+      },
+      deferRefresh: true,
+      visibleBusy: false,
+    );
+    if (!pasted) {
+      _cancelDeferredEditRefresh();
+      if (mounted) {
+        setState(() {});
+      }
+    }
+  }
+
+  RhwpCursorPosition _cursorAfterMultiParagraphPaste(
+    RhwpCursorPosition start,
+    List<String> lines,
+  ) {
+    var paragraph = start.paragraph;
+    var offset = start.offset;
+    for (var index = 0; index < lines.length; index += 1) {
+      offset += lines[index].length;
+      if (index < lines.length - 1) {
+        paragraph += 1;
+        offset = 0;
+      }
+    }
+    return start.copyWith(paragraph: paragraph, offset: offset);
   }
 
   Future<void> _selectAllText() async {

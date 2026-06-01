@@ -525,6 +525,9 @@
   editing the document.
 * Changed Flutter-native body paste to convert multiline clipboard text into
   paragraph split and insert commands instead of inserting raw newline text.
+* Changed multiline Flutter-native body paste to show the first inserted line
+  and final logical caret immediately while slow Rust `insertText` and
+  `splitParagraph` commands are still pending.
 * Added Flutter-native double-click word selection based on page-layer text run
   hit testing.
 * Added Flutter-native triple-click paragraph selection using the same
