@@ -6665,6 +6665,53 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
   }
 
+  Future<void> _moveTableCellCursorToParagraphBoundary({
+    required bool end,
+  }) async {
+    final tableSelection = _editableTableCellSelection;
+    final activeCellIndex = tableSelection?.activeCellIndex;
+    if (tableSelection == null ||
+        activeCellIndex == null ||
+        !tableSelection.isTextEditing ||
+        _busy) {
+      return;
+    }
+
+    final current = tableSelection.copyWith(
+      activeOffset: _parseNonNegative(_offsetController.text),
+      isTextEditing: true,
+    );
+    try {
+      final nextOffset = end
+          ? await _tableCellParagraphEndOffsetFor(current) ??
+                await widget.document.cellParagraphLength(
+                  section: current.section,
+                  paragraph: current.paragraph,
+                  controlIndex: current.controlIndex,
+                  cellIndex: activeCellIndex,
+                  cellParagraph: current.activeCellParagraph,
+                )
+          : 0;
+      if (!mounted || nextOffset == current.activeOffset) {
+        return;
+      }
+
+      final nextSelection = current.copyWith(
+        activeOffset: nextOffset,
+        isTextEditing: true,
+      );
+      _syncTableSelectionFields(nextSelection);
+      _controller.tableCellSelection = nextSelection;
+      _focusEditor();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    }
+  }
+
   Future<void> _deleteWordInSelectedTableCell({required bool backward}) async {
     final tableSelection = _editableTableCellSelection;
     final activeCellIndex = tableSelection?.activeCellIndex;
@@ -9317,9 +9364,17 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         unawaited(_moveCursorByPage(1, extendSelection: extendSelection));
         return KeyEventResult.handled;
       case LogicalKeyboardKey.home:
+        if (_controller.tableCellSelection?.isTextEditing == true) {
+          unawaited(_moveTableCellCursorToParagraphBoundary(end: false));
+          return KeyEventResult.handled;
+        }
         unawaited(_moveCursorToLineStart(extendSelection: extendSelection));
         return KeyEventResult.handled;
       case LogicalKeyboardKey.end:
+        if (_controller.tableCellSelection?.isTextEditing == true) {
+          unawaited(_moveTableCellCursorToParagraphBoundary(end: true));
+          return KeyEventResult.handled;
+        }
         unawaited(_moveCursorToLineEnd(extendSelection: extendSelection));
         return KeyEventResult.handled;
       case LogicalKeyboardKey.tab:
