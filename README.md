@@ -18,6 +18,7 @@ documents.
 - Use `RhwpViewer` for Flutter-native viewing.
 - Use `RhwpFullEditor` for the upstream Web editor UI.
 - Use `RhwpNativeEditor` for the Flutter widget editor track.
+- Evaluate table formulas from the Flutter-native table ribbon or the Dart API.
 - Keep native-editor typing, IME composing, caret, and selection overlays
   separate from the rendered SVG page surface to reduce refresh churn on large
   documents.
@@ -215,6 +216,15 @@ await document.resizeTableCells(
   ],
 );
 
+await document.evaluateTableFormula(
+  section: 0,
+  paragraph: 0,
+  controlIndex: 0,
+  row: 1,
+  column: 0,
+  formula: '=SUM(A1:B1)',
+);
+
 await document.moveTableOffset(
   section: 0,
   paragraph: 0,
@@ -361,7 +371,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   column deletion, and cell
   merge/split/split-into-grid/range split command flow, selected-cell range
   resize through rhwp table resize commands, inline extended table insertion
-  with optional column widths, table properties editing, and
+  with optional column widths, table formula evaluation, table properties
+  editing, and
   selected-cell properties, fill, border, and vertical alignment editing from
   the ribbon and context menu with table-cell hit testing, selected-cell
   highlighting, object/control hit testing, highlighting, pointer drag move and

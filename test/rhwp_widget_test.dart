@@ -2693,6 +2693,75 @@ void main() {
     },
   );
 
+  testWidgets('RhwpNativeEditor evaluates table formulas from table ribbon', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.tableCellSelection = const RhwpTableCellSelection(
+      section: 0,
+      paragraph: 5,
+      controlIndex: 2,
+      startRow: 1,
+      startColumn: 3,
+      endRow: 1,
+      endColumn: 3,
+      activeCellIndex: 7,
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('표'));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-table-formula-field')),
+    );
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-table-formula-field')),
+      '=SUM(A1:B1)',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-evaluate-table-formula')),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+    ]);
+    expect(session.commands.map(jsonDecode).toList(), [
+      {
+        'type': 'evaluateTableFormula',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'row': 1,
+        'column': 3,
+        'formula': '=SUM(A1:B1)',
+        'writeResult': true,
+      },
+    ]);
+  });
+
   testWidgets('RhwpNativeEditor taps table cell to set table edit context', (
     tester,
   ) async {
@@ -11389,6 +11458,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'getCellProperties') {
       return '{"width":5000,"height":3000,"paddingLeft":100,"paddingRight":110,"paddingTop":120,"paddingBottom":130,"verticalAlign":1,"textDirection":0,"isHeader":false,"cellProtect":false}';
+    }
+    if (command is Map && command['type'] == 'evaluateTableFormula') {
+      return '{"ok":true,"result":3,"formula":"=SUM(A1:B1)"}';
     }
     if (command is Map && command['type'] == 'getPageSetup') {
       return '{"width":59528,"height":84189,"marginLeft":8504,"marginRight":8504,"marginTop":5669,"marginBottom":4252,"marginHeader":4252,"marginFooter":4252,"marginGutter":0,"landscape":false,"binding":0}';

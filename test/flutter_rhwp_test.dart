@@ -740,6 +740,31 @@ void main() {
     expect(
       jsonDecode(
         jsonEncode(
+          RhwpCommand.evaluateTableFormula(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            row: 3,
+            column: 4,
+            formula: '=SUM(A1:B1)',
+            writeResult: true,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'evaluateTableFormula',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'row': 3,
+        'column': 4,
+        'formula': '=SUM(A1:B1)',
+        'writeResult': true,
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
           RhwpCommand.deleteTableControl(
             section: 0,
             paragraph: 1,
@@ -2388,6 +2413,26 @@ void main() {
         {'cellIdx': 2, 'widthDelta': 120},
         {'cellIdx': 3, 'heightDelta': -80},
       ],
+    });
+
+    await document.evaluateTableFormula(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      row: 1,
+      column: 2,
+      formula: '=SUM(A1:B1)',
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'evaluateTableFormula',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'row': 1,
+      'column': 2,
+      'formula': '=SUM(A1:B1)',
+      'writeResult': true,
     });
 
     await document.deleteTableControl(

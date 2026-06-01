@@ -672,6 +672,26 @@ impl RhwpSession {
                 .document
                 .resize_table_cells(section, paragraph, control_index, &updates.to_string())
                 .map_err(|error| format!("{error:?}")),
+            RhwpCommand::EvaluateTableFormula {
+                section,
+                paragraph,
+                control_index,
+                row,
+                column,
+                formula,
+                write_result,
+            } => inner
+                .document
+                .evaluate_table_formula(
+                    section,
+                    paragraph,
+                    control_index,
+                    row,
+                    column,
+                    &formula,
+                    write_result,
+                )
+                .map_err(|error| format!("{error:?}")),
             RhwpCommand::DeleteTableControl {
                 section,
                 paragraph,
@@ -1475,6 +1495,17 @@ enum RhwpCommand {
         control_index: u32,
         updates: serde_json::Value,
     },
+    EvaluateTableFormula {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        row: u32,
+        column: u32,
+        formula: String,
+        #[serde(rename = "writeResult", default = "default_true")]
+        write_result: bool,
+    },
     DeleteTableControl {
         section: u32,
         paragraph: u32,
@@ -1773,6 +1804,10 @@ enum RhwpCommand {
     SetFileName {
         name: String,
     },
+}
+
+fn default_true() -> bool {
+    true
 }
 
 fn delete_object_control(
@@ -3087,6 +3122,48 @@ mod tests {
             .expect("cell properties query should be accepted");
         let after: Value = serde_json::from_str(&after).expect("cell properties should be JSON");
         assert_eq!(after["width"].as_i64(), Some(before_width + 120));
+    }
+
+    #[test]
+    fn applies_table_formula_command() {
+        let session =
+            open_bytes(BLANK_2010_HWP.to_vec(), None).expect("vendored sample should open");
+
+        let result = session
+            .apply_command(
+                r#"{"type":"insertTable","section":0,"paragraph":0,"offset":0,"rows":2,"columns":2}"#
+                    .to_string(),
+            )
+            .expect("table insert should be accepted");
+        let result: Value = serde_json::from_str(&result).expect("table result should be JSON");
+        let table_paragraph = result["paraIdx"]
+            .as_u64()
+            .expect("table insert should expose paraIdx");
+
+        session
+            .apply_command(format!(
+                r#"{{"type":"insertTextInTableCell","section":0,"paragraph":{},"controlIndex":0,"cellIndex":0,"cellParagraph":0,"offset":0,"text":"1"}}"#,
+                table_paragraph
+            ))
+            .expect("first cell text insert should be accepted");
+        session
+            .apply_command(format!(
+                r#"{{"type":"insertTextInTableCell","section":0,"paragraph":{},"controlIndex":0,"cellIndex":1,"cellParagraph":0,"offset":0,"text":"2"}}"#,
+                table_paragraph
+            ))
+            .expect("second cell text insert should be accepted");
+
+        let formula_result = session
+            .apply_command(format!(
+                r#"{{"type":"evaluateTableFormula","section":0,"paragraph":{},"controlIndex":0,"row":1,"column":0,"formula":"=SUM(A1:B1)","writeResult":true}}"#,
+                table_paragraph
+            ))
+            .expect("table formula command should be accepted");
+        let formula_result: Value =
+            serde_json::from_str(&formula_result).expect("formula result should be JSON");
+        assert_eq!(formula_result["ok"], true);
+        assert_eq!(formula_result["result"].as_f64(), Some(3.0));
+        assert_eq!(formula_result["formula"], "=SUM(A1:B1)");
     }
 
     #[test]

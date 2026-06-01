@@ -1510,6 +1510,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   final _tableColumnController = TextEditingController(text: '0');
   final _tableEndRowController = TextEditingController(text: '1');
   final _tableEndColumnController = TextEditingController(text: '1');
+  final _tableFormulaController = TextEditingController(text: '=SUM(A1:B1)');
   final _searchController = TextEditingController();
   final _replaceController = TextEditingController();
   TextInputConnection? _textInputConnection;
@@ -1633,6 +1634,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _tableColumnController.dispose();
     _tableEndRowController.dispose();
     _tableEndColumnController.dispose();
+    _tableFormulaController.dispose();
     _searchController.dispose();
     _replaceController.dispose();
     super.dispose();
@@ -3885,6 +3887,35 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         textDirection: result.textDirection,
         isHeader: result.isHeader,
         cellProtect: result.cellProtect,
+      );
+      _controller.tableCellSelection = selection;
+    });
+  }
+
+  Future<void> _evaluateTableFormula() async {
+    if (_busy) {
+      return;
+    }
+
+    final selection = _editableTableCellSelection;
+    final formula = _tableFormulaController.text.trim();
+    if (selection == null || formula.isEmpty) {
+      return;
+    }
+
+    final target = await _activeTableFormulaTarget(selection);
+    if (!mounted) {
+      return;
+    }
+
+    await _runEdit(() async {
+      await widget.document.evaluateTableFormula(
+        section: selection.section,
+        paragraph: selection.paragraph,
+        controlIndex: selection.controlIndex,
+        row: target.row,
+        column: target.column,
+        formula: formula,
       );
       _controller.tableCellSelection = selection;
     });
@@ -6146,6 +6177,21 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     return _tableCellAt(cells, selection.startRow, selection.startColumn);
+  }
+
+  Future<({int row, int column})> _activeTableFormulaTarget(
+    RhwpTableCellSelection selection,
+  ) async {
+    final activeCellIndex = selection.activeCellIndex;
+    if (activeCellIndex != null) {
+      final cells = await _tableCellsForSelection(selection);
+      for (final entry in cells) {
+        if (entry.cell.modelCellIndex == activeCellIndex) {
+          return (row: entry.cell.row, column: entry.cell.column);
+        }
+      }
+    }
+    return (row: selection.startRow, column: selection.startColumn);
   }
 
   RhwpTableCellLayout? _anchorTableCellForSelection(
@@ -8934,6 +8980,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           tableColumnController: _tableColumnController,
           tableEndRowController: _tableEndRowController,
           tableEndColumnController: _tableEndColumnController,
+          tableFormulaController: _tableFormulaController,
           searchController: _searchController,
           searchFocusNode: _searchFocusNode,
           replaceController: _replaceController,
@@ -8984,6 +9031,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onSplitTableCellInto: _splitTableCellInto,
           onTableProperties: _showTablePropertiesDialog,
           onCellProperties: _showCellPropertiesDialog,
+          onEvaluateTableFormula: _evaluateTableFormula,
           onCellFillColor: (fillColor) =>
               _applyTableCellStyle(fillColor: fillColor),
           onCellBorder: () => _applyTableCellStyle(
@@ -11155,6 +11203,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.tableColumnController,
     required this.tableEndRowController,
     required this.tableEndColumnController,
+    required this.tableFormulaController,
     required this.searchController,
     required this.searchFocusNode,
     required this.replaceController,
@@ -11201,6 +11250,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onSplitTableCellInto,
     required this.onTableProperties,
     required this.onCellProperties,
+    required this.onEvaluateTableFormula,
     required this.onCellFillColor,
     required this.onCellBorder,
     required this.onClearCellFill,
@@ -11284,6 +11334,7 @@ class _EditorToolbar extends StatefulWidget {
   final TextEditingController tableColumnController;
   final TextEditingController tableEndRowController;
   final TextEditingController tableEndColumnController;
+  final TextEditingController tableFormulaController;
   final TextEditingController searchController;
   final FocusNode searchFocusNode;
   final TextEditingController replaceController;
@@ -11330,6 +11381,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onSplitTableCellInto;
   final VoidCallback onTableProperties;
   final VoidCallback onCellProperties;
+  final VoidCallback onEvaluateTableFormula;
   final ValueChanged<String> onCellFillColor;
   final VoidCallback onCellBorder;
   final VoidCallback onClearCellFill;
@@ -12360,6 +12412,41 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               tooltip: 'Delete backward',
               icon: Icons.backspace_outlined,
               onPressed: widget.busy ? null : widget.onDeleteBackward,
+            ),
+          ],
+        ),
+      ),
+      _RibbonGroup(
+        label: '계산식',
+        child: Row(
+          children: [
+            SizedBox(
+              width: 160,
+              child: TextField(
+                key: const ValueKey('rhwp-editor-table-formula-field'),
+                controller: widget.tableFormulaController,
+                minLines: 1,
+                maxLines: 1,
+                decoration: const InputDecoration(
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                  labelText: 'Formula',
+                ),
+                onSubmitted: (_) {
+                  if (canEditActiveCell) {
+                    widget.onEvaluateTableFormula();
+                  }
+                },
+              ),
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Evaluate table formula',
+              buttonKey: const ValueKey('rhwp-editor-evaluate-table-formula'),
+              icon: Icons.functions,
+              filled: true,
+              onPressed: canEditActiveCell
+                  ? widget.onEvaluateTableFormula
+                  : null,
             ),
           ],
         ),

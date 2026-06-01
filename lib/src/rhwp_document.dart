@@ -833,6 +833,26 @@ abstract class RhwpCommand {
     required List<RhwpTableCellResize> updates,
   }) = RhwpResizeTableCellsCommand;
 
+  factory RhwpCommand.evaluateTableFormula({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int row,
+    required int column,
+    required String formula,
+    bool writeResult = true,
+  }) {
+    return RhwpEvaluateTableFormulaCommand(
+      section: section,
+      paragraph: paragraph,
+      controlIndex: controlIndex,
+      row: row,
+      column: column,
+      formula: formula,
+      writeResult: writeResult,
+    );
+  }
+
   factory RhwpCommand.deleteTableControl({
     required int section,
     required int paragraph,
@@ -2027,6 +2047,38 @@ class RhwpResizeTableCellsCommand extends RhwpCommand {
     'paragraph': paragraph,
     'controlIndex': controlIndex,
     'updates': [for (final update in updates) update.toJson()],
+  };
+}
+
+class RhwpEvaluateTableFormulaCommand extends RhwpCommand {
+  const RhwpEvaluateTableFormulaCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.row,
+    required this.column,
+    required this.formula,
+    this.writeResult = true,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int row;
+  final int column;
+  final String formula;
+  final bool writeResult;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'evaluateTableFormula',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'row': row,
+    'column': column,
+    'formula': formula,
+    'writeResult': writeResult,
   };
 }
 
@@ -3869,6 +3921,28 @@ class RhwpDocument {
         paragraph: paragraph,
         controlIndex: controlIndex,
         updates: updates,
+      ),
+    );
+  }
+
+  Future<String> evaluateTableFormula({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int row,
+    required int column,
+    required String formula,
+    bool writeResult = true,
+  }) {
+    return apply(
+      RhwpCommand.evaluateTableFormula(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        row: row,
+        column: column,
+        formula: formula,
+        writeResult: writeResult,
       ),
     );
   }
