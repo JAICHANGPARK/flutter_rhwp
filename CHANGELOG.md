@@ -485,6 +485,9 @@
   newly typed text remains visible until the refreshed page SVG finishes
   rendering, including table cell input and a temporary caret at the end of the
   pending text.
+* Changed collapsed body text input to advance the Flutter pending text overlay
+  and caret before a slow Rust `insertText` command finishes, so rapid Space and
+  text entry stays visible without triggering per-character page SVG refresh.
 * Added pending delete masks for Flutter-native body text deletion and
   selection replacement so removed text is hidden until the refreshed page SVG
   finishes rendering.

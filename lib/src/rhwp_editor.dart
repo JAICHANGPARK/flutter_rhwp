@@ -2288,6 +2288,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     String text, {
     bool awaitTextInputBeforeRefresh = false,
     bool visibleBusy = true,
+    RhwpCursorPosition? bodyCursorOverride,
+    bool recordPendingOverlay = true,
   }) async {
     if (text.isEmpty || _busy) {
       return;
@@ -2308,16 +2310,20 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     final edited = await _runEdit(
       () async {
         final selection = _controller.selection;
-        final cursor = selection.isCollapsed
-            ? _controller.cursor
-            : selection.normalizedStart;
+        final cursor =
+            bodyCursorOverride ??
+            (selection.isCollapsed
+                ? _controller.cursor
+                : selection.normalizedStart);
         insertCursor = cursor;
-        if (!selection.isCollapsed) {
-          if (await _deleteSelectedText(selection)) {
-            deletedRange = selection;
+        if (bodyCursorOverride == null) {
+          if (!selection.isCollapsed) {
+            if (await _deleteSelectedText(selection)) {
+              deletedRange = selection;
+            }
+          } else {
+            deletedRange = await _deleteOverwriteText(cursor, text);
           }
-        } else {
-          deletedRange = await _deleteOverwriteText(cursor, text);
         }
         await widget.document.insertText(
           section: cursor.section,
@@ -2342,7 +2348,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       if (deletedRange != null) {
         _recordPendingDeletionOverlay(deletedRange!);
       }
-      _recordPendingTextOverlay(insertCursor, text);
+      if (recordPendingOverlay) {
+        _recordPendingTextOverlay(insertCursor, text);
+      }
     }
   }
 
@@ -2455,6 +2463,15 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
+    final optimisticBodyCursor = _optimisticBodyTextInputCursor(text);
+    if (optimisticBodyCursor != null) {
+      _setCursorForPendingText(
+        optimisticBodyCursor.copyWith(
+          offset: optimisticBodyCursor.offset + text.length,
+        ),
+      );
+      _recordPendingTextOverlay(optimisticBodyCursor, text);
+    }
     if (widget.holdTextRefreshWhileFocused && _isDesktopTextInputPlatform) {
       _textRefreshHeldForFocusedInput = true;
     }
@@ -2476,12 +2493,30 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           text,
           awaitTextInputBeforeRefresh: true,
           visibleBusy: false,
+          bodyCursorOverride: optimisticBodyCursor,
+          recordPendingOverlay: optimisticBodyCursor == null,
         );
       } finally {
         _endTextInputCommit();
       }
     }();
     unawaited(_textInputEditQueue);
+  }
+
+  RhwpCursorPosition? _optimisticBodyTextInputCursor(String text) {
+    if ((_busy && _pendingTextInputCommits <= 0) ||
+        _overwriteMode ||
+        text.contains('\n') ||
+        _editableTableCellSelection != null) {
+      return null;
+    }
+
+    final selection = _controller.selection;
+    if (!selection.isCollapsed) {
+      return null;
+    }
+
+    return _controller.cursor;
   }
 
   Future<void> _insertTextInSelectedTableCell(

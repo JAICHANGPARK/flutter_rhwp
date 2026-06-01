@@ -14086,6 +14086,119 @@ void main() {
     expect(session.renderedPages, [0]);
   });
 
+  testWidgets(
+    'RhwpNativeEditor previews rapid text while an insert command is pending',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      final insertGate = Completer<void>();
+      session.commandGates['insertText'] = insertGate;
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      await tester.tapAt(
+        tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+            const Offset(1, 6),
+      );
+      await tester.pump();
+
+      controller.cursor = const RhwpCursorPosition(offset: 2);
+      session.renderedPages.clear();
+
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: ' ',
+          selection: TextSelection.collapsed(offset: 1),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(changedCalls, 0);
+      expect(session.renderedPages, isEmpty);
+      expect(controller.cursor, const RhwpCursorPosition(offset: 3));
+      expect(session.commands.map(jsonDecode), [
+        {
+          'type': 'insertText',
+          'section': 0,
+          'paragraph': 0,
+          'offset': 2,
+          'text': ' ',
+        },
+      ]);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
+        findsOneWidget,
+      );
+      expect(find.text(' '), findsOneWidget);
+
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: 'A',
+          selection: TextSelection.collapsed(offset: 1),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(changedCalls, 0);
+      expect(session.renderedPages, isEmpty);
+      expect(controller.cursor, const RhwpCursorPosition(offset: 4));
+      expect(session.commands.length, 1);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
+        findsOneWidget,
+      );
+      expect(find.text(' A'), findsOneWidget);
+
+      insertGate.complete();
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      expect(session.commands.map(jsonDecode), [
+        {
+          'type': 'insertText',
+          'section': 0,
+          'paragraph': 0,
+          'offset': 2,
+          'text': ' ',
+        },
+        {
+          'type': 'insertText',
+          'section': 0,
+          'paragraph': 0,
+          'offset': 3,
+          'text': 'A',
+        },
+      ]);
+      expect(changedCalls, 0);
+      expect(session.renderedPages, isEmpty);
+      expect(find.text(' A'), findsOneWidget);
+
+      await _releaseTextInputAction(tester);
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+      expect(session.renderedPages, [0]);
+    },
+  );
+
   testWidgets('RhwpNativeEditor honors custom edit refresh delay', (
     tester,
   ) async {
