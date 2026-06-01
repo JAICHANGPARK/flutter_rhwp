@@ -11446,6 +11446,18 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         case LogicalKeyboardKey.keyJ:
           _applyParagraphFormat(alignment: 'justify');
           return KeyEventResult.handled;
+        case LogicalKeyboardKey.digit1:
+        case LogicalKeyboardKey.numpad1:
+          _applyParagraphFormat(lineSpacing: 100, lineSpacingType: 'Percent');
+          return KeyEventResult.handled;
+        case LogicalKeyboardKey.digit2:
+        case LogicalKeyboardKey.numpad2:
+          _applyParagraphFormat(lineSpacing: 200, lineSpacingType: 'Percent');
+          return KeyEventResult.handled;
+        case LogicalKeyboardKey.digit5:
+        case LogicalKeyboardKey.numpad5:
+          _applyParagraphFormat(lineSpacing: 150, lineSpacingType: 'Percent');
+          return KeyEventResult.handled;
         case LogicalKeyboardKey.home:
           if (_controller.tableCellSelection?.isTextEditing == true) {
             unawaited(

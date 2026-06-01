@@ -13999,6 +13999,68 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor applies line spacing shortcuts', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    controller.selection = const RhwpSelectionRange(
+      start: RhwpCursorPosition(paragraph: 0, offset: 1),
+      end: RhwpCursorPosition(paragraph: 1, offset: 2),
+    );
+    await tester.pump();
+
+    for (final shortcut in const [
+      (key: LogicalKeyboardKey.digit1, lineSpacing: 100),
+      (key: LogicalKeyboardKey.digit2, lineSpacing: 200),
+      (key: LogicalKeyboardKey.digit5, lineSpacing: 150),
+    ]) {
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(shortcut.key);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await _pumpDocumentFrame(tester);
+    }
+
+    expect(changedCalls, 3);
+    expect(session.commands.map(jsonDecode), [
+      for (final lineSpacing in const [100, 200, 150])
+        {
+          'type': 'applyParaFormatRange',
+          'section': 0,
+          'startParagraph': 0,
+          'endParagraph': 1,
+          'properties': {
+            'lineSpacing': lineSpacing,
+            'lineSpacingType': 'Percent',
+          },
+        },
+    ]);
+  });
+
   testWidgets('RhwpNativeEditor increases paragraph indent from ribbon', (
     tester,
   ) async {
