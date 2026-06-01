@@ -73,6 +73,8 @@
   Backspace/Delete remove the selected cell text and typed input replaces it.
 * Wired Flutter-native table-cell text selections into copy/cut and rich HTML
   clipboard export, so only the selected cell text range is copied or removed.
+* Wired Flutter-native table-cell text selections into paste, including rich
+  HTML replacement and multiline plain-text paste through cell paragraph split.
 * Added Flutter-native Up/Down movement while editing table-cell text, using
   page-layer text geometry first and core cell-paragraph metrics as a fallback
   instead of moving the rectangular cell selection.

@@ -5620,6 +5620,247 @@ void main() {
     },
   );
 
+  testWidgets(
+    'RhwpNativeEditor replaces selected table cell text with HTML paste',
+    (tester) async {
+      final clipboard = _MockClipboard();
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        clipboard.handleMethodCall,
+      );
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(
+        _tableCellEditorLayerTreeJson(cellText: 'hello'),
+      );
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      addTearDown(() {
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        );
+      });
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      await tester.tapAt(
+        tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+            const Offset(1, 6),
+      );
+      await tester.pump();
+
+      controller.tableCellSelection = const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+        activeOffset: 4,
+        isTextEditing: true,
+        selectionBaseCellParagraph: 0,
+        selectionBaseOffset: 1,
+      );
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+
+      controller.tableCellSelection = const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+        activeOffset: 5,
+        isTextEditing: true,
+        selectionBaseCellParagraph: 0,
+        selectionBaseOffset: 1,
+      );
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+      expect(controller.tableCellSelection?.activeOffset, 5);
+      expect(controller.tableCellSelection?.hasTextSelection, isFalse);
+      expect(session.commands.map(jsonDecode), [
+        {
+          'type': 'exportSelectionInCellHtml',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'startCellParagraph': 0,
+          'startOffset': 1,
+          'endCellParagraph': 0,
+          'endOffset': 4,
+        },
+        {
+          'type': 'deleteTextInTableCell',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 0,
+          'offset': 1,
+          'count': 4,
+        },
+        {
+          'type': 'pasteHtmlInCell',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 0,
+          'offset': 1,
+          'html':
+              '<html><body><!--StartFragment--><p><span>bc</span></p><!--EndFragment--></body></html>',
+        },
+      ]);
+    },
+  );
+
+  testWidgets(
+    'RhwpNativeEditor pastes multiline text into selected table cell text',
+    (tester) async {
+      final clipboard = _MockClipboard();
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        clipboard.handleMethodCall,
+      );
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(
+        _tableCellEditorLayerTreeJson(cellText: 'hello'),
+      );
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      addTearDown(() {
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        );
+      });
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      await tester.tapAt(
+        tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+            const Offset(1, 6),
+      );
+      await tester.pump();
+
+      controller.tableCellSelection = const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+        activeOffset: 4,
+        isTextEditing: true,
+        selectionBaseCellParagraph: 0,
+        selectionBaseOffset: 1,
+      );
+      await tester.pump();
+      session.commands.clear();
+
+      await Clipboard.setData(const ClipboardData(text: 'A\nB'));
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+      expect(controller.tableCellSelection?.activeCellParagraph, 1);
+      expect(controller.tableCellSelection?.activeOffset, 1);
+      expect(controller.tableCellSelection?.hasTextSelection, isFalse);
+      expect(session.commands.map(jsonDecode), [
+        {
+          'type': 'deleteTextInTableCell',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 0,
+          'offset': 1,
+          'count': 3,
+        },
+        {
+          'type': 'insertTextInTableCell',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 0,
+          'offset': 1,
+          'text': 'A',
+        },
+        {
+          'type': 'splitParagraphInTableCell',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 0,
+          'offset': 2,
+        },
+        {
+          'type': 'insertTextInTableCell',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 1,
+          'offset': 0,
+          'text': 'B',
+        },
+      ]);
+    },
+  );
+
   testWidgets('RhwpNativeEditor pastes clipboard table text across cells', (
     tester,
   ) async {
