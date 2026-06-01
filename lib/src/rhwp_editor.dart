@@ -8969,7 +8969,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         if (wordNavigationPressed) {
           unawaited(_moveCursorByWord(-1, extendSelection: extendSelection));
         } else {
-          _moveCursorHorizontally(-1, extendSelection: extendSelection);
+          unawaited(
+            _moveCursorHorizontally(-1, extendSelection: extendSelection),
+          );
         }
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowRight:
@@ -8988,7 +8990,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         if (wordNavigationPressed) {
           unawaited(_moveCursorByWord(1, extendSelection: extendSelection));
         } else {
-          _moveCursorHorizontally(1, extendSelection: extendSelection);
+          unawaited(
+            _moveCursorHorizontally(1, extendSelection: extendSelection),
+          );
         }
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowUp:
@@ -9117,11 +9121,70 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         character == 'ㅅ';
   }
 
-  void _moveCursorHorizontally(int delta, {required bool extendSelection}) {
+  Future<void> _moveCursorHorizontally(
+    int delta, {
+    required bool extendSelection,
+  }) async {
+    if (delta == 0) {
+      return;
+    }
+
     final current = _controller.selection;
-    final nextOffset = math.max(0, current.end.offset + delta);
-    final next = current.end.copyWith(offset: nextOffset);
-    _setCursorOrSelection(current, next, extendSelection: extendSelection);
+    final cursor = current.end;
+    try {
+      int? paragraphEnd;
+      if (delta < 0 && cursor.offset <= 0) {
+        final target = await _previousParagraphEndFor(cursor);
+        if (!mounted || target == null) {
+          return;
+        }
+        _setCursorOrSelection(
+          current,
+          target.position,
+          extendSelection: extendSelection,
+        );
+        unawaited(_controller.goToPage(target.page));
+        _focusEditor();
+        return;
+      }
+
+      if (delta > 0) {
+        paragraphEnd = await _paragraphEndOffsetFor(cursor);
+        if (paragraphEnd != null && cursor.offset >= paragraphEnd) {
+          final target = await _nextParagraphStartFor(cursor);
+          if (!mounted || target == null) {
+            return;
+          }
+          _setCursorOrSelection(
+            current,
+            target.position,
+            extendSelection: extendSelection,
+          );
+          unawaited(_controller.goToPage(target.page));
+          _focusEditor();
+          return;
+        }
+      }
+
+      if (!mounted) {
+        return;
+      }
+      final nextOffset = math.max(
+        0,
+        paragraphEnd == null
+            ? cursor.offset + delta
+            : math.min(paragraphEnd, cursor.offset + delta),
+      );
+      final next = cursor.copyWith(offset: nextOffset);
+      _setCursorOrSelection(current, next, extendSelection: extendSelection);
+      _focusEditor();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    }
   }
 
   Future<void> _moveCursorByWord(
@@ -9418,6 +9481,79 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         offset: math.min(cursor.offset, target.endOffset),
       ),
       page: target.page,
+    );
+  }
+
+  Future<({RhwpCursorPosition position, int page})?> _previousParagraphEndFor(
+    RhwpCursorPosition cursor,
+  ) async {
+    if (cursor.paragraph <= 0) {
+      return null;
+    }
+
+    final previousParagraph = cursor.paragraph - 1;
+    final paragraphs = await _bodyParagraphs();
+    final previous = _paragraphRelativeTo(paragraphs, cursor, -1);
+    if (previous != null &&
+        previous.section == cursor.section &&
+        previous.paragraph == previousParagraph) {
+      return (
+        position: RhwpCursorPosition(
+          section: previous.section,
+          paragraph: previous.paragraph,
+          offset: previous.endOffset,
+        ),
+        page: previous.page,
+      );
+    }
+
+    final count = await _coreParagraphCount(cursor.section);
+    if (count == null || cursor.paragraph >= count) {
+      return null;
+    }
+    final previousLength =
+        await _coreParagraphLength(
+          cursor.copyWith(paragraph: previousParagraph, offset: 0),
+        ) ??
+        0;
+    return (
+      position: RhwpCursorPosition(
+        section: cursor.section,
+        paragraph: previousParagraph,
+        offset: previousLength,
+      ),
+      page: _controller.currentPage,
+    );
+  }
+
+  Future<({RhwpCursorPosition position, int page})?> _nextParagraphStartFor(
+    RhwpCursorPosition cursor,
+  ) async {
+    final nextParagraph = cursor.paragraph + 1;
+    final paragraphs = await _bodyParagraphs();
+    final next = _paragraphRelativeTo(paragraphs, cursor, 1);
+    if (next != null &&
+        next.section == cursor.section &&
+        next.paragraph == nextParagraph) {
+      return (
+        position: RhwpCursorPosition(
+          section: next.section,
+          paragraph: next.paragraph,
+        ),
+        page: next.page,
+      );
+    }
+
+    final count = await _coreParagraphCount(cursor.section);
+    if (count == null || nextParagraph >= count) {
+      return null;
+    }
+    return (
+      position: RhwpCursorPosition(
+        section: cursor.section,
+        paragraph: nextParagraph,
+      ),
+      page: _controller.currentPage,
     );
   }
 

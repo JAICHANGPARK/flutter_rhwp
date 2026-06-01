@@ -176,6 +176,8 @@ class _RhwpViewerState extends State<RhwpViewer> {
   final _pageKeys = <GlobalKey>[];
   int _resolvedPageCount = 0;
   bool _visiblePageSyncScheduled = false;
+  int? _programmaticScrollTargetPage;
+  int _programmaticScrollRequestId = 0;
 
   @override
   void initState() {
@@ -248,25 +250,28 @@ class _RhwpViewerState extends State<RhwpViewer> {
                 scrollDirection: Axis.horizontal,
                 child: SizedBox(
                   width: width.clamp(320.0, double.infinity).toDouble(),
-                  child: ListView.separated(
-                    controller: _verticalScrollController,
-                    padding: widget.padding,
-                    itemCount: pageCount,
-                    separatorBuilder: (context, index) =>
-                        SizedBox(height: widget.pageGap),
-                    itemBuilder: (context, index) {
-                      return _RhwpSvgPage(
-                        key: _pageKeys[index],
-                        document: widget.document,
-                        page: index,
-                        renderRevision: widget.renderRevision,
-                        svgBuilder: widget.svgBuilder,
-                        pageOverlayBuilder: widget.pageOverlayBuilder,
-                        onPageRendered: widget.onPageRendered,
-                        ignorePageOverlayPointer:
-                            widget.ignorePageOverlayPointer,
-                      );
-                    },
+                  child: NotificationListener<ScrollStartNotification>(
+                    onNotification: _handleScrollStartNotification,
+                    child: ListView.separated(
+                      controller: _verticalScrollController,
+                      padding: widget.padding,
+                      itemCount: pageCount,
+                      separatorBuilder: (context, index) =>
+                          SizedBox(height: widget.pageGap),
+                      itemBuilder: (context, index) {
+                        return _RhwpSvgPage(
+                          key: _pageKeys[index],
+                          document: widget.document,
+                          page: index,
+                          renderRevision: widget.renderRevision,
+                          svgBuilder: widget.svgBuilder,
+                          pageOverlayBuilder: widget.pageOverlayBuilder,
+                          onPageRendered: widget.onPageRendered,
+                          ignorePageOverlayPointer:
+                              widget.ignorePageOverlayPointer,
+                        );
+                      },
+                    ),
                   ),
                 ),
               );
@@ -298,6 +303,15 @@ class _RhwpViewerState extends State<RhwpViewer> {
     _scheduleVisiblePageSync();
   }
 
+  bool _handleScrollStartNotification(ScrollStartNotification notification) {
+    if (notification.dragDetails != null &&
+        _programmaticScrollTargetPage != null) {
+      _programmaticScrollTargetPage = null;
+      _scheduleVisiblePageSync();
+    }
+    return false;
+  }
+
   void _scheduleVisiblePageSync() {
     if (_visiblePageSyncScheduled) {
       return;
@@ -312,7 +326,9 @@ class _RhwpViewerState extends State<RhwpViewer> {
   }
 
   void _syncVisiblePageToController() {
-    if (_resolvedPageCount <= 0 || !_verticalScrollController.hasClients) {
+    if (_resolvedPageCount <= 0 ||
+        !_verticalScrollController.hasClients ||
+        _programmaticScrollTargetPage != null) {
       return;
     }
 
@@ -363,39 +379,45 @@ class _RhwpViewerState extends State<RhwpViewer> {
     }
 
     final pageIndex = page.clamp(0, _resolvedPageCount - 1).toInt();
-    final context = _pageKeys[pageIndex].currentContext;
-    if (context != null) {
-      await Scrollable.ensureVisible(
-        context,
-        alignment: 0.05,
-        duration: const Duration(milliseconds: 220),
-      );
-      return;
-    }
+    final requestId = _programmaticScrollRequestId + 1;
+    _programmaticScrollRequestId = requestId;
+    _programmaticScrollTargetPage = pageIndex;
+    try {
+      final initialContext = _pageKeys[pageIndex].currentContext;
 
-    if (!_verticalScrollController.hasClients) {
-      return;
-    }
+      if (_verticalScrollController.hasClients) {
+        final position = _verticalScrollController.position;
+        final denominator = (_resolvedPageCount - 1).clamp(1, 1 << 30);
+        final estimatedOffset =
+            position.maxScrollExtent * pageIndex / denominator;
+        await _verticalScrollController.animateTo(
+          estimatedOffset.clamp(
+            position.minScrollExtent,
+            position.maxScrollExtent,
+          ),
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+        );
+      }
 
-    final position = _verticalScrollController.position;
-    final denominator = (_resolvedPageCount - 1).clamp(1, 1 << 30);
-    final estimatedOffset = position.maxScrollExtent * pageIndex / denominator;
-    await _verticalScrollController.animateTo(
-      estimatedOffset.clamp(position.minScrollExtent, position.maxScrollExtent),
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-    );
-
-    if (!mounted) {
-      return;
-    }
-    final revealedContext = _pageKeys[pageIndex].currentContext;
-    if (revealedContext != null && revealedContext.mounted) {
-      await Scrollable.ensureVisible(
-        revealedContext,
-        alignment: 0.05,
-        duration: const Duration(milliseconds: 120),
-      );
+      if (!mounted) {
+        return;
+      }
+      final revealedContext =
+          _pageKeys[pageIndex].currentContext ?? initialContext;
+      if (revealedContext != null && revealedContext.mounted) {
+        await Scrollable.ensureVisible(
+          revealedContext,
+          alignment: 0.05,
+          duration: const Duration(milliseconds: 120),
+        );
+      }
+    } finally {
+      if (mounted &&
+          _programmaticScrollRequestId == requestId &&
+          _programmaticScrollTargetPage == pageIndex) {
+        _controller._setCurrentPageFromViewer(pageIndex);
+      }
     }
   }
 }

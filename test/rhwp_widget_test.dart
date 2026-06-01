@@ -6473,6 +6473,114 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor moves horizontally across paragraphs', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(
+      _editorLayerTreeJson(firstText: 'abcd', secondText: 'efgh'),
+    );
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    controller.cursor = const RhwpCursorPosition(offset: 4);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.cursor, const RhwpCursorPosition(paragraph: 1));
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(
+      controller.selection,
+      const RhwpSelectionRange(
+        start: RhwpCursorPosition(paragraph: 1),
+        end: RhwpCursorPosition(offset: 4),
+      ),
+    );
+    expect(session.commands, isEmpty);
+  });
+
+  testWidgets('RhwpNativeEditor moves horizontally across empty paragraphs', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    controller.cursor = const RhwpCursorPosition(paragraph: 1);
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.bodyParagraphLengths[0] = 0;
+    final layerTree = _editorLayerTreeJson(
+      firstText: 'abcd',
+      secondText: 'efgh',
+    );
+    final root = layerTree['root']! as Map<String, Object?>;
+    final children = root['children']! as List<Object?>;
+    children.removeAt(0);
+    session.pageLayerTreeJson = jsonEncode(layerTree);
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 1);
+    session.commands.clear();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.cursor, const RhwpCursorPosition());
+    expect(
+      session.commands.map((json) => jsonDecode(json)['type']),
+      containsAll(['getParagraphCount', 'getParagraphLength']),
+    );
+
+    controller.cursor = const RhwpCursorPosition();
+    session.commands.clear();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.cursor, const RhwpCursorPosition(paragraph: 1));
+    expect(
+      session.commands.map((json) => jsonDecode(json)['type']),
+      contains('getParagraphLength'),
+    );
+  });
+
   testWidgets('RhwpNativeEditor moves by word with keyboard modifiers', (
     tester,
   ) async {

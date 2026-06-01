@@ -49,6 +49,10 @@
   handling.
 * Added Flutter-native body paragraph section/count/length metric commands and
   used them as fallbacks for empty paragraph boundary merging.
+* Added Flutter-native left/right arrow paragraph-boundary navigation, including
+  empty paragraph fallback through rhwp core paragraph metrics.
+* Stabilized programmatic viewer page navigation so `goToPage` requests are not
+  immediately overwritten by stale visible-page sync during editor navigation.
 * Added Flutter-native Delete-at-cell-paragraph-end handling to merge the next
   table-cell paragraph.
 * Added Flutter-native bookmark list/add/delete/rename commands and an input
