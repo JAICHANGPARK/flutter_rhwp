@@ -4786,6 +4786,154 @@ void main() {
   });
 
   testWidgets(
+    'RhwpNativeEditor previews selected table cell text replacement while delete is pending',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(
+        _tableCellEditorLayerTreeJson(includeBodyParagraphFive: true),
+      );
+      final deleteGate = Completer<void>();
+      session.commandGates['deleteTextInTableCell'] = deleteGate;
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      final pageFinder = find.byType(SvgPicture);
+      final pageTopLeft = tester.getTopLeft(pageFinder);
+      final pageSize = tester.getSize(pageFinder);
+      await tester.tapAt(
+        tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+            const Offset(1, 6),
+      );
+      await tester.pump();
+
+      controller.tableCellSelection = const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+        activeOffset: 1,
+        isTextEditing: true,
+        selectionBaseCellParagraph: 0,
+        selectionBaseOffset: 3,
+      );
+      await tester.pump();
+      session.commands.clear();
+      session.renderedPages.clear();
+
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: 'Z',
+          selection: TextSelection.collapsed(offset: 1),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(changedCalls, 0);
+      expect(session.renderedPages, isEmpty);
+      expect(controller.tableCellSelection?.activeCellParagraph, 0);
+      expect(controller.tableCellSelection?.activeOffset, 2);
+      expect(controller.tableCellSelection?.hasTextSelection, isFalse);
+      expect(session.commands.map(jsonDecode), [
+        {
+          'type': 'deleteTextInTableCell',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 0,
+          'offset': 1,
+          'count': 2,
+        },
+      ]);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-pending-delete-mask')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .getTopLeft(
+              find.byKey(const ValueKey('rhwp-editor-pending-delete-mask')),
+            )
+            .dy,
+        greaterThan(pageTopLeft.dy + pageSize.height * 0.3),
+      );
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
+        findsOneWidget,
+      );
+      expect(find.text('Z'), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(changedCalls, 0);
+      expect(session.renderedPages, isEmpty);
+
+      deleteGate.complete();
+      await tester.pump();
+      await tester.pump();
+
+      expect(session.commands.map(jsonDecode), [
+        {
+          'type': 'deleteTextInTableCell',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 0,
+          'offset': 1,
+          'count': 2,
+        },
+        {
+          'type': 'insertTextInTableCell',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 0,
+          'offset': 1,
+          'text': 'Z',
+        },
+      ]);
+      expect(changedCalls, 0);
+      expect(session.renderedPages, isEmpty);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-pending-delete-mask')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
+        findsOneWidget,
+      );
+
+      await _releaseTextInputAction(tester);
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+      expect(session.renderedPages, [0]);
+    },
+  );
+
+  testWidgets(
     'RhwpNativeEditor moves table cell cursor vertically with arrow keys',
     (tester) async {
       final controller = RhwpEditorController();
