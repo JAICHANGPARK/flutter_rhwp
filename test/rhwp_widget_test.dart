@@ -10981,6 +10981,93 @@ void main() {
     ]);
   });
 
+  testWidgets(
+    'RhwpNativeEditor applies document styles to selected table cell text paragraphs',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(
+        _tableCellEditorLayerTreeJson(
+          cellText: 'hello',
+          secondCellParagraphText: 'tail',
+        ),
+      );
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      controller.tableCellSelection = const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+        activeCellParagraph: 1,
+        activeOffset: 2,
+        isTextEditing: true,
+        selectionBaseCellParagraph: 0,
+        selectionBaseOffset: 1,
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('서식'));
+      await tester.pump();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('rhwp-editor-style-picker')),
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('rhwp-editor-style-picker')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('rhwp-style-3')));
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+      expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+        'saveSnapshot',
+      ]);
+      expect(session.commands.map(jsonDecode).toList(), [
+        {'type': 'getStyleList'},
+        {
+          'type': 'applyCellStyle',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 0,
+          'styleId': 3,
+        },
+        {
+          'type': 'applyCellStyle',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 1,
+          'styleId': 3,
+        },
+      ]);
+      expect(controller.tableCellSelection?.hasTextSelection, isTrue);
+    },
+  );
+
   testWidgets('RhwpNativeEditor applies paragraph alignment', (tester) async {
     final controller = RhwpEditorController();
     final session = _FakeRhwpSession(pageCountValue: 1);

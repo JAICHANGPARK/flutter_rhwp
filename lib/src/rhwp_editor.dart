@@ -5972,7 +5972,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         return;
       }
 
-      await _runEdit(() async {
+      final edited = await _runEdit(() async {
         for (final target in targets) {
           await widget.document.applyCellStyle(
             section: target.section,
@@ -5985,6 +5985,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         }
         _controller.tableCellSelection = tableSelection;
       });
+      if (edited) {
+        unawaited(_syncCurrentParaFormat());
+      }
       return;
     }
 
@@ -5995,7 +5998,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
-    await _runEdit(() async {
+    final edited = await _runEdit(() async {
       for (
         var paragraph = start.paragraph;
         paragraph <= end.paragraph;
@@ -6011,6 +6014,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           ? RhwpSelectionRange.collapsed(start)
           : RhwpSelectionRange(start: start, end: end);
     });
+    if (edited) {
+      unawaited(_syncCurrentParaFormat());
+    }
   }
 
   Future<List<_TableCellParagraphTarget>> _tableCellParagraphTargets(

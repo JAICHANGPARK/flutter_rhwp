@@ -104,6 +104,9 @@
 * Applied Flutter-native paragraph formatting to every table-cell paragraph
   covered by a selected cell text range, instead of only the active cell
   paragraph.
+* Applied Flutter-native document styles to every table-cell paragraph covered
+  by a selected cell text range, and refreshed the current paragraph-format
+  state after style application.
 * Added Flutter-native Up/Down movement while editing table-cell text, using
   page-layer text geometry first and core cell-paragraph metrics as a fallback
   instead of moving the rectangular cell selection.
