@@ -558,6 +558,7 @@ enum _EditorContextMenuAction {
   strikethrough,
   charShape,
   paraShape,
+  lineSpacingPicker,
   stylePicker,
   alignLeft,
   alignCenter,
@@ -5769,6 +5770,31 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     );
   }
 
+  Future<void> _showLineSpacingPicker() async {
+    if (_busy) {
+      return;
+    }
+
+    final currentValue = _currentParaFormat.lineSpacingType == 'Percent'
+        ? _currentParaFormat.lineSpacing
+        : null;
+    final lineSpacing = await showDialog<int>(
+      context: context,
+      builder: (context) =>
+          _LineSpacingPickerDialog(currentValue: currentValue),
+    );
+    if (!mounted) {
+      return;
+    }
+    if (lineSpacing != null) {
+      await _applyParagraphFormat(
+        lineSpacing: lineSpacing,
+        lineSpacingType: 'Percent',
+      );
+    }
+    _focusEditor();
+  }
+
   Future<void> _showStylePicker() async {
     if (_busy) {
       return;
@@ -10264,6 +10290,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         await _showCharShapeDialog();
       case _EditorContextMenuAction.paraShape:
         await _showParaShapeDialog();
+      case _EditorContextMenuAction.lineSpacingPicker:
+        await _showLineSpacingPicker();
       case _EditorContextMenuAction.stylePicker:
         await _showStylePicker();
       case _EditorContextMenuAction.alignLeft:
@@ -10499,6 +10527,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
             enabled: !_busy,
           ),
           _contextMenuItem(
+            action: _EditorContextMenuAction.lineSpacingPicker,
+            icon: Icons.format_line_spacing,
+            label: '줄 간격',
+            enabled: !_busy,
+          ),
+          _contextMenuItem(
             action: _EditorContextMenuAction.stylePicker,
             icon: Icons.style_outlined,
             label: '스타일',
@@ -10701,6 +10735,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         action: _EditorContextMenuAction.paraShape,
         icon: Icons.format_line_spacing,
         label: '문단 모양',
+        enabled: !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.lineSpacingPicker,
+        icon: Icons.format_line_spacing,
+        label: '줄 간격',
         enabled: !_busy,
       ),
       _contextMenuItem(
@@ -17721,6 +17761,42 @@ class _StylePickerDialog extends StatelessWidget {
               onTap: () => Navigator.of(context).pop(style.id),
             );
           },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
+}
+
+class _LineSpacingPickerDialog extends StatelessWidget {
+  const _LineSpacingPickerDialog({required this.currentValue});
+
+  final int? currentValue;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('줄 간격'),
+      content: SizedBox(
+        width: 280,
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final spacing in _lineSpacingPresets)
+              ChoiceChip(
+                key: ValueKey('rhwp-line-spacing-$spacing'),
+                selected: currentValue == spacing,
+                label: Text('$spacing%'),
+                avatar: const Icon(Icons.format_line_spacing),
+                onSelected: (_) => Navigator.of(context).pop(spacing),
+              ),
+          ],
         ),
       ),
       actions: [
