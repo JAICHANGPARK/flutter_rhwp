@@ -559,6 +559,8 @@ enum _EditorContextMenuAction {
   charShape,
   paraShape,
   lineSpacingPicker,
+  decreaseIndent,
+  increaseIndent,
   stylePicker,
   alignLeft,
   alignCenter,
@@ -5732,17 +5734,22 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     await _applyParagraphFormat(alignment: alignment);
   }
 
-  void _decreaseParagraphIndent() {
+  Future<void> _applyParagraphIndentDelta(int delta) async {
+    if (_busy) {
+      return;
+    }
     final current = _currentParaFormat.marginLeft ?? 0;
-    final next = math.max(0, current - _paragraphIndentStep);
-    unawaited(_applyParagraphFormat(marginLeft: next));
+    final next = math.max(0, current + delta);
+    await _applyParagraphFormat(marginLeft: next);
+    _focusEditor();
+  }
+
+  void _decreaseParagraphIndent() {
+    unawaited(_applyParagraphIndentDelta(-_paragraphIndentStep));
   }
 
   void _increaseParagraphIndent() {
-    final current = _currentParaFormat.marginLeft ?? 0;
-    unawaited(
-      _applyParagraphFormat(marginLeft: current + _paragraphIndentStep),
-    );
+    unawaited(_applyParagraphIndentDelta(_paragraphIndentStep));
   }
 
   Future<void> _showParaShapeDialog() async {
@@ -10292,6 +10299,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         await _showParaShapeDialog();
       case _EditorContextMenuAction.lineSpacingPicker:
         await _showLineSpacingPicker();
+      case _EditorContextMenuAction.decreaseIndent:
+        await _applyParagraphIndentDelta(-_paragraphIndentStep);
+      case _EditorContextMenuAction.increaseIndent:
+        await _applyParagraphIndentDelta(_paragraphIndentStep);
       case _EditorContextMenuAction.stylePicker:
         await _showStylePicker();
       case _EditorContextMenuAction.alignLeft:
@@ -10533,6 +10544,18 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
             enabled: !_busy,
           ),
           _contextMenuItem(
+            action: _EditorContextMenuAction.decreaseIndent,
+            icon: Icons.format_indent_decrease,
+            label: '들여쓰기 줄이기',
+            enabled: !_busy,
+          ),
+          _contextMenuItem(
+            action: _EditorContextMenuAction.increaseIndent,
+            icon: Icons.format_indent_increase,
+            label: '들여쓰기 늘리기',
+            enabled: !_busy,
+          ),
+          _contextMenuItem(
             action: _EditorContextMenuAction.stylePicker,
             icon: Icons.style_outlined,
             label: '스타일',
@@ -10741,6 +10764,18 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         action: _EditorContextMenuAction.lineSpacingPicker,
         icon: Icons.format_line_spacing,
         label: '줄 간격',
+        enabled: !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.decreaseIndent,
+        icon: Icons.format_indent_decrease,
+        label: '들여쓰기 줄이기',
+        enabled: !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.increaseIndent,
+        icon: Icons.format_indent_increase,
+        label: '들여쓰기 늘리기',
         enabled: !_busy,
       ),
       _contextMenuItem(

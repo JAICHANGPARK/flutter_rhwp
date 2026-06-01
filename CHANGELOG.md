@@ -35,6 +35,8 @@
   styling.
 * Added Flutter-native body and table-cell text context-menu line-spacing
   preset actions backed by the existing paragraph format command path.
+* Added Flutter-native body and table-cell text context-menu paragraph indent
+  decrease/increase actions using the shared paragraph format command path.
 * Added upstream-style Flutter-native table object/cell mode switching: Escape
   promotes selected cells to a table object, and Enter/F5 re-enters cell
   selection.

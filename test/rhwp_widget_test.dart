@@ -8940,6 +8940,67 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor context menu decreases paragraph indent', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 2200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1)
+      ..paraPropertiesJson =
+          '{"alignment":"justify","lineSpacing":160.0,"lineSpacingType":"Percent","marginLeft":2000.0,"marginRight":0.0,"indent":0.0,"spacingBefore":0.0,"spacingAfter":0.0,"paraShapeId":0}';
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 900,
+          height: 520,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.selection = const RhwpSelectionRange(
+      start: RhwpCursorPosition(paragraph: 0, offset: 1),
+      end: RhwpCursorPosition(paragraph: 1, offset: 2),
+    );
+    await tester.pump();
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    final menuPoint =
+        pageTopLeft +
+        Offset(pageSize.width * 105 / 240, pageSize.height * 48 / 180);
+
+    await tester.tapAt(menuPoint, buttons: kSecondaryMouseButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('들여쓰기 줄이기'), findsOneWidget);
+    expect(find.text('들여쓰기 늘리기'), findsOneWidget);
+    await tester.tap(find.text('들여쓰기 줄이기'));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.single), {
+      'type': 'applyParaFormatRange',
+      'section': 0,
+      'startParagraph': 0,
+      'endParagraph': 1,
+      'properties': {'marginLeft': 1000},
+    });
+  });
+
   testWidgets('RhwpNativeEditor context menu runs table cell actions', (
     tester,
   ) async {
@@ -9761,6 +9822,77 @@ void main() {
         'cellIndex': 7,
         'cellParagraph': 0,
         'properties': {'lineSpacing': 180, 'lineSpacingType': 'Percent'},
+      });
+    },
+  );
+
+  testWidgets(
+    'RhwpNativeEditor context menu increases table text paragraph indent',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 2200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      controller.tableCellSelection = const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+        activeCellParagraph: 0,
+        activeOffset: 2,
+        isTextEditing: true,
+      );
+      await tester.pump();
+
+      final pageFinder = find.byType(SvgPicture);
+      final pageTopLeft = tester.getTopLeft(pageFinder);
+      final pageSize = tester.getSize(pageFinder);
+      final cellTextPoint =
+          pageTopLeft +
+          Offset(pageSize.width * 118 / 240, pageSize.height * 76 / 180);
+
+      await tester.tapAt(cellTextPoint, buttons: kSecondaryMouseButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('들여쓰기 늘리기'), findsOneWidget);
+      await tester.tap(find.text('들여쓰기 늘리기'));
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+      expect(jsonDecode(session.commands.single), {
+        'type': 'applyParaFormatInTableCell',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'cellIndex': 7,
+        'cellParagraph': 0,
+        'properties': {'marginLeft': 1000},
       });
     },
   );
