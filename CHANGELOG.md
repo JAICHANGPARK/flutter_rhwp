@@ -87,6 +87,8 @@
   text, using the same page-layer word-boundary logic as body text selection.
 * Added Flutter-native triple-click paragraph selection while editing table-cell
   text, scoped to the active cell paragraph.
+* Added Flutter-native drag selection while editing table-cell text, keeping
+  text drags scoped to the active cell instead of rectangular cell selection.
 * Added Flutter-native Up/Down movement while editing table-cell text, using
   page-layer text geometry first and core cell-paragraph metrics as a fallback
   instead of moving the rectangular cell selection.

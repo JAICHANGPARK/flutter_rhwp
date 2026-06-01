@@ -11740,6 +11740,61 @@ class _ObjectHandleAnchor {
   final Offset center;
 }
 
+class _TableCellTextDragAnchor {
+  const _TableCellTextDragAnchor({
+    required this.cell,
+    required this.cellIndex,
+    required this.cellParagraph,
+    required this.offset,
+  });
+
+  factory _TableCellTextDragAnchor.fromHit(
+    RhwpTableCellLayout cell,
+    RhwpTextHitResult hit,
+  ) {
+    final context = hit.cellContext!;
+    return _TableCellTextDragAnchor(
+      cell: cell,
+      cellIndex: context.cellIndex,
+      cellParagraph: context.cellParagraph,
+      offset: hit.offset,
+    );
+  }
+
+  final RhwpTableCellLayout cell;
+  final int cellIndex;
+  final int cellParagraph;
+  final int offset;
+
+  bool matchesHit(RhwpTextHitResult hit) {
+    final context = hit.cellContext;
+    return context != null &&
+        hit.section == cell.section &&
+        hit.paragraph == cell.paragraph &&
+        context.controlIndex == cell.controlIndex &&
+        context.cellIndex == cellIndex;
+  }
+
+  RhwpTableCellSelection selectionTo(RhwpTextHitResult hit) {
+    final context = hit.cellContext!;
+    return RhwpTableCellSelection(
+      section: cell.section,
+      paragraph: cell.paragraph,
+      controlIndex: cell.controlIndex,
+      startRow: cell.row,
+      startColumn: cell.column,
+      endRow: cell.endRow,
+      endColumn: cell.endColumn,
+      activeCellIndex: cellIndex,
+      activeCellParagraph: context.cellParagraph,
+      activeOffset: hit.offset,
+      isTextEditing: true,
+      selectionBaseCellParagraph: cellParagraph,
+      selectionBaseOffset: offset,
+    );
+  }
+}
+
 List<_ObjectHandleAnchor> _objectHandleAnchors(Rect rect) {
   return [
     _ObjectHandleAnchor(_ObjectDragHandle.northWest, rect.topLeft),
@@ -11816,6 +11871,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
   late Future<RhwpLayerTree?> _layerTree;
   RhwpCursorPosition? _dragAnchor;
   RhwpTableCellLayout? _tableDragAnchor;
+  _TableCellTextDragAnchor? _tableTextDragAnchor;
   _ObjectDragSession? _objectDrag;
   Timer? _caretBlinkTimer;
   bool _caretVisible = true;
@@ -11979,11 +12035,13 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
                 _finishObjectDrag();
                 _dragAnchor = null;
                 _tableDragAnchor = null;
+                _tableTextDragAnchor = null;
               },
               onPointerCancel: (_) {
                 _objectDrag = null;
                 _dragAnchor = null;
                 _tableDragAnchor = null;
+                _tableTextDragAnchor = null;
               },
               child: SizedBox.expand(child: child),
             );
@@ -12015,10 +12073,12 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
       final tableTextHit = textHit?.cellContext == null ? null : textHit;
       final currentSelection = widget.tableCellSelection;
       _tableDragAnchor = tableCell;
+      _tableTextDragAnchor = null;
       _dragAnchor = null;
       if (HardwareKeyboard.instance.isShiftPressed &&
           currentSelection != null) {
         _tableDragAnchor = null;
+        _tableTextDragAnchor = null;
         _resetPrimaryClickSequence();
         widget.onTableCellSelection(
           RhwpTableCellSelection.fromSelectionAndCell(
@@ -12043,6 +12103,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
           tree,
         );
         if (paragraphSelection != null) {
+          _tableDragAnchor = null;
           widget.onTableCellSelection(paragraphSelection);
           widget.onFocusRequested();
           return;
@@ -12053,10 +12114,19 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
           tableTextHit,
         );
         if (wordSelection != null) {
+          _tableDragAnchor = null;
           widget.onTableCellSelection(wordSelection);
           widget.onFocusRequested();
           return;
         }
+      }
+
+      if (tableTextHit != null) {
+        _tableDragAnchor = null;
+        _tableTextDragAnchor = _TableCellTextDragAnchor.fromHit(
+          tableCell,
+          tableTextHit,
+        );
       }
 
       widget.onTableCellSelection(
@@ -12071,6 +12141,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     final object = _objectForPoint(localPosition, constraints, tree);
     if (object != null) {
       _tableDragAnchor = null;
+      _tableTextDragAnchor = null;
       _dragAnchor = null;
       widget.onTableCellSelection(null);
       widget.onObjectSelection(
@@ -12081,6 +12152,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     }
 
     _tableDragAnchor = null;
+    _tableTextDragAnchor = null;
     widget.onTableCellSelection(null);
     widget.onObjectSelection(null);
 
@@ -12339,6 +12411,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
       final textHit = _textHitForPoint(localPosition, constraints, tree);
       final tableTextHit = textHit?.cellContext == null ? null : textHit;
       _tableDragAnchor = null;
+      _tableTextDragAnchor = null;
       _dragAnchor = null;
       widget.onTableCellSelection(
         tableTextHit == null
@@ -12352,6 +12425,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     final object = _objectForPoint(localPosition, constraints, tree);
     if (object != null) {
       _tableDragAnchor = null;
+      _tableTextDragAnchor = null;
       _dragAnchor = null;
       widget.onTableCellSelection(null);
       widget.onObjectSelection(
@@ -12362,6 +12436,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     }
 
     _tableDragAnchor = null;
+    _tableTextDragAnchor = null;
     final textHit = _textHitForPoint(localPosition, constraints, tree);
     if (textHit != null && _selectionContainsTextHit(textHit)) {
       widget.onTableCellSelection(null);
@@ -12388,6 +12463,15 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     final objectDrag = _objectDrag;
     if (objectDrag != null) {
       _updateObjectDrag(objectDrag, localPosition, constraints, tree);
+      return;
+    }
+
+    final tableTextAnchor = _tableTextDragAnchor;
+    if (tableTextAnchor != null) {
+      final textHit = _textHitForPoint(localPosition, constraints, tree);
+      if (textHit != null && tableTextAnchor.matchesHit(textHit)) {
+        widget.onTableCellSelection(tableTextAnchor.selectionTo(textHit));
+      }
       return;
     }
 
@@ -12421,6 +12505,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     }
 
     _tableDragAnchor = null;
+    _tableTextDragAnchor = null;
     _dragAnchor = null;
     _objectDrag = _ObjectDragSession(
       handle: handle,
