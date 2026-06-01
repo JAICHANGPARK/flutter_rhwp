@@ -2289,8 +2289,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     bool awaitTextInputBeforeRefresh = false,
     bool visibleBusy = true,
     RhwpCursorPosition? bodyCursorOverride,
+    RhwpSelectionRange? bodySelectionOverride,
     RhwpTableCellSelection? tableSelectionOverride,
     bool recordPendingOverlay = true,
+    bool recordPendingDeletionOverlay = true,
   }) async {
     if (text.isEmpty || _busy) {
       return;
@@ -2312,7 +2314,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     RhwpSelectionRange? deletedRange;
     final edited = await _runEdit(
       () async {
-        final selection = _controller.selection;
+        final selection = bodySelectionOverride ?? _controller.selection;
         final cursor =
             bodyCursorOverride ??
             (selection.isCollapsed
@@ -2348,7 +2350,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       mergeIntoTextInputUndoBatch: awaitTextInputBeforeRefresh,
     );
     if (edited) {
-      if (deletedRange != null) {
+      if (deletedRange != null && recordPendingDeletionOverlay) {
         _recordPendingDeletionOverlay(deletedRange!);
       }
       if (recordPendingOverlay) {
@@ -2467,6 +2469,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     final optimisticBodyCursor = _optimisticBodyTextInputCursor(text);
+    final optimisticBodySelection = _optimisticBodyTextReplacementSelection(
+      text,
+    );
     final optimisticTableSelection = _optimisticTableCellTextInputSelection(
       text,
     );
@@ -2477,6 +2482,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         ),
       );
       _recordPendingTextOverlay(optimisticBodyCursor, text);
+    } else if (optimisticBodySelection != null) {
+      final start = optimisticBodySelection.normalizedStart;
+      _setCursorForPendingText(
+        start.copyWith(offset: start.offset + text.length),
+      );
+      _recordPendingDeletionOverlay(optimisticBodySelection);
+      _recordPendingTextOverlay(start, text);
     } else if (optimisticTableSelection != null) {
       final nextSelection = optimisticTableSelection.copyWith(
         activeOffset: optimisticTableSelection.activeOffset + text.length,
@@ -2516,9 +2528,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           awaitTextInputBeforeRefresh: true,
           visibleBusy: false,
           bodyCursorOverride: optimisticBodyCursor,
+          bodySelectionOverride: optimisticBodySelection,
           tableSelectionOverride: optimisticTableSelection,
           recordPendingOverlay:
-              optimisticBodyCursor == null && optimisticTableSelection == null,
+              optimisticBodyCursor == null &&
+              optimisticBodySelection == null &&
+              optimisticTableSelection == null,
+          recordPendingDeletionOverlay: optimisticBodySelection == null,
         );
       } finally {
         _endTextInputCommit();
@@ -2541,6 +2557,31 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     return _controller.cursor;
+  }
+
+  RhwpSelectionRange? _optimisticBodyTextReplacementSelection(String text) {
+    if ((_busy && _pendingTextInputCommits <= 0) ||
+        _overwriteMode ||
+        text.contains('\n') ||
+        _editableTableCellSelection != null) {
+      return null;
+    }
+
+    final selection = _controller.selection;
+    if (selection.isCollapsed) {
+      return null;
+    }
+
+    final start = selection.normalizedStart;
+    final end = selection.normalizedEnd;
+    if (start.section != end.section || start.paragraph != end.paragraph) {
+      return null;
+    }
+    if (start.offset >= end.offset) {
+      return null;
+    }
+
+    return RhwpSelectionRange(start: start, end: end);
   }
 
   RhwpTableCellSelection? _optimisticTableCellTextInputSelection(String text) {
