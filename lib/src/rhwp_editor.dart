@@ -1033,7 +1033,7 @@ class _EquationDialogResult {
   final int color;
 }
 
-enum _BookmarkDialogAction { add, delete, rename }
+enum _BookmarkDialogAction { add, delete, rename, goTo }
 
 class _BookmarkDialogResult {
   const _BookmarkDialogResult({
@@ -4429,6 +4429,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
+    if (result.action == _BookmarkDialogAction.goTo) {
+      await _goToBookmark(result.bookmark!);
+      return;
+    }
+
     await _runEdit(() async {
       final response = switch (result.action) {
         _BookmarkDialogAction.add => await widget.document.addBookmark(
@@ -4448,9 +4453,50 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           controlIndex: result.bookmark!.controlIndex,
           name: result.name,
         ),
+        _BookmarkDialogAction.goTo => throw StateError(
+          'Bookmark navigation is not a document edit.',
+        ),
       };
       _throwIfCommandRejected(response);
     });
+  }
+
+  Future<void> _goToBookmark(RhwpBookmark bookmark) async {
+    setState(() {
+      _busy = true;
+      _visibleBusy = false;
+      _error = null;
+    });
+    try {
+      final page = await widget.document.pageOfPosition(
+        section: bookmark.section,
+        paragraph: bookmark.paragraph,
+      );
+      if (!mounted) {
+        return;
+      }
+      _controller.clearTableCellSelection();
+      _controller.cursor = RhwpCursorPosition(
+        section: bookmark.section,
+        paragraph: bookmark.paragraph,
+        offset: bookmark.charPosition,
+      );
+      await _controller.goToPage(page);
+      _focusEditor();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _visibleBusy = false;
+        });
+      }
+    }
   }
 
   Future<void> _showFieldsDialog() async {
@@ -18784,6 +18830,11 @@ class _BookmarkDialogState extends State<_BookmarkDialog> {
       ),
       actions: [
         TextButton(
+          key: const ValueKey('rhwp-bookmark-go-to'),
+          onPressed: selectedBookmark == null ? null : _goToBookmark,
+          child: const Text('이동'),
+        ),
+        TextButton(
           key: const ValueKey('rhwp-bookmark-delete'),
           onPressed: selectedBookmark == null ? null : _deleteBookmark,
           child: const Text('삭제'),
@@ -18840,6 +18891,20 @@ class _BookmarkDialogState extends State<_BookmarkDialog> {
       _BookmarkDialogResult(
         action: _BookmarkDialogAction.rename,
         name: _nameController.text.trim(),
+        bookmark: bookmark,
+      ),
+    );
+  }
+
+  void _goToBookmark() {
+    final bookmark = _selectedBookmark;
+    if (bookmark == null) {
+      return;
+    }
+    Navigator.of(context).pop(
+      _BookmarkDialogResult(
+        action: _BookmarkDialogAction.goTo,
+        name: bookmark.name,
         bookmark: bookmark,
       ),
     );

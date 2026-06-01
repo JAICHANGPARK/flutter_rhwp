@@ -948,6 +948,55 @@ void main() {
     ]);
   });
 
+  testWidgets('RhwpNativeEditor insert ribbon jumps to a bookmark', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 8)
+      ..bookmarksJson =
+          '[{"name":"chapter","sec":0,"para":5,"ctrlIdx":2,"charPos":3}]';
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 900,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-bookmark')),
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-bookmark')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-bookmark-chapter')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-bookmark-go-to')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 0);
+    expect(session.historyCommands, isEmpty);
+    expect(
+      controller.cursor,
+      const RhwpCursorPosition(paragraph: 5, offset: 3),
+    );
+    expect(controller.currentPage, 5);
+    expect(session.commands.map(jsonDecode).toList(), [
+      {'type': 'getBookmarks'},
+      {'type': 'getPageOfPosition', 'section': 0, 'paragraph': 5},
+    ]);
+  });
+
   testWidgets('RhwpNativeEditor tools ribbon edits field values', (
     tester,
   ) async {
@@ -18235,6 +18284,8 @@ class _FakeRhwpSession implements rust.RhwpSession {
       '{"fontFamily":"함초롬바탕","fontSize":1000,"bold":false,"italic":false,"underline":false,"strikethrough":false,"superscript":false,"subscript":false,"emboss":false,"engrave":false,"textColor":"#000000","shadeColor":"#ffffff"}';
   String paraPropertiesJson =
       '{"alignment":"justify","lineSpacing":160.0,"lineSpacingType":"Percent","marginLeft":0.0,"marginRight":0.0,"indent":0.0,"spacingBefore":0.0,"spacingAfter":0.0,"paraShapeId":0}';
+  String bookmarksJson =
+      '[{"name":"intro","sec":0,"para":0,"ctrlIdx":2,"charPos":1}]';
   String pageLayerTreeJson = jsonEncode(_editorLayerTreeJson());
   final pageLayerTreeJsonByPage = <int, String>{};
   final bodyParagraphLengths = <int, int>{0: 4, 1: 4};
@@ -18281,7 +18332,14 @@ class _FakeRhwpSession implements rust.RhwpSession {
       return '[{"id":0,"name":"본문","englishName":"Body","type":0,"nextStyleId":0,"paraShapeId":0,"charShapeId":0},{"id":3,"name":"제목 1","englishName":"Heading 1","type":0,"nextStyleId":0,"paraShapeId":1,"charShapeId":1}]';
     }
     if (command is Map && command['type'] == 'getBookmarks') {
-      return '[{"name":"intro","sec":0,"para":0,"ctrlIdx":2,"charPos":1}]';
+      return bookmarksJson;
+    }
+    if (command is Map && command['type'] == 'getPageOfPosition') {
+      final paragraph = command['paragraph'];
+      final page = paragraph is int
+          ? paragraph.clamp(0, pageCountValue - 1).toInt()
+          : 0;
+      return '{"ok":true,"page":$page}';
     }
     if (command is Map && command['type'] == 'getFieldList') {
       return '[{"fieldId":7,"fieldType":"ClickHere","name":"customer","guide":"고객명","command":"ClickHere customer","value":"Old","location":{"section":0,"paragraph":0}}]';

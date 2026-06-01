@@ -26,6 +26,9 @@
   picker for text and background color swatches.
 * Added Flutter-native body and table-cell text context-menu font family and
   font size picker actions.
+* Added Flutter-native bookmark navigation from the bookmark dialog, backed by
+  a new `pageOfPosition` command that resolves a document paragraph to its page
+  without creating an edit history entry.
 * Kept Flutter-native table-cell text editing active while moving to the next
   or previous cell with Tab and Shift+Tab.
 * Localized the Flutter-native bookmark management dialog and covered bookmark

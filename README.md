@@ -187,6 +187,10 @@ await document.addBookmark(
 );
 
 final bookmarks = await document.bookmarks();
+final bookmarkPage = await document.pageOfPosition(
+  section: bookmarks.first.section,
+  paragraph: bookmarks.first.paragraph,
+);
 
 final fields = await document.fields();
 await document.setFieldValue(fieldId: fields.first.fieldId, value: 'Updated');
@@ -428,7 +432,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   insert/delete from the ribbon and body context menu, with shape presets for
   rectangle, ellipse, line, and text box,
   footnote, equation, and bookmark insertion from the input ribbon and body
-  context menu, bookmark list/add/delete/rename through the input ribbon,
+  context menu, bookmark list/add/delete/rename/go-to navigation through the
+  input ribbon,
   page/column break insertion, plus table
   row above/below insertion and row deletion, column left/right insertion and
   column deletion, and cell

@@ -1010,6 +1010,11 @@ abstract class RhwpCommand {
     required int startNumber,
   }) = RhwpInsertNewNumberCommand;
 
+  factory RhwpCommand.getPageOfPosition({
+    required int section,
+    required int paragraph,
+  }) = RhwpGetPageOfPositionCommand;
+
   factory RhwpCommand.getBookmarks() = RhwpGetBookmarksCommand;
 
   factory RhwpCommand.addBookmark({
@@ -2253,6 +2258,23 @@ class RhwpGetBookmarksCommand extends RhwpCommand {
 
   @override
   Map<String, Object?> toJson() => {'type': 'getBookmarks'};
+}
+
+class RhwpGetPageOfPositionCommand extends RhwpCommand {
+  const RhwpGetPageOfPositionCommand({
+    required this.section,
+    required this.paragraph,
+  });
+
+  final int section;
+  final int paragraph;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'getPageOfPosition',
+    'section': section,
+    'paragraph': paragraph,
+  };
 }
 
 class RhwpAddBookmarkCommand extends RhwpCommand {
@@ -4803,6 +4825,20 @@ class RhwpDocument {
         .map((item) => item.cast<String, Object?>())
         .map(RhwpBookmark.fromJson)
         .toList(growable: false);
+  }
+
+  Future<int> pageOfPosition({
+    required int section,
+    required int paragraph,
+  }) async {
+    final result = await apply(
+      RhwpCommand.getPageOfPosition(section: section, paragraph: paragraph),
+    );
+    final decoded = jsonDecode(result);
+    if (decoded is Map) {
+      return _intFromJson(decoded['page']) ?? 0;
+    }
+    return 0;
   }
 
   Future<String> addBookmark({

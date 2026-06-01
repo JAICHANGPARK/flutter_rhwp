@@ -169,6 +169,15 @@ void main() {
     expect(
       jsonDecode(
         jsonEncode(
+          RhwpCommand.getPageOfPosition(section: 0, paragraph: 1).toJson(),
+        ),
+      ),
+      {'type': 'getPageOfPosition', 'section': 0, 'paragraph': 1},
+    );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
           RhwpCommand.addBookmark(
             section: 0,
             paragraph: 1,

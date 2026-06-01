@@ -508,6 +508,10 @@ impl RhwpSession {
                 .document
                 .rename_bookmark(section, paragraph, control_index, &name)
                 .map_err(|error| format!("{error:?}")),
+            RhwpCommand::GetPageOfPosition { section, paragraph } => inner
+                .document
+                .get_page_of_position(section, paragraph)
+                .map_err(|error| format!("{error:?}")),
             RhwpCommand::GetFieldList => Ok(inner.document.get_field_list()),
             RhwpCommand::GetFieldValue { field_id } => inner
                 .document
@@ -1714,6 +1718,10 @@ enum RhwpCommand {
         #[serde(rename = "controlIndex")]
         control_index: u32,
         name: String,
+    },
+    GetPageOfPosition {
+        section: u32,
+        paragraph: u32,
     },
     GetFieldList,
     GetFieldValue {
@@ -3074,6 +3082,12 @@ mod tests {
         let paragraph_length: Value = serde_json::from_str(&paragraph_length)
             .expect("paragraph length result should be JSON");
         assert!(paragraph_length["length"].as_u64().is_some());
+        let page_of_position = session
+            .apply_command(r#"{"type":"getPageOfPosition","section":0,"paragraph":0}"#.to_string())
+            .expect("page-of-position command should be accepted");
+        let page_of_position: Value = serde_json::from_str(&page_of_position)
+            .expect("page-of-position result should be JSON");
+        assert!(page_of_position["page"].as_u64().is_some());
         session
             .apply_command(
                 r#"{"type":"insertFootnote","section":0,"paragraph":0,"offset":4}"#.to_string(),
