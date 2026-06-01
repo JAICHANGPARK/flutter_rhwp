@@ -3182,68 +3182,144 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     var pasted = false;
-    await _runEdit(() async {
-      var pasteSelection = tableSelection.copyWith(
-        activeOffset: _parseNonNegative(_offsetController.text),
-        isTextEditing: true,
+    final initialPasteSelection = tableSelection.copyWith(
+      activeOffset: _parseNonNegative(_offsetController.text),
+      isTextEditing: true,
+    );
+    final optimisticStartSelection = _tableCellPasteStartSelection(
+      initialPasteSelection,
+    );
+    final optimisticEndSelection = _tableCellSelectionAfterMultiParagraphPaste(
+      optimisticStartSelection,
+      lines,
+    );
+    final deletedTextRange = _pendingTableCellDeletionRange(
+      initialPasteSelection,
+    );
+    _setTableSelectionForPendingText(optimisticEndSelection);
+    if (deletedTextRange != null) {
+      _recordPendingDeletionOverlay(
+        deletedTextRange,
+        cellContext: _pendingTextCellContext(optimisticStartSelection),
       );
-      pasteSelection =
-          await _deleteEditingTableCellTextSelection(pasteSelection) ??
-          pasteSelection;
-      var cellParagraph = pasteSelection.activeCellParagraph;
-      var offset = pasteSelection.activeOffset;
+    }
+    if (lines.first.isNotEmpty) {
+      _recordPendingTextOverlay(
+        RhwpCursorPosition(
+          section: optimisticStartSelection.section,
+          paragraph: optimisticStartSelection.paragraph,
+          offset: optimisticStartSelection.activeOffset,
+        ),
+        lines.first,
+        cellContext: _pendingTextCellContext(optimisticStartSelection),
+      );
+    }
 
-      for (var index = 0; index < lines.length; index += 1) {
-        final line = lines[index];
-        if (line.isNotEmpty) {
-          final result = await widget.document.insertTextInTableCell(
-            section: pasteSelection.section,
-            paragraph: pasteSelection.paragraph,
-            controlIndex: pasteSelection.controlIndex,
-            cellIndex: cellIndex,
-            cellParagraph: cellParagraph,
-            offset: offset,
-            text: line,
-          );
-          final nextOffset =
-              _readIntResult(result, 'charOffset') ?? offset + line.length;
-          await _applyPendingCharFormatToInsertedTableCellText(
-            tableSelection: pasteSelection.copyWith(
-              activeCellParagraph: cellParagraph,
-            ),
-            startOffset: offset,
-            endOffset: nextOffset,
-            text: line,
-          );
-          offset = nextOffset;
+    pasted = await _runEdit(
+      () async {
+        var pasteSelection = initialPasteSelection;
+        pasteSelection =
+            await _deleteEditingTableCellTextSelection(pasteSelection) ??
+            pasteSelection;
+        var cellParagraph = pasteSelection.activeCellParagraph;
+        var offset = pasteSelection.activeOffset;
+
+        for (var index = 0; index < lines.length; index += 1) {
+          final line = lines[index];
+          if (line.isNotEmpty) {
+            final result = await widget.document.insertTextInTableCell(
+              section: pasteSelection.section,
+              paragraph: pasteSelection.paragraph,
+              controlIndex: pasteSelection.controlIndex,
+              cellIndex: cellIndex,
+              cellParagraph: cellParagraph,
+              offset: offset,
+              text: line,
+            );
+            final nextOffset =
+                _readIntResult(result, 'charOffset') ?? offset + line.length;
+            await _applyPendingCharFormatToInsertedTableCellText(
+              tableSelection: pasteSelection.copyWith(
+                activeCellParagraph: cellParagraph,
+              ),
+              startOffset: offset,
+              endOffset: nextOffset,
+              text: line,
+            );
+            offset = nextOffset;
+          }
+
+          if (index < lines.length - 1) {
+            final result = await widget.document.splitParagraphInTableCell(
+              section: pasteSelection.section,
+              paragraph: pasteSelection.paragraph,
+              controlIndex: pasteSelection.controlIndex,
+              cellIndex: cellIndex,
+              cellParagraph: cellParagraph,
+              offset: offset,
+            );
+            cellParagraph =
+                _readIntResult(result, 'cellParaIndex') ?? cellParagraph + 1;
+            offset = _readIntResult(result, 'charOffset') ?? 0;
+          }
         }
 
-        if (index < lines.length - 1) {
-          final result = await widget.document.splitParagraphInTableCell(
-            section: pasteSelection.section,
-            paragraph: pasteSelection.paragraph,
-            controlIndex: pasteSelection.controlIndex,
-            cellIndex: cellIndex,
-            cellParagraph: cellParagraph,
-            offset: offset,
-          );
-          cellParagraph =
-              _readIntResult(result, 'cellParaIndex') ?? cellParagraph + 1;
-          offset = _readIntResult(result, 'charOffset') ?? 0;
-        }
+        final nextSelection = pasteSelection.copyWith(
+          activeCellParagraph: cellParagraph,
+          activeOffset: offset,
+          isTextEditing: true,
+          clearTextSelection: true,
+        );
+        _syncTableSelectionFields(nextSelection);
+        _controller.tableCellSelection = nextSelection;
+        pasted = true;
+      },
+      deferRefresh: true,
+      visibleBusy: false,
+    );
+    if (!pasted) {
+      _cancelDeferredEditRefresh();
+      if (mounted) {
+        setState(() {});
       }
-
-      final nextSelection = pasteSelection.copyWith(
-        activeCellParagraph: cellParagraph,
-        activeOffset: offset,
-        isTextEditing: true,
-        clearTextSelection: true,
-      );
-      _syncTableSelectionFields(nextSelection);
-      _controller.tableCellSelection = nextSelection;
-      pasted = true;
-    }, deferRefresh: true);
+    }
     return pasted;
+  }
+
+  RhwpTableCellSelection _tableCellPasteStartSelection(
+    RhwpTableCellSelection selection,
+  ) {
+    final range = _editingTableCellTextSelectionRange(selection);
+    if (range == null) {
+      return selection;
+    }
+    return selection.copyWith(
+      activeCellParagraph: range.startCellParagraph,
+      activeOffset: range.startOffset,
+      isTextEditing: true,
+      clearTextSelection: true,
+    );
+  }
+
+  RhwpTableCellSelection _tableCellSelectionAfterMultiParagraphPaste(
+    RhwpTableCellSelection start,
+    List<String> lines,
+  ) {
+    var cellParagraph = start.activeCellParagraph;
+    var offset = start.activeOffset;
+    for (var index = 0; index < lines.length; index += 1) {
+      offset += lines[index].length;
+      if (index < lines.length - 1) {
+        cellParagraph += 1;
+        offset = 0;
+      }
+    }
+    return start.copyWith(
+      activeCellParagraph: cellParagraph,
+      activeOffset: offset,
+      isTextEditing: true,
+      clearTextSelection: true,
+    );
   }
 
   bool _isMultiParagraphClipboardText(String text) {

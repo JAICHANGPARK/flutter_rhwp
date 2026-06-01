@@ -79,6 +79,9 @@
   clipboard export, so only the selected cell text range is copied or removed.
 * Wired Flutter-native table-cell text selections into paste, including rich
   HTML replacement and multiline plain-text paste through cell paragraph split.
+* Changed multiline Flutter-native table-cell paste to show the first inserted
+  line, pending deletion mask, and final cell caret immediately while slow Rust
+  cell insert/split commands are still pending.
 * Added Flutter-native select-all behavior while editing table-cell text, so
   `Ctrl+A`/`Cmd+A` selects the active cell's internal text instead of body text.
 * Changed Flutter-native table-cell search results and replacements to use the
