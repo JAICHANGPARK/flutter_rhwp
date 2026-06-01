@@ -5907,6 +5907,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       });
       return;
     }
+    if (!backward &&
+        await _deleteForwardAtTableCellParagraphEnd(
+          tableSelection,
+          currentOffset,
+        )) {
+      return;
+    }
     if (deleteOffset < 0) {
       return;
     }
@@ -5939,6 +5946,69 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         isTextEditing: true,
       );
     }, deferRefresh: true);
+  }
+
+  Future<bool> _deleteForwardAtTableCellParagraphEnd(
+    RhwpTableCellSelection tableSelection,
+    int currentOffset,
+  ) async {
+    final cellIndex = tableSelection.activeCellIndex;
+    if (cellIndex == null) {
+      return false;
+    }
+
+    final paragraphEnd =
+        await _tableCellParagraphEndOffsetFor(tableSelection) ??
+        await widget.document.cellParagraphLength(
+          section: tableSelection.section,
+          paragraph: tableSelection.paragraph,
+          controlIndex: tableSelection.controlIndex,
+          cellIndex: cellIndex,
+          cellParagraph: tableSelection.activeCellParagraph,
+        );
+    if (currentOffset < paragraphEnd) {
+      return false;
+    }
+
+    final paragraphCount = await widget.document.cellParagraphCount(
+      section: tableSelection.section,
+      paragraph: tableSelection.paragraph,
+      controlIndex: tableSelection.controlIndex,
+      cellIndex: cellIndex,
+    );
+    final nextCellParagraph = tableSelection.activeCellParagraph + 1;
+    if (nextCellParagraph >= paragraphCount) {
+      return true;
+    }
+
+    await _runEdit(() async {
+      final result = await widget.document.mergeParagraphInTableCell(
+        section: tableSelection.section,
+        paragraph: tableSelection.paragraph,
+        controlIndex: tableSelection.controlIndex,
+        cellIndex: cellIndex,
+        cellParagraph: nextCellParagraph,
+      );
+      final mergedCellParagraph =
+          _readIntResult(result, 'cellParaIndex') ??
+          tableSelection.activeCellParagraph;
+      final nextOffset = _readIntResult(result, 'charOffset') ?? paragraphEnd;
+      _setTextIfChanged(_offsetController, nextOffset.toString());
+      _controller.tableCellSelection = RhwpTableCellSelection(
+        section: tableSelection.section,
+        paragraph: tableSelection.paragraph,
+        controlIndex: tableSelection.controlIndex,
+        startRow: tableSelection.startRow,
+        startColumn: tableSelection.startColumn,
+        endRow: tableSelection.endRow,
+        endColumn: tableSelection.endColumn,
+        activeCellIndex: cellIndex,
+        activeCellParagraph: mergedCellParagraph,
+        activeOffset: nextOffset,
+        isTextEditing: true,
+      );
+    });
+    return true;
   }
 
   Future<void> _moveTableCellSelection(

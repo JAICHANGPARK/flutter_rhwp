@@ -40,6 +40,8 @@
   `evaluateTableFormula` command.
 * Added Flutter-native table-cell paragraph split/merge editing through rhwp
   core's cell paragraph commands.
+* Added Flutter-native Delete-at-cell-paragraph-end handling to merge the next
+  table-cell paragraph.
 * Added the upstream-style F6 shortcut to open the Flutter-native style picker.
 * Added the upstream-style `Alt+T` shortcut to open the Flutter-native paragraph
   shape dialog.

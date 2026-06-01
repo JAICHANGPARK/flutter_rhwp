@@ -3397,6 +3397,64 @@ void main() {
         'cellIndex': 7,
         'cellParagraph': 1,
       });
+
+      session.commands.clear();
+      session.historyCommands.clear();
+      controller.tableCellSelection = const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+        activeCellParagraph: 0,
+        activeOffset: 4,
+        isTextEditing: true,
+      );
+      await tester.pump();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 3);
+      expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+        'saveSnapshot',
+      ]);
+      expect(
+        controller.tableCellSelection,
+        const RhwpTableCellSelection(
+          section: 0,
+          paragraph: 5,
+          controlIndex: 2,
+          startRow: 1,
+          startColumn: 3,
+          endRow: 2,
+          endColumn: 3,
+          activeCellIndex: 7,
+          activeCellParagraph: 0,
+          activeOffset: 2,
+          isTextEditing: true,
+        ),
+      );
+      expect(session.commands.map(jsonDecode).toList(), [
+        {
+          'type': 'getCellParagraphCount',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+        },
+        {
+          'type': 'mergeParagraphInTableCell',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 1,
+        },
+      ]);
     },
   );
 
