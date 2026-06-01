@@ -192,6 +192,7 @@ class RhwpLayerTree {
     required int endSection,
     required int endParagraph,
     required int endOffset,
+    RhwpCellTextContext? cellContext,
   }) {
     final start = _TextPosition(
       section: startSection,
@@ -212,6 +213,10 @@ class RhwpLayerTree {
     final rects = <Rect>[];
 
     for (final run in textRuns) {
+      if (cellContext != null &&
+          !cellContext.hasSameTextPath(run.cellContext)) {
+        continue;
+      }
       final section = run.section;
       final paragraph = run.paragraph;
       if (section == null || paragraph == null) {

@@ -1521,10 +1521,15 @@ class _PendingTextOverlay {
 }
 
 class _PendingDeletionOverlay {
-  const _PendingDeletionOverlay({required this.page, required this.range});
+  const _PendingDeletionOverlay({
+    required this.page,
+    required this.range,
+    this.cellContext,
+  });
 
   final int page;
   final RhwpSelectionRange range;
+  final RhwpCellTextContext? cellContext;
 }
 
 class _TableCellTextSegment {
@@ -2496,11 +2501,16 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       isTextEditing: true,
     );
     RhwpSelectionRange? deletedRange;
+    RhwpTableCellSelection? deletedTextSelection;
     final edited = await _runEdit(
       () async {
-        insertSelection =
-            await _deleteEditingTableCellTextSelection(insertSelection) ??
-            insertSelection;
+        final selectionBeforeDelete = insertSelection;
+        final afterDeletionSelection =
+            await _deleteEditingTableCellTextSelection(insertSelection);
+        if (afterDeletionSelection != null) {
+          deletedTextSelection = selectionBeforeDelete;
+          insertSelection = afterDeletionSelection;
+        }
         final offset = insertSelection.activeOffset;
         if (!tableSelection.hasTextSelection) {
           deletedRange = await _deleteOverwriteTextInSelectedTableCell(
@@ -2547,8 +2557,20 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       mergeIntoTextInputUndoBatch: awaitTextInputBeforeRefresh,
     );
     if (edited && deferRefresh) {
+      final deletedTextRange = deletedTextSelection == null
+          ? null
+          : _pendingTableCellDeletionRange(deletedTextSelection!);
+      if (deletedTextRange != null) {
+        _recordPendingDeletionOverlay(
+          deletedTextRange,
+          cellContext: _pendingTextCellContext(deletedTextSelection!),
+        );
+      }
       if (deletedRange != null) {
-        _recordPendingDeletionOverlay(deletedRange!);
+        _recordPendingDeletionOverlay(
+          deletedRange!,
+          cellContext: _pendingTextCellContext(insertSelection),
+        );
       }
       _recordPendingTextOverlay(
         RhwpCursorPosition(
@@ -7206,6 +7228,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       isTextEditing: true,
     );
     if (current.hasTextSelection) {
+      final deletedTextRange = _pendingTableCellDeletionRange(current);
       final edited = await _runEdit(() async {
         final nextSelection = await _deleteEditingTableCellTextSelection(
           current,
@@ -7217,6 +7240,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         _controller.tableCellSelection = nextSelection;
       }, deferRefresh: true);
       if (edited) {
+        if (deletedTextRange != null) {
+          _recordPendingDeletionOverlay(
+            deletedTextRange,
+            cellContext: _pendingTextCellContext(current),
+          );
+        }
         _focusEditor();
       }
       return;
@@ -7859,6 +7888,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       isTextEditing: true,
     );
     if (current.hasTextSelection) {
+      final deletedTextRange = _pendingTableCellDeletionRange(current);
       final edited = await _runEdit(() async {
         final nextSelection = await _deleteEditingTableCellTextSelection(
           current,
@@ -7870,6 +7900,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         _controller.tableCellSelection = nextSelection;
       }, deferRefresh: true);
       if (edited) {
+        if (deletedTextRange != null) {
+          _recordPendingDeletionOverlay(
+            deletedTextRange,
+            cellContext: _pendingTextCellContext(current),
+          );
+        }
         _focusEditor();
       }
       return;
@@ -7891,6 +7927,20 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
     final start = comparison < 0 ? target : currentPosition;
     final end = comparison < 0 ? currentPosition : target;
+    final deletedRange = start.cellParagraph == end.cellParagraph
+        ? RhwpSelectionRange(
+            start: RhwpCursorPosition(
+              section: current.section,
+              paragraph: current.paragraph,
+              offset: start.offset,
+            ),
+            end: RhwpCursorPosition(
+              section: current.section,
+              paragraph: current.paragraph,
+              offset: end.offset,
+            ),
+          )
+        : null;
     final edited = await _runEdit(() async {
       String result;
       if (start.cellParagraph == end.cellParagraph) {
@@ -7929,6 +7979,14 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }, deferRefresh: true);
 
     if (edited) {
+      if (deletedRange != null) {
+        _recordPendingDeletionOverlay(
+          deletedRange,
+          cellContext: _pendingTextCellContext(
+            current.copyWith(activeCellParagraph: start.cellParagraph),
+          ),
+        );
+      }
       _focusEditor();
     }
   }
@@ -7987,7 +8045,19 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
-    await _runEdit(() async {
+    final deletedRange = RhwpSelectionRange(
+      start: RhwpCursorPosition(
+        section: tableSelection.section,
+        paragraph: tableSelection.paragraph,
+        offset: deleteOffset,
+      ),
+      end: RhwpCursorPosition(
+        section: tableSelection.section,
+        paragraph: tableSelection.paragraph,
+        offset: deleteOffset + 1,
+      ),
+    );
+    final edited = await _runEdit(() async {
       final result = await widget.document.deleteTextInTableCell(
         section: tableSelection.section,
         paragraph: tableSelection.paragraph,
@@ -8015,6 +8085,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         isTextEditing: true,
       );
     }, deferRefresh: true);
+    if (edited) {
+      _recordPendingDeletionOverlay(
+        deletedRange,
+        cellContext: _pendingTextCellContext(tableSelection),
+      );
+    }
   }
 
   Future<bool> _deleteForwardAtTableCellParagraphEnd(
@@ -9227,7 +9303,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     return left.hasSameTextPath(right);
   }
 
-  void _recordPendingDeletionOverlay(RhwpSelectionRange range) {
+  void _recordPendingDeletionOverlay(
+    RhwpSelectionRange range, {
+    RhwpCellTextContext? cellContext,
+  }) {
     if (!mounted || range.isCollapsed) {
       return;
     }
@@ -9243,12 +9322,33 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         _PendingDeletionOverlay(
           page: _controller.currentPage,
           range: RhwpSelectionRange(start: start, end: end),
+          cellContext: cellContext,
         ),
       );
     setState(() {
       _pendingDeletionOverlays = List.unmodifiable(overlays);
       _pendingDeletionRefreshRevision = null;
     });
+  }
+
+  RhwpSelectionRange? _pendingTableCellDeletionRange(
+    RhwpTableCellSelection selection,
+  ) {
+    final range = _editingTableCellTextSelectionRange(selection);
+    if (range == null ||
+        range.startCellParagraph != range.endCellParagraph ||
+        range.startOffset >= range.endOffset) {
+      return null;
+    }
+    final start = RhwpCursorPosition(
+      section: selection.section,
+      paragraph: selection.paragraph,
+      offset: range.startOffset,
+    );
+    return RhwpSelectionRange(
+      start: start,
+      end: start.copyWith(offset: range.endOffset),
+    );
   }
 
   void _handlePageRendered(int page, int renderRevision) {
@@ -13795,6 +13895,7 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
         endSection: end.section,
         endParagraph: end.paragraph,
         endOffset: end.offset,
+        cellContext: overlay.cellContext,
       )) {
         rects.add(_scalePageRect(rect.inflate(1), tree, overlaySize));
       }

@@ -116,6 +116,9 @@
 * Anchored Flutter-native pending text previews to table-cell text source
   context, so optimistic table-cell input overlays do not snap to body text runs
   that share the same section and paragraph identifiers.
+* Anchored Flutter-native pending deletion masks to table-cell text source
+  context for selected, overwrite, character, and word deletion in active cell
+  text editing.
 * Stabilized programmatic viewer page navigation so `goToPage` requests are not
   immediately overwritten by stale visible-page sync during editor navigation.
 * Added Flutter-native Delete-at-cell-paragraph-end handling to merge the next

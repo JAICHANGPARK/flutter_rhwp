@@ -4684,7 +4684,9 @@ void main() {
   ) async {
     final controller = RhwpEditorController();
     final session = _FakeRhwpSession(pageCountValue: 1);
-    session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+    session.pageLayerTreeJson = jsonEncode(
+      _tableCellEditorLayerTreeJson(includeBodyParagraphFive: true),
+    );
     final document = RhwpDocument.fromSession(session);
     var changedCalls = 0;
 
@@ -4703,6 +4705,9 @@ void main() {
     );
     await _pumpDocumentFrame(tester);
 
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
     await tester.tapAt(
       tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
           const Offset(1, 6),
@@ -4761,6 +4766,18 @@ void main() {
         'text': 'Z',
       },
     ]);
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-pending-delete-mask')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .getTopLeft(
+            find.byKey(const ValueKey('rhwp-editor-pending-delete-mask')),
+          )
+          .dy,
+      greaterThan(pageTopLeft.dy + pageSize.height * 0.3),
+    );
 
     await _releaseTextInputAction(tester);
     await _pumpDocumentFrame(tester);
@@ -5620,7 +5637,9 @@ void main() {
   ) async {
     final controller = RhwpEditorController();
     final session = _FakeRhwpSession(pageCountValue: 1);
-    session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+    session.pageLayerTreeJson = jsonEncode(
+      _tableCellEditorLayerTreeJson(includeBodyParagraphFive: true),
+    );
     final document = RhwpDocument.fromSession(session);
     var changedCalls = 0;
 
@@ -5692,6 +5711,14 @@ void main() {
     expect(
       find.byKey(const ValueKey('rhwp-editor-pending-delete-mask')),
       findsOneWidget,
+    );
+    expect(
+      tester
+          .getTopLeft(
+            find.byKey(const ValueKey('rhwp-editor-pending-delete-mask')),
+          )
+          .dy,
+      greaterThan(pageTopLeft.dy + pageSize.height * 0.3),
     );
     expect(
       find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),

@@ -3809,6 +3809,24 @@ void main() {
     expect(cellCaret, isNotNull);
     expect(bodyCaret!.left, closeTo(40, 0.001));
     expect(cellCaret!.left, closeTo(110, 0.001));
+
+    final cellSelection = tree.selectionRectsForRange(
+      startSection: 0,
+      startParagraph: 5,
+      startOffset: 1,
+      endSection: 0,
+      endParagraph: 5,
+      endOffset: 3,
+      cellContext: const RhwpCellTextContext(
+        parentParagraph: 5,
+        controlIndex: 2,
+        cellIndex: 7,
+        cellParagraph: 0,
+        textDirection: 0,
+      ),
+    );
+    expect(cellSelection.single.left, closeTo(100, 0.001));
+    expect(cellSelection.single.right, closeTo(120, 0.001));
   });
 
   test('page layer tree model maps multi-paragraph selection ranges', () {
