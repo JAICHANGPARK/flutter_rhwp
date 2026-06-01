@@ -208,6 +208,109 @@ void main() {
       ),
       {'type': 'setFieldValueByName', 'name': 'name', 'value': 'updated'},
     );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.getFieldInfoAt(
+            section: 0,
+            paragraph: 1,
+            offset: 2,
+          ).toJson(),
+        ),
+      ),
+      {'type': 'getFieldInfoAt', 'section': 0, 'paragraph': 1, 'offset': 2},
+    );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.getFieldInfoAtInTableCell(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 3,
+            cellIndex: 4,
+            cellParagraph: 5,
+            offset: 6,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'getFieldInfoAtInTableCell',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 3,
+        'cellIndex': 4,
+        'cellParagraph': 5,
+        'offset': 6,
+        'isTextBox': false,
+      },
+    );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.removeFieldAt(
+            section: 0,
+            paragraph: 1,
+            offset: 2,
+          ).toJson(),
+        ),
+      ),
+      {'type': 'removeFieldAt', 'section': 0, 'paragraph': 1, 'offset': 2},
+    );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.removeFieldAtInTableCell(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 3,
+            cellIndex: 4,
+            cellParagraph: 5,
+            offset: 6,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'removeFieldAtInTableCell',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 3,
+        'cellIndex': 4,
+        'cellParagraph': 5,
+        'offset': 6,
+        'isTextBox': false,
+      },
+    );
+
+    expect(
+      jsonDecode(jsonEncode(RhwpCommand.getClickHereProperties(7).toJson())),
+      {'type': 'getClickHereProperties', 'fieldId': 7},
+    );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.updateClickHereProperties(
+            fieldId: 7,
+            guide: 'guide',
+            memo: 'memo',
+            name: 'name',
+            editable: true,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'updateClickHereProperties',
+        'fieldId': 7,
+        'guide': 'guide',
+        'memo': 'memo',
+        'name': 'name',
+        'editable': true,
+      },
+    );
   });
 
   test('insert picture command serializes to the Rust command envelope', () {
@@ -2022,6 +2125,100 @@ void main() {
       'value': 'New',
     });
 
+    final fieldInfo = await document.fieldInfoAt(
+      section: 0,
+      paragraph: 1,
+      offset: 2,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'getFieldInfoAt',
+      'section': 0,
+      'paragraph': 1,
+      'offset': 2,
+    });
+    expect(fieldInfo.inField, isTrue);
+    expect(fieldInfo.fieldId, 7);
+    expect(fieldInfo.guideName, '고객명');
+
+    final cellFieldInfo = await document.fieldInfoAtInTableCell(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 3,
+      cellIndex: 4,
+      cellParagraph: 5,
+      offset: 6,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'getFieldInfoAtInTableCell',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 3,
+      'cellIndex': 4,
+      'cellParagraph': 5,
+      'offset': 6,
+      'isTextBox': false,
+    });
+    expect(cellFieldInfo.inField, isTrue);
+
+    await document.removeFieldAt(section: 0, paragraph: 1, offset: 2);
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'removeFieldAt',
+      'section': 0,
+      'paragraph': 1,
+      'offset': 2,
+    });
+
+    await document.removeFieldAtInTableCell(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 3,
+      cellIndex: 4,
+      cellParagraph: 5,
+      offset: 6,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'removeFieldAtInTableCell',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 3,
+      'cellIndex': 4,
+      'cellParagraph': 5,
+      'offset': 6,
+      'isTextBox': false,
+    });
+
+    final properties = await document.clickHereProperties(7);
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'getClickHereProperties',
+      'fieldId': 7,
+    });
+    expect(properties.guide, '고객명');
+    expect(properties.memo, 'memo');
+    expect(properties.name, 'customer');
+    expect(properties.editable, isTrue);
+
+    await document.updateClickHereProperties(
+      fieldId: 7,
+      guide: '변경',
+      memo: 'memo2',
+      name: 'customer2',
+      editable: false,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'updateClickHereProperties',
+      'fieldId': 7,
+      'guide': '변경',
+      'memo': 'memo2',
+      'name': 'customer2',
+      'editable': false,
+    });
+
     await document.insertPicture(
       section: 0,
       paragraph: 1,
@@ -3619,6 +3816,14 @@ class _FakeRhwpSession implements rust.RhwpSession {
         (command['type'] == 'getFieldValue' ||
             command['type'] == 'getFieldValueByName')) {
       return '{"value":"Old"}';
+    }
+    if (command is Map &&
+        (command['type'] == 'getFieldInfoAt' ||
+            command['type'] == 'getFieldInfoAtInTableCell')) {
+      return '{"inField":true,"fieldId":7,"fieldType":"ClickHere","startCharIdx":2,"endCharIdx":5,"isGuide":false,"guideName":"고객명"}';
+    }
+    if (command is Map && command['type'] == 'getClickHereProperties') {
+      return '{"ok":true,"guide":"고객명","memo":"memo","name":"customer","editable":true}';
     }
     if (command is Map &&
         (command['type'] == 'getCharPropertiesAt' ||

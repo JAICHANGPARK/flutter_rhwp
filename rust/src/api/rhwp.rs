@@ -475,6 +475,66 @@ impl RhwpSession {
                 .document
                 .set_field_value_by_name_api(&name, &value)
                 .map_err(|error| format!("{error:?}")),
+            RhwpCommand::GetFieldInfoAt {
+                section,
+                paragraph,
+                offset,
+            } => Ok(inner
+                .document
+                .get_field_info_at_api(section, paragraph, offset)),
+            RhwpCommand::GetFieldInfoAtInTableCell {
+                section,
+                paragraph,
+                control_index,
+                cell_index,
+                cell_paragraph,
+                offset,
+                is_text_box,
+            } => Ok(inner.document.get_field_info_at_in_cell_api(
+                section,
+                paragraph,
+                control_index,
+                cell_index,
+                cell_paragraph,
+                offset,
+                is_text_box,
+            )),
+            RhwpCommand::RemoveFieldAt {
+                section,
+                paragraph,
+                offset,
+            } => Ok(inner
+                .document
+                .remove_field_at_api(section, paragraph, offset)),
+            RhwpCommand::RemoveFieldAtInTableCell {
+                section,
+                paragraph,
+                control_index,
+                cell_index,
+                cell_paragraph,
+                offset,
+                is_text_box,
+            } => Ok(inner.document.remove_field_at_in_cell_api(
+                section,
+                paragraph,
+                control_index,
+                cell_index,
+                cell_paragraph,
+                offset,
+                is_text_box,
+            )),
+            RhwpCommand::GetClickHereProperties { field_id } => {
+                Ok(inner.document.get_click_here_props(field_id))
+            }
+            RhwpCommand::UpdateClickHereProperties {
+                field_id,
+                guide,
+                memo,
+                name,
+                editable,
+            } => Ok(inner
+                .document
+                .update_click_here_props(field_id, &guide, &memo, &name, editable)),
             RhwpCommand::InsertTable {
                 section,
                 paragraph,
@@ -1539,6 +1599,54 @@ enum RhwpCommand {
     SetFieldValueByName {
         name: String,
         value: String,
+    },
+    GetFieldInfoAt {
+        section: u32,
+        paragraph: u32,
+        offset: u32,
+    },
+    GetFieldInfoAtInTableCell {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "cellIndex")]
+        cell_index: u32,
+        #[serde(rename = "cellParagraph")]
+        cell_paragraph: u32,
+        offset: u32,
+        #[serde(rename = "isTextBox", default)]
+        is_text_box: bool,
+    },
+    RemoveFieldAt {
+        section: u32,
+        paragraph: u32,
+        offset: u32,
+    },
+    RemoveFieldAtInTableCell {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "cellIndex")]
+        cell_index: u32,
+        #[serde(rename = "cellParagraph")]
+        cell_paragraph: u32,
+        offset: u32,
+        #[serde(rename = "isTextBox", default)]
+        is_text_box: bool,
+    },
+    GetClickHereProperties {
+        #[serde(rename = "fieldId")]
+        field_id: u32,
+    },
+    UpdateClickHereProperties {
+        #[serde(rename = "fieldId")]
+        field_id: u32,
+        guide: String,
+        memo: String,
+        name: String,
+        editable: bool,
     },
     InsertTable {
         section: u32,
@@ -2819,6 +2927,28 @@ mod tests {
         assert!(
             fields.as_array().is_some(),
             "field list result should be a JSON array"
+        );
+        let field_info_result = session
+            .apply_command(
+                r#"{"type":"getFieldInfoAt","section":0,"paragraph":0,"offset":0}"#.to_string(),
+            )
+            .expect("get field info command should be accepted");
+        let field_info: Value =
+            serde_json::from_str(&field_info_result).expect("field info result should be JSON");
+        assert!(
+            field_info["inField"].as_bool().is_some(),
+            "field info should expose inField"
+        );
+        let remove_field_result = session
+            .apply_command(
+                r#"{"type":"removeFieldAt","section":0,"paragraph":0,"offset":0}"#.to_string(),
+            )
+            .expect("remove field command should be accepted");
+        let remove_field: Value =
+            serde_json::from_str(&remove_field_result).expect("remove field result should be JSON");
+        assert!(
+            remove_field["ok"].as_bool().is_some(),
+            "remove field result should expose ok"
         );
         session
             .apply_command(

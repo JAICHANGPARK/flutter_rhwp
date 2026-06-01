@@ -46,6 +46,8 @@
   ribbon bookmark dialog backed by rhwp core's bookmark API.
 * Added Flutter-native field list/value commands and a tools-ribbon field value
   dialog backed by rhwp core's field API.
+* Added Flutter-native cursor field inspection, ClickHere field property
+  editing, and field-marker removal through rhwp core's field APIs.
 * Added the upstream-style F6 shortcut to open the Flutter-native style picker.
 * Added the upstream-style `Alt+T` shortcut to open the Flutter-native paragraph
   shape dialog.

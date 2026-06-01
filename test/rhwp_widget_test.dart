@@ -681,6 +681,125 @@ void main() {
     ]);
   });
 
+  testWidgets('RhwpNativeEditor tools ribbon edits field properties', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 1100,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 0, offset: 2);
+    await tester.pump();
+
+    await tester.tap(find.text('도구'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-field-properties')),
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-field-properties')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('누름틀 속성'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-field-props-guide-field')),
+      '새 안내문',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-field-props-memo-field')),
+      '새 메모',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-field-props-name-field')),
+      'customer2',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-field-props-editable-field')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-field-props-update')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+    ]);
+    expect(session.commands.map(jsonDecode).toList(), [
+      {'type': 'getFieldInfoAt', 'section': 0, 'paragraph': 0, 'offset': 2},
+      {'type': 'getClickHereProperties', 'fieldId': 7},
+      {
+        'type': 'updateClickHereProperties',
+        'fieldId': 7,
+        'guide': '새 안내문',
+        'memo': '새 메모',
+        'name': 'customer2',
+        'editable': false,
+      },
+    ]);
+  });
+
+  testWidgets('RhwpNativeEditor tools ribbon removes field at cursor', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 1100,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 0, offset: 2);
+    await tester.pump();
+
+    await tester.tap(find.text('도구'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-remove-field')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-remove-field')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+    ]);
+    expect(session.commands.map(jsonDecode).toList(), [
+      {'type': 'removeFieldAt', 'section': 0, 'paragraph': 0, 'offset': 2},
+    ]);
+  });
+
   testWidgets('RhwpNativeEditor inserts page and column breaks', (
     tester,
   ) async {
@@ -11653,6 +11772,14 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'getFieldList') {
       return '[{"fieldId":7,"fieldType":"ClickHere","name":"customer","guide":"고객명","command":"ClickHere customer","value":"Old","location":{"section":0,"paragraph":0}}]';
+    }
+    if (command is Map &&
+        (command['type'] == 'getFieldInfoAt' ||
+            command['type'] == 'getFieldInfoAtInTableCell')) {
+      return '{"inField":true,"fieldId":7,"fieldType":"ClickHere","startCharIdx":1,"endCharIdx":4,"isGuide":false,"guideName":"고객명"}';
+    }
+    if (command is Map && command['type'] == 'getClickHereProperties') {
+      return '{"ok":true,"guide":"고객명","memo":"기존 메모","name":"customer","editable":true}';
     }
     if (command is Map && command['type'] == 'insertTable') {
       final paragraph = command['paragraph'];

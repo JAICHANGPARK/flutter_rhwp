@@ -407,6 +407,70 @@ class RhwpFieldInfo {
   }
 }
 
+class RhwpFieldRangeInfo {
+  const RhwpFieldRangeInfo({
+    required this.inField,
+    this.fieldId,
+    this.fieldType,
+    this.startCharIndex,
+    this.endCharIndex,
+    this.isGuide = false,
+    this.guideName,
+    this.raw,
+  });
+
+  factory RhwpFieldRangeInfo.fromJson(Map<String, Object?> json) {
+    return RhwpFieldRangeInfo(
+      inField: json['inField'] == true,
+      fieldId: _intFromJson(json['fieldId']),
+      fieldType: json['fieldType']?.toString(),
+      startCharIndex: _intFromJson(json['startCharIdx']),
+      endCharIndex: _intFromJson(json['endCharIdx']),
+      isGuide: _boolFromJson(json['isGuide']) ?? false,
+      guideName: json['guideName']?.toString(),
+      raw: json,
+    );
+  }
+
+  final bool inField;
+  final int? fieldId;
+  final String? fieldType;
+  final int? startCharIndex;
+  final int? endCharIndex;
+  final bool isGuide;
+  final String? guideName;
+  final Map<String, Object?>? raw;
+}
+
+class RhwpClickHereProperties {
+  const RhwpClickHereProperties({
+    required this.ok,
+    required this.guide,
+    required this.memo,
+    required this.name,
+    required this.editable,
+    this.raw,
+  });
+
+  factory RhwpClickHereProperties.fromJson(Map<String, Object?> json) {
+    return RhwpClickHereProperties(
+      ok: json['ok'] == true,
+      guide: json['guide']?.toString() ?? '',
+      memo: json['memo']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      editable: _boolFromJson(json['editable']) ?? false,
+      raw: json,
+    );
+  }
+
+  final bool ok;
+  final String guide;
+  final String memo;
+  final String name;
+  final bool editable;
+  final Map<String, Object?>? raw;
+}
+
 class RhwpCharProperties {
   const RhwpCharProperties({
     required this.rawJson,
@@ -837,6 +901,49 @@ abstract class RhwpCommand {
     required String name,
     required String value,
   }) = RhwpSetFieldValueByNameCommand;
+
+  factory RhwpCommand.getFieldInfoAt({
+    required int section,
+    required int paragraph,
+    required int offset,
+  }) = RhwpGetFieldInfoAtCommand;
+
+  factory RhwpCommand.getFieldInfoAtInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int offset,
+    bool isTextBox,
+  }) = RhwpGetFieldInfoAtInTableCellCommand;
+
+  factory RhwpCommand.removeFieldAt({
+    required int section,
+    required int paragraph,
+    required int offset,
+  }) = RhwpRemoveFieldAtCommand;
+
+  factory RhwpCommand.removeFieldAtInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int offset,
+    bool isTextBox,
+  }) = RhwpRemoveFieldAtInTableCellCommand;
+
+  factory RhwpCommand.getClickHereProperties(int fieldId) =
+      RhwpGetClickHerePropertiesCommand;
+
+  factory RhwpCommand.updateClickHereProperties({
+    required int fieldId,
+    required String guide,
+    required String memo,
+    required String name,
+    required bool editable,
+  }) = RhwpUpdateClickHerePropertiesCommand;
 
   factory RhwpCommand.insertTable({
     required int section,
@@ -1974,6 +2081,148 @@ class RhwpSetFieldValueByNameCommand extends RhwpCommand {
     'type': 'setFieldValueByName',
     'name': name,
     'value': value,
+  };
+}
+
+class RhwpGetFieldInfoAtCommand extends RhwpCommand {
+  const RhwpGetFieldInfoAtCommand({
+    required this.section,
+    required this.paragraph,
+    required this.offset,
+  });
+
+  final int section;
+  final int paragraph;
+  final int offset;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'getFieldInfoAt',
+    'section': section,
+    'paragraph': paragraph,
+    'offset': offset,
+  };
+}
+
+class RhwpGetFieldInfoAtInTableCellCommand extends RhwpCommand {
+  const RhwpGetFieldInfoAtInTableCellCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+    required this.cellParagraph,
+    required this.offset,
+    this.isTextBox = false,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+  final int cellParagraph;
+  final int offset;
+  final bool isTextBox;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'getFieldInfoAtInTableCell',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'cellIndex': cellIndex,
+    'cellParagraph': cellParagraph,
+    'offset': offset,
+    'isTextBox': isTextBox,
+  };
+}
+
+class RhwpRemoveFieldAtCommand extends RhwpCommand {
+  const RhwpRemoveFieldAtCommand({
+    required this.section,
+    required this.paragraph,
+    required this.offset,
+  });
+
+  final int section;
+  final int paragraph;
+  final int offset;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'removeFieldAt',
+    'section': section,
+    'paragraph': paragraph,
+    'offset': offset,
+  };
+}
+
+class RhwpRemoveFieldAtInTableCellCommand extends RhwpCommand {
+  const RhwpRemoveFieldAtInTableCellCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+    required this.cellParagraph,
+    required this.offset,
+    this.isTextBox = false,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+  final int cellParagraph;
+  final int offset;
+  final bool isTextBox;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'removeFieldAtInTableCell',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'cellIndex': cellIndex,
+    'cellParagraph': cellParagraph,
+    'offset': offset,
+    'isTextBox': isTextBox,
+  };
+}
+
+class RhwpGetClickHerePropertiesCommand extends RhwpCommand {
+  const RhwpGetClickHerePropertiesCommand(this.fieldId);
+
+  final int fieldId;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'getClickHereProperties',
+    'fieldId': fieldId,
+  };
+}
+
+class RhwpUpdateClickHerePropertiesCommand extends RhwpCommand {
+  const RhwpUpdateClickHerePropertiesCommand({
+    required this.fieldId,
+    required this.guide,
+    required this.memo,
+    required this.name,
+    required this.editable,
+  });
+
+  final int fieldId;
+  final String guide;
+  final String memo;
+  final String name;
+  final bool editable;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'updateClickHereProperties',
+    'fieldId': fieldId,
+    'guide': guide,
+    'memo': memo,
+    'name': name,
+    'editable': editable,
   };
 }
 
@@ -4163,6 +4412,105 @@ class RhwpDocument {
     required String value,
   }) {
     return apply(RhwpCommand.setFieldValueByName(name: name, value: value));
+  }
+
+  Future<RhwpFieldRangeInfo> fieldInfoAt({
+    required int section,
+    required int paragraph,
+    required int offset,
+  }) async {
+    final result = await apply(
+      RhwpCommand.getFieldInfoAt(
+        section: section,
+        paragraph: paragraph,
+        offset: offset,
+      ),
+    );
+    return RhwpFieldRangeInfo.fromJson(_tryDecodeObject(result) ?? const {});
+  }
+
+  Future<RhwpFieldRangeInfo> fieldInfoAtInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int offset,
+    bool isTextBox = false,
+  }) async {
+    final result = await apply(
+      RhwpCommand.getFieldInfoAtInTableCell(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        cellIndex: cellIndex,
+        cellParagraph: cellParagraph,
+        offset: offset,
+        isTextBox: isTextBox,
+      ),
+    );
+    return RhwpFieldRangeInfo.fromJson(_tryDecodeObject(result) ?? const {});
+  }
+
+  Future<String> removeFieldAt({
+    required int section,
+    required int paragraph,
+    required int offset,
+  }) {
+    return apply(
+      RhwpCommand.removeFieldAt(
+        section: section,
+        paragraph: paragraph,
+        offset: offset,
+      ),
+    );
+  }
+
+  Future<String> removeFieldAtInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int offset,
+    bool isTextBox = false,
+  }) {
+    return apply(
+      RhwpCommand.removeFieldAtInTableCell(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        cellIndex: cellIndex,
+        cellParagraph: cellParagraph,
+        offset: offset,
+        isTextBox: isTextBox,
+      ),
+    );
+  }
+
+  Future<RhwpClickHereProperties> clickHereProperties(int fieldId) async {
+    final result = await apply(RhwpCommand.getClickHereProperties(fieldId));
+    return RhwpClickHereProperties.fromJson(
+      _tryDecodeObject(result) ?? const {},
+    );
+  }
+
+  Future<String> updateClickHereProperties({
+    required int fieldId,
+    required String guide,
+    required String memo,
+    required String name,
+    required bool editable,
+  }) {
+    return apply(
+      RhwpCommand.updateClickHereProperties(
+        fieldId: fieldId,
+        guide: guide,
+        memo: memo,
+        name: name,
+        editable: editable,
+      ),
+    );
   }
 
   Future<String> insertTable({

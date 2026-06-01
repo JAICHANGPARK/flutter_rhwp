@@ -951,6 +951,20 @@ class _FieldDialogResult {
   final String value;
 }
 
+class _FieldPropertiesDialogResult {
+  const _FieldPropertiesDialogResult({
+    required this.guide,
+    required this.memo,
+    required this.name,
+    required this.editable,
+  });
+
+  final String guide;
+  final String memo;
+  final String name;
+  final bool editable;
+}
+
 class _SplitTableCellIntoDialogResult {
   const _SplitTableCellIntoDialogResult({
     required this.rows,
@@ -3652,6 +3666,114 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       );
       _throwIfCommandRejected(response);
     });
+  }
+
+  Future<void> _showFieldPropertiesDialog() async {
+    if (_busy) {
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _visibleBusy = true;
+      _error = null;
+    });
+
+    late final RhwpFieldRangeInfo fieldInfo;
+    late final RhwpClickHereProperties properties;
+    try {
+      fieldInfo = await _fieldInfoAtCursor();
+      final fieldId = fieldInfo.fieldId;
+      if (!fieldInfo.inField || fieldId == null) {
+        throw StateError('No field at cursor');
+      }
+      properties = await widget.document.clickHereProperties(fieldId);
+      if (!properties.ok) {
+        throw StateError('Field properties are unavailable');
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _visibleBusy = false;
+          _error = error;
+        });
+      }
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _busy = false;
+      _visibleBusy = false;
+    });
+
+    final result = await showDialog<_FieldPropertiesDialogResult>(
+      context: context,
+      builder: (context) => _FieldPropertiesDialog(properties: properties),
+    );
+    if (!mounted || result == null) {
+      return;
+    }
+
+    await _runEdit(() async {
+      final response = await widget.document.updateClickHereProperties(
+        fieldId: fieldInfo.fieldId!,
+        guide: result.guide,
+        memo: result.memo,
+        name: result.name,
+        editable: result.editable,
+      );
+      _throwIfCommandRejected(response);
+    });
+  }
+
+  Future<void> _removeFieldAtCursor() async {
+    if (_busy) {
+      return;
+    }
+
+    await _runEdit(() async {
+      final tableSelection = _editableTableCellSelection;
+      final cursor = tableSelection == null ? _readCursor() : null;
+      final response = tableSelection == null
+          ? await widget.document.removeFieldAt(
+              section: cursor!.section,
+              paragraph: cursor.paragraph,
+              offset: cursor.offset,
+            )
+          : await widget.document.removeFieldAtInTableCell(
+              section: tableSelection.section,
+              paragraph: tableSelection.paragraph,
+              controlIndex: tableSelection.controlIndex,
+              cellIndex: tableSelection.activeCellIndex!,
+              cellParagraph: tableSelection.activeCellParagraph,
+              offset: tableSelection.activeOffset,
+            );
+      _throwIfCommandRejected(response);
+    });
+  }
+
+  Future<RhwpFieldRangeInfo> _fieldInfoAtCursor() {
+    final tableSelection = _editableTableCellSelection;
+    if (tableSelection != null) {
+      return widget.document.fieldInfoAtInTableCell(
+        section: tableSelection.section,
+        paragraph: tableSelection.paragraph,
+        controlIndex: tableSelection.controlIndex,
+        cellIndex: tableSelection.activeCellIndex!,
+        cellParagraph: tableSelection.activeCellParagraph,
+        offset: tableSelection.activeOffset,
+      );
+    }
+    final cursor = _readCursor();
+    return widget.document.fieldInfoAt(
+      section: cursor.section,
+      paragraph: cursor.paragraph,
+      offset: cursor.offset,
+    );
   }
 
   String _suggestBookmarkName(List<RhwpBookmark> bookmarks) {
@@ -9409,6 +9531,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onClearSearch: _clearSearch,
           onReplace: _replaceActiveSearchMatch,
           onReplaceAll: _replaceAllSearchMatches,
+          onFieldProperties: _showFieldPropertiesDialog,
+          onRemoveField: _removeFieldAtCursor,
           onCompare: _showCompareDialog,
           onPageSetup: _showPageSetupDialog,
           onInsertNewNumber: _showInsertNewNumberDialog,
@@ -11614,6 +11738,8 @@ class _EditorToolbar extends StatefulWidget {
     required this.onClearSearch,
     required this.onReplace,
     required this.onReplaceAll,
+    required this.onFieldProperties,
+    required this.onRemoveField,
     required this.onCompare,
     required this.onPageSetup,
     required this.onInsertNewNumber,
@@ -11747,6 +11873,8 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onClearSearch;
   final VoidCallback onReplace;
   final VoidCallback onReplaceAll;
+  final VoidCallback onFieldProperties;
+  final VoidCallback onRemoveField;
   final VoidCallback onCompare;
   final VoidCallback onPageSetup;
   final VoidCallback onInsertNewNumber;
@@ -13061,6 +13189,18 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               buttonKey: const ValueKey('rhwp-editor-fields'),
               icon: Icons.input,
               onPressed: widget.busy ? null : widget.onFields,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Field properties',
+              buttonKey: const ValueKey('rhwp-editor-field-properties'),
+              icon: Icons.edit_note,
+              onPressed: widget.busy ? null : widget.onFieldProperties,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Remove field at cursor',
+              buttonKey: const ValueKey('rhwp-editor-remove-field'),
+              icon: Icons.highlight_remove_outlined,
+              onPressed: widget.busy ? null : widget.onRemoveField,
             ),
           ],
         ),
@@ -14849,6 +14989,119 @@ class _FieldDialogState extends State<_FieldDialog> {
     Navigator.of(
       context,
     ).pop(_FieldDialogResult(field: field, value: _valueController.text));
+  }
+}
+
+class _FieldPropertiesDialog extends StatefulWidget {
+  const _FieldPropertiesDialog({required this.properties});
+
+  final RhwpClickHereProperties properties;
+
+  @override
+  State<_FieldPropertiesDialog> createState() => _FieldPropertiesDialogState();
+}
+
+class _FieldPropertiesDialogState extends State<_FieldPropertiesDialog> {
+  late final TextEditingController _guideController;
+  late final TextEditingController _memoController;
+  late final TextEditingController _nameController;
+  late bool _editable;
+
+  @override
+  void initState() {
+    super.initState();
+    _guideController = TextEditingController(text: widget.properties.guide);
+    _memoController = TextEditingController(text: widget.properties.memo);
+    _nameController = TextEditingController(text: widget.properties.name);
+    _editable = widget.properties.editable;
+  }
+
+  @override
+  void dispose() {
+    _guideController.dispose();
+    _memoController.dispose();
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('누름틀 속성'),
+      content: SizedBox(
+        width: 460,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              key: const ValueKey('rhwp-field-props-guide-field'),
+              controller: _guideController,
+              decoration: const InputDecoration(
+                labelText: 'Guide',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const ValueKey('rhwp-field-props-memo-field'),
+              controller: _memoController,
+              minLines: 1,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Memo',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const ValueKey('rhwp-field-props-name-field'),
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: 'Name',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              key: const ValueKey('rhwp-field-props-editable-field'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Editable'),
+              value: _editable,
+              onChanged: (value) {
+                setState(() {
+                  _editable = value;
+                });
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const ValueKey('rhwp-field-props-update'),
+          onPressed: _apply,
+          child: const Text('Update'),
+        ),
+      ],
+    );
+  }
+
+  void _apply() {
+    Navigator.of(context).pop(
+      _FieldPropertiesDialogResult(
+        guide: _guideController.text,
+        memo: _memoController.text,
+        name: _nameController.text,
+        editable: _editable,
+      ),
+    );
   }
 }
 

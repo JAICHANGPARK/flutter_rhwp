@@ -22,6 +22,8 @@ documents.
 - Manage bookmarks from the Flutter-native input ribbon or the Dart API.
 - Manage HWP fields/누름틀 values from the Flutter-native tools ribbon or the
   Dart API.
+- Inspect, edit ClickHere field properties, and remove field markers at the
+  Flutter-native caret through the tools ribbon or Dart API.
 - Split and merge paragraphs inside active table cells from the Flutter-native
   editor with Enter, Backspace, and Delete.
 - Keep native-editor typing, IME composing, caret, and selection overlays
@@ -183,6 +185,22 @@ final bookmarks = await document.bookmarks();
 
 final fields = await document.fields();
 await document.setFieldValue(fieldId: fields.first.fieldId, value: 'Updated');
+
+final fieldInfo = await document.fieldInfoAt(
+  section: 0,
+  paragraph: 0,
+  offset: 0,
+);
+if (fieldInfo.inField && fieldInfo.fieldId != null) {
+  final props = await document.clickHereProperties(fieldInfo.fieldId!);
+  await document.updateClickHereProperties(
+    fieldId: fieldInfo.fieldId!,
+    guide: props.guide,
+    memo: props.memo,
+    name: props.name,
+    editable: props.editable,
+  );
+}
 
 await document.createHeader(section: 0);
 await document.createFooter(section: 0);
