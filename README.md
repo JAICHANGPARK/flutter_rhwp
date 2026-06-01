@@ -130,6 +130,16 @@ await document.insertTable(
   columns: 3,
 );
 
+await document.createTableEx(
+  section: 0,
+  paragraph: 0,
+  offset: 0,
+  rows: 2,
+  columns: 2,
+  treatAsChar: true,
+  columnWidths: const [2000, 2100],
+);
+
 await document.insertTableRow(
   section: 0,
   paragraph: 0,
@@ -350,7 +360,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   row above/below insertion and row deletion, column left/right insertion and
   column deletion, and cell
   merge/split/split-into-grid/range split command flow, selected-cell range
-  resize through rhwp table resize commands, table properties editing, and
+  resize through rhwp table resize commands, inline extended table insertion
+  with optional column widths, table properties editing, and
   selected-cell properties, fill, border, and vertical alignment editing from
   the ribbon and context menu with table-cell hit testing, selected-cell
   highlighting, object/control hit testing, highlighting, pointer drag move and

@@ -1503,6 +1503,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   final _offsetController = TextEditingController(text: '0');
   final _tableRowsController = TextEditingController(text: '2');
   final _tableColumnsController = TextEditingController(text: '2');
+  final _tableColumnWidthsController = TextEditingController();
   final _tableParagraphController = TextEditingController(text: '0');
   final _tableControlController = TextEditingController(text: '0');
   final _tableRowController = TextEditingController(text: '0');
@@ -1552,6 +1553,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   bool _suppressControllerChangedSetState = false;
   bool _showParagraphMarks = false;
   bool _showTransparentTableBorders = false;
+  bool _insertTableTreatAsChar = false;
   bool _overwriteMode = false;
   Object? _error;
   int _charFormatQueryRevision = 0;
@@ -1624,6 +1626,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _offsetController.dispose();
     _tableRowsController.dispose();
     _tableColumnsController.dispose();
+    _tableColumnWidthsController.dispose();
     _tableParagraphController.dispose();
     _tableControlController.dispose();
     _tableRowController.dispose();
@@ -3339,6 +3342,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
     final rows = _parsePositive(_tableRowsController.text, max: 256);
     final columns = _parsePositive(_tableColumnsController.text, max: 256);
+    final columnWidths = _insertTableTreatAsChar
+        ? _parseTableColumnWidths(columns)
+        : const <int>[];
+    if (columnWidths == null) {
+      return;
+    }
     _setTextIfChanged(_tableRowsController, rows.toString());
     _setTextIfChanged(_tableColumnsController, columns.toString());
 
@@ -3350,13 +3359,23 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       if (!selection.isCollapsed) {
         await _deleteSelectedText(selection);
       }
-      final result = await widget.document.insertTable(
-        section: cursor.section,
-        paragraph: cursor.paragraph,
-        offset: cursor.offset,
-        rows: rows,
-        columns: columns,
-      );
+      final result = _insertTableTreatAsChar || columnWidths.isNotEmpty
+          ? await widget.document.createTableEx(
+              section: cursor.section,
+              paragraph: cursor.paragraph,
+              offset: cursor.offset,
+              rows: rows,
+              columns: columns,
+              treatAsChar: _insertTableTreatAsChar,
+              columnWidths: columnWidths,
+            )
+          : await widget.document.insertTable(
+              section: cursor.section,
+              paragraph: cursor.paragraph,
+              offset: cursor.offset,
+              rows: rows,
+              columns: columns,
+            );
       final tableParagraph =
           _readIntResult(result, 'paraIdx') ?? cursor.paragraph;
       _setTextIfChanged(_tableParagraphController, tableParagraph.toString());
@@ -3365,11 +3384,40 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       _setTextIfChanged(_tableColumnController, '0');
       _setTextIfChanged(_tableEndRowController, '1');
       _setTextIfChanged(_tableEndColumnController, '1');
-      _controller.cursor = RhwpCursorPosition(
-        section: cursor.section,
-        paragraph: tableParagraph + 1,
-      );
+      _controller.cursor = _insertTableTreatAsChar
+          ? cursor.copyWith(
+              paragraph: tableParagraph,
+              offset:
+                  _readIntResult(result, 'logicalOffset') ?? cursor.offset + 8,
+            )
+          : RhwpCursorPosition(
+              section: cursor.section,
+              paragraph: tableParagraph + 1,
+            );
     });
+  }
+
+  List<int>? _parseTableColumnWidths(int columns) {
+    final raw = _tableColumnWidthsController.text.trim();
+    if (raw.isEmpty) {
+      return const [];
+    }
+
+    final widths = raw
+        .split(RegExp(r'[\s,;]+'))
+        .where((part) => part.isNotEmpty)
+        .map(int.tryParse)
+        .toList(growable: false);
+    if (widths.any((width) => width == null || width <= 0) ||
+        widths.length != columns) {
+      setState(() {
+        _error = 'Column widths must be $columns positive numbers.';
+      });
+      _focusEditor();
+      return null;
+    }
+
+    return [for (final width in widths) width!];
   }
 
   Future<void> _insertFootnote() async {
@@ -8879,6 +8927,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           offsetController: _offsetController,
           tableRowsController: _tableRowsController,
           tableColumnsController: _tableColumnsController,
+          tableColumnWidthsController: _tableColumnWidthsController,
           tableParagraphController: _tableParagraphController,
           tableControlController: _tableControlController,
           tableRowController: _tableRowController,
@@ -8899,6 +8948,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           zoom: _controller.zoom,
           showParagraphMarks: _showParagraphMarks,
           showTransparentTableBorders: _showTransparentTableBorders,
+          insertTableTreatAsChar: _insertTableTreatAsChar,
           canOpen: widget.onOpenRequested != null,
           canInsertPicture: widget.onImageRequested != null,
           canExport: widget.onExported != null,
@@ -8912,6 +8962,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onExportPdf: () => _exportFromEditor(RhwpExportFormat.pdf),
           onDeleteBackward: _deleteBackward,
           onInsertTable: _insertTable,
+          onToggleInsertTableTreatAsChar: () {
+            setState(() {
+              _insertTableTreatAsChar = !_insertTableTreatAsChar;
+            });
+          },
           onInsertFootnote: _insertFootnote,
           onInsertEquation: _showInsertEquationDialog,
           onInsertPicture: _insertPicture,
@@ -11093,6 +11148,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.offsetController,
     required this.tableRowsController,
     required this.tableColumnsController,
+    required this.tableColumnWidthsController,
     required this.tableParagraphController,
     required this.tableControlController,
     required this.tableRowController,
@@ -11113,6 +11169,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.zoom,
     required this.showParagraphMarks,
     required this.showTransparentTableBorders,
+    required this.insertTableTreatAsChar,
     required this.canOpen,
     required this.canInsertPicture,
     required this.canExport,
@@ -11126,6 +11183,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onExportPdf,
     required this.onDeleteBackward,
     required this.onInsertTable,
+    required this.onToggleInsertTableTreatAsChar,
     required this.onInsertFootnote,
     required this.onInsertEquation,
     required this.onInsertPicture,
@@ -11219,6 +11277,7 @@ class _EditorToolbar extends StatefulWidget {
   final TextEditingController offsetController;
   final TextEditingController tableRowsController;
   final TextEditingController tableColumnsController;
+  final TextEditingController tableColumnWidthsController;
   final TextEditingController tableParagraphController;
   final TextEditingController tableControlController;
   final TextEditingController tableRowController;
@@ -11239,6 +11298,7 @@ class _EditorToolbar extends StatefulWidget {
   final double zoom;
   final bool showParagraphMarks;
   final bool showTransparentTableBorders;
+  final bool insertTableTreatAsChar;
   final bool canOpen;
   final bool canInsertPicture;
   final bool canExport;
@@ -11252,6 +11312,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onExportPdf;
   final VoidCallback onDeleteBackward;
   final VoidCallback onInsertTable;
+  final VoidCallback onToggleInsertTableTreatAsChar;
   final VoidCallback onInsertFootnote;
   final VoidCallback onInsertEquation;
   final VoidCallback onInsertPicture;
@@ -11864,6 +11925,23 @@ class _EditorToolbarState extends State<_EditorToolbar> {
             _NumberField(
               label: 'Cols',
               controller: widget.tableColumnsController,
+            ),
+            const SizedBox(width: 6),
+            _ShortTextField(
+              fieldKey: const ValueKey('rhwp-editor-table-column-widths'),
+              label: 'Widths',
+              controller: widget.tableColumnWidthsController,
+              enabled: widget.insertTableTreatAsChar,
+            ),
+            const SizedBox(width: 6),
+            _ToolbarIconButton(
+              tooltip: 'Treat table as char',
+              buttonKey: const ValueKey('rhwp-editor-insert-table-inline'),
+              icon: Icons.short_text,
+              selected: widget.insertTableTreatAsChar,
+              onPressed: widget.busy
+                  ? null
+                  : widget.onToggleInsertTableTreatAsChar,
             ),
             const SizedBox(width: 6),
             _ToolbarIconButton(
@@ -15800,6 +15878,37 @@ class _NumberField extends StatelessWidget {
       child: TextField(
         controller: controller,
         keyboardType: TextInputType.number,
+        decoration: InputDecoration(
+          isDense: true,
+          border: const OutlineInputBorder(),
+          labelText: label,
+        ),
+      ),
+    );
+  }
+}
+
+class _ShortTextField extends StatelessWidget {
+  const _ShortTextField({
+    required this.label,
+    required this.controller,
+    this.fieldKey,
+    this.enabled = true,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final Key? fieldKey;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 96,
+      child: TextField(
+        key: fieldKey,
+        controller: controller,
+        enabled: enabled,
         decoration: InputDecoration(
           isDense: true,
           border: const OutlineInputBorder(),

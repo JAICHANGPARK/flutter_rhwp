@@ -155,6 +155,32 @@ void main() {
       'rows': 3,
       'columns': 4,
     });
+
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.createTableEx(
+            section: 0,
+            paragraph: 1,
+            offset: 2,
+            rows: 3,
+            columns: 4,
+            treatAsChar: true,
+            columnWidths: const [1000, 1100, 1200, 1300],
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'createTableEx',
+        'section': 0,
+        'paragraph': 1,
+        'offset': 2,
+        'rows': 3,
+        'columns': 4,
+        'treatAsChar': true,
+        'columnWidths': [1000, 1100, 1200, 1300],
+      },
+    );
   });
 
   test('table row and column commands serialize to Rust envelopes', () {
@@ -1797,6 +1823,27 @@ void main() {
       'offset': 2,
       'rows': 3,
       'columns': 4,
+    });
+
+    await document.createTableEx(
+      section: 0,
+      paragraph: 1,
+      offset: 2,
+      rows: 2,
+      columns: 3,
+      treatAsChar: true,
+      columnWidths: const [2000, 2100, 2200],
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'createTableEx',
+      'section': 0,
+      'paragraph': 1,
+      'offset': 2,
+      'rows': 2,
+      'columns': 3,
+      'treatAsChar': true,
+      'columnWidths': [2000, 2100, 2200],
     });
 
     await document.insertTextInTableCell(

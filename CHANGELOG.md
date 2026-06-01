@@ -33,6 +33,9 @@
   through rhwp core's `splitTableCellsInRange` command.
 * Added Flutter-native selected table-cell range width/height resizing through
   rhwp core's `resizeTableCells` command.
+* Added Flutter-native extended table insertion through rhwp core's
+  `createTableEx` command, including an inline/table-as-character toggle and
+  optional column width input.
 * Added the upstream-style F6 shortcut to open the Flutter-native style picker.
 * Added the upstream-style `Alt+T` shortcut to open the Flutter-native paragraph
   shape dialog.

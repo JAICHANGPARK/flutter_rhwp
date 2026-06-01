@@ -700,6 +700,16 @@ abstract class RhwpCommand {
     required int columns,
   }) = RhwpInsertTableCommand;
 
+  factory RhwpCommand.createTableEx({
+    required int section,
+    required int paragraph,
+    required int offset,
+    required int rows,
+    required int columns,
+    bool treatAsChar,
+    List<int> columnWidths,
+  }) = RhwpCreateTableExCommand;
+
   factory RhwpCommand.insertTableRow({
     required int section,
     required int paragraph,
@@ -1585,6 +1595,39 @@ class RhwpInsertTableCommand extends RhwpCommand {
     'offset': offset,
     'rows': rows,
     'columns': columns,
+  };
+}
+
+class RhwpCreateTableExCommand extends RhwpCommand {
+  const RhwpCreateTableExCommand({
+    required this.section,
+    required this.paragraph,
+    required this.offset,
+    required this.rows,
+    required this.columns,
+    this.treatAsChar = false,
+    this.columnWidths = const [],
+  });
+
+  final int section;
+  final int paragraph;
+  final int offset;
+  final int rows;
+  final int columns;
+  final bool treatAsChar;
+  final List<int> columnWidths;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'createTableEx',
+    'section': section,
+    'paragraph': paragraph,
+    'offset': offset,
+    'rows': rows,
+    'columns': columns,
+    'treatAsChar': treatAsChar,
+    if (columnWidths.isNotEmpty)
+      'columnWidths': columnWidths.toList(growable: false),
   };
 }
 
@@ -3530,6 +3573,28 @@ class RhwpDocument {
         offset: offset,
         rows: rows,
         columns: columns,
+      ),
+    );
+  }
+
+  Future<String> createTableEx({
+    required int section,
+    required int paragraph,
+    required int offset,
+    required int rows,
+    required int columns,
+    bool treatAsChar = false,
+    List<int> columnWidths = const [],
+  }) {
+    return apply(
+      RhwpCommand.createTableEx(
+        section: section,
+        paragraph: paragraph,
+        offset: offset,
+        rows: rows,
+        columns: columns,
+        treatAsChar: treatAsChar,
+        columnWidths: columnWidths,
       ),
     );
   }

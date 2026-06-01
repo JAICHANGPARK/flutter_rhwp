@@ -1983,6 +1983,64 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor toolbar inserts an inline table', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 0);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.cursor = const RhwpCursorPosition(offset: 2);
+    await tester.pump();
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-insert-table-inline')),
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-insert-table-inline')),
+    );
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-table-column-widths')),
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-table-column-widths')),
+      '2000, 2100',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-insert-table')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(controller.cursor, const RhwpCursorPosition(offset: 10));
+    expect(jsonDecode(session.commands.single), {
+      'type': 'createTableEx',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 2,
+      'rows': 2,
+      'columns': 2,
+      'treatAsChar': true,
+      'columnWidths': [2000, 2100],
+    });
+  });
+
   testWidgets('RhwpNativeEditor toolbar edits table rows and columns', (
     tester,
   ) async {
@@ -11269,6 +11327,13 @@ class _FakeRhwpSession implements rust.RhwpSession {
       if (paragraph is int && offset is int) {
         final tableParagraph = offset > 0 ? paragraph + 1 : paragraph;
         return '{"ok":true,"paraIdx":$tableParagraph,"controlIdx":0}';
+      }
+    }
+    if (command is Map && command['type'] == 'createTableEx') {
+      final paragraph = command['paragraph'];
+      final offset = command['offset'];
+      if (paragraph is int && offset is int) {
+        return '{"ok":true,"paraIdx":$paragraph,"controlIdx":0,"logicalOffset":${offset + 8}}';
       }
     }
     if (command is Map && command['type'] == 'insertPicture') {

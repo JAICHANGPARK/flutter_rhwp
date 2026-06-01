@@ -389,6 +389,36 @@ impl RhwpSession {
                     )
                     .map_err(error_to_string)
             }
+            RhwpCommand::CreateTableEx {
+                section,
+                paragraph,
+                offset,
+                rows,
+                columns,
+                treat_as_char,
+                column_widths,
+            } => {
+                let row_count =
+                    u16::try_from(rows).map_err(|_| "rows must fit in u16".to_string())?;
+                let column_count =
+                    u16::try_from(columns).map_err(|_| "columns must fit in u16".to_string())?;
+                inner
+                    .document
+                    .create_table_ex_native(
+                        section as usize,
+                        paragraph as usize,
+                        offset as usize,
+                        row_count,
+                        column_count,
+                        treat_as_char,
+                        if column_widths.is_empty() {
+                            None
+                        } else {
+                            Some(column_widths.as_slice())
+                        },
+                    )
+                    .map_err(error_to_string)
+            }
             RhwpCommand::InsertTableRow {
                 section,
                 paragraph,
@@ -1312,6 +1342,17 @@ enum RhwpCommand {
         offset: u32,
         rows: u32,
         columns: u32,
+    },
+    CreateTableEx {
+        section: u32,
+        paragraph: u32,
+        offset: u32,
+        rows: u32,
+        columns: u32,
+        #[serde(rename = "treatAsChar")]
+        treat_as_char: bool,
+        #[serde(rename = "columnWidths", default)]
+        column_widths: Vec<u32>,
     },
     InsertTableRow {
         section: u32,
@@ -2977,6 +3018,28 @@ mod tests {
             serde_json::from_str(&split_result).expect("split range result should be JSON");
         assert_eq!(split_result["ok"], true);
         assert!(split_result["cellCount"].as_u64().is_some());
+    }
+
+    #[test]
+    fn applies_create_table_ex_command() {
+        let session =
+            open_bytes(BLANK_2010_HWP.to_vec(), None).expect("vendored sample should open");
+
+        let result = session
+            .apply_command(
+                r#"{"type":"createTableEx","section":0,"paragraph":0,"offset":0,"rows":2,"columns":2,"treatAsChar":true,"columnWidths":[2000,2100]}"#
+                    .to_string(),
+            )
+            .expect("extended table insert should be accepted");
+        let result: Value = serde_json::from_str(&result).expect("table result should be JSON");
+        assert_eq!(result["ok"], true);
+        assert_eq!(result["paraIdx"], 0);
+        assert!(result["controlIdx"].as_u64().is_some());
+
+        let hwp = session.export_hwp().expect("HWP export should succeed");
+        assert!(!hwp.is_empty());
+        open_bytes(hwp, Some("inline-table-roundtrip.hwp".to_string()))
+            .expect("inline table document should reopen");
     }
 
     #[test]
