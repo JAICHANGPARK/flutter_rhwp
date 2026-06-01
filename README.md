@@ -182,6 +182,19 @@ await document.splitTableCellInto(
   columns: 2,
 );
 
+await document.splitTableCellsInRange(
+  section: 0,
+  paragraph: 0,
+  controlIndex: 0,
+  startRow: 0,
+  startColumn: 0,
+  endRow: 1,
+  endColumn: 1,
+  rows: 2,
+  columns: 2,
+  equalRowHeight: true,
+);
+
 await document.setTableProperties(
   section: 0,
   paragraph: 0,
@@ -312,7 +325,7 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   page/column break insertion, plus table
   row above/below insertion and row deletion, column left/right insertion and
   column deletion, and cell
-  merge/split/split-into-grid command flow, table properties editing, and
+  merge/split/split-into-grid/range split command flow, table properties editing, and
   selected-cell properties, fill, border, and vertical alignment editing from
   the ribbon and context menu with table-cell hit testing, selected-cell
   highlighting, object/control hit testing, highlighting, pointer drag move and

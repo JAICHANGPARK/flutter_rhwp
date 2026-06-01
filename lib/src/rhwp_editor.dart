@@ -3594,6 +3594,14 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
+    final tableSelection = _controller.tableCellSelection;
+    final selectedCellCount = tableSelection == null
+        ? 0
+        : await _selectedTableModelCellCount(tableSelection);
+    if (!mounted) {
+      return;
+    }
+
     final result = await showDialog<_SplitTableCellIntoDialogResult>(
       context: context,
       builder: (context) => const _SplitTableCellIntoDialog(),
@@ -3605,18 +3613,46 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
     await _runEdit(() async {
       final ref = _readTableReference();
-      await widget.document.splitTableCellInto(
-        section: ref.section,
-        paragraph: ref.paragraph,
-        controlIndex: ref.controlIndex,
-        row: ref.row,
-        column: ref.column,
-        rows: result.rows,
-        columns: result.columns,
-        equalRowHeight: result.equalRowHeight,
-        mergeFirst: result.mergeFirst,
-      );
+      if (selectedCellCount > 1) {
+        await widget.document.splitTableCellsInRange(
+          section: ref.section,
+          paragraph: ref.paragraph,
+          controlIndex: ref.controlIndex,
+          startRow: ref.row,
+          startColumn: ref.column,
+          endRow: ref.endRow,
+          endColumn: ref.endColumn,
+          rows: result.rows,
+          columns: result.columns,
+          equalRowHeight: result.equalRowHeight,
+        );
+      } else {
+        await widget.document.splitTableCellInto(
+          section: ref.section,
+          paragraph: ref.paragraph,
+          controlIndex: ref.controlIndex,
+          row: ref.row,
+          column: ref.column,
+          rows: result.rows,
+          columns: result.columns,
+          equalRowHeight: result.equalRowHeight,
+          mergeFirst: result.mergeFirst,
+        );
+      }
     });
+  }
+
+  Future<int> _selectedTableModelCellCount(
+    RhwpTableCellSelection selection,
+  ) async {
+    final selectedCellIndexes = <int>{};
+    for (final entry in await _tableCellsForSelection(selection)) {
+      final cellIndex = entry.cell.modelCellIndex;
+      if (cellIndex != null && selection.containsCell(entry.cell)) {
+        selectedCellIndexes.add(cellIndex);
+      }
+    }
+    return selectedCellIndexes.length;
   }
 
   Future<void> _showTablePropertiesDialog() async {

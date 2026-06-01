@@ -2241,6 +2241,79 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor splits selected table cell range into a grid', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.tableCellSelection = const RhwpTableCellSelection(
+      section: 0,
+      paragraph: 5,
+      controlIndex: 2,
+      startRow: 1,
+      startColumn: 3,
+      endRow: 2,
+      endColumn: 4,
+      activeCellIndex: 7,
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('표'));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-split-cell-into')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-split-cell-into')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('셀 나누기'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-split-cell-rows-field')),
+      '2',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-split-cell-columns-field')),
+      '3',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-split-cell-confirm')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.single), {
+      'type': 'splitTableCellsInRange',
+      'section': 0,
+      'paragraph': 5,
+      'controlIndex': 2,
+      'startRow': 1,
+      'startColumn': 3,
+      'endRow': 2,
+      'endColumn': 4,
+      'rows': 2,
+      'columns': 3,
+      'equalRowHeight': true,
+    });
+  });
+
   testWidgets('RhwpNativeEditor edits table properties from table ribbon', (
     tester,
   ) async {

@@ -548,6 +548,37 @@ void main() {
     expect(
       jsonDecode(
         jsonEncode(
+          RhwpCommand.splitTableCellsInRange(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            startRow: 0,
+            startColumn: 1,
+            endRow: 2,
+            endColumn: 3,
+            rows: 3,
+            columns: 2,
+            equalRowHeight: true,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'splitTableCellsInRange',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'startRow': 0,
+        'startColumn': 1,
+        'endRow': 2,
+        'endColumn': 3,
+        'rows': 3,
+        'columns': 2,
+        'equalRowHeight': true,
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
           RhwpCommand.getTableProperties(
             section: 0,
             paragraph: 1,
@@ -2088,6 +2119,33 @@ void main() {
       'columns': 2,
       'equalRowHeight': false,
       'mergeFirst': true,
+    });
+
+    await document.splitTableCellsInRange(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      startRow: 0,
+      startColumn: 1,
+      endRow: 2,
+      endColumn: 3,
+      rows: 3,
+      columns: 2,
+      equalRowHeight: true,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'splitTableCellsInRange',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'startRow': 0,
+      'startColumn': 1,
+      'endRow': 2,
+      'endColumn': 3,
+      'rows': 3,
+      'columns': 2,
+      'equalRowHeight': true,
     });
 
     final tableProperties = await document.tableProperties(

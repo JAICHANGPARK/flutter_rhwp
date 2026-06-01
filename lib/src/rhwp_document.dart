@@ -742,6 +742,19 @@ abstract class RhwpCommand {
     required bool mergeFirst,
   }) = RhwpSplitTableCellIntoCommand;
 
+  factory RhwpCommand.splitTableCellsInRange({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int startRow,
+    required int startColumn,
+    required int endRow,
+    required int endColumn,
+    required int rows,
+    required int columns,
+    required bool equalRowHeight,
+  }) = RhwpSplitTableCellsInRangeCommand;
+
   factory RhwpCommand.getTableProperties({
     required int section,
     required int paragraph,
@@ -1727,6 +1740,47 @@ class RhwpSplitTableCellIntoCommand extends RhwpCommand {
     'columns': columns,
     'equalRowHeight': equalRowHeight,
     'mergeFirst': mergeFirst,
+  };
+}
+
+class RhwpSplitTableCellsInRangeCommand extends RhwpCommand {
+  const RhwpSplitTableCellsInRangeCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.startRow,
+    required this.startColumn,
+    required this.endRow,
+    required this.endColumn,
+    required this.rows,
+    required this.columns,
+    required this.equalRowHeight,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int startRow;
+  final int startColumn;
+  final int endRow;
+  final int endColumn;
+  final int rows;
+  final int columns;
+  final bool equalRowHeight;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'splitTableCellsInRange',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'startRow': startRow,
+    'startColumn': startColumn,
+    'endRow': endRow,
+    'endColumn': endColumn,
+    'rows': rows,
+    'columns': columns,
+    'equalRowHeight': equalRowHeight,
   };
 }
 
@@ -3502,6 +3556,34 @@ class RhwpDocument {
         columns: columns,
         equalRowHeight: equalRowHeight,
         mergeFirst: mergeFirst,
+      ),
+    );
+  }
+
+  Future<String> splitTableCellsInRange({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int startRow,
+    required int startColumn,
+    required int endRow,
+    required int endColumn,
+    required int rows,
+    required int columns,
+    required bool equalRowHeight,
+  }) {
+    return apply(
+      RhwpCommand.splitTableCellsInRange(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        startRow: startRow,
+        startColumn: startColumn,
+        endRow: endRow,
+        endColumn: endColumn,
+        rows: rows,
+        columns: columns,
+        equalRowHeight: equalRowHeight,
       ),
     );
   }

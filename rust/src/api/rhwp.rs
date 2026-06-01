@@ -551,6 +551,46 @@ impl RhwpSession {
                     )
                     .map_err(error_to_string)
             }
+            RhwpCommand::SplitTableCellsInRange {
+                section,
+                paragraph,
+                control_index,
+                start_row,
+                start_column,
+                end_row,
+                end_column,
+                rows,
+                columns,
+                equal_row_height,
+            } => {
+                let start_row =
+                    u16::try_from(start_row).map_err(|_| "startRow must fit in u16".to_string())?;
+                let start_column = u16::try_from(start_column)
+                    .map_err(|_| "startColumn must fit in u16".to_string())?;
+                let end_row =
+                    u16::try_from(end_row).map_err(|_| "endRow must fit in u16".to_string())?;
+                let end_column = u16::try_from(end_column)
+                    .map_err(|_| "endColumn must fit in u16".to_string())?;
+                let row_count =
+                    u16::try_from(rows).map_err(|_| "rows must fit in u16".to_string())?;
+                let column_count =
+                    u16::try_from(columns).map_err(|_| "columns must fit in u16".to_string())?;
+                inner
+                    .document
+                    .split_table_cells_in_range_native(
+                        section as usize,
+                        paragraph as usize,
+                        control_index as usize,
+                        start_row,
+                        start_column,
+                        end_row,
+                        end_column,
+                        row_count,
+                        column_count,
+                        equal_row_height,
+                    )
+                    .map_err(error_to_string)
+            }
             RhwpCommand::GetTableProperties {
                 section,
                 paragraph,
@@ -1311,6 +1351,24 @@ enum RhwpCommand {
         equal_row_height: bool,
         #[serde(rename = "mergeFirst")]
         merge_first: bool,
+    },
+    SplitTableCellsInRange {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "startRow")]
+        start_row: u32,
+        #[serde(rename = "startColumn")]
+        start_column: u32,
+        #[serde(rename = "endRow")]
+        end_row: u32,
+        #[serde(rename = "endColumn")]
+        end_column: u32,
+        rows: u32,
+        columns: u32,
+        #[serde(rename = "equalRowHeight")]
+        equal_row_height: bool,
     },
     GetTableProperties {
         section: u32,
@@ -2841,6 +2899,34 @@ mod tests {
         assert!(!hwp.is_empty());
         open_bytes(hwp, Some("object-clipboard-roundtrip.hwp".to_string()))
             .expect("object clipboard document should reopen");
+    }
+
+    #[test]
+    fn applies_split_table_cells_in_range_command() {
+        let session =
+            open_bytes(BLANK_2010_HWP.to_vec(), None).expect("vendored sample should open");
+
+        let result = session
+            .apply_command(
+                r#"{"type":"insertTable","section":0,"paragraph":0,"offset":0,"rows":2,"columns":2}"#
+                    .to_string(),
+            )
+            .expect("table insert should be accepted");
+        let result: Value = serde_json::from_str(&result).expect("table result should be JSON");
+        let table_paragraph = result["paraIdx"]
+            .as_u64()
+            .expect("table insert should expose paraIdx");
+
+        let split_result = session
+            .apply_command(format!(
+                r#"{{"type":"splitTableCellsInRange","section":0,"paragraph":{},"controlIndex":0,"startRow":0,"startColumn":0,"endRow":1,"endColumn":1,"rows":2,"columns":2,"equalRowHeight":true}}"#,
+                table_paragraph
+            ))
+            .expect("split table cells in range command should be accepted");
+        let split_result: Value =
+            serde_json::from_str(&split_result).expect("split range result should be JSON");
+        assert_eq!(split_result["ok"], true);
+        assert!(split_result["cellCount"].as_u64().is_some());
     }
 
     #[test]
