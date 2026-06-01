@@ -4745,6 +4745,91 @@ void main() {
     },
   );
 
+  testWidgets('RhwpNativeEditor moves table cell text cursor with page keys', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 3);
+    session.pageLayerTreeJsonByPage[0] = jsonEncode(
+      _tableCellEditorLayerTreeJson(cellText: 'cell'),
+    );
+    session.pageLayerTreeJsonByPage[1] = jsonEncode(
+      _tableCellEditorLayerTreeJson(cellText: 'cell'),
+    );
+    session.pageLayerTreeJsonByPage[2] = jsonEncode(
+      _tableCellEditorLayerTreeJson(cellText: 'hi'),
+    );
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    controller.tableCellSelection = const RhwpTableCellSelection(
+      section: 0,
+      paragraph: 5,
+      controlIndex: 2,
+      startRow: 1,
+      startColumn: 3,
+      endRow: 2,
+      endColumn: 3,
+      activeCellIndex: 7,
+      activeOffset: 2,
+      isTextEditing: true,
+    );
+    await tester.pump();
+    session.commands.clear();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.currentPage, 1);
+    expect(controller.tableCellSelection?.activeCellParagraph, 0);
+    expect(controller.tableCellSelection?.activeOffset, 2);
+    expect(controller.tableCellSelection?.hasTextSelection, isFalse);
+    expect(session.commands, isEmpty);
+
+    controller.tableCellSelection = controller.tableCellSelection?.copyWith(
+      activeOffset: 4,
+    );
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await _pumpDocumentFrame(tester);
+
+    final selection = controller.tableCellSelection;
+    expect(controller.currentPage, 2);
+    expect(selection?.activeCellParagraph, 0);
+    expect(selection?.activeOffset, 2);
+    expect(selection?.selectionBaseCellParagraph, 0);
+    expect(selection?.selectionBaseOffset, 4);
+    expect(selection?.hasTextSelection, isTrue);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.pageUp);
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.currentPage, 1);
+    expect(controller.tableCellSelection?.activeCellParagraph, 0);
+    expect(controller.tableCellSelection?.activeOffset, 2);
+    expect(controller.tableCellSelection?.hasTextSelection, isFalse);
+    expect(session.commands, isEmpty);
+  });
+
   testWidgets('RhwpNativeEditor moves table cell cursor with home and end', (
     tester,
   ) async {

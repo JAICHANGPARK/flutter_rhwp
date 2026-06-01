@@ -7268,6 +7268,51 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
   }
 
+  Future<void> _moveTableCellCursorByPage(
+    int delta, {
+    required bool extendSelection,
+  }) async {
+    final tableSelection = _editableTableCellSelection;
+    final activeCellIndex = tableSelection?.activeCellIndex;
+    if (tableSelection == null ||
+        activeCellIndex == null ||
+        !tableSelection.isTextEditing ||
+        _busy ||
+        delta == 0) {
+      return;
+    }
+
+    final current = tableSelection.copyWith(
+      activeOffset: _parseNonNegative(_offsetController.text),
+      isTextEditing: true,
+    );
+    try {
+      final target = await _pageTableCellTextPositionFrom(current, delta);
+      if (!mounted || target == null) {
+        return;
+      }
+
+      final nextSelection = _tableCellSelectionWithTextCaret(
+        current,
+        cellParagraph: target.cellParagraph,
+        offset: target.offset,
+        extendSelection: extendSelection,
+      );
+      if (nextSelection != current) {
+        _syncTableSelectionFields(nextSelection);
+        _controller.tableCellSelection = nextSelection;
+      }
+      unawaited(_controller.goToPage(target.page));
+      _focusEditor();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    }
+  }
+
   RhwpTableCellSelection _tableCellSelectionWithTextCaret(
     RhwpTableCellSelection current, {
     required int cellParagraph,
@@ -7286,6 +7331,44 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           : null,
       clearTextSelection: !extendSelection,
     );
+  }
+
+  Future<({int cellParagraph, int offset, int page})?>
+  _pageTableCellTextPositionFrom(
+    RhwpTableCellSelection selection,
+    int delta,
+  ) async {
+    final pageCount = await widget.document.pageCount;
+    if (pageCount <= 0) {
+      return null;
+    }
+
+    final currentRun = await _tableCellTextRunContaining(selection);
+    final currentPage = currentRun?.page ?? _controller.currentPage;
+    final targetPage = (currentPage + delta).clamp(0, pageCount - 1).toInt();
+    if (targetPage == currentPage) {
+      return null;
+    }
+
+    final targetX =
+        currentRun?.run.pagePointForOffset(selection.activeOffset).dx ?? 0;
+    var page = targetPage;
+    while (page >= 0 && page < pageCount) {
+      final tree = await widget.document.pageLayerTreeModel(page);
+      final target = _nearestVerticalTableCellRun(
+        tree,
+        selection: selection,
+        page: page,
+        targetX: targetX,
+        direction: delta,
+      );
+      if (target != null) {
+        return _tableCellPositionOnRun(target, targetX);
+      }
+      page += delta.sign;
+    }
+
+    return null;
   }
 
   Future<({int cellParagraph, int offset, int page})?>
@@ -7337,7 +7420,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   Future<({RhwpLayerTree tree, RhwpTextRunLayout run, int page})?>
   _tableCellTextRunContaining(RhwpTableCellSelection selection) async {
     final pageCount = await widget.document.pageCount;
-    for (var page = 0; page < pageCount; page += 1) {
+    final currentPage = _controller.currentPage;
+    final pages = <int>[
+      if (currentPage >= 0 && currentPage < pageCount) currentPage,
+      for (var page = 0; page < pageCount; page += 1)
+        if (page != currentPage) page,
+    ];
+    for (final page in pages) {
       final tree = await widget.document.pageLayerTreeModel(page);
       for (final run in _tableCellTextRuns(tree, selection)) {
         if (run.cellContext?.cellParagraph == selection.activeCellParagraph &&
@@ -10332,9 +10421,21 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         unawaited(_moveCursorVertically(1, extendSelection: extendSelection));
         return KeyEventResult.handled;
       case LogicalKeyboardKey.pageUp:
+        if (_controller.tableCellSelection?.isTextEditing == true) {
+          unawaited(
+            _moveTableCellCursorByPage(-1, extendSelection: extendSelection),
+          );
+          return KeyEventResult.handled;
+        }
         unawaited(_moveCursorByPage(-1, extendSelection: extendSelection));
         return KeyEventResult.handled;
       case LogicalKeyboardKey.pageDown:
+        if (_controller.tableCellSelection?.isTextEditing == true) {
+          unawaited(
+            _moveTableCellCursorByPage(1, extendSelection: extendSelection),
+          );
+          return KeyEventResult.handled;
+        }
         unawaited(_moveCursorByPage(1, extendSelection: extendSelection));
         return KeyEventResult.handled;
       case LogicalKeyboardKey.home:

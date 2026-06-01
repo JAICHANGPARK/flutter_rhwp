@@ -66,6 +66,8 @@
   a core length fallback for cell paragraphs without visible text runs.
 * Added Flutter-native Ctrl/Cmd+Home and Ctrl/Cmd+End movement while editing
   table-cell text, keeping document-boundary shortcuts scoped to the active cell.
+* Added Flutter-native PageUp/PageDown movement while editing table-cell text,
+  using active-cell page-layer geometry instead of moving the body cursor.
 * Added Flutter-native Left/Right movement while editing table-cell text, so
   plain arrow keys update the active cell text offset and cross cell paragraphs
   instead of moving the rectangular cell selection.
