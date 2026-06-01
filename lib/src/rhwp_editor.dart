@@ -2610,6 +2610,20 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
+    final tableSelection = _controller.tableCellSelection;
+    if (tableSelection?.hasTextSelection ?? false) {
+      final selectedText = await _selectedEditingTableCellText(tableSelection!);
+      if (selectedText.isEmpty) {
+        return;
+      }
+      await Clipboard.setData(ClipboardData(text: selectedText));
+      await _rememberEditingTableCellHtmlClipboard(
+        tableSelection,
+        selectedText,
+      );
+      return;
+    }
+
     final tableText = await _selectedTableCellText();
     if (tableText != null && tableText.isNotEmpty) {
       await Clipboard.setData(ClipboardData(text: tableText));
@@ -2632,6 +2646,35 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     final tableSelection = _controller.tableCellSelection;
+    if (tableSelection?.hasTextSelection ?? false) {
+      if (_busy) {
+        return;
+      }
+      final selectedText = await _selectedEditingTableCellText(tableSelection!);
+      if (selectedText.isEmpty) {
+        return;
+      }
+      await Clipboard.setData(ClipboardData(text: selectedText));
+      await _rememberEditingTableCellHtmlClipboard(
+        tableSelection,
+        selectedText,
+      );
+      await _runEdit(() async {
+        final current = tableSelection.copyWith(
+          activeOffset: _parseNonNegative(_offsetController.text),
+          isTextEditing: true,
+        );
+        final nextSelection = await _deleteEditingTableCellTextSelection(
+          current,
+        );
+        if (nextSelection != null) {
+          _syncTableSelectionFields(nextSelection);
+          _controller.tableCellSelection = nextSelection;
+        }
+      });
+      return;
+    }
+
     final tableText = await _selectedTableCellText();
     if (tableSelection != null && tableText != null && tableText.isNotEmpty) {
       if (_busy) {
@@ -2750,6 +2793,36 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
     _rememberHtmlClipboard(html: html, text: text);
+  }
+
+  Future<void> _rememberEditingTableCellHtmlClipboard(
+    RhwpTableCellSelection selection,
+    String text,
+  ) async {
+    final activeCellIndex = selection.activeCellIndex;
+    final range = _editingTableCellTextSelectionRange(selection);
+    if (activeCellIndex == null || range == null) {
+      _clipboardDomain = _EditorClipboardDomain.text;
+      _clearHtmlClipboard();
+      return;
+    }
+
+    try {
+      final html = await widget.document.exportSelectionInCellHtml(
+        section: selection.section,
+        paragraph: selection.paragraph,
+        controlIndex: selection.controlIndex,
+        cellIndex: activeCellIndex,
+        startCellParagraph: range.startCellParagraph,
+        startOffset: range.startOffset,
+        endCellParagraph: range.endCellParagraph,
+        endOffset: range.endOffset,
+      );
+      _rememberHtmlClipboard(html: html, text: text);
+    } catch (_) {
+      _clipboardDomain = _EditorClipboardDomain.text;
+      _clearHtmlClipboard();
+    }
   }
 
   Future<bool> _pasteHtmlClipboardIfCurrent(String plainText) async {
@@ -5845,6 +5918,80 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       needsCellSeparator = true;
     }
 
+    return buffer.toString();
+  }
+
+  Future<String> _selectedEditingTableCellText(
+    RhwpTableCellSelection selection,
+  ) async {
+    final activeCellIndex = selection.activeCellIndex;
+    final range = _editingTableCellTextSelectionRange(selection);
+    if (activeCellIndex == null || range == null) {
+      return '';
+    }
+
+    final segments =
+        [
+          for (final segment in await _tableCellTextSegments(selection))
+            if (segment.cellIndex == activeCellIndex &&
+                segment.cellParagraph >= range.startCellParagraph &&
+                segment.cellParagraph <= range.endCellParagraph &&
+                segment.endOffset >
+                    (segment.cellParagraph == range.startCellParagraph
+                        ? range.startOffset
+                        : 0) &&
+                segment.startOffset <
+                    (segment.cellParagraph == range.endCellParagraph
+                        ? range.endOffset
+                        : 1 << 30))
+              segment,
+        ]..sort((left, right) {
+          final paragraph = left.cellParagraph.compareTo(right.cellParagraph);
+          if (paragraph != 0) {
+            return paragraph;
+          }
+          return left.startOffset.compareTo(right.startOffset);
+        });
+
+    final buffer = StringBuffer();
+    var previousParagraph = range.startCellParagraph;
+    var offsetInParagraph = range.startOffset;
+
+    for (final segment in segments) {
+      while (previousParagraph < segment.cellParagraph) {
+        buffer.write('\n');
+        previousParagraph += 1;
+        offsetInParagraph = 0;
+      }
+
+      final paragraphStart = segment.cellParagraph == range.startCellParagraph
+          ? range.startOffset
+          : 0;
+      final paragraphEnd = segment.cellParagraph == range.endCellParagraph
+          ? range.endOffset
+          : segment.endOffset;
+      final startOffset = math.max(segment.startOffset, paragraphStart);
+      final endOffset = math.min(segment.endOffset, paragraphEnd);
+      if (endOffset <= startOffset) {
+        continue;
+      }
+
+      if (startOffset > offsetInParagraph) {
+        buffer.write(List.filled(startOffset - offsetInParagraph, ' ').join());
+      }
+      buffer.write(
+        segment.text.substring(
+          startOffset - segment.startOffset,
+          endOffset - segment.startOffset,
+        ),
+      );
+      offsetInParagraph = math.max(offsetInParagraph, endOffset);
+    }
+
+    while (previousParagraph < range.endCellParagraph) {
+      buffer.write('\n');
+      previousParagraph += 1;
+    }
     return buffer.toString();
   }
 
