@@ -557,6 +557,7 @@ enum _EditorContextMenuAction {
   underline,
   strikethrough,
   charEffects,
+  charFont,
   charColor,
   charShape,
   paraShape,
@@ -613,6 +614,8 @@ enum _CharEffectChoice { superscript, subscript, emboss, engrave }
 
 enum _CharColorTarget { text, shade }
 
+enum _CharFontTarget { family, size }
+
 class _ObjectPropertiesDialogResult {
   const _ObjectPropertiesDialogResult({
     required this.width,
@@ -632,6 +635,20 @@ class _CharColorPickerResult {
 
   final _CharColorTarget target;
   final String value;
+}
+
+class _CharFontPickerResult {
+  const _CharFontPickerResult._({required this.target, this.family, this.size});
+
+  const _CharFontPickerResult.family(String family)
+    : this._(target: _CharFontTarget.family, family: family);
+
+  const _CharFontPickerResult.size(int size)
+    : this._(target: _CharFontTarget.size, size: size);
+
+  final _CharFontTarget target;
+  final String? family;
+  final int? size;
 }
 
 class _CharShapeDialogResult {
@@ -1504,6 +1521,7 @@ const _fontFamilyOptions = [
 ];
 
 const _fontSizeStep = 100;
+const _fontSizePresetValues = [900, 1000, 1100, 1200, 1400, 1600, 1800, 2000];
 const _paragraphIndentStep = 1000;
 const _lineSpacingPresets = [100, 120, 130, 140, 150, 160, 180, 200, 250, 300];
 
@@ -5660,6 +5678,36 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         await _toggleCharFormat(emboss: true);
       case _CharEffectChoice.engrave:
         await _toggleCharFormat(engrave: true);
+    }
+    _focusEditor();
+  }
+
+  Future<void> _showCharFontPicker() async {
+    if (_busy) {
+      return;
+    }
+
+    final result = await showDialog<_CharFontPickerResult>(
+      context: context,
+      builder: (context) => _CharFontPickerDialog(
+        currentFormat: _pendingCharFormat.withFallback(_currentCharFormat),
+      ),
+    );
+    if (!mounted || result == null) {
+      return;
+    }
+
+    switch (result.target) {
+      case _CharFontTarget.family:
+        final family = result.family;
+        if (family != null) {
+          await _applyCharFormat(fontFamily: family);
+        }
+      case _CharFontTarget.size:
+        final size = result.size;
+        if (size != null) {
+          await _applyCharFormat(fontSize: size);
+        }
     }
     _focusEditor();
   }
@@ -10360,6 +10408,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         await _toggleCharFormat(strikethrough: true);
       case _EditorContextMenuAction.charEffects:
         await _showCharEffectPicker();
+      case _EditorContextMenuAction.charFont:
+        await _showCharFontPicker();
       case _EditorContextMenuAction.charColor:
         await _showCharColorPicker();
       case _EditorContextMenuAction.charShape:
@@ -10600,6 +10650,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
             enabled: !_busy,
           ),
           _contextMenuItem(
+            action: _EditorContextMenuAction.charFont,
+            icon: Icons.font_download_outlined,
+            label: '글꼴/크기',
+            enabled: !_busy,
+          ),
+          _contextMenuItem(
             action: _EditorContextMenuAction.charColor,
             icon: Icons.format_color_text,
             label: '글자 색상',
@@ -10832,6 +10888,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         action: _EditorContextMenuAction.charEffects,
         icon: Icons.filter_hdr,
         label: '글자 효과',
+        enabled: !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.charFont,
+        icon: Icons.font_download_outlined,
+        label: '글꼴/크기',
         enabled: !_busy,
       ),
       _contextMenuItem(
@@ -18010,6 +18072,72 @@ class _CharEffectPickerDialog extends StatelessWidget {
       avatar: Icon(icon),
       label: Text(label),
       onSelected: (_) => Navigator.of(context).pop(choice),
+    );
+  }
+}
+
+class _CharFontPickerDialog extends StatelessWidget {
+  const _CharFontPickerDialog({required this.currentFormat});
+
+  final _PendingCharFormat currentFormat;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('글꼴/크기'),
+      content: SizedBox(
+        width: 380,
+        height: 360,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('글꼴'),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final family in _fontFamilyOptions)
+                    ChoiceChip(
+                      key: ValueKey('rhwp-char-font-family-$family'),
+                      selected: currentFormat.fontFamily == family,
+                      label: Text(family),
+                      onSelected: (_) => Navigator.of(
+                        context,
+                      ).pop(_CharFontPickerResult.family(family)),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              const Text('크기'),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final size in _fontSizePresetValues)
+                    ChoiceChip(
+                      key: ValueKey('rhwp-char-font-size-$size'),
+                      selected: currentFormat.fontSize == size,
+                      label: Text('${_hwpFontSizeToPointText(size)} pt'),
+                      onSelected: (_) => Navigator.of(
+                        context,
+                      ).pop(_CharFontPickerResult.size(size)),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
     );
   }
 }
