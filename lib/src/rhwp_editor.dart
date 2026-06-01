@@ -13444,7 +13444,9 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
       paragraph: widget.selection.end.paragraph,
       offset: widget.selection.end.offset,
     );
+    final tableTextCaretRect = _tableTextCaretRect(tree, overlaySize);
     if (caretRect == null &&
+        tableTextCaretRect == null &&
         tableSelectionRects.isEmpty &&
         tableTextSelectionRects.isEmpty &&
         objectSelectionRects.isEmpty &&
@@ -13461,12 +13463,15 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
     final selectionRects = _layerSelectionRects(tree, overlaySize);
     final displayedCaretRect =
         pendingTextCaretRect ??
+        tableTextCaretRect ??
         (caretRect == null
             ? null
             : _scalePageRect(caretRect, tree, overlaySize, caret: true));
-    final scaledCaretRect = caretRect == null
-        ? null
-        : _scalePageRect(caretRect, tree, overlaySize);
+    final scaledCaretRect =
+        tableTextCaretRect ??
+        (caretRect == null
+            ? null
+            : _scalePageRect(caretRect, tree, overlaySize));
 
     return Stack(
       fit: StackFit.expand,
@@ -13815,6 +13820,32 @@ class _EditorSelectionOverlayState extends State<_EditorSelectionOverlay> {
       }
     }
     return rects;
+  }
+
+  Rect? _tableTextCaretRect(RhwpLayerTree tree, Size overlaySize) {
+    final tableSelection = widget.tableCellSelection;
+    final activeCellIndex = tableSelection?.activeCellIndex;
+    if (tableSelection == null ||
+        activeCellIndex == null ||
+        !tableSelection.isTextEditing) {
+      return null;
+    }
+
+    final caretRect = tree.caretRectFor(
+      section: tableSelection.section,
+      paragraph: tableSelection.paragraph,
+      offset: tableSelection.activeOffset,
+      cellContext: RhwpCellTextContext(
+        parentParagraph: tableSelection.paragraph,
+        controlIndex: tableSelection.controlIndex,
+        cellIndex: activeCellIndex,
+        cellParagraph: tableSelection.activeCellParagraph,
+        textDirection: 0,
+      ),
+    );
+    return caretRect == null
+        ? null
+        : _scalePageRect(caretRect, tree, overlaySize, caret: true);
   }
 
   int _compareTableTextPosition(

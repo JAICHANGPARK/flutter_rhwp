@@ -5564,6 +5564,73 @@ void main() {
     },
   );
 
+  testWidgets(
+    'RhwpNativeEditor anchors table cell caret and composing preview to the cell run',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(
+        _tableCellEditorLayerTreeJson(includeBodyParagraphFive: true),
+      );
+      final document = RhwpDocument.fromSession(session);
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(document: document, controller: controller),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      final pageFinder = find.byType(SvgPicture);
+      final pageTopLeft = tester.getTopLeft(pageFinder);
+      final pageSize = tester.getSize(pageFinder);
+      await tester.tapAt(
+        tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+            const Offset(1, 6),
+      );
+      await tester.pump();
+
+      controller.tableCellSelection = const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+        activeCellParagraph: 0,
+        activeOffset: 2,
+        isTextEditing: true,
+      );
+      await tester.pump();
+
+      final caretTop = tester
+          .getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret')))
+          .dy;
+      expect(caretTop, greaterThan(pageTopLeft.dy + pageSize.height * 0.3));
+
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: 'ㅎ',
+          composing: TextRange(start: 0, end: 1),
+        ),
+      );
+      await tester.pump();
+
+      final composingTop = tester
+          .getTopLeft(
+            find.byKey(const ValueKey('rhwp-editor-composing-preview')),
+          )
+          .dy;
+      expect(composingTop, greaterThan(pageTopLeft.dy + pageSize.height * 0.3));
+    },
+  );
+
   testWidgets('RhwpNativeEditor inserts text into selected table cell', (
     tester,
   ) async {
