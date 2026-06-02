@@ -415,6 +415,48 @@ void main() {
     expect(
       jsonDecode(
         jsonEncode(
+          RhwpCommand.setActiveField(
+            section: 0,
+            paragraph: 1,
+            offset: 2,
+          ).toJson(),
+        ),
+      ),
+      {'type': 'setActiveField', 'section': 0, 'paragraph': 1, 'offset': 2},
+    );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.setActiveFieldInTableCell(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 3,
+            cellIndex: 4,
+            cellParagraph: 5,
+            offset: 6,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'setActiveFieldInTableCell',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 3,
+        'cellIndex': 4,
+        'cellParagraph': 5,
+        'offset': 6,
+        'isTextBox': false,
+      },
+    );
+
+    expect(jsonDecode(jsonEncode(RhwpCommand.clearActiveField().toJson())), {
+      'type': 'clearActiveField',
+    });
+
+    expect(
+      jsonDecode(
+        jsonEncode(
           RhwpCommand.removeFieldAt(
             section: 0,
             paragraph: 1,
@@ -2470,6 +2512,45 @@ void main() {
     });
     expect(cellFieldInfo.inField, isTrue);
 
+    expect(
+      await document.setActiveField(section: 0, paragraph: 1, offset: 2),
+      isTrue,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'setActiveField',
+      'section': 0,
+      'paragraph': 1,
+      'offset': 2,
+    });
+
+    expect(
+      await document.setActiveFieldInTableCell(
+        section: 0,
+        paragraph: 1,
+        controlIndex: 3,
+        cellIndex: 4,
+        cellParagraph: 5,
+        offset: 6,
+      ),
+      isTrue,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'setActiveFieldInTableCell',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 3,
+      'cellIndex': 4,
+      'cellParagraph': 5,
+      'offset': 6,
+      'isTextBox': false,
+    });
+
+    await document.clearActiveField();
+
+    expect(jsonDecode(session.lastCommandJson!), {'type': 'clearActiveField'});
+
     await document.removeFieldAt(section: 0, paragraph: 1, offset: 2);
 
     expect(jsonDecode(session.lastCommandJson!), {
@@ -4337,6 +4418,14 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'getClickHereProperties') {
       return '{"ok":true,"guide":"고객명","memo":"memo","name":"customer","editable":true}';
+    }
+    if (command is Map &&
+        (command['type'] == 'setActiveField' ||
+            command['type'] == 'setActiveFieldInTableCell')) {
+      return '{"ok":true,"changed":true}';
+    }
+    if (command is Map && command['type'] == 'clearActiveField') {
+      return '{"ok":true}';
     }
     if (command is Map &&
         (command['type'] == 'getCharPropertiesAt' ||

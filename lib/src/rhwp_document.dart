@@ -1178,6 +1178,24 @@ abstract class RhwpCommand {
     bool isTextBox,
   }) = RhwpGetFieldInfoAtInTableCellCommand;
 
+  factory RhwpCommand.setActiveField({
+    required int section,
+    required int paragraph,
+    required int offset,
+  }) = RhwpSetActiveFieldCommand;
+
+  factory RhwpCommand.setActiveFieldInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int offset,
+    bool isTextBox,
+  }) = RhwpSetActiveFieldInTableCellCommand;
+
+  factory RhwpCommand.clearActiveField() = RhwpClearActiveFieldCommand;
+
   factory RhwpCommand.removeFieldAt({
     required int section,
     required int paragraph,
@@ -2684,6 +2702,65 @@ class RhwpGetFieldInfoAtInTableCellCommand extends RhwpCommand {
     'offset': offset,
     'isTextBox': isTextBox,
   };
+}
+
+class RhwpSetActiveFieldCommand extends RhwpCommand {
+  const RhwpSetActiveFieldCommand({
+    required this.section,
+    required this.paragraph,
+    required this.offset,
+  });
+
+  final int section;
+  final int paragraph;
+  final int offset;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'setActiveField',
+    'section': section,
+    'paragraph': paragraph,
+    'offset': offset,
+  };
+}
+
+class RhwpSetActiveFieldInTableCellCommand extends RhwpCommand {
+  const RhwpSetActiveFieldInTableCellCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+    required this.cellParagraph,
+    required this.offset,
+    this.isTextBox = false,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+  final int cellParagraph;
+  final int offset;
+  final bool isTextBox;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'setActiveFieldInTableCell',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'cellIndex': cellIndex,
+    'cellParagraph': cellParagraph,
+    'offset': offset,
+    'isTextBox': isTextBox,
+  };
+}
+
+class RhwpClearActiveFieldCommand extends RhwpCommand {
+  const RhwpClearActiveFieldCommand();
+
+  @override
+  Map<String, Object?> toJson() => {'type': 'clearActiveField'};
 }
 
 class RhwpRemoveFieldAtCommand extends RhwpCommand {
@@ -5274,6 +5351,48 @@ class RhwpDocument {
       ),
     );
     return RhwpFieldRangeInfo.fromJson(_tryDecodeObject(result) ?? const {});
+  }
+
+  Future<bool> setActiveField({
+    required int section,
+    required int paragraph,
+    required int offset,
+  }) async {
+    final result = await apply(
+      RhwpCommand.setActiveField(
+        section: section,
+        paragraph: paragraph,
+        offset: offset,
+      ),
+    );
+    return _boolFromJson(_tryDecodeObject(result)?['changed']) ?? false;
+  }
+
+  Future<bool> setActiveFieldInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int offset,
+    bool isTextBox = false,
+  }) async {
+    final result = await apply(
+      RhwpCommand.setActiveFieldInTableCell(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        cellIndex: cellIndex,
+        cellParagraph: cellParagraph,
+        offset: offset,
+        isTextBox: isTextBox,
+      ),
+    );
+    return _boolFromJson(_tryDecodeObject(result)?['changed']) ?? false;
+  }
+
+  Future<void> clearActiveField() async {
+    await apply(RhwpCommand.clearActiveField());
   }
 
   Future<String> removeFieldAt({

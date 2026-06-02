@@ -627,6 +627,40 @@ impl RhwpSession {
                 offset,
                 is_text_box,
             )),
+            RhwpCommand::SetActiveField {
+                section,
+                paragraph,
+                offset,
+            } => {
+                let changed = inner
+                    .document
+                    .set_active_field_api(section, paragraph, offset);
+                Ok(format!(r#"{{"ok":true,"changed":{changed}}}"#))
+            }
+            RhwpCommand::SetActiveFieldInTableCell {
+                section,
+                paragraph,
+                control_index,
+                cell_index,
+                cell_paragraph,
+                offset,
+                is_text_box,
+            } => {
+                let changed = inner.document.set_active_field_in_cell_api(
+                    section,
+                    paragraph,
+                    control_index,
+                    cell_index,
+                    cell_paragraph,
+                    offset,
+                    is_text_box,
+                );
+                Ok(format!(r#"{{"ok":true,"changed":{changed}}}"#))
+            }
+            RhwpCommand::ClearActiveField => {
+                inner.document.clear_active_field_api();
+                Ok(r#"{"ok":true}"#.to_string())
+            }
             RhwpCommand::RemoveFieldAt {
                 section,
                 paragraph,
@@ -1870,6 +1904,25 @@ enum RhwpCommand {
         #[serde(rename = "isTextBox", default)]
         is_text_box: bool,
     },
+    SetActiveField {
+        section: u32,
+        paragraph: u32,
+        offset: u32,
+    },
+    SetActiveFieldInTableCell {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "cellIndex")]
+        cell_index: u32,
+        #[serde(rename = "cellParagraph")]
+        cell_paragraph: u32,
+        offset: u32,
+        #[serde(rename = "isTextBox", default)]
+        is_text_box: bool,
+    },
+    ClearActiveField,
     RemoveFieldAt {
         section: u32,
         paragraph: u32,

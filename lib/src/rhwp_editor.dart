@@ -4937,6 +4937,94 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
   }
 
+  Future<void> _activateFieldAtCursor() async {
+    if (_busy || _controller.objectSelection != null) {
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _visibleBusy = true;
+      _error = null;
+    });
+
+    try {
+      final tableSelection = _editableTableCellSelection;
+      final bool changed;
+      if (tableSelection == null) {
+        final cursor = _readCursor();
+        changed = await widget.document.setActiveField(
+          section: cursor.section,
+          paragraph: cursor.paragraph,
+          offset: cursor.offset,
+        );
+      } else {
+        changed = await widget.document.setActiveFieldInTableCell(
+          section: tableSelection.section,
+          paragraph: tableSelection.paragraph,
+          controlIndex: tableSelection.controlIndex,
+          cellIndex: tableSelection.activeCellIndex!,
+          cellParagraph: tableSelection.activeCellParagraph,
+          offset: tableSelection.activeOffset,
+        );
+      }
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _busy = false;
+        _visibleBusy = false;
+        if (changed) {
+          _renderRevision += 1;
+          _renderPages = {_controller.currentPage};
+        }
+      });
+      _focusEditor();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _visibleBusy = false;
+          _error = error;
+        });
+      }
+    }
+  }
+
+  Future<void> _clearActiveField() async {
+    if (_busy) {
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _visibleBusy = true;
+      _error = null;
+    });
+
+    try {
+      await widget.document.clearActiveField();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _busy = false;
+        _visibleBusy = false;
+        _renderRevision += 1;
+        _renderPages = {_controller.currentPage};
+      });
+      _focusEditor();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _visibleBusy = false;
+          _error = error;
+        });
+      }
+    }
+  }
+
   Future<RhwpFieldRangeInfo> _fieldInfoAtCursor() {
     final tableSelection = _editableTableCellSelection;
     if (tableSelection != null) {
@@ -13372,6 +13460,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onReplace: _replaceActiveSearchMatch,
           onReplaceAll: _replaceAllSearchMatches,
           onFieldProperties: _showFieldPropertiesDialog,
+          onActivateField: _activateFieldAtCursor,
+          onClearActiveField: _clearActiveField,
           onRemoveField: _removeFieldAtCursor,
           onCompare: _showCompareDialog,
           onPageSetup: _showPageSetupDialog,
@@ -16026,6 +16116,8 @@ class _EditorToolbar extends StatefulWidget {
     required this.onReplace,
     required this.onReplaceAll,
     required this.onFieldProperties,
+    required this.onActivateField,
+    required this.onClearActiveField,
     required this.onRemoveField,
     required this.onCompare,
     required this.onPageSetup,
@@ -16171,6 +16263,8 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onReplace;
   final VoidCallback onReplaceAll;
   final VoidCallback onFieldProperties;
+  final VoidCallback onActivateField;
+  final VoidCallback onClearActiveField;
   final VoidCallback onRemoveField;
   final VoidCallback onCompare;
   final VoidCallback onPageSetup;
@@ -17540,6 +17634,18 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               buttonKey: const ValueKey('rhwp-editor-field-properties'),
               icon: Icons.edit_note,
               onPressed: widget.busy ? null : widget.onFieldProperties,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Activate field at cursor',
+              buttonKey: const ValueKey('rhwp-editor-activate-field'),
+              icon: Icons.touch_app_outlined,
+              onPressed: widget.busy ? null : widget.onActivateField,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Clear active field',
+              buttonKey: const ValueKey('rhwp-editor-clear-active-field'),
+              icon: Icons.clear_all,
+              onPressed: widget.busy ? null : widget.onClearActiveField,
             ),
             _ToolbarIconButton(
               tooltip: 'Remove field at cursor',

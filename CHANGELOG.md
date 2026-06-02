@@ -1,6 +1,8 @@
 ## 2026.5.24
 
 * Updated plugin release metadata for the `2026.5.24` release.
+* Added Flutter-native active ClickHere field controls that call rhwp core
+  active-field APIs and rerender only the current page.
 * Added Flutter-native footnote deletion from the insert ribbon using rhwp core
   footnote marker hit detection and delete commands.
 * Added Flutter-native footnote text editing from the insert ribbon, backed by

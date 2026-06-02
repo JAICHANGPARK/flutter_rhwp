@@ -1311,6 +1311,68 @@ void main() {
     ]);
   });
 
+  testWidgets(
+    'RhwpNativeEditor tools ribbon activates and clears field state',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 1100,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      controller.cursor = const RhwpCursorPosition(paragraph: 0, offset: 2);
+      await tester.pump();
+
+      await tester.tap(find.text('도구'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('rhwp-editor-activate-field')),
+      );
+      await tester.pump();
+
+      session.renderedPages.clear();
+      await tester.tap(
+        find.byKey(const ValueKey('rhwp-editor-activate-field')),
+      );
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 0);
+      expect(session.historyCommands, isEmpty);
+      expect(session.renderedPages, [0]);
+      expect(session.commands.map(jsonDecode).toList(), [
+        {'type': 'setActiveField', 'section': 0, 'paragraph': 0, 'offset': 2},
+      ]);
+
+      session.renderedPages.clear();
+      await tester.tap(
+        find.byKey(const ValueKey('rhwp-editor-clear-active-field')),
+      );
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 0);
+      expect(session.historyCommands, isEmpty);
+      expect(session.renderedPages, [0]);
+      expect(session.commands.map(jsonDecode).toList(), [
+        {'type': 'setActiveField', 'section': 0, 'paragraph': 0, 'offset': 2},
+        {'type': 'clearActiveField'},
+      ]);
+    },
+  );
+
   testWidgets('RhwpNativeEditor tools ribbon removes field at cursor', (
     tester,
   ) async {
@@ -19978,6 +20040,14 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'getClickHereProperties') {
       return '{"ok":true,"guide":"고객명","memo":"기존 메모","name":"customer","editable":true}';
+    }
+    if (command is Map &&
+        (command['type'] == 'setActiveField' ||
+            command['type'] == 'setActiveFieldInTableCell')) {
+      return '{"ok":true,"changed":true}';
+    }
+    if (command is Map && command['type'] == 'clearActiveField') {
+      return '{"ok":true}';
     }
     if (command is Map && command['type'] == 'insertFootnote') {
       footnoteExists = true;
