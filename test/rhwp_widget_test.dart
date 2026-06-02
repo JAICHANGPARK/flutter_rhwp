@@ -2783,6 +2783,66 @@ void main() {
     expect(session.commands, isEmpty);
   });
 
+  testWidgets('RhwpNativeEditor ruler reflects current paragraph metrics', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1)
+      ..paraPropertiesJson =
+          '{"alignment":"justify","lineSpacing":160.0,"lineSpacingType":"Percent","marginLeft":2000.0,"marginRight":1500.0,"indent":1000.0,"spacingBefore":0.0,"spacingAfter":0.0,"paraShapeId":0}';
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('보기'));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-toggle-ruler')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-toggle-ruler')));
+    await tester.pump();
+
+    final leftMarginFinder = find.byKey(
+      const ValueKey('rhwp-editor-ruler-left-margin'),
+    );
+    final firstLineFinder = find.byKey(
+      const ValueKey('rhwp-editor-ruler-first-line-indent'),
+    );
+    final rightMarginFinder = find.byKey(
+      const ValueKey('rhwp-editor-ruler-right-margin'),
+    );
+
+    expect(leftMarginFinder, findsOneWidget);
+    expect(firstLineFinder, findsOneWidget);
+    expect(rightMarginFinder, findsOneWidget);
+
+    final leftMarginX = tester.getCenter(leftMarginFinder).dx;
+    final firstLineX = tester.getCenter(firstLineFinder).dx;
+    final rightMarginX = tester.getCenter(rightMarginFinder).dx;
+
+    expect(leftMarginX, greaterThan(36));
+    expect(firstLineX, greaterThan(leftMarginX));
+    expect(rightMarginX, greaterThan(firstLineX));
+
+    controller.zoomIn();
+    await tester.pump();
+
+    expect(tester.getCenter(leftMarginFinder).dx, greaterThan(leftMarginX));
+    expect(tester.getCenter(firstLineFinder).dx, greaterThan(firstLineX));
+    expect(tester.getCenter(rightMarginFinder).dx, lessThan(rightMarginX));
+    expect(session.commands, isEmpty);
+  });
+
   testWidgets('RhwpNativeEditor page ribbon creates header and footer', (
     tester,
   ) async {

@@ -13497,7 +13497,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onToggleTransparentTableBorders: _toggleTransparentTableBorders,
           onToggleRuler: _toggleRuler,
         ),
-        if (_showRuler) _EditorRuler(zoom: _controller.zoom),
+        if (_showRuler)
+          _EditorRuler(
+            zoom: _controller.zoom,
+            currentParaFormat: _currentParaFormat,
+          ),
         Expanded(
           child: Listener(
             behavior: HitTestBehavior.translucent,
@@ -21848,9 +21852,10 @@ class _ToolbarDivider extends StatelessWidget {
 }
 
 class _EditorRuler extends StatelessWidget {
-  const _EditorRuler({required this.zoom});
+  const _EditorRuler({required this.zoom, required this.currentParaFormat});
 
   final double zoom;
+  final _CurrentParaFormat currentParaFormat;
 
   @override
   Widget build(BuildContext context) {
@@ -21868,18 +21873,189 @@ class _EditorRuler extends StatelessWidget {
           key: const ValueKey('rhwp-editor-ruler'),
           width: double.infinity,
           height: 28,
-          child: CustomPaint(
-            painter: _EditorRulerPainter(
-              zoom: zoom,
-              tickColor: colorScheme.outline,
-              majorTickColor: colorScheme.onSurfaceVariant,
-              markerColor: colorScheme.primary,
-              textColor: colorScheme.onSurfaceVariant,
-            ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final markerPositions = _EditorRulerMarkerPositions.resolve(
+                width: constraints.maxWidth,
+                zoom: zoom,
+                currentParaFormat: currentParaFormat,
+              );
+              return Stack(
+                children: [
+                  CustomPaint(
+                    size: Size.infinite,
+                    painter: _EditorRulerPainter(
+                      zoom: zoom,
+                      tickColor: colorScheme.outline,
+                      majorTickColor: colorScheme.onSurfaceVariant,
+                      markerColor: colorScheme.primary,
+                      textColor: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  _EditorRulerMarker(
+                    key: const ValueKey('rhwp-editor-ruler-left-margin'),
+                    tooltip: 'Left margin',
+                    left: markerPositions.leftMargin,
+                    top: 1,
+                    color: colorScheme.primary,
+                    direction: _EditorRulerMarkerDirection.down,
+                  ),
+                  _EditorRulerMarker(
+                    key: const ValueKey('rhwp-editor-ruler-first-line-indent'),
+                    tooltip: 'First-line indent',
+                    left: markerPositions.firstLineIndent,
+                    top: 13,
+                    color: colorScheme.tertiary,
+                    direction: _EditorRulerMarkerDirection.up,
+                  ),
+                  _EditorRulerMarker(
+                    key: const ValueKey('rhwp-editor-ruler-right-margin'),
+                    tooltip: 'Right margin',
+                    left: markerPositions.rightMargin,
+                    top: 1,
+                    color: colorScheme.primary,
+                    direction: _EditorRulerMarkerDirection.down,
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
     );
+  }
+}
+
+class _EditorRulerMarkerPositions {
+  const _EditorRulerMarkerPositions({
+    required this.leftMargin,
+    required this.firstLineIndent,
+    required this.rightMargin,
+  });
+
+  final double leftMargin;
+  final double firstLineIndent;
+  final double rightMargin;
+
+  static const _leftInset = 36.0;
+  static const _rightInset = 36.0;
+  static const _markerWidth = 10.0;
+  static const _markerHalfWidth = _markerWidth / 2;
+  static const _hwpUnitScale = 18.0 / 1000.0;
+
+  static _EditorRulerMarkerPositions resolve({
+    required double width,
+    required double zoom,
+    required _CurrentParaFormat currentParaFormat,
+  }) {
+    final markerMin = _markerHalfWidth;
+    final markerMax = math.max(markerMin, width - _markerHalfWidth);
+    final leftMargin = _clampMarker(
+      _leftInset + _toPixels(currentParaFormat.marginLeft ?? 0, zoom),
+      markerMin,
+      markerMax,
+    );
+    final firstLineIndent = _clampMarker(
+      leftMargin + _toPixels(currentParaFormat.indent ?? 0, zoom),
+      markerMin,
+      markerMax,
+    );
+    final rightMargin = _clampMarker(
+      width - _rightInset - _toPixels(currentParaFormat.marginRight ?? 0, zoom),
+      markerMin,
+      markerMax,
+    );
+    return _EditorRulerMarkerPositions(
+      leftMargin: leftMargin,
+      firstLineIndent: firstLineIndent,
+      rightMargin: rightMargin,
+    );
+  }
+
+  static double _toPixels(int value, double zoom) {
+    return value * _hwpUnitScale * zoom.clamp(0.25, 3.0);
+  }
+
+  static double _clampMarker(double value, double min, double max) {
+    return value.clamp(min, max).toDouble();
+  }
+}
+
+enum _EditorRulerMarkerDirection { up, down }
+
+class _EditorRulerMarker extends StatelessWidget {
+  const _EditorRulerMarker({
+    super.key,
+    required this.tooltip,
+    required this.left,
+    required this.top,
+    required this.color,
+    required this.direction,
+  });
+
+  static const _width = 10.0;
+  static const _height = 10.0;
+
+  final String tooltip;
+  final double left;
+  final double top;
+  final Color color;
+  final _EditorRulerMarkerDirection direction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: left - _width / 2,
+      top: top,
+      width: _width,
+      height: _height,
+      child: Tooltip(
+        message: tooltip,
+        child: CustomPaint(
+          painter: _EditorRulerMarkerPainter(
+            color: color,
+            direction: direction,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EditorRulerMarkerPainter extends CustomPainter {
+  const _EditorRulerMarkerPainter({
+    required this.color,
+    required this.direction,
+  });
+
+  final Color color;
+  final _EditorRulerMarkerDirection direction;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    final path = Path();
+    switch (direction) {
+      case _EditorRulerMarkerDirection.up:
+        path
+          ..moveTo(size.width / 2, 0)
+          ..lineTo(size.width, size.height)
+          ..lineTo(0, size.height);
+        break;
+      case _EditorRulerMarkerDirection.down:
+        path
+          ..moveTo(0, 0)
+          ..lineTo(size.width, 0)
+          ..lineTo(size.width / 2, size.height);
+        break;
+    }
+    path.close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_EditorRulerMarkerPainter oldDelegate) {
+    return oldDelegate.color != color || oldDelegate.direction != direction;
   }
 }
 

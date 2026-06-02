@@ -3,6 +3,8 @@
 * Updated plugin release metadata for the `2026.5.24` release.
 * Added a Flutter-native editor ruler with a View-ribbon toggle so the native
   editor surface is closer to the upstream editor chrome without WebView UI.
+* Added Flutter-native ruler markers for the current paragraph's left margin,
+  first-line indent, and right margin using synchronized paragraph properties.
 * Added Flutter-native active ClickHere field controls that call rhwp core
   active-field APIs and rerender only the current page.
 * Added Flutter-native footnote deletion from the insert ribbon using rhwp core
