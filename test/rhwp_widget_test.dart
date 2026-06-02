@@ -16714,6 +16714,16 @@ void main() {
       find.byKey(const ValueKey('rhwp-editor-search-active')),
       findsNothing,
     );
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+
+    expect(find.text('Go to page'), findsOneWidget);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('RhwpNativeEditor debounces live search field input', (

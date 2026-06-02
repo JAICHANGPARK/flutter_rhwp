@@ -6753,6 +6753,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
   }
 
+  void _clearSearchAndFocusEditor() {
+    _clearSearch();
+    _searchFocusNode.unfocus();
+    _focusEditor();
+  }
+
   void _selectActiveSearchMatch() {
     if (_activeSearchMatch < 0 || _activeSearchMatch >= _searchMatches.length) {
       return;
@@ -13537,7 +13543,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onSearchTextChanged: _handleSearchInputChanged,
           onSearchPrevious: _searchPrevious,
           onSearchNext: _searchNext,
-          onClearSearch: _clearSearch,
+          onClearSearch: _clearSearchAndFocusEditor,
           onReplace: _replaceActiveSearchMatch,
           onReplaceAll: _replaceAllSearchMatches,
           onFieldProperties: _showFieldPropertiesDialog,
@@ -17803,7 +17809,6 @@ class _EditorToolbarState extends State<_EditorToolbar> {
         return KeyEventResult.handled;
       case LogicalKeyboardKey.escape:
         widget.onClearSearch();
-        widget.searchFocusNode.unfocus();
         return KeyEventResult.handled;
     }
 
