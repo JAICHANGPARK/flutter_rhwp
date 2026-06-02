@@ -17274,45 +17274,57 @@ void main() {
     expect(changedCalls, 1);
   });
 
-  testWidgets('RhwpNativeEditor toggles overwrite mode with insert key', (
-    tester,
-  ) async {
-    final controller = RhwpEditorController();
-    final session = _FakeRhwpSession(pageCountValue: 1);
-    final document = RhwpDocument.fromSession(session);
+  testWidgets(
+    'RhwpNativeEditor toggles overwrite mode with insert key and status bar',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      final document = RhwpDocument.fromSession(session);
 
-    await tester.pumpWidget(
-      _WidgetHarness(
-        child: SizedBox(
-          width: 720,
-          height: 420,
-          child: RhwpNativeEditor(document: document, controller: controller),
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(document: document, controller: controller),
+          ),
         ),
-      ),
-    );
-    await _pumpDocumentFrame(tester);
+      );
+      await _pumpDocumentFrame(tester);
 
-    await tester.tapAt(
-      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
-          const Offset(1, 6),
-    );
-    await tester.pump();
+      await tester.tapAt(
+        tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+            const Offset(1, 6),
+      );
+      await tester.pump();
 
-    final inputMode = find.byKey(
-      const ValueKey('rhwp-editor-status-input-mode'),
-    );
-    expect(tester.widget<Text>(inputMode).data, 'Insert');
+      final inputMode = find.byKey(
+        const ValueKey('rhwp-editor-status-input-mode'),
+      );
+      expect(tester.widget<Text>(inputMode).data, 'Insert');
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.insert);
-    await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.insert);
+      await tester.pump();
 
-    expect(tester.widget<Text>(inputMode).data, 'Overwrite');
+      expect(tester.widget<Text>(inputMode).data, 'Overwrite');
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.insert);
-    await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.insert);
+      await tester.pump();
 
-    expect(tester.widget<Text>(inputMode).data, 'Insert');
-  });
+      expect(tester.widget<Text>(inputMode).data, 'Insert');
+
+      await tester.tap(inputMode);
+      await tester.pump();
+
+      expect(tester.widget<Text>(inputMode).data, 'Overwrite');
+
+      await tester.tap(inputMode);
+      await tester.pump();
+
+      expect(tester.widget<Text>(inputMode).data, 'Insert');
+      expect(session.commands, isEmpty);
+    },
+  );
 
   testWidgets('RhwpNativeEditor overwrites body text while mode is enabled', (
     tester,

@@ -13606,6 +13606,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onPreviousPage: () => unawaited(_controller.previousPage()),
           onNextPage: () => unawaited(_controller.nextPage()),
           onZoomPreset: (zoom) => _controller.zoom = zoom,
+          onToggleOverwriteMode: _toggleOverwriteMode,
         ),
       ],
     );
@@ -22436,6 +22437,7 @@ class _EditorStatusBar extends StatelessWidget {
     required this.onPreviousPage,
     required this.onNextPage,
     required this.onZoomPreset,
+    required this.onToggleOverwriteMode,
   });
 
   final RhwpSelectionRange selection;
@@ -22453,10 +22455,16 @@ class _EditorStatusBar extends StatelessWidget {
   final VoidCallback onPreviousPage;
   final VoidCallback onNextPage;
   final ValueChanged<double> onZoomPreset;
+  final VoidCallback onToggleOverwriteMode;
 
   @override
   Widget build(BuildContext context) {
     final statusText = _positionStatusText();
+    final hasTextSelection = _hasTextSelection();
+    final inputModeText = hasTextSelection
+        ? 'Selection'
+        : (overwriteMode ? 'Overwrite' : 'Insert');
+    final canToggleInputMode = !busy && !hasTextSelection;
     return Material(
       color: Theme.of(context).colorScheme.surface,
       child: DecoratedBox(
@@ -22499,12 +22507,25 @@ class _EditorStatusBar extends StatelessWidget {
                     : onNextPage,
               ),
               const VerticalDivider(width: 24),
-              Text(
-                _hasTextSelection()
-                    ? 'Selection'
-                    : (overwriteMode ? 'Overwrite' : 'Insert'),
-                key: const ValueKey('rhwp-editor-status-input-mode'),
-                style: Theme.of(context).textTheme.bodySmall,
+              Tooltip(
+                message: canToggleInputMode
+                    ? 'Toggle insert/overwrite mode'
+                    : inputModeText,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(4),
+                  onTap: canToggleInputMode ? onToggleOverwriteMode : null,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
+                    child: Text(
+                      inputModeText,
+                      key: const ValueKey('rhwp-editor-status-input-mode'),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                ),
               ),
               const Spacer(),
               if (busy)

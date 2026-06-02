@@ -10,6 +10,8 @@
   command path.
 * Added a Flutter-native ruler double-click path for opening the paragraph
   shape dialog from the native editor chrome.
+* Added a Flutter-native status-bar input-mode toggle so Insert/Overwrite can
+  be switched from the native editor chrome as well as the Insert key.
 * Added Flutter-native active ClickHere field controls that call rhwp core
   active-field APIs and rerender only the current page.
 * Added Flutter-native footnote deletion from the insert ribbon using rhwp core
