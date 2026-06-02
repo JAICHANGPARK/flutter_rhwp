@@ -43,6 +43,8 @@
   `TextField.onSubmitted` delivery so one key press advances only one match.
 * Restored Flutter-native replace-field focus policy when duplicate Enter submit
   delivery is skipped after keyboard handling.
+* Covered Flutter-native replace-all Ctrl/Cmd+Enter duplicate submit delivery so
+  bulk replacement remains single-shot and returns focus to the editor surface.
 * Added Flutter-native active ClickHere field controls that call rhwp core
   active-field APIs and rerender only the current page.
 * Added Flutter-native footnote deletion from the insert ribbon using rhwp core

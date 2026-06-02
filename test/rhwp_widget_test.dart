@@ -17361,6 +17361,7 @@ void main() {
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.testTextInput.receiveAction(TextInputAction.done);
     await _pumpDocumentFrame(tester);
 
     expect(changedCalls, 1);
@@ -17406,6 +17407,15 @@ void main() {
         start: RhwpCursorPosition(paragraph: 0, offset: 1),
         end: RhwpCursorPosition(paragraph: 0, offset: 5),
       ),
+    );
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('rhwp-editor-replace-field')),
+          )
+          .focusNode
+          ?.hasFocus,
+      isFalse,
     );
   });
 
