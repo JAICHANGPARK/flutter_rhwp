@@ -383,9 +383,10 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   PageUp/PageDown, and Home/End,
   plus Ctrl/Cmd+Home/End, Ctrl/Option word navigation, and Ctrl/Option word
   delete, IME
-  composing preview, context menus, HWP/HWPX/PDF export callbacks from the file
-  ribbon, Ctrl/Cmd+S HWP save, Ctrl/Cmd+Shift+S HWPX save, Ctrl/Cmd+P PDF
-  export, app-level file open callbacks and document information from the file
+  composing preview, context menus, HWP/HWPX/PDF quick export callbacks and a
+  DOCX/Text/Markdown/current-page SVG export menu from the file ribbon,
+  Ctrl/Cmd+S HWP save, Ctrl/Cmd+Shift+S HWPX save, Ctrl/Cmd+P PDF export,
+  app-level file open callbacks and document information from the file
   ribbon, page navigation controls, direct go-to-page from the view ribbon and
   Ctrl/Cmd+G, scroll-tracked current page reporting and previous/next page
   controls in the status bar, page setup from the page ribbon and F7,

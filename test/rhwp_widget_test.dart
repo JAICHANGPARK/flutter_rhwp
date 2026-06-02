@@ -2346,6 +2346,38 @@ void main() {
     expect(exported.last.bytes, [0x50, 0x44, 0x46]);
     expect(session.exportPdfCalls, 1);
 
+    Future<void> selectMoreExport(String key) async {
+      await tester.tap(find.byKey(const ValueKey('rhwp-editor-export-menu')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ValueKey(key)));
+      await _pumpDocumentFrame(tester);
+    }
+
+    await selectMoreExport('rhwp-editor-export-docx');
+
+    expect(exported.last.fileName, 'sample.docx');
+    expect(exported.last.bytes, [0x44, 0x4f, 0x43, 0x58]);
+    expect(session.exportDocxCalls, 1);
+
+    await selectMoreExport('rhwp-editor-export-text');
+
+    expect(exported.last.fileName, 'sample.txt');
+    expect(utf8.decode(exported.last.bytes), 'alpha\nbeta');
+    expect(session.extractTextCalls, 1);
+
+    await selectMoreExport('rhwp-editor-export-markdown');
+
+    expect(exported.last.fileName, 'sample.md');
+    expect(utf8.decode(exported.last.bytes), '# alpha\n\nbeta');
+    expect(session.extractMarkdownCalls, 1);
+
+    session.renderedPages.clear();
+    await selectMoreExport('rhwp-editor-export-svg');
+
+    expect(exported.last.fileName, 'sample-page-1.svg');
+    expect(utf8.decode(exported.last.bytes), _pageSvg);
+    expect(session.renderedPages, [0]);
+
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyS);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
@@ -21097,6 +21129,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
   int exportHwpCalls = 0;
   int exportHwpxCalls = 0;
   int exportPdfCalls = 0;
+  int exportDocxCalls = 0;
+  int extractTextCalls = 0;
+  int extractMarkdownCalls = 0;
   int nextSnapshotId = 1;
   int sectionCountValue = 1;
   int bodyParagraphCount = 2;
@@ -21110,6 +21145,7 @@ class _FakeRhwpSession implements rust.RhwpSession {
   String footnoteText = '';
   String fileName = 'sample.hwp';
   String extractedText = 'alpha\nbeta';
+  String extractedMarkdown = '# alpha\n\nbeta';
   String charPropertiesJson =
       '{"fontFamily":"함초롬바탕","fontSize":1000,"bold":false,"italic":false,"underline":false,"strikethrough":false,"superscript":false,"subscript":false,"emboss":false,"engrave":false,"textColor":"#000000","shadeColor":"#ffffff"}';
   String paraPropertiesJson =
@@ -21437,7 +21473,16 @@ class _FakeRhwpSession implements rust.RhwpSession {
   }
 
   @override
-  Future<String> extractText({int? page}) async => extractedText;
+  Future<String> extractText({int? page}) async {
+    extractTextCalls += 1;
+    return extractedText;
+  }
+
+  @override
+  Future<String> extractMarkdown({int? page}) async {
+    extractMarkdownCalls += 1;
+    return extractedMarkdown;
+  }
 
   @override
   Future<Uint8List> exportHwp() async {
@@ -21455,6 +21500,12 @@ class _FakeRhwpSession implements rust.RhwpSession {
   Future<Uint8List> exportPdf() async {
     exportPdfCalls += 1;
     return Uint8List.fromList([0x50, 0x44, 0x46]);
+  }
+
+  @override
+  Future<Uint8List> exportDocx() async {
+    exportDocxCalls += 1;
+    return Uint8List.fromList([0x44, 0x4f, 0x43, 0x58]);
   }
 
   @override

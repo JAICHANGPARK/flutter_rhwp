@@ -2233,7 +2233,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       _error = null;
     });
     try {
-      final exported = await widget.document.exportDocument(format);
+      final page = format == RhwpExportFormat.svg
+          ? _controller.currentPage
+          : null;
+      final exported = await widget.document.exportDocument(format, page: page);
       await onExported(exported);
     } catch (error) {
       if (mounted) {
@@ -13611,6 +13614,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onSaveHwp: () => _exportFromEditor(RhwpExportFormat.hwp),
           onSaveHwpx: () => _exportFromEditor(RhwpExportFormat.hwpx),
           onExportPdf: () => _exportFromEditor(RhwpExportFormat.pdf),
+          onExportFormat: _exportFromEditor,
           onDeleteBackward: _deleteBackward,
           onDeleteParagraph: _deleteCurrentParagraph,
           onInsertTable: _insertTable,
@@ -16327,6 +16331,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onSaveHwp,
     required this.onSaveHwpx,
     required this.onExportPdf,
+    required this.onExportFormat,
     required this.onDeleteBackward,
     required this.onDeleteParagraph,
     required this.onInsertTable,
@@ -16481,6 +16486,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onSaveHwp;
   final VoidCallback onSaveHwpx;
   final VoidCallback onExportPdf;
+  final ValueChanged<RhwpExportFormat> onExportFormat;
   final VoidCallback onDeleteBackward;
   final VoidCallback onDeleteParagraph;
   final VoidCallback onInsertTable;
@@ -16788,6 +16794,10 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               onPressed: widget.busy || !widget.canExport
                   ? null
                   : widget.onExportPdf,
+            ),
+            _ToolbarExportMenu(
+              enabled: !widget.busy && widget.canExport,
+              onSelected: widget.onExportFormat,
             ),
           ],
         ),
@@ -21927,6 +21937,70 @@ class _ToolbarIconButton extends StatelessWidget {
         minimumSize: const Size.square(36),
         fixedSize: const Size.square(36),
         padding: EdgeInsets.zero,
+      ),
+    );
+  }
+}
+
+class _ToolbarExportMenu extends StatelessWidget {
+  const _ToolbarExportMenu({required this.enabled, required this.onSelected});
+
+  final bool enabled;
+  final ValueChanged<RhwpExportFormat> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<RhwpExportFormat>(
+      key: const ValueKey('rhwp-editor-export-menu'),
+      tooltip: 'Export more',
+      enabled: enabled,
+      icon: const Icon(Icons.file_download_outlined),
+      onSelected: onSelected,
+      itemBuilder: (context) => [
+        _exportItem(
+          key: const ValueKey('rhwp-editor-export-docx'),
+          icon: Icons.description_outlined,
+          label: 'DOCX',
+          format: RhwpExportFormat.docx,
+        ),
+        _exportItem(
+          key: const ValueKey('rhwp-editor-export-text'),
+          icon: Icons.notes_outlined,
+          label: 'Text',
+          format: RhwpExportFormat.text,
+        ),
+        _exportItem(
+          key: const ValueKey('rhwp-editor-export-markdown'),
+          icon: Icons.text_snippet_outlined,
+          label: 'Markdown',
+          format: RhwpExportFormat.markdown,
+        ),
+        _exportItem(
+          key: const ValueKey('rhwp-editor-export-svg'),
+          icon: Icons.image_outlined,
+          label: 'Current page SVG',
+          format: RhwpExportFormat.svg,
+        ),
+      ],
+    );
+  }
+
+  PopupMenuItem<RhwpExportFormat> _exportItem({
+    required Key key,
+    required IconData icon,
+    required String label,
+    required RhwpExportFormat format,
+  }) {
+    return PopupMenuItem<RhwpExportFormat>(
+      key: key,
+      value: format,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18),
+          const SizedBox(width: 10),
+          Text(label),
+        ],
       ),
     );
   }
