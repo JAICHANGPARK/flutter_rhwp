@@ -1020,10 +1020,13 @@ class _HeaderFooterTextDialogResult {
 }
 
 class _HeaderFooterManagerResult {
-  const _HeaderFooterManagerResult({required this.item});
+  const _HeaderFooterManagerResult({required this.action, required this.item});
 
+  final _HeaderFooterManagerAction action;
   final RhwpHeaderFooterListItem item;
 }
+
+enum _HeaderFooterManagerAction { editText, delete }
 
 class _EquationDialogResult {
   const _EquationDialogResult({
@@ -5338,11 +5341,24 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     final section = _parseNonNegative(_sectionController.text);
+    await _editHeaderFooterText(section: section, isHeader: isHeader);
+  }
+
+  Future<void> _editHeaderFooterText({
+    required int section,
+    required bool isHeader,
+    int applyTo = 0,
+  }) async {
+    if (_busy) {
+      return;
+    }
+
     RhwpHeaderFooterInfo? initialInfo;
     try {
       initialInfo = await widget.document.headerFooter(
         section: section,
         isHeader: isHeader,
+        applyTo: applyTo,
       );
     } catch (error) {
       if (mounted) {
@@ -5475,6 +5491,15 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     final item = result.item;
+    if (result.action == _HeaderFooterManagerAction.editText) {
+      await _editHeaderFooterText(
+        section: item.section,
+        isHeader: item.isHeader,
+        applyTo: item.applyTo,
+      );
+      return;
+    }
+
     await _runEdit(() async {
       await widget.document.deleteHeaderFooter(
         section: item.section,
@@ -19942,14 +19967,31 @@ class _HeaderFooterManagerDialogState
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
+        TextButton(
+          key: const ValueKey('rhwp-header-footer-edit-text'),
+          onPressed: selectedItem == null
+              ? null
+              : () {
+                  Navigator.of(context).pop(
+                    _HeaderFooterManagerResult(
+                      action: _HeaderFooterManagerAction.editText,
+                      item: selectedItem,
+                    ),
+                  );
+                },
+          child: const Text('Edit text'),
+        ),
         FilledButton(
           key: const ValueKey('rhwp-header-footer-delete'),
           onPressed: selectedItem == null
               ? null
               : () {
-                  Navigator.of(
-                    context,
-                  ).pop(_HeaderFooterManagerResult(item: selectedItem));
+                  Navigator.of(context).pop(
+                    _HeaderFooterManagerResult(
+                      action: _HeaderFooterManagerAction.delete,
+                      item: selectedItem,
+                    ),
+                  );
                 },
           child: const Text('Delete'),
         ),

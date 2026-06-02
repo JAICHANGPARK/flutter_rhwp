@@ -2840,6 +2840,108 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor manager edits selected header footer text', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1)
+      ..headerFooterExists = true
+      ..footerExists = true
+      ..headerFooterText = 'Old Footer';
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('쪽'));
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-header-footer-list')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-header-footer-item-0-false-0')),
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-header-footer-edit-text')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('rhwp-header-footer-text-field')),
+          )
+          .controller
+          ?.text,
+      'Old Footer',
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-header-footer-text-field')),
+      'Footer From Manager',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-header-footer-apply')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.headerFooterText, 'Footer From Manager');
+    expect(session.commands.map(jsonDecode), [
+      {
+        'type': 'getHeaderFooterList',
+        'section': 0,
+        'isHeader': true,
+        'applyTo': 0,
+      },
+      {
+        'type': 'getHeaderFooter',
+        'section': 0,
+        'isHeader': false,
+        'applyTo': 0,
+      },
+      {
+        'type': 'getHeaderFooter',
+        'section': 0,
+        'isHeader': false,
+        'applyTo': 0,
+      },
+      {
+        'type': 'deleteTextInHeaderFooter',
+        'section': 0,
+        'isHeader': false,
+        'applyTo': 0,
+        'paragraph': 0,
+        'offset': 0,
+        'count': 10,
+      },
+      {
+        'type': 'insertTextInHeaderFooter',
+        'section': 0,
+        'isHeader': false,
+        'applyTo': 0,
+        'paragraph': 0,
+        'offset': 0,
+        'text': 'Footer From Manager',
+      },
+    ]);
+  });
+
   testWidgets('RhwpNativeEditor page ribbon inserts new page number', (
     tester,
   ) async {

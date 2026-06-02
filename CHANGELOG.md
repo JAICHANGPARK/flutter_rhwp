@@ -1,6 +1,8 @@
 ## 2026.5.24
 
 * Updated plugin release metadata for the `2026.5.24` release.
+* Added Flutter-native header/footer manager text editing so a selected
+  header/footer item can be edited directly from the manager dialog.
 * Added Flutter-native file-ribbon document renaming through `setFileName`, so
   native saves/export metadata can use the updated document name.
 * Added Flutter-native page-ribbon controls for clearing existing header and
