@@ -1,6 +1,8 @@
 ## 2026.5.24
 
 * Updated plugin release metadata for the `2026.5.24` release.
+* Added a Flutter-native Ctrl/Cmd+Alt+E shortcut for opening the equation
+  insertion dialog through the same native command path as the input ribbon.
 * Added a Flutter-native Ctrl/Cmd+Alt+F shortcut for footnote insertion using
   the same native reference insertion command path as the input ribbon.
 * Added Flutter-native Ctrl/Cmd+1/2/5 line-spacing shortcuts for 100%, 200%,

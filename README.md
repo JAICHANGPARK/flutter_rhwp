@@ -436,7 +436,7 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   insert/delete from the ribbon and body context menu, with shape presets for
   rectangle, ellipse, line, and text box,
   footnote, equation, and bookmark insertion from the input ribbon and body
-  context menu, footnote insertion with Ctrl/Cmd+Alt+F shortcut,
+  context menu, footnote/equation insertion with Ctrl/Cmd+Alt+F/E shortcuts,
   bookmark list/add/delete/rename/go-to navigation through the input ribbon,
   page/column break insertion, plus table
   row above/below insertion and row deletion, column left/right insertion and
