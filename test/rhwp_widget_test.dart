@@ -9484,6 +9484,65 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor opens bookmark dialog with shortcut', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    controller.cursor = const RhwpCursorPosition(offset: 2);
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-bookmark-name-field')),
+      'shortcut-mark',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-bookmark-add')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.commands.map(jsonDecode).toList(), [
+      {'type': 'getBookmarks'},
+      {
+        'type': 'addBookmark',
+        'section': 0,
+        'paragraph': 0,
+        'offset': 2,
+        'name': 'shortcut-mark',
+      },
+    ]);
+  });
+
   testWidgets('RhwpNativeEditor context menu applies document styles', (
     tester,
   ) async {
