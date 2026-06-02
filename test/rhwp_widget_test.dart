@@ -17190,6 +17190,72 @@ void main() {
     );
   });
 
+  testWidgets('RhwpNativeEditor replace toolbar restores editor focus', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 3);
+    session.pageLayerTreeJsonByPage[2] = jsonEncode(
+      _editorLayerTreeJson(firstText: 'wxyz', secondText: 'xyqr'),
+    );
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('도구'));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-search-field')),
+      'xy',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-find')));
+    await _pumpDocumentFrame(tester);
+
+    final replaceField = find.byKey(
+      const ValueKey('rhwp-editor-replace-field'),
+    );
+    await tester.enterText(replaceField, 'AB');
+    expect(tester.widget<TextField>(replaceField).focusNode?.hasFocus, isTrue);
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-replace')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(find.text('1 / 1'), findsOneWidget);
+    expect(tester.widget<TextField>(replaceField).focusNode?.hasFocus, isFalse);
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+    ]);
+    expect(session.commands.map((json) => jsonDecode(json)['type']), [
+      'deleteText',
+      'insertText',
+    ]);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+
+    expect(find.text('Go to page'), findsOneWidget);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('RhwpNativeEditor handles replace field enter and escape keys', (
     tester,
   ) async {

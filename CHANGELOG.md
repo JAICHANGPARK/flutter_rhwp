@@ -49,6 +49,8 @@
   actions even when the replace field was active.
 * Restored Flutter-native editor focus after clearing search while the replace
   field is active.
+* Restored Flutter-native editor focus after replace toolbar Replace/Replace all
+  actions while preserving replace-field Enter focus behavior.
 * Added Flutter-native active ClickHere field controls that call rhwp core
   active-field APIs and rerender only the current page.
 * Added Flutter-native footnote deletion from the insert ribbon using rhwp core

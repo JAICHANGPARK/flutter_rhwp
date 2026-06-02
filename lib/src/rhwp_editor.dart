@@ -17786,7 +17786,7 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               filled: true,
               onPressed: widget.busy || widget.searchMatchCount == 0
                   ? null
-                  : widget.onReplace,
+                  : () => _runReplaceToolbarAction(widget.onReplace),
             ),
             _ToolbarIconButton(
               tooltip: 'Replace all',
@@ -17794,7 +17794,7 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               icon: Icons.done_all,
               onPressed: widget.busy || widget.searchMatchCount == 0
                   ? null
-                  : widget.onReplaceAll,
+                  : () => _runReplaceToolbarAction(widget.onReplaceAll),
             ),
           ],
         ),
@@ -17967,6 +17967,18 @@ class _EditorToolbarState extends State<_EditorToolbar> {
   }
 
   void _runSearchToolbarAction(VoidCallback action) {
+    widget.searchFocusNode.unfocus();
+    widget.replaceFocusNode.unfocus();
+    action();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      widget.onFocusEditor();
+    });
+  }
+
+  void _runReplaceToolbarAction(VoidCallback action) {
     widget.searchFocusNode.unfocus();
     widget.replaceFocusNode.unfocus();
     action();
