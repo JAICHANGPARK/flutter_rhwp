@@ -6377,6 +6377,33 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     unawaited(_applyParagraphIndentDelta(_paragraphIndentStep));
   }
 
+  void _applyRulerParagraphFormat({
+    int? marginLeft,
+    int? indent,
+    int? marginRight,
+  }) {
+    unawaited(
+      _applyRulerParagraphFormatAsync(
+        marginLeft: marginLeft,
+        indent: indent,
+        marginRight: marginRight,
+      ),
+    );
+  }
+
+  Future<void> _applyRulerParagraphFormatAsync({
+    int? marginLeft,
+    int? indent,
+    int? marginRight,
+  }) async {
+    await _applyParagraphFormat(
+      marginLeft: marginLeft,
+      indent: indent,
+      marginRight: marginRight,
+    );
+    _focusEditor();
+  }
+
   Future<void> _showParaShapeDialog() async {
     if (_busy) {
       return;
@@ -13501,6 +13528,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           _EditorRuler(
             zoom: _controller.zoom,
             currentParaFormat: _currentParaFormat,
+            enabled: !_busy && !_searching,
+            onLeftMarginChanged: (value) =>
+                _applyRulerParagraphFormat(marginLeft: value),
+            onFirstLineIndentChanged: (value) =>
+                _applyRulerParagraphFormat(indent: value),
+            onRightMarginChanged: (value) =>
+                _applyRulerParagraphFormat(marginRight: value),
           ),
         Expanded(
           child: Listener(
@@ -21851,11 +21885,31 @@ class _ToolbarDivider extends StatelessWidget {
   }
 }
 
-class _EditorRuler extends StatelessWidget {
-  const _EditorRuler({required this.zoom, required this.currentParaFormat});
+class _EditorRuler extends StatefulWidget {
+  const _EditorRuler({
+    required this.zoom,
+    required this.currentParaFormat,
+    required this.enabled,
+    required this.onLeftMarginChanged,
+    required this.onFirstLineIndentChanged,
+    required this.onRightMarginChanged,
+  });
 
   final double zoom;
   final _CurrentParaFormat currentParaFormat;
+  final bool enabled;
+  final ValueChanged<int> onLeftMarginChanged;
+  final ValueChanged<int> onFirstLineIndentChanged;
+  final ValueChanged<int> onRightMarginChanged;
+
+  @override
+  State<_EditorRuler> createState() => _EditorRulerState();
+}
+
+class _EditorRulerState extends State<_EditorRuler> {
+  _EditorRulerMetric? _dragMetric;
+  double? _dragX;
+  double? _dragStartX;
 
   @override
   Widget build(BuildContext context) {
@@ -21877,44 +21931,77 @@ class _EditorRuler extends StatelessWidget {
             builder: (context, constraints) {
               final markerPositions = _EditorRulerMarkerPositions.resolve(
                 width: constraints.maxWidth,
-                zoom: zoom,
-                currentParaFormat: currentParaFormat,
+                zoom: widget.zoom,
+                currentParaFormat: widget.currentParaFormat,
+              );
+              final previewPositions = _previewPositions(
+                markerPositions,
+                constraints.maxWidth,
               );
               return Stack(
                 children: [
                   CustomPaint(
                     size: Size.infinite,
                     painter: _EditorRulerPainter(
-                      zoom: zoom,
+                      zoom: widget.zoom,
                       tickColor: colorScheme.outline,
                       majorTickColor: colorScheme.onSurfaceVariant,
-                      markerColor: colorScheme.primary,
                       textColor: colorScheme.onSurfaceVariant,
                     ),
                   ),
                   _EditorRulerMarker(
                     key: const ValueKey('rhwp-editor-ruler-left-margin'),
                     tooltip: 'Left margin',
-                    left: markerPositions.leftMargin,
+                    left: previewPositions.leftMargin,
                     top: 1,
+                    enabled: widget.enabled,
                     color: colorScheme.primary,
                     direction: _EditorRulerMarkerDirection.down,
+                    onDragStart: () => _startDrag(
+                      _EditorRulerMetric.leftMargin,
+                      previewPositions.leftMargin,
+                    ),
+                    onDragUpdate: (delta) =>
+                        _updateDrag(delta, constraints.maxWidth),
+                    onDragEnd: () =>
+                        _endDrag(markerPositions, constraints.maxWidth),
+                    onDragCancel: _cancelDrag,
                   ),
                   _EditorRulerMarker(
                     key: const ValueKey('rhwp-editor-ruler-first-line-indent'),
                     tooltip: 'First-line indent',
-                    left: markerPositions.firstLineIndent,
+                    left: previewPositions.firstLineIndent,
                     top: 13,
+                    enabled: widget.enabled,
                     color: colorScheme.tertiary,
                     direction: _EditorRulerMarkerDirection.up,
+                    onDragStart: () => _startDrag(
+                      _EditorRulerMetric.firstLineIndent,
+                      previewPositions.firstLineIndent,
+                    ),
+                    onDragUpdate: (delta) =>
+                        _updateDrag(delta, constraints.maxWidth),
+                    onDragEnd: () =>
+                        _endDrag(markerPositions, constraints.maxWidth),
+                    onDragCancel: _cancelDrag,
                   ),
                   _EditorRulerMarker(
                     key: const ValueKey('rhwp-editor-ruler-right-margin'),
                     tooltip: 'Right margin',
-                    left: markerPositions.rightMargin,
+                    left: previewPositions.rightMargin,
                     top: 1,
+                    enabled: widget.enabled,
                     color: colorScheme.primary,
                     direction: _EditorRulerMarkerDirection.down,
+                    onDragStart: () => _startDrag(
+                      _EditorRulerMetric.rightMargin,
+                      previewPositions.rightMargin,
+                    ),
+                    onDragUpdate: (delta) =>
+                        _updateDrag(delta, constraints.maxWidth),
+                    onDragEnd: () =>
+                        _endDrag(markerPositions, constraints.maxWidth),
+                    onDragCancel: _cancelDrag,
                   ),
                 ],
               );
@@ -21923,6 +22010,114 @@ class _EditorRuler extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  _EditorRulerMarkerPositions _previewPositions(
+    _EditorRulerMarkerPositions positions,
+    double width,
+  ) {
+    final metric = _dragMetric;
+    final dragX = _dragX;
+    if (metric == null || dragX == null) {
+      return positions;
+    }
+
+    final clamped = _EditorRulerMarkerPositions.clampPosition(dragX, width);
+    switch (metric) {
+      case _EditorRulerMetric.leftMargin:
+        final delta = clamped - positions.leftMargin;
+        return positions.copyWith(
+          leftMargin: clamped,
+          firstLineIndent: _EditorRulerMarkerPositions.clampPosition(
+            positions.firstLineIndent + delta,
+            width,
+          ),
+        );
+      case _EditorRulerMetric.firstLineIndent:
+        return positions.copyWith(firstLineIndent: clamped);
+      case _EditorRulerMetric.rightMargin:
+        return positions.copyWith(rightMargin: clamped);
+    }
+  }
+
+  void _startDrag(_EditorRulerMetric metric, double x) {
+    if (!widget.enabled) {
+      return;
+    }
+    setState(() {
+      _dragMetric = metric;
+      _dragX = x;
+      _dragStartX = x;
+    });
+  }
+
+  void _updateDrag(Offset delta, double width) {
+    if (!widget.enabled || _dragMetric == null || _dragX == null) {
+      return;
+    }
+    setState(() {
+      _dragX = _EditorRulerMarkerPositions.clampPosition(
+        _dragX! + delta.dx,
+        width,
+      );
+    });
+  }
+
+  void _endDrag(_EditorRulerMarkerPositions positions, double width) {
+    final metric = _dragMetric;
+    final dragX = _dragX;
+    final dragStartX = _dragStartX;
+    setState(_clearDrag);
+    if (!widget.enabled ||
+        metric == null ||
+        dragX == null ||
+        dragStartX == null ||
+        (dragX - dragStartX).abs() < 0.5) {
+      return;
+    }
+
+    final position = _EditorRulerMarkerPositions.clampPosition(dragX, width);
+    switch (metric) {
+      case _EditorRulerMetric.leftMargin:
+        widget.onLeftMarginChanged(
+          _EditorRulerMarkerPositions.leftMarginFromPosition(
+            position: position,
+            zoom: widget.zoom,
+          ),
+        );
+        break;
+      case _EditorRulerMetric.firstLineIndent:
+        widget.onFirstLineIndentChanged(
+          _EditorRulerMarkerPositions.firstLineIndentFromPosition(
+            position: position,
+            leftMarginPosition: positions.leftMargin,
+            zoom: widget.zoom,
+          ),
+        );
+        break;
+      case _EditorRulerMetric.rightMargin:
+        widget.onRightMarginChanged(
+          _EditorRulerMarkerPositions.rightMarginFromPosition(
+            position: position,
+            width: width,
+            zoom: widget.zoom,
+          ),
+        );
+        break;
+    }
+  }
+
+  void _cancelDrag() {
+    if (_dragMetric == null) {
+      return;
+    }
+    setState(_clearDrag);
+  }
+
+  void _clearDrag() {
+    _dragMetric = null;
+    _dragX = null;
+    _dragStartX = null;
   }
 }
 
@@ -21942,6 +22137,20 @@ class _EditorRulerMarkerPositions {
   static const _markerWidth = 10.0;
   static const _markerHalfWidth = _markerWidth / 2;
   static const _hwpUnitScale = 18.0 / 1000.0;
+  static const _maxHwpValue = 32767;
+  static const _minHwpIndent = -32767;
+
+  _EditorRulerMarkerPositions copyWith({
+    double? leftMargin,
+    double? firstLineIndent,
+    double? rightMargin,
+  }) {
+    return _EditorRulerMarkerPositions(
+      leftMargin: leftMargin ?? this.leftMargin,
+      firstLineIndent: firstLineIndent ?? this.firstLineIndent,
+      rightMargin: rightMargin ?? this.rightMargin,
+    );
+  }
 
   static _EditorRulerMarkerPositions resolve({
     required double width,
@@ -21972,14 +22181,52 @@ class _EditorRulerMarkerPositions {
     );
   }
 
+  static double clampPosition(double value, double width) {
+    final markerMin = _markerHalfWidth;
+    final markerMax = math.max(markerMin, width - _markerHalfWidth);
+    return _clampMarker(value, markerMin, markerMax);
+  }
+
+  static int leftMarginFromPosition({
+    required double position,
+    required double zoom,
+  }) {
+    final value = _fromPixels(position - _leftInset, zoom);
+    return value.clamp(0, _maxHwpValue).toInt();
+  }
+
+  static int firstLineIndentFromPosition({
+    required double position,
+    required double leftMarginPosition,
+    required double zoom,
+  }) {
+    final value = _fromPixels(position - leftMarginPosition, zoom);
+    return value.clamp(_minHwpIndent, _maxHwpValue).toInt();
+  }
+
+  static int rightMarginFromPosition({
+    required double position,
+    required double width,
+    required double zoom,
+  }) {
+    final value = _fromPixels(width - _rightInset - position, zoom);
+    return value.clamp(0, _maxHwpValue).toInt();
+  }
+
   static double _toPixels(int value, double zoom) {
     return value * _hwpUnitScale * zoom.clamp(0.25, 3.0);
+  }
+
+  static int _fromPixels(double value, double zoom) {
+    return (value / (_hwpUnitScale * zoom.clamp(0.25, 3.0))).round();
   }
 
   static double _clampMarker(double value, double min, double max) {
     return value.clamp(min, max).toDouble();
   }
 }
+
+enum _EditorRulerMetric { leftMargin, firstLineIndent, rightMargin }
 
 enum _EditorRulerMarkerDirection { up, down }
 
@@ -21989,8 +22236,13 @@ class _EditorRulerMarker extends StatelessWidget {
     required this.tooltip,
     required this.left,
     required this.top,
+    required this.enabled,
     required this.color,
     required this.direction,
+    required this.onDragStart,
+    required this.onDragUpdate,
+    required this.onDragEnd,
+    required this.onDragCancel,
   });
 
   static const _width = 10.0;
@@ -21999,8 +22251,13 @@ class _EditorRulerMarker extends StatelessWidget {
   final String tooltip;
   final double left;
   final double top;
+  final bool enabled;
   final Color color;
   final _EditorRulerMarkerDirection direction;
+  final VoidCallback onDragStart;
+  final ValueChanged<Offset> onDragUpdate;
+  final VoidCallback onDragEnd;
+  final VoidCallback onDragCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -22011,10 +22268,24 @@ class _EditorRulerMarker extends StatelessWidget {
       height: _height,
       child: Tooltip(
         message: tooltip,
-        child: CustomPaint(
-          painter: _EditorRulerMarkerPainter(
-            color: color,
-            direction: direction,
+        child: MouseRegion(
+          cursor: enabled
+              ? SystemMouseCursors.resizeLeftRight
+              : SystemMouseCursors.basic,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onPanStart: enabled ? (_) => onDragStart() : null,
+            onPanUpdate: enabled
+                ? (details) => onDragUpdate(details.delta)
+                : null,
+            onPanEnd: enabled ? (_) => onDragEnd() : null,
+            onPanCancel: enabled ? onDragCancel : null,
+            child: CustomPaint(
+              painter: _EditorRulerMarkerPainter(
+                color: enabled ? color : color.withValues(alpha: 0.45),
+                direction: direction,
+              ),
+            ),
           ),
         ),
       ),
@@ -22064,14 +22335,12 @@ class _EditorRulerPainter extends CustomPainter {
     required this.zoom,
     required this.tickColor,
     required this.majorTickColor,
-    required this.markerColor,
     required this.textColor,
   });
 
   final double zoom;
   final Color tickColor;
   final Color majorTickColor;
-  final Color markerColor;
   final Color textColor;
 
   @override
@@ -22086,9 +22355,6 @@ class _EditorRulerPainter extends CustomPainter {
     final majorPaint = Paint()
       ..color = majorTickColor
       ..strokeWidth = 1;
-    final markerPaint = Paint()
-      ..color = markerColor
-      ..strokeWidth = 2;
 
     const leftInset = 36.0;
     final tickStep = (10.0 * zoom).clamp(6.0, 24.0).toDouble();
@@ -22118,16 +22384,6 @@ class _EditorRulerPainter extends CustomPainter {
         _paintLabel(canvas, index ~/ majorEvery, x + 3, 2);
       }
     }
-
-    _paintMarginMarker(canvas, leftInset + tickStep * 2, markerPaint, size);
-    if (size.width > leftInset) {
-      _paintMarginMarker(
-        canvas,
-        math.max(leftInset, size.width - tickStep * 2),
-        markerPaint,
-        size,
-      );
-    }
   }
 
   void _paintLabel(Canvas canvas, int value, double x, double y) {
@@ -22142,21 +22398,11 @@ class _EditorRulerPainter extends CustomPainter {
     painter.paint(canvas, Offset(x, y));
   }
 
-  void _paintMarginMarker(Canvas canvas, double x, Paint paint, Size size) {
-    final path = Path()
-      ..moveTo(x, 4)
-      ..lineTo(x - 4, 10)
-      ..lineTo(x + 4, 10)
-      ..close();
-    canvas.drawPath(path, paint);
-  }
-
   @override
   bool shouldRepaint(_EditorRulerPainter oldDelegate) {
     return oldDelegate.zoom != zoom ||
         oldDelegate.tickColor != tickColor ||
         oldDelegate.majorTickColor != majorTickColor ||
-        oldDelegate.markerColor != markerColor ||
         oldDelegate.textColor != textColor;
   }
 }

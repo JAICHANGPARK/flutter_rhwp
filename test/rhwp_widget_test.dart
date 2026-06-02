@@ -2843,6 +2843,80 @@ void main() {
     expect(session.commands, isEmpty);
   });
 
+  testWidgets('RhwpNativeEditor ruler drags paragraph markers', (tester) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('보기'));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-toggle-ruler')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-toggle-ruler')));
+    await tester.pump();
+
+    await tester.drag(
+      find.byKey(const ValueKey('rhwp-editor-ruler-left-margin')),
+      const Offset(56, 0),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.drag(
+      find.byKey(const ValueKey('rhwp-editor-ruler-first-line-indent')),
+      const Offset(38, 0),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.drag(
+      find.byKey(const ValueKey('rhwp-editor-ruler-right-margin')),
+      const Offset(-38, 0),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(session.commands.map(jsonDecode), [
+      {
+        'type': 'applyParaFormatRange',
+        'section': 0,
+        'startParagraph': 0,
+        'endParagraph': 0,
+        'properties': {'marginLeft': 2000},
+      },
+      {
+        'type': 'applyParaFormatRange',
+        'section': 0,
+        'startParagraph': 0,
+        'endParagraph': 0,
+        'properties': {'indent': 1000},
+      },
+      {
+        'type': 'applyParaFormatRange',
+        'section': 0,
+        'startParagraph': 0,
+        'endParagraph': 0,
+        'properties': {'marginRight': 1000},
+      },
+    ]);
+    expect(changedCalls, 3);
+  });
+
   testWidgets('RhwpNativeEditor page ribbon creates header and footer', (
     tester,
   ) async {
