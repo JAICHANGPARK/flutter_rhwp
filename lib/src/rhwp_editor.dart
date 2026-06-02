@@ -4550,6 +4550,30 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
   }
 
+  Future<void> _deleteFootnoteAtCursor() async {
+    if (_busy || _controller.tableCellSelection != null) {
+      return;
+    }
+
+    final hit = await _footnoteHitAtCursor();
+    if (!mounted || hit == null) {
+      return;
+    }
+
+    await _runEdit(() async {
+      await widget.document.deleteFootnote(
+        section: hit.section!,
+        paragraph: hit.paragraph!,
+        controlIndex: hit.controlIndex!,
+      );
+      _controller.cursor = _controller.cursor.copyWith(
+        section: hit.section,
+        paragraph: hit.paragraph,
+        offset: hit.charOffset ?? _controller.cursor.offset,
+      );
+    });
+  }
+
   Future<RhwpFootnoteHit?> _footnoteHitAtCursor() async {
     setState(() {
       _busy = true;
@@ -13245,6 +13269,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           },
           onInsertFootnote: _insertFootnote,
           onEditFootnote: _showFootnoteTextDialog,
+          onDeleteFootnote: _deleteFootnoteAtCursor,
           onInsertEquation: _showInsertEquationDialog,
           onBookmark: _showBookmarkDialog,
           onFields: _showFieldsDialog,
@@ -15930,6 +15955,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onToggleInsertTableTreatAsChar,
     required this.onInsertFootnote,
     required this.onEditFootnote,
+    required this.onDeleteFootnote,
     required this.onInsertEquation,
     required this.onBookmark,
     required this.onFields,
@@ -16074,6 +16100,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onToggleInsertTableTreatAsChar;
   final VoidCallback onInsertFootnote;
   final VoidCallback onEditFootnote;
+  final VoidCallback onDeleteFootnote;
   final VoidCallback onInsertEquation;
   final VoidCallback onBookmark;
   final VoidCallback onFields;
@@ -16726,6 +16753,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               buttonKey: const ValueKey('rhwp-editor-edit-footnote-text'),
               icon: Icons.speaker_notes_outlined,
               onPressed: widget.busy ? null : widget.onEditFootnote,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Delete footnote',
+              buttonKey: const ValueKey('rhwp-editor-delete-footnote'),
+              icon: Icons.speaker_notes_off_outlined,
+              onPressed: widget.busy ? null : widget.onDeleteFootnote,
             ),
           ],
         ),

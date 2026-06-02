@@ -180,6 +180,24 @@ void main() {
     expect(
       jsonDecode(
         jsonEncode(
+          RhwpCommand.deleteFootnote(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 4,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'deleteFootnote',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 4,
+      },
+    );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
           RhwpCommand.deleteTextInFootnote(
             section: 0,
             paragraph: 1,

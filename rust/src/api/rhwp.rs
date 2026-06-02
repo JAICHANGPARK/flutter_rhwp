@@ -361,6 +361,18 @@ impl RhwpSession {
                     control_index as usize,
                 )
                 .map_err(error_to_string),
+            RhwpCommand::DeleteFootnote {
+                section,
+                paragraph,
+                control_index,
+            } => inner
+                .document
+                .delete_footnote_native(
+                    section as usize,
+                    paragraph as usize,
+                    control_index as usize,
+                )
+                .map_err(error_to_string),
             RhwpCommand::InsertTextInFootnote {
                 section,
                 paragraph,
@@ -1680,6 +1692,12 @@ enum RhwpCommand {
         direction: String,
     },
     GetFootnoteInfo {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+    },
+    DeleteFootnote {
         section: u32,
         paragraph: u32,
         #[serde(rename = "controlIndex")]

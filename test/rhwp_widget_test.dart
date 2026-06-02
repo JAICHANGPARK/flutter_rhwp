@@ -810,6 +810,67 @@ void main() {
     ]);
   });
 
+  testWidgets('RhwpNativeEditor insert ribbon deletes footnotes', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1)
+      ..footnoteExists = true
+      ..footnoteText = 'Old footnote';
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 900,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 0, offset: 3);
+    await tester.pump();
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-delete-footnote')),
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-delete-footnote')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.footnoteExists, isFalse);
+    expect(session.footnoteText, isEmpty);
+    expect(
+      controller.cursor,
+      const RhwpCursorPosition(paragraph: 0, offset: 2),
+    );
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+    ]);
+    expect(session.commands.map(jsonDecode).toList(), [
+      {
+        'type': 'getFootnoteAtCursor',
+        'section': 0,
+        'paragraph': 0,
+        'offset': 3,
+        'direction': 'backward',
+      },
+      {
+        'type': 'deleteFootnote',
+        'section': 0,
+        'paragraph': 0,
+        'controlIndex': 1,
+      },
+    ]);
+  });
+
   testWidgets('RhwpNativeEditor insert ribbon adds a blank paragraph', (
     tester,
   ) async {
@@ -19937,6 +19998,11 @@ class _FakeRhwpSession implements rust.RhwpSession {
         'number': 1,
         'texts': [footnoteText],
       });
+    }
+    if (command is Map && command['type'] == 'deleteFootnote') {
+      footnoteExists = false;
+      footnoteText = '';
+      return '{"ok":true,"sectionIndex":0,"paragraphIndex":0,"controlIndex":1,"charOffset":2,"deletedNumber":1}';
     }
     if (command is Map && command['type'] == 'deleteTextInFootnote') {
       footnoteText = '';

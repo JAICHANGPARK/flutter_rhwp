@@ -1007,6 +1007,12 @@ abstract class RhwpCommand {
     required int controlIndex,
   }) = RhwpGetFootnoteInfoCommand;
 
+  factory RhwpCommand.deleteFootnote({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+  }) = RhwpDeleteFootnoteCommand;
+
   factory RhwpCommand.insertTextInFootnote({
     required int section,
     required int paragraph,
@@ -2105,6 +2111,26 @@ class RhwpGetFootnoteInfoCommand extends RhwpCommand {
   @override
   Map<String, Object?> toJson() => {
     'type': 'getFootnoteInfo',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+  };
+}
+
+class RhwpDeleteFootnoteCommand extends RhwpCommand {
+  const RhwpDeleteFootnoteCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'deleteFootnote',
     'section': section,
     'paragraph': paragraph,
     'controlIndex': controlIndex,
@@ -4862,6 +4888,20 @@ class RhwpDocument {
       ),
     );
     return RhwpFootnoteInfo.fromJsonString(result);
+  }
+
+  Future<String> deleteFootnote({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+  }) {
+    return apply(
+      RhwpCommand.deleteFootnote(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+      ),
+    );
   }
 
   Future<String> insertTextInFootnote({
