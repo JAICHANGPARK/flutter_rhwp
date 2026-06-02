@@ -6917,7 +6917,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     final replaced = await _runEdit(() async {
       await _replaceSearchMatchText(match, replacement);
       _selectSearchReplacementRange(match, replacement.length);
-    });
+    }, refreshSearchAfterEdit: false);
     if (!replaced) {
       return;
     }
@@ -6965,7 +6965,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         await _replaceSearchMatchText(match, replacement);
       }
       _selectSearchReplacementRange(firstMatch, replacement.length);
-    });
+    }, refreshSearchAfterEdit: false);
     if (!replaced || !mounted) {
       return;
     }
@@ -10798,6 +10798,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     bool awaitTextInputBeforeRefresh = false,
     bool visibleBusy = true,
     bool mergeIntoTextInputUndoBatch = false,
+    bool refreshSearchAfterEdit = true,
   }) async {
     if (visibleBusy) {
       setState(() {
@@ -10861,6 +10862,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         );
       } else {
         widget.onChanged?.call(widget.document);
+        if (refreshSearchAfterEdit) {
+          unawaited(_refreshSearchMatchesAfterEdit());
+        }
       }
       return true;
     } catch (error) {

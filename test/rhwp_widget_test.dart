@@ -18232,6 +18232,86 @@ void main() {
     ]);
   });
 
+  testWidgets(
+    'RhwpNativeEditor refreshes search matches after nondeferred edit',
+    (tester) async {
+      tester.view.physicalSize = const Size(1000, 600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJsonByPage[0] = jsonEncode(
+        _editorLayerTreeJson(firstText: 'xyzz', secondText: 'abcd'),
+      );
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 1000,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      await tester.tap(find.text('도구'));
+      await tester.pump();
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-editor-search-field')),
+        'xy',
+      );
+      await tester.tap(find.byKey(const ValueKey('rhwp-editor-find')));
+      await _pumpDocumentFrame(tester);
+
+      expect(find.text('1 / 1'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-search-active')),
+        findsOneWidget,
+      );
+      expect(controller.cursor.paragraph, 0);
+
+      session.layerTreePages.clear();
+      session.pageLayerTreeJsonByPage[0] = jsonEncode(
+        _editorLayerTreeJson(firstText: 'abcd', secondText: 'efgh'),
+      );
+      await tester.tap(find.text('편집'));
+      await tester.pump();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('rhwp-editor-delete-paragraph')),
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('rhwp-editor-delete-paragraph')),
+      );
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+      expect(jsonDecode(session.commands.single), {
+        'type': 'deleteParagraph',
+        'section': 0,
+        'paragraph': 0,
+      });
+      expect(session.layerTreePages, contains(0));
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-search-active')),
+        findsNothing,
+      );
+
+      await tester.tap(find.text('도구'));
+      await tester.pump();
+
+      expect(find.text('0 / 0'), findsOneWidget);
+    },
+  );
+
   testWidgets('RhwpNativeEditor refreshes only edited page after text input', (
     tester,
   ) async {

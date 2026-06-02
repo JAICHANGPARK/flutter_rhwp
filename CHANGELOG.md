@@ -55,6 +55,8 @@
   so search counts and highlights follow the edited document state.
 * Refreshed Flutter-native search matches after undo/redo snapshot restores so
   search counts and highlights follow restored document content.
+* Refreshed Flutter-native search matches after ordinary non-deferred edits so
+  search counts and highlights also follow immediate command edits.
 * Added Flutter-native active ClickHere field controls that call rhwp core
   active-field APIs and rerender only the current page.
 * Added Flutter-native footnote deletion from the insert ribbon using rhwp core
