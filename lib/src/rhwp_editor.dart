@@ -1377,6 +1377,7 @@ class RhwpEditor extends StatefulWidget {
     required this.document,
     this.controller,
     this.onChanged,
+    this.onDirtyChanged,
     this.onNewRequested,
     this.onOpenRequested,
     this.onCloseRequested,
@@ -1391,6 +1392,7 @@ class RhwpEditor extends StatefulWidget {
   final RhwpDocument document;
   final RhwpEditorController? controller;
   final ValueChanged<RhwpDocument>? onChanged;
+  final ValueChanged<bool>? onDirtyChanged;
   final FutureOr<void> Function()? onNewRequested;
   final FutureOr<void> Function()? onOpenRequested;
   final FutureOr<void> Function()? onCloseRequested;
@@ -1430,6 +1432,7 @@ class RhwpNativeEditor extends StatelessWidget {
     required this.document,
     this.controller,
     this.onChanged,
+    this.onDirtyChanged,
     this.onNewRequested,
     this.onOpenRequested,
     this.onCloseRequested,
@@ -1444,6 +1447,7 @@ class RhwpNativeEditor extends StatelessWidget {
   final RhwpDocument document;
   final RhwpEditorController? controller;
   final ValueChanged<RhwpDocument>? onChanged;
+  final ValueChanged<bool>? onDirtyChanged;
   final FutureOr<void> Function()? onNewRequested;
   final FutureOr<void> Function()? onOpenRequested;
   final FutureOr<void> Function()? onCloseRequested;
@@ -1461,6 +1465,7 @@ class RhwpNativeEditor extends StatelessWidget {
       document: document,
       controller: controller,
       onChanged: onChanged,
+      onDirtyChanged: onDirtyChanged,
       onNewRequested: onNewRequested,
       onOpenRequested: onOpenRequested,
       onCloseRequested: onCloseRequested,
@@ -1484,6 +1489,7 @@ class RhwpCommandEditor extends StatelessWidget {
     required this.document,
     this.controller,
     this.onChanged,
+    this.onDirtyChanged,
     this.onNewRequested,
     this.onOpenRequested,
     this.onCloseRequested,
@@ -1498,6 +1504,7 @@ class RhwpCommandEditor extends StatelessWidget {
   final RhwpDocument document;
   final RhwpEditorController? controller;
   final ValueChanged<RhwpDocument>? onChanged;
+  final ValueChanged<bool>? onDirtyChanged;
   final FutureOr<void> Function()? onNewRequested;
   final FutureOr<void> Function()? onOpenRequested;
   final FutureOr<void> Function()? onCloseRequested;
@@ -1515,6 +1522,7 @@ class RhwpCommandEditor extends StatelessWidget {
       document: document,
       controller: controller,
       onChanged: onChanged,
+      onDirtyChanged: onDirtyChanged,
       onNewRequested: onNewRequested,
       onOpenRequested: onOpenRequested,
       onCloseRequested: onCloseRequested,
@@ -1764,6 +1772,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   bool _showRuler = false;
   bool _insertTableTreatAsChar = false;
   bool _overwriteMode = false;
+  bool _dirty = false;
   Object? _error;
   int _charFormatQueryRevision = 0;
   int _paraFormatQueryRevision = 0;
@@ -1799,6 +1808,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.document != widget.document) {
       _cancelDeferredEditRefresh();
+      final wasDirty = _dirty;
+      _dirty = false;
+      if (wasDirty) {
+        _notifyDirtyChangedAfterFrame(false);
+      }
       _renderRevision += 1;
       _renderPages = null;
       _pageCountValue = null;
@@ -2257,6 +2271,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           : null;
       final exported = await widget.document.exportDocument(format, page: page);
       await onExported(exported);
+      if (mounted &&
+          (format == RhwpExportFormat.hwp || format == RhwpExportFormat.hwpx)) {
+        _setDirty(false);
+      }
     } catch (error) {
       if (mounted) {
         setState(() {
@@ -2597,6 +2615,23 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         _recordPendingTextOverlay(insertCursor, text);
       }
     }
+  }
+
+  void _setDirty(bool dirty) {
+    if (_dirty == dirty) {
+      return;
+    }
+    _dirty = dirty;
+    widget.onDirtyChanged?.call(dirty);
+  }
+
+  void _notifyDirtyChangedAfterFrame(bool dirty) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _dirty != dirty) {
+        return;
+      }
+      widget.onDirtyChanged?.call(dirty);
+    });
   }
 
   Future<RhwpSelectionRange?> _deleteOverwriteText(
@@ -10961,6 +10996,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       if (!mounted) {
         return false;
       }
+      _setDirty(true);
       if (!deferRefresh) {
         _cancelDeferredEditRefresh();
       }
@@ -11062,6 +11098,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       if (!mounted) {
         return;
       }
+      _setDirty(true);
       setState(() {
         _busy = false;
         _visibleBusy = false;

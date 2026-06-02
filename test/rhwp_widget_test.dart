@@ -2405,6 +2405,103 @@ void main() {
     expect(session.exportPdfCalls, 2);
   });
 
+  testWidgets('RhwpNativeEditor reports dirty state for edits and saves', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    final dirtyStates = <bool>[];
+    final exported = <RhwpExportedDocument>[];
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onDirtyChanged: dirtyStates.add,
+            onExported: exported.add,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-text-field')),
+      'abc',
+    );
+    await tester.tap(find.byTooltip('Insert'));
+    await _pumpDocumentFrame(tester);
+
+    expect(dirtyStates, [true]);
+
+    await tester.tap(find.text('파일'));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-export-pdf')));
+    await _pumpDocumentFrame(tester);
+
+    expect(exported.single.fileName, 'sample.pdf');
+    expect(dirtyStates, [true]);
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-save-hwp')));
+    await _pumpDocumentFrame(tester);
+
+    expect(exported.last.fileName, 'sample.hwp');
+    expect(dirtyStates, [true, false]);
+    expect(session.commands.map((json) => jsonDecode(json)['type']), [
+      'insertText',
+    ]);
+  });
+
+  testWidgets(
+    'RhwpNativeEditor reports clean state when document is replaced',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final firstSession = _FakeRhwpSession(pageCountValue: 1);
+      final firstDocument = RhwpDocument.fromSession(firstSession);
+      final secondDocument = RhwpDocument.fromSession(
+        _FakeRhwpSession(pageCountValue: 1),
+      );
+      final dirtyStates = <bool>[];
+
+      Widget buildEditor(RhwpDocument document) {
+        return _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onDirtyChanged: dirtyStates.add,
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(buildEditor(firstDocument));
+      await _pumpDocumentFrame(tester);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-editor-text-field')),
+        'abc',
+      );
+      await tester.tap(find.byTooltip('Insert'));
+      await _pumpDocumentFrame(tester);
+
+      expect(dirtyStates, [true]);
+
+      await tester.pumpWidget(buildEditor(secondDocument));
+      await tester.pump();
+
+      expect(dirtyStates, [true, false]);
+    },
+  );
+
   testWidgets('RhwpNativeEditor file ribbon prints PDF artifacts', (
     tester,
   ) async {

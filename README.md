@@ -112,6 +112,7 @@ RhwpNativeEditor(
   document: document,
   convertToEditableOnLoad: true,
   editRefreshDelay: const Duration(milliseconds: 1200),
+  onDirtyChanged: updateUnsavedIndicator,
   onNewRequested: createBlankDocument,
   onOpenRequested: pickAndOpenDocument,
   onCloseRequested: closeDocument,
@@ -496,9 +497,11 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   refresh delay for a steadier typing feel on large HWP files and defers HWP
   snapshot export until the user saves/exports or switches from the native
   editor to the full editor.
-  File-ribbon New/Open/Close and Ctrl/Cmd+N/O/W call app-provided callbacks,
-  so platform-specific document creation, picking, and close/discard prompts
-  stay in the host app.
+  `onDirtyChanged` reports when Rust-backed edit commands make the document
+  unsaved and when HWP/HWPX save callbacks complete. File-ribbon
+  New/Open/Close and Ctrl/Cmd+N/O/W call app-provided callbacks, so
+  platform-specific document creation, picking, and close/discard prompts stay
+  in the host app.
   Pending text previews are updated through a scoped overlay notifier, so
   normal typing updates the caret/text preview without rebuilding the whole
   native editor surface. Viewer controller notifications are scoped so cursor

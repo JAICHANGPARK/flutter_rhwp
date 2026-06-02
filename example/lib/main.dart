@@ -65,6 +65,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
       ? _EditorMode.fullEditor
       : _EditorMode.nativeEditor;
   bool _busy = false;
+  bool _documentDirty = false;
 
   bool get _usesFullEditor => _editorMode == _EditorMode.fullEditor;
 
@@ -162,6 +163,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
         _metadata = null;
         _sourceBytes = null;
         _fileName = null;
+        _documentDirty = false;
         _viewerKey = UniqueKey();
       });
       await previous?.close();
@@ -199,7 +201,16 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
 
     await _run('Export ${kind.extension.toUpperCase()}', () async {
       final exported = await _exportFor(kind, document: document);
-      return _writeExportedDocument(exported, dialogLabel: kind.label);
+      final status = await _writeExportedDocument(
+        exported,
+        dialogLabel: kind.label,
+      );
+      if (kind == _ExportKind.hwp || kind == _ExportKind.hwpx) {
+        setState(() {
+          _documentDirty = false;
+        });
+      }
+      return status;
     });
   }
 
@@ -291,6 +302,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
       _metadata = metadata;
       _sourceBytes = sourceBytes;
       _fileName = fileName;
+      _documentDirty = false;
       _viewerKey = UniqueKey();
     });
     await previous?.close();
@@ -306,6 +318,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
       _metadata = null;
       _sourceBytes = sourceBytes;
       _fileName = fileName;
+      _documentDirty = false;
       _viewerKey = UniqueKey();
     });
     await previous?.close();
@@ -483,6 +496,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
               busy: _busy,
               fileName: _fileName,
               metadata: _metadata,
+              dirty: _documentDirty,
               status: _status,
               error: _error,
               editorMode: _editorMode,
@@ -519,6 +533,11 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
                       onImageRequested: _busy ? null : _pickEditorImage,
                       onExported: _busy ? null : _saveEditorExport,
                       onPrintRequested: _busy ? null : _printEditorDocument,
+                      onDirtyChanged: (dirty) {
+                        setState(() {
+                          _documentDirty = dirty;
+                        });
+                      },
                       onChanged: (_) async {
                         final metadata = await document.metadata();
                         if (!mounted) {
@@ -542,6 +561,7 @@ class _StatusBar extends StatelessWidget {
     required this.busy,
     required this.fileName,
     required this.metadata,
+    required this.dirty,
     required this.status,
     required this.error,
     required this.editorMode,
@@ -551,6 +571,7 @@ class _StatusBar extends StatelessWidget {
   final bool busy;
   final String? fileName;
   final RhwpDocumentMetadata? metadata;
+  final bool dirty;
   final String? status;
   final Object? error;
   final _EditorMode editorMode;
@@ -559,7 +580,7 @@ class _StatusBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = [
-      fileName ?? 'No file',
+      '${fileName ?? 'No file'}${dirty ? ' *' : ''}',
       if (metadata != null) '${metadata!.pageCount} page(s)',
       if (metadata != null) metadata!.sourceFormat.toUpperCase(),
       if (error != null) 'Error',
