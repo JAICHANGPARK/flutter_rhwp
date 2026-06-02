@@ -11412,6 +11412,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         );
         return KeyEventResult.handled;
       }
+      if (HardwareKeyboard.instance.isAltPressed &&
+          event.logicalKey == LogicalKeyboardKey.keyF) {
+        _runFocusedEditorAction(_insertFootnote);
+        return KeyEventResult.handled;
+      }
       switch (event.logicalKey) {
         case LogicalKeyboardKey.keyC:
           _copySelection();
