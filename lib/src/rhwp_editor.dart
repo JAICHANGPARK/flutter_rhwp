@@ -6568,12 +6568,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
 
     try {
-      final pageCount = await widget.document.pageCount;
-      final matches = <_EditorSearchMatch>[];
-      for (var page = 0; page < pageCount; page += 1) {
-        final tree = await widget.document.pageLayerTreeModel(page);
-        matches.addAll(_searchTree(tree, query));
-      }
+      final matches = await _collectSearchMatches(query);
 
       if (!mounted) {
         return;
@@ -6607,6 +6602,105 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
   void _handleSearchInputChanged(String value) {
     _scheduleSearchInputDebounce();
+  }
+
+  Future<List<_EditorSearchMatch>> _collectSearchMatches(String query) async {
+    final pageCount = await widget.document.pageCount;
+    final matches = <_EditorSearchMatch>[];
+    for (var page = 0; page < pageCount; page += 1) {
+      final tree = await widget.document.pageLayerTreeModel(page);
+      matches.addAll(_searchTree(tree, query));
+    }
+    return matches;
+  }
+
+  Future<void> _refreshSearchMatchesAfterEdit() async {
+    final query = _searchController.text.trim();
+    if (query.isEmpty) {
+      return;
+    }
+    if (_searching) {
+      _scheduleSearchInputDebounce();
+      return;
+    }
+
+    final previousActiveIndex = _activeSearchMatch;
+    final previousActiveMatch =
+        previousActiveIndex >= 0 && previousActiveIndex < _searchMatches.length
+        ? _searchMatches[previousActiveIndex]
+        : null;
+
+    setState(() {
+      _searching = true;
+      _error = null;
+    });
+
+    try {
+      final matches = await _collectSearchMatches(query);
+      if (!mounted || _searchController.text.trim() != query) {
+        return;
+      }
+
+      setState(() {
+        _searchMatches = List.unmodifiable(matches);
+        _activeSearchMatch = _activeSearchIndexAfterRefresh(
+          matches,
+          previousActiveMatch,
+          previousActiveIndex,
+        );
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _error = error;
+        _searchMatches = const [];
+        _activeSearchMatch = -1;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _searching = false;
+        });
+      }
+    }
+  }
+
+  int _activeSearchIndexAfterRefresh(
+    List<_EditorSearchMatch> matches,
+    _EditorSearchMatch? previousActiveMatch,
+    int previousActiveIndex,
+  ) {
+    if (matches.isEmpty) {
+      return -1;
+    }
+    if (previousActiveMatch != null) {
+      final matchingIndex = matches.indexWhere(
+        (match) => _sameSearchMatchLocation(match, previousActiveMatch),
+      );
+      if (matchingIndex >= 0) {
+        return matchingIndex;
+      }
+    }
+    if (previousActiveIndex < 0) {
+      return 0;
+    }
+    return previousActiveIndex.clamp(0, matches.length - 1).toInt();
+  }
+
+  bool _sameSearchMatchLocation(
+    _EditorSearchMatch left,
+    _EditorSearchMatch right,
+  ) {
+    return left.page == right.page &&
+        left.section == right.section &&
+        left.paragraph == right.paragraph &&
+        left.startOffset == right.startOffset &&
+        left.endOffset == right.endOffset &&
+        left.tableControlIndex == right.tableControlIndex &&
+        left.cellIndex == right.cellIndex &&
+        left.cellParagraph == right.cellParagraph;
   }
 
   void _scheduleSearchInputDebounce() {
@@ -10684,6 +10778,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _textRefreshHeldForFocusedInput = false;
     _textInputUndoBatchOpen = false;
     widget.onChanged?.call(widget.document);
+    unawaited(_refreshSearchMatchesAfterEdit());
   }
 
   Set<int>? _deferredEditRefreshPages() {

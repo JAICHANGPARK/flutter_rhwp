@@ -18058,6 +18058,90 @@ void main() {
     expect(session.renderedPages, [0]);
   });
 
+  testWidgets(
+    'RhwpNativeEditor refreshes search matches after text input refresh',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJsonByPage[0] = jsonEncode(
+        _editorLayerTreeJson(firstText: 'xyzz', secondText: 'abcd'),
+      );
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      await tester.tap(find.text('도구'));
+      await tester.pump();
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-editor-search-field')),
+        'xy',
+      );
+      await tester.tap(find.byKey(const ValueKey('rhwp-editor-find')));
+      await _pumpDocumentFrame(tester);
+
+      expect(find.text('1 / 1'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-search-active')),
+        findsOneWidget,
+      );
+
+      session.renderedPages.clear();
+      session.layerTreePages.clear();
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: 'AB',
+          selection: TextSelection.collapsed(offset: 2),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(changedCalls, 0);
+      expect(session.renderedPages, isEmpty);
+      expect(session.commands.map((json) => jsonDecode(json)['type']), [
+        'deleteText',
+        'insertText',
+      ]);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-pending-delete-mask')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-pending-text-preview')),
+        findsOneWidget,
+      );
+
+      session.pageLayerTreeJsonByPage[0] = jsonEncode(
+        _editorLayerTreeJson(firstText: 'ABzz', secondText: 'abcd'),
+      );
+      await _releaseTextInputAction(tester);
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+      expect(session.renderedPages, [0]);
+      expect(session.layerTreePages, contains(0));
+      expect(find.text('0 / 0'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-search-active')),
+        findsNothing,
+      );
+    },
+  );
+
   testWidgets('RhwpNativeEditor refreshes only edited page after text input', (
     tester,
   ) async {
