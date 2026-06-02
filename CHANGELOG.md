@@ -22,6 +22,8 @@
   active replacement and Escape clears/blurs the replace input.
 * Covered the Flutter-native Ctrl/Cmd+O file-open shortcut path through the
   same app callback used by the file ribbon.
+* Kept Flutter-native editor focus active after the file-ribbon Open action so
+  follow-up editor shortcuts can be used without clicking the page again.
 * Added Flutter-native active ClickHere field controls that call rhwp core
   active-field APIs and rerender only the current page.
 * Added Flutter-native footnote deletion from the insert ribbon using rhwp core

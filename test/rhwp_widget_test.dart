@@ -2473,11 +2473,6 @@ void main() {
 
     expect(openRequests, 1);
 
-    await tester.tapAt(
-      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
-          const Offset(1, 6),
-    );
-    await tester.pump();
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyO);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);

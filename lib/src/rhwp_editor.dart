@@ -13421,7 +13421,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           searchMatchCount: _searchMatches.length,
           activeSearchMatch: _activeSearchMatch,
           onInsert: _insertText,
-          onOpen: _requestOpenFromEditor,
+          onOpen: () => _runFocusedEditorAction(_requestOpenFromEditor),
           onDocumentInfo: _showDocumentInfoDialog,
           onRenameFile: _showFileNameDialog,
           onSaveHwp: () => _exportFromEditor(RhwpExportFormat.hwp),
