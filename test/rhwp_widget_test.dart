@@ -17127,6 +17127,7 @@ void main() {
     expect(session.historyCommands, isEmpty);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.testTextInput.receiveAction(TextInputAction.done);
     await _pumpDocumentFrame(tester);
 
     expect(changedCalls, 1);
@@ -17141,6 +17142,7 @@ void main() {
     expect(tester.widget<TextField>(replaceField).focusNode?.hasFocus, isTrue);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.testTextInput.receiveAction(TextInputAction.done);
     await _pumpDocumentFrame(tester);
 
     expect(changedCalls, 2);

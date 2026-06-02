@@ -41,6 +41,8 @@
   previous search match while keeping replace input focus.
 * Guarded Flutter-native search-field Enter handling against duplicate
   `TextField.onSubmitted` delivery so one key press advances only one match.
+* Restored Flutter-native replace-field focus policy when duplicate Enter submit
+  delivery is skipped after keyboard handling.
 * Added Flutter-native active ClickHere field controls that call rhwp core
   active-field APIs and rerender only the current page.
 * Added Flutter-native footnote deletion from the insert ribbon using rhwp core

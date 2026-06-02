@@ -17770,6 +17770,7 @@ class _EditorToolbarState extends State<_EditorToolbar> {
                   onSubmitted: (_) {
                     if (_replaceKeySubmitHandled) {
                       _replaceKeySubmitHandled = false;
+                      _restoreReplaceFocusAfterSkippedSubmit();
                       return;
                     }
                     _submitReplaceField();
@@ -17923,6 +17924,19 @@ class _EditorToolbarState extends State<_EditorToolbar> {
     if (!widget.busy && widget.searchMatchCount > 0) {
       widget.onReplaceAll();
     }
+  }
+
+  void _restoreReplaceFocusAfterSkippedSubmit() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      if (widget.searchMatchCount > 0) {
+        widget.replaceFocusNode.requestFocus();
+      } else {
+        widget.onFocusEditor();
+      }
+    });
   }
 
   void _navigateReplaceField({required bool backward}) {
