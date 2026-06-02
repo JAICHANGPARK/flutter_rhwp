@@ -6551,6 +6551,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   Future<void> _runSearch() async {
     _searchInputDebounceTimer?.cancel();
     _searchInputDebounceTimer = null;
+    final keepSearchFocus = _searchFocusNode.hasFocus;
     final query = _searchController.text.trim();
     if (query.isEmpty) {
       _clearSearch();
@@ -6582,7 +6583,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         _searchMatches = List.unmodifiable(matches);
         _activeSearchMatch = matches.isEmpty ? -1 : 0;
       });
-      _selectActiveSearchMatch();
+      _selectActiveSearchMatch(focusEditor: !keepSearchFocus);
+      if (keepSearchFocus) {
+        _searchFocusNode.requestFocus();
+      }
     } catch (error) {
       if (!mounted) {
         return;
@@ -6725,22 +6729,30 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     if (_searchMatches.isEmpty) {
       return;
     }
+    final keepSearchFocus = _searchFocusNode.hasFocus;
     setState(() {
       _activeSearchMatch = (_activeSearchMatch + 1) % _searchMatches.length;
     });
-    _selectActiveSearchMatch();
+    _selectActiveSearchMatch(focusEditor: !keepSearchFocus);
+    if (keepSearchFocus) {
+      _searchFocusNode.requestFocus();
+    }
   }
 
   void _searchPrevious() {
     if (_searchMatches.isEmpty) {
       return;
     }
+    final keepSearchFocus = _searchFocusNode.hasFocus;
     setState(() {
       _activeSearchMatch =
           (_activeSearchMatch - 1 + _searchMatches.length) %
           _searchMatches.length;
     });
-    _selectActiveSearchMatch();
+    _selectActiveSearchMatch(focusEditor: !keepSearchFocus);
+    if (keepSearchFocus) {
+      _searchFocusNode.requestFocus();
+    }
   }
 
   void _clearSearch() {
@@ -6765,7 +6777,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _focusEditor();
   }
 
-  void _selectActiveSearchMatch() {
+  void _selectActiveSearchMatch({bool focusEditor = true}) {
     if (_activeSearchMatch < 0 || _activeSearchMatch >= _searchMatches.length) {
       return;
     }
@@ -6781,7 +6793,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       _controller.tableCellSelection = tableSelection;
     }
     unawaited(_controller.goToPage(match.page));
-    _focusEditor();
+    if (focusEditor) {
+      _focusEditor();
+    }
   }
 
   Future<void> _replaceActiveSearchMatch() async {
@@ -13550,6 +13564,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onSearchPrevious: _searchPrevious,
           onSearchNext: _searchNext,
           onClearSearch: _clearSearchAndFocusEditor,
+          onFocusEditor: _focusEditor,
           onReplace: _replaceActiveSearchMatch,
           onReplaceAll: _replaceAllSearchMatches,
           onClearReplace: _clearReplaceAndFocusEditor,
@@ -16227,6 +16242,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onSearchPrevious,
     required this.onSearchNext,
     required this.onClearSearch,
+    required this.onFocusEditor,
     required this.onReplace,
     required this.onReplaceAll,
     required this.onClearReplace,
@@ -16378,6 +16394,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onSearchPrevious;
   final VoidCallback onSearchNext;
   final VoidCallback onClearSearch;
+  final VoidCallback onFocusEditor;
   final VoidCallback onReplace;
   final VoidCallback onReplaceAll;
   final VoidCallback onClearReplace;
@@ -17665,7 +17682,9 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               buttonKey: const ValueKey('rhwp-editor-find'),
               icon: Icons.search,
               filled: true,
-              onPressed: widget.busy ? null : widget.onFind,
+              onPressed: widget.busy
+                  ? null
+                  : () => _runSearchToolbarAction(widget.onFind),
             ),
             _ToolbarIconButton(
               tooltip: 'Previous match',
@@ -17673,7 +17692,7 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               icon: Icons.keyboard_arrow_up,
               onPressed: widget.searchMatchCount == 0
                   ? null
-                  : widget.onSearchPrevious,
+                  : () => _runSearchToolbarAction(widget.onSearchPrevious),
             ),
             _ToolbarIconButton(
               tooltip: 'Next match',
@@ -17681,7 +17700,7 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               icon: Icons.keyboard_arrow_down,
               onPressed: widget.searchMatchCount == 0
                   ? null
-                  : widget.onSearchNext,
+                  : () => _runSearchToolbarAction(widget.onSearchNext),
             ),
             _ToolbarIconButton(
               tooltip: 'Clear search',
@@ -17860,6 +17879,17 @@ class _EditorToolbarState extends State<_EditorToolbar> {
     } else {
       widget.onSearchNext();
     }
+  }
+
+  void _runSearchToolbarAction(VoidCallback action) {
+    widget.searchFocusNode.unfocus();
+    action();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      widget.onFocusEditor();
+    });
   }
 
   List<Widget> _stateIndicators() {

@@ -16774,6 +16774,15 @@ void main() {
         end: RhwpCursorPosition(paragraph: 0, offset: 3),
       ),
     );
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('rhwp-editor-search-field')),
+          )
+          .focusNode
+          ?.hasFocus,
+      isTrue,
+    );
     expect(session.commands, isEmpty);
     expect(session.historyCommands, isEmpty);
   });
@@ -16936,8 +16945,8 @@ void main() {
         end: RhwpCursorPosition(paragraph: 0, offset: 3),
       ),
     );
+    expect(tester.widget<TextField>(searchField).focusNode?.hasFocus, isTrue);
 
-    await tester.tap(searchField);
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await _pumpDocumentFrame(tester);
 
@@ -16949,8 +16958,8 @@ void main() {
         end: RhwpCursorPosition(paragraph: 1, offset: 2),
       ),
     );
+    expect(tester.widget<TextField>(searchField).focusNode?.hasFocus, isTrue);
 
-    await tester.tap(searchField);
     await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
@@ -16964,8 +16973,8 @@ void main() {
         end: RhwpCursorPosition(paragraph: 0, offset: 3),
       ),
     );
+    expect(tester.widget<TextField>(searchField).focusNode?.hasFocus, isTrue);
 
-    await tester.tap(searchField);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pump();
 
@@ -16974,6 +16983,7 @@ void main() {
       find.byKey(const ValueKey('rhwp-editor-search-active')),
       findsNothing,
     );
+    expect(tester.widget<TextField>(searchField).focusNode?.hasFocus, isFalse);
     expect(session.commands, isEmpty);
     expect(session.historyCommands, isEmpty);
   });
