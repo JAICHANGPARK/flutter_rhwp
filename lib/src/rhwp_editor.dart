@@ -2295,6 +2295,56 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _focusEditor();
   }
 
+  Future<void> _showFileNameDialog() async {
+    if (_busy) {
+      return;
+    }
+
+    RhwpDocumentMetadata? metadata;
+    setState(() {
+      _busy = true;
+      _visibleBusy = true;
+      _error = null;
+    });
+    try {
+      metadata = await widget.document.metadata();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _visibleBusy = false;
+        });
+      }
+    }
+
+    if (!mounted || metadata == null) {
+      return;
+    }
+    final dialogMetadata = metadata;
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) =>
+          _FileNameDialog(initialName: dialogMetadata.fileName ?? ''),
+    );
+    final nextName = result?.trim();
+    if (nextName == null || nextName.isEmpty) {
+      _focusEditor();
+      return;
+    }
+
+    await _runEdit(() async {
+      await widget.document.setFileName(nextName);
+    });
+    _focusEditor();
+  }
+
   Future<void> _showCompareDialog() async {
     if (_busy) {
       return;
@@ -13014,6 +13064,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onInsert: _insertText,
           onOpen: _requestOpenFromEditor,
           onDocumentInfo: _showDocumentInfoDialog,
+          onRenameFile: _showFileNameDialog,
           onSaveHwp: () => _exportFromEditor(RhwpExportFormat.hwp),
           onSaveHwpx: () => _exportFromEditor(RhwpExportFormat.hwpx),
           onExportPdf: () => _exportFromEditor(RhwpExportFormat.pdf),
@@ -15701,6 +15752,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onInsert,
     required this.onOpen,
     required this.onDocumentInfo,
+    required this.onRenameFile,
     required this.onSaveHwp,
     required this.onSaveHwpx,
     required this.onExportPdf,
@@ -15843,6 +15895,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onInsert;
   final VoidCallback onOpen;
   final VoidCallback onDocumentInfo;
+  final VoidCallback onRenameFile;
   final VoidCallback onSaveHwp;
   final VoidCallback onSaveHwpx;
   final VoidCallback onExportPdf;
@@ -16107,6 +16160,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               buttonKey: const ValueKey('rhwp-editor-document-info'),
               icon: Icons.info_outline,
               onPressed: widget.busy ? null : widget.onDocumentInfo,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Rename file',
+              buttonKey: const ValueKey('rhwp-editor-rename-file'),
+              icon: Icons.drive_file_rename_outline,
+              onPressed: widget.busy ? null : widget.onRenameFile,
             ),
             _ToolbarIconButton(
               tooltip: 'Save HWP',
@@ -18010,6 +18069,70 @@ class _InfoRow extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _FileNameDialog extends StatefulWidget {
+  const _FileNameDialog({required this.initialName});
+
+  final String initialName;
+
+  @override
+  State<_FileNameDialog> createState() => _FileNameDialogState();
+}
+
+class _FileNameDialogState extends State<_FileNameDialog> {
+  late final TextEditingController _nameController;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.initialName);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Rename file'),
+      content: SizedBox(
+        width: 360,
+        child: TextField(
+          key: const ValueKey('rhwp-file-name-field'),
+          controller: _nameController,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'File name',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (_) => _submit(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const ValueKey('rhwp-file-name-apply'),
+          onPressed: _submit,
+          child: const Text('Rename'),
+        ),
+      ],
+    );
+  }
+
+  void _submit() {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      return;
+    }
+    Navigator.of(context).pop(name);
   }
 }
 

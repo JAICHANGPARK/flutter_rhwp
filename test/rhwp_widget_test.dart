@@ -2011,6 +2011,69 @@ void main() {
     expect(session.exportPdfCalls, 2);
   });
 
+  testWidgets('RhwpNativeEditor file ribbon renames document file', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    final exported = <RhwpExportedDocument>[];
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+            onExported: (document) => exported.add(document),
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('파일'));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-rename-file')));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const ValueKey('rhwp-file-name-field')))
+          .controller
+          ?.text,
+      'sample.hwp',
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-file-name-field')),
+      'renamed-document.hwp',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-file-name-apply')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.fileName, 'renamed-document.hwp');
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+    ]);
+    expect(session.commands.map(jsonDecode), [
+      {'type': 'setFileName', 'name': 'renamed-document.hwp'},
+    ]);
+
+    session.commands.clear();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-save-hwp')));
+    await _pumpDocumentFrame(tester);
+
+    expect(exported.single.fileName, 'renamed-document.hwp');
+    expect(session.exportHwpCalls, 1);
+  });
+
   testWidgets('RhwpNativeEditor file ribbon requests app file open', (
     tester,
   ) async {
@@ -19583,6 +19646,7 @@ class _FakeRhwpSession implements rust.RhwpSession {
   bool headerFooterExists = false;
   bool footerExists = false;
   String headerFooterText = '';
+  String fileName = 'sample.hwp';
   String extractedText = 'alpha\nbeta';
   String charPropertiesJson =
       '{"fontFamily":"함초롬바탕","fontSize":1000,"bold":false,"italic":false,"underline":false,"strikethrough":false,"superscript":false,"subscript":false,"emboss":false,"engrave":false,"textColor":"#000000","shadeColor":"#ffffff"}';
@@ -19655,6 +19719,10 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'getClickHereProperties') {
       return '{"ok":true,"guide":"고객명","memo":"기존 메모","name":"customer","editable":true}';
+    }
+    if (command is Map && command['type'] == 'setFileName') {
+      fileName = command['name']?.toString() ?? fileName;
+      return '{"ok":true}';
     }
     if (command is Map && command['type'] == 'insertTable') {
       final paragraph = command['paragraph'];
@@ -19860,7 +19928,7 @@ class _FakeRhwpSession implements rust.RhwpSession {
     return rust.RhwpDocumentInfo(
       pageCount: pageCountValue,
       sourceFormat: 'hwp',
-      fileName: 'sample.hwp',
+      fileName: fileName,
       rawJson: '{"pageCount":$pageCountValue}',
     );
   }
