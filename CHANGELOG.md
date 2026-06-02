@@ -32,6 +32,9 @@
   Escape so follow-up editor shortcuts continue from the document surface.
 * Kept Flutter-native search-field focus during live search and repeated
   Enter/Shift+Enter navigation, matching the upstream editor search flow.
+* Kept Flutter-native replace-field focus after Enter replaces a match when
+  another search match remains, allowing repeated replacements without
+  refocusing the field.
 * Added Flutter-native active ClickHere field controls that call rhwp core
   active-field APIs and rerender only the current page.
 * Added Flutter-native footnote deletion from the insert ribbon using rhwp core

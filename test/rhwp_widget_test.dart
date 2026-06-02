@@ -17068,7 +17068,7 @@ void main() {
     final controller = RhwpEditorController();
     final session = _FakeRhwpSession(pageCountValue: 3);
     session.pageLayerTreeJsonByPage[2] = jsonEncode(
-      _editorLayerTreeJson(firstText: 'wxyz', secondText: 'mnop'),
+      _editorLayerTreeJson(firstText: 'wxyz', secondText: 'xyqr'),
     );
     final document = RhwpDocument.fromSession(session);
     var changedCalls = 0;
@@ -17112,6 +17112,25 @@ void main() {
       'deleteText',
       'insertText',
     ]);
+    expect(find.text('1 / 1'), findsOneWidget);
+    expect(tester.widget<TextField>(replaceField).focusNode?.hasFocus, isTrue);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 2);
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+      'saveSnapshot',
+    ]);
+    expect(session.commands.map((json) => jsonDecode(json)['type']), [
+      'deleteText',
+      'insertText',
+      'deleteText',
+      'insertText',
+    ]);
+    expect(find.text('0 / 0'), findsOneWidget);
+    expect(tester.widget<TextField>(replaceField).focusNode?.hasFocus, isFalse);
 
     await tester.enterText(replaceField, 'CD');
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
@@ -17119,8 +17138,8 @@ void main() {
 
     expect(tester.widget<TextField>(replaceField).controller?.text, isEmpty);
     expect(tester.widget<TextField>(replaceField).focusNode?.hasFocus, isFalse);
-    expect(changedCalls, 1);
-    expect(session.commands, hasLength(2));
+    expect(changedCalls, 2);
+    expect(session.commands, hasLength(4));
 
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyG);

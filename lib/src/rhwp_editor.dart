@@ -6805,6 +6805,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
+    final keepReplaceFocus = _replaceFocusNode.hasFocus;
     final matchIndex = _activeSearchMatch;
     final match = _searchMatches[matchIndex];
     final replacement = _replaceController.text;
@@ -6835,7 +6836,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       }
     });
     if (_activeSearchMatch >= 0) {
-      _selectActiveSearchMatch();
+      _selectActiveSearchMatch(focusEditor: !keepReplaceFocus);
+      if (keepReplaceFocus) {
+        _replaceFocusNode.requestFocus();
+      }
     } else {
       _focusEditor();
     }
@@ -16434,6 +16438,7 @@ class _EditorToolbar extends StatefulWidget {
 class _EditorToolbarState extends State<_EditorToolbar> {
   var _activeTab = _EditorTab.insert;
   final _toolbarFontSizeController = TextEditingController(text: '10.0');
+  var _replaceKeySubmitHandled = false;
   var _toolbarFontFamily = _fontFamilyOptions.first;
   var _toolbarLineSpacing = 160;
   var _toolbarTextColor = '#000000';
@@ -17742,9 +17747,11 @@ class _EditorToolbarState extends State<_EditorToolbar> {
                     labelText: 'Replace',
                   ),
                   onSubmitted: (_) {
-                    if (!widget.busy && widget.searchMatchCount > 0) {
-                      widget.onReplace();
+                    if (_replaceKeySubmitHandled) {
+                      _replaceKeySubmitHandled = false;
+                      return;
                     }
+                    _submitReplaceField();
                   },
                 ),
               ),
@@ -17854,9 +17861,14 @@ class _EditorToolbarState extends State<_EditorToolbar> {
     switch (event.logicalKey) {
       case LogicalKeyboardKey.enter:
       case LogicalKeyboardKey.numpadEnter:
-        if (widget.searchMatchCount > 0) {
-          widget.onReplace();
-        }
+        _replaceKeySubmitHandled = true;
+        _submitReplaceField();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) {
+            return;
+          }
+          _replaceKeySubmitHandled = false;
+        });
         return KeyEventResult.handled;
       case LogicalKeyboardKey.escape:
         widget.onClearReplace();
@@ -17864,6 +17876,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
     }
 
     return KeyEventResult.ignored;
+  }
+
+  void _submitReplaceField() {
+    if (!widget.busy && widget.searchMatchCount > 0) {
+      widget.onReplace();
+    }
   }
 
   void _submitSearchField({required bool backward}) {
