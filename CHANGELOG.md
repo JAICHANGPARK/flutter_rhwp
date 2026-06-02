@@ -1,6 +1,8 @@
 ## 2026.5.24
 
 * Updated plugin release metadata for the `2026.5.24` release.
+* Added Flutter-native body context-menu new-number insertion through the same
+  command path as the page ribbon.
 * Covered Flutter-native table-cell context-menu ClickHere field property
   editing through the table-cell field inspection command path.
 * Added Flutter-native body and table-cell context-menu field actions for

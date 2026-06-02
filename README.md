@@ -443,7 +443,7 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   picture insertion with Ctrl/Cmd+Alt+I shortcut,
   shape preset insertion with Ctrl/Cmd+Alt+R/O/L/X shortcuts,
   bookmark list/add/delete/rename/go-to navigation through the input ribbon,
-  page/column break insertion, plus table
+  page/column break and new-number insertion, plus table
   row above/below insertion and row deletion, column left/right insertion and
   column deletion, and cell
   merge/split/split-into-grid/range split command flow, selected-cell range

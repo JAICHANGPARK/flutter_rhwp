@@ -9439,6 +9439,7 @@ void main() {
     expect(find.text('글상자'), findsOneWidget);
     expect(find.text('쪽 나누기'), findsOneWidget);
     expect(find.text('단 나누기'), findsOneWidget);
+    expect(find.text('새 번호로 시작'), findsOneWidget);
 
     await tester.tap(find.text('그림 넣기'));
     await _pumpDocumentFrame(tester);
@@ -9491,6 +9492,29 @@ void main() {
       'section': 0,
       'paragraph': 0,
       'offset': 2,
+    });
+
+    controller.cursor = const RhwpCursorPosition(offset: 2);
+    await tester.pump();
+
+    await tester.tapAt(menuPoint, buttons: kSecondaryMouseButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('새 번호로 시작'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-new-number-start-field')),
+      '9',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-new-number-apply')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 4);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'insertNewNumber',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 2,
+      'startNumber': 9,
     });
   });
 

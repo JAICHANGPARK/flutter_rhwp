@@ -583,6 +583,7 @@ enum _EditorContextMenuAction {
   insertParagraph,
   insertPageBreak,
   insertColumnBreak,
+  insertNewNumber,
   insertTable,
   insertTableRowAbove,
   insertTableRowBelow,
@@ -10526,6 +10527,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         await _insertPageBreak();
       case _EditorContextMenuAction.insertColumnBreak:
         await _insertColumnBreak();
+      case _EditorContextMenuAction.insertNewNumber:
+        await _showInsertNewNumberDialog();
       case _EditorContextMenuAction.insertTable:
         await _insertTable();
       case _EditorContextMenuAction.insertTableRowAbove:
@@ -11145,6 +11148,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         action: _EditorContextMenuAction.insertColumnBreak,
         icon: Icons.view_column_outlined,
         label: '단 나누기',
+        enabled: !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.insertNewNumber,
+        icon: Icons.format_list_numbered,
+        label: '새 번호로 시작',
         enabled: !_busy,
       ),
     ];
