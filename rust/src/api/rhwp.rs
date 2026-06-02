@@ -335,6 +335,68 @@ impl RhwpSession {
                 .document
                 .insert_footnote_native(section as usize, paragraph as usize, offset as usize)
                 .map_err(error_to_string),
+            RhwpCommand::GetFootnoteAtCursor {
+                section,
+                paragraph,
+                offset,
+                direction,
+            } => inner
+                .document
+                .get_footnote_at_cursor_native(
+                    section as usize,
+                    paragraph as usize,
+                    offset as usize,
+                    &direction,
+                )
+                .map_err(error_to_string),
+            RhwpCommand::GetFootnoteInfo {
+                section,
+                paragraph,
+                control_index,
+            } => inner
+                .document
+                .get_footnote_info_native(
+                    section as usize,
+                    paragraph as usize,
+                    control_index as usize,
+                )
+                .map_err(error_to_string),
+            RhwpCommand::InsertTextInFootnote {
+                section,
+                paragraph,
+                control_index,
+                footnote_paragraph,
+                offset,
+                text,
+            } => inner
+                .document
+                .insert_text_in_footnote_native(
+                    section as usize,
+                    paragraph as usize,
+                    control_index as usize,
+                    footnote_paragraph as usize,
+                    offset as usize,
+                    &text,
+                )
+                .map_err(error_to_string),
+            RhwpCommand::DeleteTextInFootnote {
+                section,
+                paragraph,
+                control_index,
+                footnote_paragraph,
+                offset,
+                count,
+            } => inner
+                .document
+                .delete_text_in_footnote_native(
+                    section as usize,
+                    paragraph as usize,
+                    control_index as usize,
+                    footnote_paragraph as usize,
+                    offset as usize,
+                    count as usize,
+                )
+                .map_err(error_to_string),
             RhwpCommand::InsertEquation {
                 section,
                 paragraph,
@@ -1610,6 +1672,38 @@ enum RhwpCommand {
         section: u32,
         paragraph: u32,
         offset: u32,
+    },
+    GetFootnoteAtCursor {
+        section: u32,
+        paragraph: u32,
+        offset: u32,
+        direction: String,
+    },
+    GetFootnoteInfo {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+    },
+    InsertTextInFootnote {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "footnoteParagraph")]
+        footnote_paragraph: u32,
+        offset: u32,
+        text: String,
+    },
+    DeleteTextInFootnote {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "footnoteParagraph")]
+        footnote_paragraph: u32,
+        offset: u32,
+        count: u32,
     },
     InsertEquation {
         section: u32,

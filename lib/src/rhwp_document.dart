@@ -361,6 +361,77 @@ class RhwpBookmark {
   final Map<String, Object?>? raw;
 }
 
+class RhwpFootnoteHit {
+  const RhwpFootnoteHit({
+    required this.hit,
+    this.section,
+    this.paragraph,
+    this.controlIndex,
+    this.charOffset,
+    this.footnoteNumber,
+    this.raw,
+  });
+
+  factory RhwpFootnoteHit.fromJsonString(String source) {
+    final decoded = RhwpDocument._tryDecodeObject(source) ?? const {};
+    return RhwpFootnoteHit(
+      hit: decoded['hit'] == true,
+      section: _intFromJson(decoded['sectionIndex']),
+      paragraph: _intFromJson(decoded['paragraphIndex']),
+      controlIndex: _intFromJson(decoded['controlIndex']),
+      charOffset: _intFromJson(decoded['charOffset']),
+      footnoteNumber: _intFromJson(decoded['footnoteNumber']),
+      raw: decoded,
+    );
+  }
+
+  final bool hit;
+  final int? section;
+  final int? paragraph;
+  final int? controlIndex;
+  final int? charOffset;
+  final int? footnoteNumber;
+  final Map<String, Object?>? raw;
+}
+
+class RhwpFootnoteInfo {
+  const RhwpFootnoteInfo({
+    required this.ok,
+    required this.paragraphCount,
+    required this.totalTextLength,
+    required this.number,
+    required this.texts,
+    required this.rawJson,
+    this.raw,
+  });
+
+  factory RhwpFootnoteInfo.fromJsonString(String source) {
+    final decoded = RhwpDocument._tryDecodeObject(source) ?? const {};
+    final texts = decoded['texts'];
+    return RhwpFootnoteInfo(
+      ok: decoded['ok'] == true,
+      paragraphCount: _intFromJson(decoded['paraCount']) ?? 0,
+      totalTextLength: _intFromJson(decoded['totalTextLen']) ?? 0,
+      number: _intFromJson(decoded['number']) ?? 0,
+      texts: texts is List
+          ? [for (final text in texts) text?.toString() ?? '']
+          : const [],
+      rawJson: source,
+      raw: decoded,
+    );
+  }
+
+  final bool ok;
+  final int paragraphCount;
+  final int totalTextLength;
+  final int number;
+  final List<String> texts;
+  final String rawJson;
+  final Map<String, Object?>? raw;
+
+  String get plainText => texts.join('\n');
+}
+
 class RhwpFieldInfo {
   const RhwpFieldInfo({
     required this.fieldId,
@@ -922,6 +993,37 @@ abstract class RhwpCommand {
     required int paragraph,
     required int offset,
   }) = RhwpInsertFootnoteCommand;
+
+  factory RhwpCommand.getFootnoteAtCursor({
+    required int section,
+    required int paragraph,
+    required int offset,
+    required String direction,
+  }) = RhwpGetFootnoteAtCursorCommand;
+
+  factory RhwpCommand.getFootnoteInfo({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+  }) = RhwpGetFootnoteInfoCommand;
+
+  factory RhwpCommand.insertTextInFootnote({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int footnoteParagraph,
+    required int offset,
+    required String text,
+  }) = RhwpInsertTextInFootnoteCommand;
+
+  factory RhwpCommand.deleteTextInFootnote({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int footnoteParagraph,
+    required int offset,
+    required int count,
+  }) = RhwpDeleteTextInFootnoteCommand;
 
   factory RhwpCommand.insertEquation({
     required int section,
@@ -1963,6 +2065,107 @@ class RhwpInsertFootnoteCommand extends RhwpCommand {
     'section': section,
     'paragraph': paragraph,
     'offset': offset,
+  };
+}
+
+class RhwpGetFootnoteAtCursorCommand extends RhwpCommand {
+  const RhwpGetFootnoteAtCursorCommand({
+    required this.section,
+    required this.paragraph,
+    required this.offset,
+    required this.direction,
+  });
+
+  final int section;
+  final int paragraph;
+  final int offset;
+  final String direction;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'getFootnoteAtCursor',
+    'section': section,
+    'paragraph': paragraph,
+    'offset': offset,
+    'direction': direction,
+  };
+}
+
+class RhwpGetFootnoteInfoCommand extends RhwpCommand {
+  const RhwpGetFootnoteInfoCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'getFootnoteInfo',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+  };
+}
+
+class RhwpInsertTextInFootnoteCommand extends RhwpCommand {
+  const RhwpInsertTextInFootnoteCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.footnoteParagraph,
+    required this.offset,
+    required this.text,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int footnoteParagraph;
+  final int offset;
+  final String text;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'insertTextInFootnote',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'footnoteParagraph': footnoteParagraph,
+    'offset': offset,
+    'text': text,
+  };
+}
+
+class RhwpDeleteTextInFootnoteCommand extends RhwpCommand {
+  const RhwpDeleteTextInFootnoteCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.footnoteParagraph,
+    required this.offset,
+    required this.count,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int footnoteParagraph;
+  final int offset;
+  final int count;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'deleteTextInFootnote',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'footnoteParagraph': footnoteParagraph,
+    'offset': offset,
+    'count': count,
   };
 }
 
@@ -4625,6 +4828,78 @@ class RhwpDocument {
         section: section,
         paragraph: paragraph,
         offset: offset,
+      ),
+    );
+  }
+
+  Future<RhwpFootnoteHit> footnoteAtCursor({
+    required int section,
+    required int paragraph,
+    required int offset,
+    required String direction,
+  }) async {
+    final result = await apply(
+      RhwpCommand.getFootnoteAtCursor(
+        section: section,
+        paragraph: paragraph,
+        offset: offset,
+        direction: direction,
+      ),
+    );
+    return RhwpFootnoteHit.fromJsonString(result);
+  }
+
+  Future<RhwpFootnoteInfo> footnoteInfo({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+  }) async {
+    final result = await apply(
+      RhwpCommand.getFootnoteInfo(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+      ),
+    );
+    return RhwpFootnoteInfo.fromJsonString(result);
+  }
+
+  Future<String> insertTextInFootnote({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int footnoteParagraph,
+    required int offset,
+    required String text,
+  }) {
+    return apply(
+      RhwpCommand.insertTextInFootnote(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        footnoteParagraph: footnoteParagraph,
+        offset: offset,
+        text: text,
+      ),
+    );
+  }
+
+  Future<String> deleteTextInFootnote({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int footnoteParagraph,
+    required int offset,
+    required int count,
+  }) {
+    return apply(
+      RhwpCommand.deleteTextInFootnote(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        footnoteParagraph: footnoteParagraph,
+        offset: offset,
+        count: count,
       ),
     );
   }

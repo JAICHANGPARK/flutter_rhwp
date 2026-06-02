@@ -138,6 +138,92 @@ void main() {
       'paragraph': 1,
       'offset': 2,
     });
+
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.getFootnoteAtCursor(
+            section: 0,
+            paragraph: 1,
+            offset: 3,
+            direction: 'backward',
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'getFootnoteAtCursor',
+        'section': 0,
+        'paragraph': 1,
+        'offset': 3,
+        'direction': 'backward',
+      },
+    );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.getFootnoteInfo(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 4,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'getFootnoteInfo',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 4,
+      },
+    );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.deleteTextInFootnote(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 4,
+            footnoteParagraph: 0,
+            offset: 0,
+            count: 5,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'deleteTextInFootnote',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 4,
+        'footnoteParagraph': 0,
+        'offset': 0,
+        'count': 5,
+      },
+    );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.insertTextInFootnote(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 4,
+            footnoteParagraph: 0,
+            offset: 0,
+            text: 'note',
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'insertTextInFootnote',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 4,
+        'footnoteParagraph': 0,
+        'offset': 0,
+        'text': 'note',
+      },
+    );
   });
 
   test('insert equation command serializes to the Rust command envelope', () {

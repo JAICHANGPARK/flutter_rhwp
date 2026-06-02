@@ -1003,6 +1003,12 @@ class _NewNumberDialogResult {
   final int startNumber;
 }
 
+class _FootnoteTextDialogResult {
+  const _FootnoteTextDialogResult({required this.text});
+
+  final String text;
+}
+
 class _HeaderFooterTextDialogResult {
   const _HeaderFooterTextDialogResult({
     required this.text,
@@ -4483,6 +4489,142 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       );
       _controller.cursor = cursor.copyWith(offset: cursor.offset + 1);
     });
+  }
+
+  Future<void> _showFootnoteTextDialog() async {
+    if (_busy || _controller.tableCellSelection != null) {
+      return;
+    }
+
+    final hit = await _footnoteHitAtCursor();
+    if (!mounted || hit == null) {
+      return;
+    }
+
+    final info = await _loadFootnoteInfo(hit);
+    if (!mounted || info == null) {
+      return;
+    }
+
+    final initialText = info.texts.isEmpty ? '' : info.texts.first;
+    final result = await showDialog<_FootnoteTextDialogResult>(
+      context: context,
+      builder: (context) =>
+          _FootnoteTextDialog(initialText: initialText, number: info.number),
+    );
+    if (result == null) {
+      return;
+    }
+    if (result.text == initialText) {
+      _focusEditor();
+      return;
+    }
+
+    await _runEdit(() async {
+      final existingCount = initialText.runes.length;
+      if (existingCount > 0) {
+        await widget.document.deleteTextInFootnote(
+          section: hit.section!,
+          paragraph: hit.paragraph!,
+          controlIndex: hit.controlIndex!,
+          footnoteParagraph: 0,
+          offset: 0,
+          count: existingCount,
+        );
+      }
+      if (result.text.isNotEmpty) {
+        await widget.document.insertTextInFootnote(
+          section: hit.section!,
+          paragraph: hit.paragraph!,
+          controlIndex: hit.controlIndex!,
+          footnoteParagraph: 0,
+          offset: 0,
+          text: result.text,
+        );
+      }
+      _controller.cursor = _controller.cursor.copyWith(
+        section: hit.section,
+        paragraph: hit.paragraph,
+        offset: (hit.charOffset ?? _controller.cursor.offset) + 1,
+      );
+    });
+  }
+
+  Future<RhwpFootnoteHit?> _footnoteHitAtCursor() async {
+    setState(() {
+      _busy = true;
+      _visibleBusy = true;
+      _error = null;
+    });
+
+    try {
+      final cursor = _readCursor();
+      final backward = await widget.document.footnoteAtCursor(
+        section: cursor.section,
+        paragraph: cursor.paragraph,
+        offset: cursor.offset,
+        direction: 'backward',
+      );
+      final hit = backward.hit
+          ? backward
+          : await widget.document.footnoteAtCursor(
+              section: cursor.section,
+              paragraph: cursor.paragraph,
+              offset: cursor.offset,
+              direction: 'forward',
+            );
+      if (!hit.hit ||
+          hit.section == null ||
+          hit.paragraph == null ||
+          hit.controlIndex == null) {
+        throw StateError('No footnote at cursor');
+      }
+      return hit;
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+      return null;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _visibleBusy = false;
+        });
+      }
+    }
+  }
+
+  Future<RhwpFootnoteInfo?> _loadFootnoteInfo(RhwpFootnoteHit hit) async {
+    setState(() {
+      _busy = true;
+      _visibleBusy = true;
+      _error = null;
+    });
+
+    try {
+      return await widget.document.footnoteInfo(
+        section: hit.section!,
+        paragraph: hit.paragraph!,
+        controlIndex: hit.controlIndex!,
+      );
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+      return null;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _visibleBusy = false;
+        });
+      }
+    }
   }
 
   Future<void> _showInsertEquationDialog() async {
@@ -13102,6 +13244,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
             });
           },
           onInsertFootnote: _insertFootnote,
+          onEditFootnote: _showFootnoteTextDialog,
           onInsertEquation: _showInsertEquationDialog,
           onBookmark: _showBookmarkDialog,
           onFields: _showFieldsDialog,
@@ -15786,6 +15929,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onInsertTable,
     required this.onToggleInsertTableTreatAsChar,
     required this.onInsertFootnote,
+    required this.onEditFootnote,
     required this.onInsertEquation,
     required this.onBookmark,
     required this.onFields,
@@ -15929,6 +16073,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onInsertTable;
   final VoidCallback onToggleInsertTableTreatAsChar;
   final VoidCallback onInsertFootnote;
+  final VoidCallback onEditFootnote;
   final VoidCallback onInsertEquation;
   final VoidCallback onBookmark;
   final VoidCallback onFields;
@@ -16575,6 +16720,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               buttonKey: const ValueKey('rhwp-editor-insert-column-break'),
               icon: Icons.view_column_outlined,
               onPressed: widget.busy ? null : widget.onInsertColumnBreak,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Edit footnote text',
+              buttonKey: const ValueKey('rhwp-editor-edit-footnote-text'),
+              icon: Icons.speaker_notes_outlined,
+              onPressed: widget.busy ? null : widget.onEditFootnote,
             ),
           ],
         ),
@@ -19057,6 +19208,67 @@ class _CharShapeDialogState extends State<_CharShapeDialog> {
         textColor: _textColor,
         shadeColor: _shadeColor,
       ),
+    );
+  }
+}
+
+class _FootnoteTextDialog extends StatefulWidget {
+  const _FootnoteTextDialog({required this.initialText, required this.number});
+
+  final String initialText;
+  final int number;
+
+  @override
+  State<_FootnoteTextDialog> createState() => _FootnoteTextDialogState();
+}
+
+class _FootnoteTextDialogState extends State<_FootnoteTextDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialText);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('각주 ${widget.number}'),
+      content: SizedBox(
+        width: 420,
+        child: TextField(
+          key: const ValueKey('rhwp-footnote-text-field'),
+          controller: _controller,
+          minLines: 4,
+          maxLines: 8,
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(),
+            labelText: 'Footnote text',
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const ValueKey('rhwp-footnote-apply'),
+          onPressed: () {
+            Navigator.of(
+              context,
+            ).pop(_FootnoteTextDialogResult(text: _controller.text));
+          },
+          child: const Text('Apply'),
+        ),
+      ],
     );
   }
 }

@@ -716,6 +716,100 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor insert ribbon edits footnote text', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1)
+      ..footnoteExists = true
+      ..footnoteText = 'Old footnote';
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 900,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 0, offset: 3);
+    await tester.pump();
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-edit-footnote-text')),
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-edit-footnote-text')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('각주 1'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('rhwp-footnote-text-field')),
+          )
+          .controller
+          ?.text,
+      'Old footnote',
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-footnote-text-field')),
+      'New footnote',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-footnote-apply')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.footnoteText, 'New footnote');
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+    ]);
+    expect(session.commands.map(jsonDecode).toList(), [
+      {
+        'type': 'getFootnoteAtCursor',
+        'section': 0,
+        'paragraph': 0,
+        'offset': 3,
+        'direction': 'backward',
+      },
+      {
+        'type': 'getFootnoteInfo',
+        'section': 0,
+        'paragraph': 0,
+        'controlIndex': 1,
+      },
+      {
+        'type': 'deleteTextInFootnote',
+        'section': 0,
+        'paragraph': 0,
+        'controlIndex': 1,
+        'footnoteParagraph': 0,
+        'offset': 0,
+        'count': 12,
+      },
+      {
+        'type': 'insertTextInFootnote',
+        'section': 0,
+        'paragraph': 0,
+        'controlIndex': 1,
+        'footnoteParagraph': 0,
+        'offset': 0,
+        'text': 'New footnote',
+      },
+    ]);
+  });
+
   testWidgets('RhwpNativeEditor insert ribbon adds a blank paragraph', (
     tester,
   ) async {
@@ -19748,6 +19842,8 @@ class _FakeRhwpSession implements rust.RhwpSession {
   bool headerFooterExists = false;
   bool footerExists = false;
   String headerFooterText = '';
+  bool footnoteExists = false;
+  String footnoteText = '';
   String fileName = 'sample.hwp';
   String extractedText = 'alpha\nbeta';
   String charPropertiesJson =
@@ -19821,6 +19917,34 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'getClickHereProperties') {
       return '{"ok":true,"guide":"고객명","memo":"기존 메모","name":"customer","editable":true}';
+    }
+    if (command is Map && command['type'] == 'insertFootnote') {
+      footnoteExists = true;
+      footnoteText = '';
+      return '{"ok":true,"paraIdx":0,"controlIdx":1,"footnoteNumber":1}';
+    }
+    if (command is Map && command['type'] == 'getFootnoteAtCursor') {
+      if (footnoteExists && command['direction'] == 'backward') {
+        return '{"hit":true,"sectionIndex":0,"paragraphIndex":0,"controlIndex":1,"charOffset":2,"footnoteNumber":1}';
+      }
+      return '{"hit":false}';
+    }
+    if (command is Map && command['type'] == 'getFootnoteInfo') {
+      return jsonEncode({
+        'ok': true,
+        'paraCount': 1,
+        'totalTextLen': footnoteText.runes.length,
+        'number': 1,
+        'texts': [footnoteText],
+      });
+    }
+    if (command is Map && command['type'] == 'deleteTextInFootnote') {
+      footnoteText = '';
+      return '{"ok":true,"charOffset":0}';
+    }
+    if (command is Map && command['type'] == 'insertTextInFootnote') {
+      footnoteText = command['text']?.toString() ?? '';
+      return '{"ok":true,"charOffset":0}';
     }
     if (command is Map && command['type'] == 'setFileName') {
       fileName = command['name']?.toString() ?? fileName;

@@ -1,6 +1,8 @@
 ## 2026.5.24
 
 * Updated plugin release metadata for the `2026.5.24` release.
+* Added Flutter-native footnote text editing from the insert ribbon, backed by
+  rhwp core footnote hit/info/insert/delete commands instead of WebView UI.
 * Added Flutter-native header/footer manager text editing so a selected
   header/footer item can be edited directly from the manager dialog.
 * Added Flutter-native file-ribbon document renaming through `setFileName`, so
