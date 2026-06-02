@@ -10944,6 +10944,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         _renderPages = null;
       });
       widget.onChanged?.call(widget.document);
+      unawaited(_refreshSearchMatchesAfterEdit());
     } catch (error) {
       rollbackStack.add(targetSnapshot);
       if (currentSnapshot != null) {
