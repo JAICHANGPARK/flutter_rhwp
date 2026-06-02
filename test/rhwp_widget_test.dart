@@ -2346,12 +2346,6 @@ void main() {
     expect(exported.last.bytes, [0x50, 0x44, 0x46]);
     expect(session.exportPdfCalls, 1);
 
-    await tester.tapAt(
-      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
-          const Offset(1, 6),
-    );
-    await tester.pump();
-
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyS);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);

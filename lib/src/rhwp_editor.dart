@@ -2239,6 +2239,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           _busy = false;
           _visibleBusy = false;
         });
+        _focusEditor();
       }
     }
   }

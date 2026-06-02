@@ -24,6 +24,8 @@
   same app callback used by the file ribbon.
 * Kept Flutter-native editor focus active after the file-ribbon Open action so
   follow-up editor shortcuts can be used without clicking the page again.
+* Restored Flutter-native editor focus after save/export callbacks so file
+  ribbon exports can be followed by Ctrl/Cmd+S/P without clicking the page.
 * Added Flutter-native active ClickHere field controls that call rhwp core
   active-field APIs and rerender only the current page.
 * Added Flutter-native footnote deletion from the insert ribbon using rhwp core
