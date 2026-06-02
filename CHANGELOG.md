@@ -1,6 +1,9 @@
 ## 2026.5.24
 
 * Updated plugin release metadata for the `2026.5.24` release.
+* Added Flutter-native body and table-cell context-menu field actions for
+  opening the field list, editing click-here field properties, and removing the
+  field at the current cursor.
 * Added Flutter-native Ctrl/Cmd+Alt+R/O/L/X shortcuts for inserting rectangle,
   ellipse, line, and text-box shape presets through the native command path.
 * Added a Flutter-native Ctrl/Cmd+Alt+I shortcut for inserting a picture

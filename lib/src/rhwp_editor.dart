@@ -573,6 +573,9 @@ enum _EditorContextMenuAction {
   insertFootnote,
   insertEquation,
   bookmark,
+  fields,
+  fieldProperties,
+  removeField,
   insertRectangle,
   insertEllipse,
   insertLine,
@@ -10503,6 +10506,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         await _showInsertEquationDialog();
       case _EditorContextMenuAction.bookmark:
         await _showBookmarkDialog();
+      case _EditorContextMenuAction.fields:
+        await _showFieldsDialog();
+      case _EditorContextMenuAction.fieldProperties:
+        await _showFieldPropertiesDialog();
+      case _EditorContextMenuAction.removeField:
+        await _removeFieldAtCursor();
       case _EditorContextMenuAction.insertRectangle:
         await _insertShape(_EditorShapePreset.rectangle);
       case _EditorContextMenuAction.insertEllipse:
@@ -10580,6 +10589,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     final hasTableTextEditing =
         tableSelection?.isTextEditing == true &&
         tableSelection?.activeCellIndex != null;
+    final hasTableFieldTarget = hasTableTextEditing;
     final hasTableCharacterFormatTarget =
         hasTableTextSelection || hasTableTextEditing;
     final hasObjectSelection = _controller.objectSelection != null;
@@ -10784,6 +10794,25 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
             icon: Icons.format_align_justify,
             label: '양쪽 정렬',
             enabled: !_busy,
+          ),
+          const PopupMenuDivider(),
+          _contextMenuItem(
+            action: _EditorContextMenuAction.fields,
+            icon: Icons.input,
+            label: '필드 목록',
+            enabled: !_busy,
+          ),
+          _contextMenuItem(
+            action: _EditorContextMenuAction.fieldProperties,
+            icon: Icons.edit_note,
+            label: '누름틀 속성',
+            enabled: !_busy && hasTableFieldTarget,
+          ),
+          _contextMenuItem(
+            action: _EditorContextMenuAction.removeField,
+            icon: Icons.highlight_remove_outlined,
+            label: '필드 삭제',
+            enabled: !_busy && hasTableFieldTarget,
           ),
         ],
         const PopupMenuDivider(),
@@ -11055,6 +11084,24 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         action: _EditorContextMenuAction.bookmark,
         icon: Icons.bookmark_border,
         label: '책갈피',
+        enabled: !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.fields,
+        icon: Icons.input,
+        label: '필드 목록',
+        enabled: !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.fieldProperties,
+        icon: Icons.edit_note,
+        label: '누름틀 속성',
+        enabled: !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.removeField,
+        icon: Icons.highlight_remove_outlined,
+        label: '필드 삭제',
         enabled: !_busy,
       ),
       _contextMenuItem(

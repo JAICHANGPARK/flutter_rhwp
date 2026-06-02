@@ -431,7 +431,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   Enter/Shift+Enter result navigation, debounced live search field input,
   search-field Escape clearing, result highlighting, active-match replace,
   replace-all, table-cell find/replace, and a tools-ribbon compare dialog
-  backed by text extraction, and basic
+  backed by text extraction, field list/value/property/remove actions from the
+  tools ribbon and body/table-cell context menus, and basic
   text/table/picture/shape
   insert/delete from the ribbon and body context menu, with shape presets for
   rectangle, ellipse, line, and text box,

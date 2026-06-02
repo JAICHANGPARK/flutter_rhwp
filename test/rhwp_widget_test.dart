@@ -9596,6 +9596,94 @@ void main() {
     ]);
   });
 
+  testWidgets('RhwpNativeEditor context menu edits body field controls', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 2200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 900,
+          height: 520,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    final menuPoint =
+        pageTopLeft +
+        Offset(pageSize.width * 105 / 240, pageSize.height * 48 / 180);
+
+    controller.cursor = const RhwpCursorPosition(offset: 2);
+    await tester.pump();
+
+    await tester.tapAt(menuPoint, buttons: kSecondaryMouseButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('필드 목록'), findsOneWidget);
+    expect(find.text('누름틀 속성'), findsOneWidget);
+    expect(find.text('필드 삭제'), findsOneWidget);
+
+    await tester.tap(find.text('누름틀 속성'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-field-props-guide-field')),
+      '본문 안내',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-field-props-memo-field')),
+      '본문 메모',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-field-props-name-field')),
+      'body_field',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-field-props-update')));
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(menuPoint, buttons: kSecondaryMouseButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('필드 삭제'));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 2);
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+      'saveSnapshot',
+    ]);
+    expect(session.commands.map(jsonDecode).toList(), [
+      {'type': 'getFieldInfoAt', 'section': 0, 'paragraph': 0, 'offset': 2},
+      {'type': 'getClickHereProperties', 'fieldId': 7},
+      {
+        'type': 'updateClickHereProperties',
+        'fieldId': 7,
+        'guide': '본문 안내',
+        'memo': '본문 메모',
+        'name': 'body_field',
+        'editable': true,
+      },
+      {'type': 'removeFieldAt', 'section': 0, 'paragraph': 0, 'offset': 2},
+    ]);
+  });
+
   testWidgets('RhwpNativeEditor inserts footnote with shortcut', (
     tester,
   ) async {
@@ -10606,6 +10694,86 @@ void main() {
       expect(changedCalls, 1);
       expect(controller.tableCellSelection?.hasTextSelection, isFalse);
       expect(controller.tableCellSelection?.activeOffset, 3);
+    },
+  );
+
+  testWidgets(
+    'RhwpNativeEditor context menu removes table cell field controls',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 2200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      controller.tableCellSelection = const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+        activeCellParagraph: 0,
+        activeOffset: 2,
+        isTextEditing: true,
+      );
+      await tester.pump();
+
+      final pageFinder = find.byType(SvgPicture);
+      final pageTopLeft = tester.getTopLeft(pageFinder);
+      final pageSize = tester.getSize(pageFinder);
+      final cellTextPoint =
+          pageTopLeft +
+          Offset(pageSize.width * 118 / 240, pageSize.height * 76 / 180);
+
+      await tester.tapAt(cellTextPoint, buttons: kSecondaryMouseButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('필드 목록'), findsOneWidget);
+      expect(find.text('누름틀 속성'), findsOneWidget);
+      expect(find.text('필드 삭제'), findsOneWidget);
+
+      await tester.tap(find.text('필드 삭제'));
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+      expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+        'saveSnapshot',
+      ]);
+      expect(session.commands.map(jsonDecode).toList(), [
+        {
+          'type': 'removeFieldAtInTableCell',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 0,
+          'offset': 2,
+          'isTextBox': false,
+        },
+      ]);
     },
   );
 
