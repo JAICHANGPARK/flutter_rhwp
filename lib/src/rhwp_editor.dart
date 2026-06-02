@@ -13987,6 +13987,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           tableCellSelection: _controller.tableCellSelection,
           objectSelection: _controller.objectSelection,
           overwriteMode: _overwriteMode,
+          dirty: _controller.dirty,
           busy: _visibleBusy,
           currentPage: _controller.currentPage,
           pageCount: _pageCountValue,
@@ -23070,6 +23071,7 @@ class _EditorStatusBar extends StatelessWidget {
     required this.tableCellSelection,
     required this.objectSelection,
     required this.overwriteMode,
+    required this.dirty,
     required this.busy,
     required this.currentPage,
     required this.pageCount,
@@ -23090,6 +23092,7 @@ class _EditorStatusBar extends StatelessWidget {
   final RhwpTableCellSelection? tableCellSelection;
   final RhwpObjectSelection? objectSelection;
   final bool overwriteMode;
+  final bool dirty;
   final bool busy;
   final int currentPage;
   final int? pageCount;
@@ -23204,6 +23207,21 @@ class _EditorStatusBar extends StatelessWidget {
                   ),
                 ),
               ),
+              if (dirty) ...[
+                const VerticalDivider(width: 24),
+                Tooltip(
+                  message: 'Unsaved changes',
+                  child: SizedBox(
+                    width: 18,
+                    child: Icon(
+                      Icons.circle,
+                      key: const ValueKey('rhwp-editor-status-dirty'),
+                      size: 8,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ),
+              ],
               const Spacer(),
               if (busy)
                 const Padding(

@@ -501,6 +501,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   unsaved and when HWP/HWPX save callbacks complete. The same state is exposed
   as `RhwpEditorController.dirty`, and apps can call
   `RhwpEditorController.markClean()` after host-driven saves or discards.
+  The native editor status bar shows a modified indicator while this dirty
+  state is active.
   File-ribbon New/Open/Close and Ctrl/Cmd+N/O/W call app-provided callbacks,
   so platform-specific document creation, picking, and close/discard prompts
   stay in the host app.
@@ -508,7 +510,7 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   normal typing updates the caret/text preview without rebuilding the whole
   native editor surface. Viewer controller notifications are scoped so cursor
   updates during typing do not rebuild the page viewport unless zoom changes.
-  The status bar reports body cursor, active table cell,
+  The status bar reports dirty state, body cursor, active table cell,
   and selected object context. The view ribbon also includes a paragraph mark toggle
   that paints paragraph-end markers from page layer tree text runs. Documents
   are converted to editable mode on load by default, matching upstream

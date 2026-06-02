@@ -2271,6 +2271,11 @@ void main() {
     );
     await _pumpDocumentFrame(tester);
 
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-status-dirty')),
+      findsNothing,
+    );
+
     await tester.enterText(
       find.byKey(const ValueKey('rhwp-editor-text-field')),
       'abc',
@@ -2465,6 +2470,10 @@ void main() {
 
     expect(dirtyStates, [true]);
     expect(controller.dirty, isTrue);
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-status-dirty')),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text('파일'));
     await tester.pump();
@@ -2475,6 +2484,10 @@ void main() {
     expect(exported.single.fileName, 'sample.pdf');
     expect(dirtyStates, [true]);
     expect(controller.dirty, isTrue);
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-status-dirty')),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(const ValueKey('rhwp-editor-save-hwp')));
     await _pumpDocumentFrame(tester);
@@ -2482,6 +2495,10 @@ void main() {
     expect(exported.last.fileName, 'sample.hwp');
     expect(dirtyStates, [true, false]);
     expect(controller.dirty, isFalse);
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-status-dirty')),
+      findsNothing,
+    );
     expect(session.commands.map((json) => jsonDecode(json)['type']), [
       'insertText',
     ]);
@@ -2515,6 +2532,10 @@ void main() {
       await tester.pumpWidget(buildEditor(firstDocument));
       await _pumpDocumentFrame(tester);
 
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-status-dirty')),
+        findsNothing,
+      );
       expect(controller.dirty, isFalse);
 
       await tester.enterText(
@@ -2526,12 +2547,20 @@ void main() {
 
       expect(dirtyStates, [true]);
       expect(controller.dirty, isTrue);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-status-dirty')),
+        findsOneWidget,
+      );
 
       await tester.pumpWidget(buildEditor(secondDocument));
       await tester.pump();
 
       expect(dirtyStates, [true, false]);
       expect(controller.dirty, isFalse);
+      expect(
+        find.byKey(const ValueKey('rhwp-editor-status-dirty')),
+        findsNothing,
+      );
     },
   );
 
