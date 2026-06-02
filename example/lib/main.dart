@@ -34,6 +34,18 @@ bool get _supportsFullEditorHost {
 
 typedef RhwpSampleBytesLoader = Future<Uint8List> Function();
 
+enum _UnsavedChangesDecision { save, discard, cancel }
+
+class _WriteExportedDocumentResult {
+  const _WriteExportedDocumentResult({
+    required this.status,
+    required this.completed,
+  });
+
+  final String status;
+  final bool completed;
+}
+
 class RhwpExampleApp extends StatefulWidget {
   const RhwpExampleApp({
     super.key,
@@ -86,6 +98,9 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
   }
 
   Future<void> _createBlankDocument() async {
+    if (!await _confirmUnsavedChanges(RhwpEditorFileAction.newDocument)) {
+      return;
+    }
     await _run('New document', () async {
       if (_usesFullEditor) {
         await _replaceWebEditorSource(fileName: 'blank.hwp');
@@ -100,6 +115,9 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
   }
 
   Future<void> _openSampleDocument() async {
+    if (!await _confirmUnsavedChanges(RhwpEditorFileAction.openDocument)) {
+      return;
+    }
     await _run('Open sample asset', () async {
       final bytes = await _loadSampleBytes();
       if (_usesFullEditor) {
@@ -131,6 +149,9 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
   }
 
   Future<void> _openDocument() async {
+    if (!await _confirmUnsavedChanges(RhwpEditorFileAction.openDocument)) {
+      return;
+    }
     await _run('Open document', () async {
       final result = await FilePicker.pickFiles(
         dialogTitle: 'Open HWP/HWPX',
@@ -156,6 +177,9 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
   }
 
   Future<void> _closeDocument() async {
+    if (!await _confirmUnsavedChanges(RhwpEditorFileAction.closeDocument)) {
+      return;
+    }
     await _run('Close document', () async {
       final previous = _document;
       setState(() {
@@ -205,28 +229,125 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
         exported,
         dialogLabel: kind.label,
       );
-      if (kind == _ExportKind.hwp || kind == _ExportKind.hwpx) {
+      if (status.completed &&
+          (kind == _ExportKind.hwp || kind == _ExportKind.hwpx)) {
         setState(() {
           _documentDirty = false;
         });
       }
-      return status;
+      return status.status;
     });
   }
 
   Future<void> _saveEditorExport(RhwpExportedDocument exported) async {
-    await _run('Save ${exported.fileName}', () {
-      return _writeExportedDocument(exported);
+    await _run('Save ${exported.fileName}', () async {
+      final result = await _writeExportedDocument(exported);
+      return result.status;
     });
+  }
+
+  Future<bool> _confirmUnsavedChanges(RhwpEditorFileAction action) async {
+    if (!_documentDirty && !_editorController.dirty) {
+      return true;
+    }
+
+    final decision = await showDialog<_UnsavedChangesDecision>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Save changes?'),
+        content: Text(
+          'The current document has unsaved changes. Save before ${_fileActionLabel(action)}?',
+        ),
+        actions: [
+          TextButton(
+            key: const ValueKey('rhwp-unsaved-cancel'),
+            onPressed: () =>
+                Navigator.of(context).pop(_UnsavedChangesDecision.cancel),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            key: const ValueKey('rhwp-unsaved-discard'),
+            onPressed: () =>
+                Navigator.of(context).pop(_UnsavedChangesDecision.discard),
+            child: const Text('Discard'),
+          ),
+          FilledButton(
+            key: const ValueKey('rhwp-unsaved-save'),
+            onPressed: () =>
+                Navigator.of(context).pop(_UnsavedChangesDecision.save),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) {
+      return false;
+    }
+
+    return switch (decision) {
+      _UnsavedChangesDecision.save => _saveCurrentDocumentBeforeFileAction(),
+      _UnsavedChangesDecision.discard => _discardCurrentDocumentChanges(),
+      _UnsavedChangesDecision.cancel || null => false,
+    };
+  }
+
+  String _fileActionLabel(RhwpEditorFileAction action) {
+    return switch (action) {
+      RhwpEditorFileAction.newDocument => 'creating a new document',
+      RhwpEditorFileAction.openDocument => 'opening another document',
+      RhwpEditorFileAction.closeDocument => 'closing the document',
+    };
+  }
+
+  Future<bool> _saveCurrentDocumentBeforeFileAction() async {
+    try {
+      final exported = await _exportFor(_ExportKind.hwp, document: _document);
+      final result = await _writeExportedDocument(exported, dialogLabel: 'HWP');
+      if (!mounted) {
+        return false;
+      }
+      _showStatus(result.status);
+      if (!result.completed) {
+        return false;
+      }
+      setState(() {
+        _documentDirty = false;
+      });
+      _editorController.markClean();
+      return true;
+    } catch (error) {
+      if (!mounted) {
+        return false;
+      }
+      setState(() {
+        _error = error;
+        _status = 'Failed';
+      });
+      _showStatus(error.toString());
+      return false;
+    }
+  }
+
+  bool _discardCurrentDocumentChanges() {
+    setState(() {
+      _documentDirty = false;
+    });
+    _editorController.markClean();
+    return true;
   }
 
   Future<void> _printEditorDocument(RhwpExportedDocument exported) async {
-    await _run('Print ${exported.fileName}', () {
-      return _writeExportedDocument(exported, dialogLabel: 'Print PDF');
+    await _run('Print ${exported.fileName}', () async {
+      final result = await _writeExportedDocument(
+        exported,
+        dialogLabel: 'Print PDF',
+      );
+      return result.status;
     });
   }
 
-  Future<String> _writeExportedDocument(
+  Future<_WriteExportedDocumentResult> _writeExportedDocument(
     RhwpExportedDocument exported, {
     String? dialogLabel,
   }) async {
@@ -240,9 +361,18 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
     );
 
     if (path == null) {
-      return 'Started ${exported.fileName} download';
+      if (kIsWeb) {
+        return _WriteExportedDocumentResult(
+          status: 'Started ${exported.fileName} download',
+          completed: true,
+        );
+      }
+      return const _WriteExportedDocumentResult(
+        status: 'Save cancelled',
+        completed: false,
+      );
     }
-    return 'Saved $path';
+    return _WriteExportedDocumentResult(status: 'Saved $path', completed: true);
   }
 
   Future<void> _insertDemoText() async {
@@ -530,6 +660,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
                       onNewRequested: _busy ? null : _createBlankDocument,
                       onOpenRequested: _busy ? null : _openDocument,
                       onCloseRequested: _busy ? null : _closeDocument,
+                      onUnsavedChanges: _confirmUnsavedChanges,
                       onImageRequested: _busy ? null : _pickEditorImage,
                       onExported: _busy ? null : _saveEditorExport,
                       onPrintRequested: _busy ? null : _printEditorDocument,

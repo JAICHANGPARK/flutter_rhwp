@@ -1,4 +1,24 @@
-## 2026.5.24
+## 2026-06-02 (2026.6.2)
+
+* Updated plugin release metadata for the `2026.6.2` release.
+* Added Flutter-native dirty-state reporting with `onDirtyChanged`, including
+  clean-state callbacks after successful HWP/HWPX save exports.
+* Exposed Flutter-native dirty state through `RhwpEditorController.dirty` and
+  `markClean()` for host-driven save/discard flows.
+* Added a Flutter-native status-bar modified indicator backed by the shared
+  dirty state.
+* Added a Flutter-native `onUnsavedChanges` guard before New/Open/Close file
+  actions proceed with dirty documents.
+* Updated the example save flow so cancelling a desktop save dialog keeps the
+  document dirty and cancels pending file actions.
+* Started `CHANGELOG.md` date-based sections so future work is grouped by work
+  date as well as package version.
+* Added `docs/ROADMAP.md` and `docs/TODO.md` to track remaining native-editor,
+  fidelity, platform, and release work.
+* Added `docs/API_SPEC.md` to map editor toolbar features to public callbacks
+  and `RhwpDocument` command APIs.
+
+## 2026-05-24 (2026.5.24)
 
 * Updated plugin release metadata for the `2026.5.24` release.
 * Added a Flutter-native editor ruler with a View-ribbon toggle so the native
@@ -16,12 +36,6 @@
   app-provided `onNewRequested` callback.
 * Added Flutter-native file-ribbon Close and Ctrl/Cmd+W entry points that call
   an app-provided `onCloseRequested` callback.
-* Added Flutter-native dirty-state reporting with `onDirtyChanged`, including
-  clean-state callbacks after successful HWP/HWPX save exports.
-* Exposed Flutter-native dirty state through `RhwpEditorController.dirty` and
-  `markClean()` for host-driven save/discard flows.
-* Added a Flutter-native status-bar modified indicator backed by the shared
-  dirty state.
 * Added a Flutter-native file-ribbon export menu for DOCX, text, Markdown, and
   current-page SVG artifacts through the existing `onExported` callback.
 * Added a Flutter-native file-ribbon Print entry point and Ctrl/Cmd+P print

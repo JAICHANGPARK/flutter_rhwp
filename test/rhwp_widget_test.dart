@@ -2774,6 +2774,82 @@ void main() {
     expect(session.commands, isEmpty);
   });
 
+  testWidgets('RhwpNativeEditor file actions ask unsaved changes handler', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    final fileActions = <RhwpEditorFileAction>[];
+    var allowFileAction = false;
+    var newRequests = 0;
+    var openRequests = 0;
+    var closeRequests = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onUnsavedChanges: (action) {
+              fileActions.add(action);
+              return allowFileAction;
+            },
+            onNewRequested: () => newRequests += 1,
+            onOpenRequested: () => openRequests += 1,
+            onCloseRequested: () => closeRequests += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-text-field')),
+      'abc',
+    );
+    await tester.tap(find.byTooltip('Insert'));
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.dirty, isTrue);
+
+    await tester.tap(find.text('파일'));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-new')));
+    await _pumpDocumentFrame(tester);
+
+    expect(fileActions, [RhwpEditorFileAction.newDocument]);
+    expect(newRequests, 0);
+
+    allowFileAction = true;
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-open')));
+    await _pumpDocumentFrame(tester);
+
+    expect(fileActions, [
+      RhwpEditorFileAction.newDocument,
+      RhwpEditorFileAction.openDocument,
+    ]);
+    expect(openRequests, 1);
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-close')));
+    await _pumpDocumentFrame(tester);
+
+    expect(fileActions, [
+      RhwpEditorFileAction.newDocument,
+      RhwpEditorFileAction.openDocument,
+      RhwpEditorFileAction.closeDocument,
+    ]);
+    expect(closeRequests, 1);
+    expect(session.commands.map((json) => jsonDecode(json)['type']), [
+      'insertText',
+    ]);
+  });
+
   testWidgets('RhwpNativeEditor file ribbon shows document info', (
     tester,
   ) async {

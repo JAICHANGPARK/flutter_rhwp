@@ -1,0 +1,67 @@
+# flutter_rhwp TODO
+
+## 진행률
+
+- 전체 기준: rhwp Web editor 경험을 Flutter-native editor로 대체하고, 플러그인 API로 안정 제공하는 것.
+- 현재 추정: 55~65%.
+- 가장 큰 남은 비용: 기능 구현보다 실제 HWP 문서에서 편집 안정성, 저장 안정성, 플랫폼별 동작을 검증하는 부분.
+
+## 이번 작업
+
+- [x] 버전을 오늘 날짜 기준 `2026.6.2`로 올린다.
+- [x] `CHANGELOG.md`를 날짜별 섹션 구조로 시작한다.
+- [x] dirty 문서에서 New/Open/Close 전에 `onUnsavedChanges` guard를 호출한다.
+- [x] example 앱에서 저장/폐기/취소 dialog를 통해 dirty 문서 파일 액션을 제어한다.
+- [x] 데스크톱 저장 취소는 dirty 상태를 유지하고 파일 액션을 취소하도록 처리한다.
+- [x] `RhwpNativeEditor` guard widget test를 추가한다.
+- [x] 작업 문서 `docs/2026-06-02_native_editor_unsaved_changes_guard.md`를 추가한다.
+- [x] 남은 작업을 `docs/ROADMAP.md`와 `docs/TODO.md`로 분리해서 관리한다.
+- [x] 패키지 사용자용 editor/toolbar API 명세를 `docs/API_SPEC.md`로 추가한다.
+
+## 다음 우선순위
+
+- [ ] example 앱에 unsaved changes dialog widget test를 추가한다.
+- [ ] HWP/HWPX 저장 후 source bytes와 file name metadata가 host 앱에서 최신 상태로 유지되는지 검증한다.
+- [ ] Save와 Save As를 구분할지 결정하고 API/예제 흐름을 정리한다.
+- [ ] Web full editor와 native editor 사이 전환 시 dirty 상태가 손실되지 않도록 guard를 추가한다.
+- [ ] 실제 첨부 샘플 문서로 open, edit, save, reopen, PDF export smoke test를 자동화한다.
+- [ ] Web `WebAssembly.instantiate()`/cross-origin isolation 실행 조건을 README와 troubleshooting에 정리한다.
+- [ ] Desktop full editor host의 black screen 원인을 플랫폼별로 분리해서 문서화하고 fallback 상태를 표시한다.
+- [ ] `docs/API_SPEC.md`에 upstream Web editor 메뉴 대비 미구현 API를 계속 표시한다.
+
+## Native editor parity backlog
+
+- [ ] upstream Web editor 메뉴와 Flutter-native ribbon 항목을 1:1 대조표로 만든다.
+- [ ] 편집, 보기, 입력, 서식, 쪽, 표, 도구 탭별 미구현 명령을 분류한다.
+- [ ] 표 편집의 row/column sizing, border/fill, merge/split edge case를 실제 문서로 검증한다.
+- [ ] 개체 편집의 image/shape/textbox/line 선택, 이동, 크기 변경, z-order edge case를 보강한다.
+- [ ] 필드/누름틀, bookmark, footnote, header/footer의 문서 round-trip을 검증한다.
+- [ ] IME composing, Space 입력, 빠른 입력, focus churn을 macOS/Windows/Linux에서 수동 검증한다.
+- [ ] keyboard shortcut 목록을 문서화하고 누락된 shortcut을 채운다.
+
+## Export and fidelity backlog
+
+- [ ] PDF export snapshot 비교 기준을 정한다.
+- [ ] DOCX export는 텍스트, 표, 이미지 구조 보존 기준으로 검증한다.
+- [ ] HWP/HWPX round-trip 샘플을 늘린다.
+- [ ] CJK font fallback과 text measurement 차이를 추적한다.
+- [ ] renderPageSvg와 pageLayerTree가 같은 페이지 geometry를 공유하는지 regression test를 늘린다.
+
+## Cross-platform backlog
+
+- [ ] Android example open/edit/export smoke test.
+- [ ] iOS simulator example open/edit/export smoke test.
+- [ ] macOS example open/edit/export smoke test.
+- [ ] Windows example open/edit/export smoke test.
+- [ ] Linux example open/edit/export smoke test.
+- [ ] Web WASM build와 Chrome 실행 smoke test.
+- [ ] 플랫폼별 file picker/save dialog cancel 동작 검증.
+
+## Release backlog
+
+- [ ] `flutter analyze` 경고 없는 상태 유지.
+- [ ] 주요 widget tests 통과.
+- [ ] example widget tests 통과.
+- [ ] `flutter pub publish --dry-run` 재검증.
+- [ ] third-party notices와 vendored rhwp 정책 재확인.
+- [ ] release tag와 GitHub release note 작성 기준 정리.

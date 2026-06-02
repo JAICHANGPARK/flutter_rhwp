@@ -1392,6 +1392,25 @@ class RhwpEditorController extends RhwpViewerController {
 /// Explicit controller name for [RhwpCommandEditor].
 typedef RhwpCommandEditorController = RhwpEditorController;
 
+/// File lifecycle actions that can discard unsaved native-editor changes.
+enum RhwpEditorFileAction {
+  /// Creates a new document in the host app.
+  newDocument,
+
+  /// Opens another document in the host app.
+  openDocument,
+
+  /// Closes the current document in the host app.
+  closeDocument,
+}
+
+/// Called before a file lifecycle action proceeds with unsaved changes.
+///
+/// Return `true` after the app has saved, discarded, or otherwise accepted the
+/// pending changes. Return `false` to cancel the action.
+typedef RhwpUnsavedChangesHandler =
+    FutureOr<bool> Function(RhwpEditorFileAction action);
+
 /// Flutter-native HWP editor surface.
 ///
 /// This widget is the Flutter-native editor track. It renders pages through
@@ -1406,6 +1425,7 @@ class RhwpEditor extends StatefulWidget {
     this.controller,
     this.onChanged,
     this.onDirtyChanged,
+    this.onUnsavedChanges,
     this.onNewRequested,
     this.onOpenRequested,
     this.onCloseRequested,
@@ -1421,6 +1441,7 @@ class RhwpEditor extends StatefulWidget {
   final RhwpEditorController? controller;
   final ValueChanged<RhwpDocument>? onChanged;
   final ValueChanged<bool>? onDirtyChanged;
+  final RhwpUnsavedChangesHandler? onUnsavedChanges;
   final FutureOr<void> Function()? onNewRequested;
   final FutureOr<void> Function()? onOpenRequested;
   final FutureOr<void> Function()? onCloseRequested;
@@ -1461,6 +1482,7 @@ class RhwpNativeEditor extends StatelessWidget {
     this.controller,
     this.onChanged,
     this.onDirtyChanged,
+    this.onUnsavedChanges,
     this.onNewRequested,
     this.onOpenRequested,
     this.onCloseRequested,
@@ -1476,6 +1498,7 @@ class RhwpNativeEditor extends StatelessWidget {
   final RhwpEditorController? controller;
   final ValueChanged<RhwpDocument>? onChanged;
   final ValueChanged<bool>? onDirtyChanged;
+  final RhwpUnsavedChangesHandler? onUnsavedChanges;
   final FutureOr<void> Function()? onNewRequested;
   final FutureOr<void> Function()? onOpenRequested;
   final FutureOr<void> Function()? onCloseRequested;
@@ -1494,6 +1517,7 @@ class RhwpNativeEditor extends StatelessWidget {
       controller: controller,
       onChanged: onChanged,
       onDirtyChanged: onDirtyChanged,
+      onUnsavedChanges: onUnsavedChanges,
       onNewRequested: onNewRequested,
       onOpenRequested: onOpenRequested,
       onCloseRequested: onCloseRequested,
@@ -1518,6 +1542,7 @@ class RhwpCommandEditor extends StatelessWidget {
     this.controller,
     this.onChanged,
     this.onDirtyChanged,
+    this.onUnsavedChanges,
     this.onNewRequested,
     this.onOpenRequested,
     this.onCloseRequested,
@@ -1533,6 +1558,7 @@ class RhwpCommandEditor extends StatelessWidget {
   final RhwpEditorController? controller;
   final ValueChanged<RhwpDocument>? onChanged;
   final ValueChanged<bool>? onDirtyChanged;
+  final RhwpUnsavedChangesHandler? onUnsavedChanges;
   final FutureOr<void> Function()? onNewRequested;
   final FutureOr<void> Function()? onOpenRequested;
   final FutureOr<void> Function()? onCloseRequested;
@@ -1551,6 +1577,7 @@ class RhwpCommandEditor extends StatelessWidget {
       controller: controller,
       onChanged: onChanged,
       onDirtyChanged: onDirtyChanged,
+      onUnsavedChanges: onUnsavedChanges,
       onNewRequested: onNewRequested,
       onOpenRequested: onOpenRequested,
       onCloseRequested: onCloseRequested,
@@ -2357,6 +2384,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     if (_busy || onOpenRequested == null) {
       return;
     }
+    if (!await _confirmUnsavedChangesFor(RhwpEditorFileAction.openDocument)) {
+      return;
+    }
 
     setState(() {
       _busy = true;
@@ -2384,6 +2414,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   Future<void> _requestCloseFromEditor() async {
     final onCloseRequested = widget.onCloseRequested;
     if (_busy || onCloseRequested == null) {
+      return;
+    }
+    if (!await _confirmUnsavedChangesFor(RhwpEditorFileAction.closeDocument)) {
       return;
     }
 
@@ -2415,6 +2448,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     if (_busy || onNewRequested == null) {
       return;
     }
+    if (!await _confirmUnsavedChangesFor(RhwpEditorFileAction.newDocument)) {
+      return;
+    }
 
     setState(() {
       _busy = true;
@@ -2436,6 +2472,28 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           _visibleBusy = false;
         });
       }
+    }
+  }
+
+  Future<bool> _confirmUnsavedChangesFor(RhwpEditorFileAction action) async {
+    if (!_controller.dirty) {
+      return true;
+    }
+    final onUnsavedChanges = widget.onUnsavedChanges;
+    if (onUnsavedChanges == null) {
+      return true;
+    }
+
+    try {
+      final allowed = await onUnsavedChanges(action);
+      return mounted && allowed;
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+      return false;
     }
   }
 

@@ -7,7 +7,7 @@ documents.
 - Rust core: [edwardkim/rhwp](https://github.com/edwardkim/rhwp), vendored at
   `rust/vendor/rhwp`
 - Bridge: `flutter_rust_bridge` v2
-- Version: `2026.5.24`
+- Version: `2026.6.2`
 
 ## Features
 
@@ -113,6 +113,7 @@ RhwpNativeEditor(
   convertToEditableOnLoad: true,
   editRefreshDelay: const Duration(milliseconds: 1200),
   onDirtyChanged: updateUnsavedIndicator,
+  onUnsavedChanges: confirmUnsavedChanges,
   onNewRequested: createBlankDocument,
   onOpenRequested: pickAndOpenDocument,
   onCloseRequested: closeDocument,
@@ -502,7 +503,10 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   as `RhwpEditorController.dirty`, and apps can call
   `RhwpEditorController.markClean()` after host-driven saves or discards.
   The native editor status bar shows a modified indicator while this dirty
-  state is active.
+  state is active. `onUnsavedChanges` lets the host app show a save/discard
+  guard before native-editor New/Open/Close file actions proceed.
+  Dirty means the in-memory document has changed since the last accepted
+  HWP/HWPX save or explicit discard.
   File-ribbon New/Open/Close and Ctrl/Cmd+N/O/W call app-provided callbacks,
   so platform-specific document creation, picking, and close/discard prompts
   stay in the host app.
@@ -517,6 +521,13 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   `convertToEditable`; set `convertToEditableOnLoad: false` only when preserving
   an original distribution/read-only state is required.
 - `rust/vendor/rhwp` should be committed. `rust/target` should stay ignored.
+
+## Documentation
+
+- [Roadmap](docs/ROADMAP.md)
+- [TODO](docs/TODO.md)
+- [API spec](docs/API_SPEC.md)
+- [Changelog](CHANGELOG.md)
 
 ## License
 
