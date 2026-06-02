@@ -2005,6 +2005,81 @@ void main() {
     );
   });
 
+  testWidgets('RhwpNativeEditor status position restores editor focus', (
+    tester,
+  ) async {
+    final externalFocusNode = FocusNode();
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+
+    try {
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 480,
+            child: Column(
+              children: [
+                SizedBox(
+                  width: 720,
+                  height: 420,
+                  child: RhwpNativeEditor(
+                    document: document,
+                    controller: controller,
+                  ),
+                ),
+                SizedBox(
+                  width: 240,
+                  child: TextField(
+                    key: const ValueKey('external-focus-field'),
+                    focusNode: externalFocusNode,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      await tester.tap(find.byKey(const ValueKey('external-focus-field')));
+      await tester.pump();
+
+      expect(externalFocusNode.hasFocus, isTrue);
+
+      controller.cursor = const RhwpCursorPosition(offset: 2);
+      session.commands.clear();
+
+      await tester.tap(
+        find.byKey(const ValueKey('rhwp-editor-status-position')),
+      );
+      await tester.pump();
+
+      expect(externalFocusNode.hasFocus, isFalse);
+      expect(tester.testTextInput.hasAnyClients, isTrue);
+
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: 'Q',
+          selection: TextSelection.collapsed(offset: 1),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(jsonDecode(session.commands.single), {
+        'type': 'insertText',
+        'section': 0,
+        'paragraph': 0,
+        'offset': 2,
+        'text': 'Q',
+      });
+    } finally {
+      externalFocusNode.dispose();
+    }
+  });
+
   testWidgets('RhwpNativeEditor jumps to page from view ribbon and shortcut', (
     tester,
   ) async {

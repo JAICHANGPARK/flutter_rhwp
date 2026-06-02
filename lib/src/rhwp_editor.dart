@@ -13599,6 +13599,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           currentPage: _controller.currentPage,
           pageCount: _pageCountValue,
           zoom: _controller.zoom,
+          onFocusEditor: _focusEditor,
           onZoomOut: _controller.zoomOut,
           onZoomIn: _controller.zoomIn,
           onFitWidth: _controller.fitWidth,
@@ -22431,6 +22432,7 @@ class _EditorStatusBar extends StatelessWidget {
     required this.currentPage,
     required this.pageCount,
     required this.zoom,
+    required this.onFocusEditor,
     required this.onZoomOut,
     required this.onZoomIn,
     required this.onFitWidth,
@@ -22450,6 +22452,7 @@ class _EditorStatusBar extends StatelessWidget {
   final int currentPage;
   final int? pageCount;
   final double zoom;
+  final VoidCallback onFocusEditor;
   final VoidCallback onZoomOut;
   final VoidCallback onZoomIn;
   final VoidCallback onFitWidth;
@@ -22483,11 +22486,26 @@ class _EditorStatusBar extends StatelessWidget {
             children: [
               const SizedBox(width: 12),
               Flexible(
-                child: Text(
-                  statusText,
-                  key: const ValueKey('rhwp-editor-status-position'),
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall,
+                child: Tooltip(
+                  message: busy
+                      ? statusText
+                      : 'Focus editor at current position',
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(4),
+                    onTap: busy ? null : onFocusEditor,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 2,
+                      ),
+                      child: Text(
+                        statusText,
+                        key: const ValueKey('rhwp-editor-status-position'),
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                  ),
                 ),
               ),
               const VerticalDivider(width: 24),
