@@ -1548,6 +1548,117 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor inserts shape presets with shortcuts', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 900,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const ValueKey('rhwp-editor-caret'))) +
+          const Offset(1, 6),
+    );
+    await tester.pump();
+
+    Future<void> sendShapeShortcut(LogicalKeyboardKey key, int offset) async {
+      controller.cursor = RhwpCursorPosition(paragraph: 0, offset: offset);
+      await tester.pump();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyEvent(key);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await _pumpDocumentFrame(tester);
+    }
+
+    await sendShapeShortcut(LogicalKeyboardKey.keyR, 2);
+    await sendShapeShortcut(LogicalKeyboardKey.keyO, 10);
+    await sendShapeShortcut(LogicalKeyboardKey.keyL, 18);
+    await sendShapeShortcut(LogicalKeyboardKey.keyX, 26);
+
+    expect(changedCalls, 4);
+    expect(controller.cursor, const RhwpCursorPosition(offset: 34));
+    expect(session.commands.map(jsonDecode).toList(), [
+      {
+        'type': 'insertShape',
+        'section': 0,
+        'paragraph': 0,
+        'offset': 2,
+        'width': 9000,
+        'height': 6750,
+        'horzOffset': 0,
+        'vertOffset': 0,
+        'shapeType': 'rectangle',
+        'treatAsChar': false,
+        'textWrap': 'InFrontOfText',
+        'lineFlipX': false,
+        'lineFlipY': false,
+      },
+      {
+        'type': 'insertShape',
+        'section': 0,
+        'paragraph': 0,
+        'offset': 10,
+        'width': 9000,
+        'height': 6750,
+        'horzOffset': 0,
+        'vertOffset': 0,
+        'shapeType': 'ellipse',
+        'treatAsChar': false,
+        'textWrap': 'InFrontOfText',
+        'lineFlipX': false,
+        'lineFlipY': false,
+      },
+      {
+        'type': 'insertShape',
+        'section': 0,
+        'paragraph': 0,
+        'offset': 18,
+        'width': 9000,
+        'height': 3000,
+        'horzOffset': 0,
+        'vertOffset': 0,
+        'shapeType': 'line',
+        'treatAsChar': false,
+        'textWrap': 'InFrontOfText',
+        'lineFlipX': false,
+        'lineFlipY': false,
+      },
+      {
+        'type': 'insertShape',
+        'section': 0,
+        'paragraph': 0,
+        'offset': 26,
+        'width': 12000,
+        'height': 6000,
+        'horzOffset': 0,
+        'vertOffset': 0,
+        'shapeType': 'textbox',
+        'treatAsChar': true,
+        'textWrap': 'Square',
+        'lineFlipX': false,
+        'lineFlipY': false,
+      },
+    ]);
+  });
+
   testWidgets('RhwpNativeEditor preserves viewport while editing', (
     tester,
   ) async {

@@ -440,6 +440,7 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   Ctrl/Cmd+Alt+F/E/B shortcuts,
   table insertion with Ctrl/Cmd+Alt+T shortcut,
   picture insertion with Ctrl/Cmd+Alt+I shortcut,
+  shape preset insertion with Ctrl/Cmd+Alt+R/O/L/X shortcuts,
   bookmark list/add/delete/rename/go-to navigation through the input ribbon,
   page/column break insertion, plus table
   row above/below insertion and row deletion, column left/right insertion and
