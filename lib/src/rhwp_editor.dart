@@ -3650,6 +3650,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       );
       _clipboardDomain = _EditorClipboardDomain.objectControl;
       _clearHtmlClipboard();
+      await _rememberSelectedObjectHtmlClipboard(target);
     } catch (error) {
       if (mounted) {
         setState(() {
@@ -3680,14 +3681,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     try {
       hasControl = await widget.document.clipboardHasObjectControl();
     } catch (_) {
-      _clipboardDomain = null;
-      _clearHtmlClipboard();
-      return false;
+      return _pasteObjectHtmlClipboardFallback();
     }
     if (!hasControl) {
-      _clipboardDomain = null;
-      _clearHtmlClipboard();
-      return false;
+      return _pasteObjectHtmlClipboardFallback();
     }
 
     final objectTarget = _selectedObjectTarget(silent: true);
@@ -3719,6 +3716,86 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
 
     return pasted;
+  }
+
+  Future<void> _rememberSelectedObjectHtmlClipboard(
+    ({int section, int paragraph, int controlIndex, String objectType}) target,
+  ) async {
+    try {
+      final html = await widget.document.exportControlHtml(
+        section: target.section,
+        paragraph: target.paragraph,
+        controlIndex: target.controlIndex,
+      );
+      final text = _plainTextFromHtmlFragment(html);
+      if (html.isEmpty || text.isEmpty) {
+        return;
+      }
+      _clipboardHtml = html;
+      _clipboardHtmlText = text;
+      await Clipboard.setData(ClipboardData(text: text));
+    } catch (_) {
+      _clearHtmlClipboard();
+    }
+  }
+
+  Future<bool> _pasteObjectHtmlClipboardFallback() async {
+    final html = _clipboardHtml;
+    final expectedText = _clipboardHtmlText;
+    if (html == null || html.isEmpty || expectedText == null) {
+      _clipboardDomain = null;
+      _clearHtmlClipboard();
+      return false;
+    }
+
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (data?.text != expectedText) {
+      _clipboardDomain = null;
+      _clearHtmlClipboard();
+      return false;
+    }
+
+    _clipboardDomain = _EditorClipboardDomain.richText;
+    final tableSelection = _controller.tableCellSelection;
+    if (tableSelection != null) {
+      return _pasteHtmlIntoSelectedTableCell(tableSelection, html);
+    }
+    return _pasteHtmlIntoBody(html);
+  }
+
+  String _plainTextFromHtmlFragment(String html) {
+    final startMarker = '<!--StartFragment-->';
+    final endMarker = '<!--EndFragment-->';
+    var fragment = html;
+    final start = fragment.indexOf(startMarker);
+    final end = fragment.indexOf(endMarker);
+    if (start >= 0 && end > start) {
+      fragment = fragment.substring(start + startMarker.length, end);
+    }
+
+    fragment = fragment
+        .replaceAll(RegExp(r'<\s*br\s*/?\s*>', caseSensitive: false), '\n')
+        .replaceAll(
+          RegExp(r'</\s*(p|div|li|tr)\s*>', caseSensitive: false),
+          '\n',
+        )
+        .replaceAll(RegExp(r'<[^>]+>'), '');
+
+    return _decodeHtmlEntities(fragment)
+        .split('\n')
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .join('\n');
+  }
+
+  String _decodeHtmlEntities(String value) {
+    return value
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#39;', "'")
+        .replaceAll('&amp;', '&');
   }
 
   ({int section, int paragraph, int controlIndex, String objectType})?

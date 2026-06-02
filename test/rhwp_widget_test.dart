@@ -8147,11 +8147,23 @@ void main() {
   testWidgets('RhwpNativeEditor copies and pastes selected object controls', (
     tester,
   ) async {
+    final clipboard = _MockClipboard();
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      clipboard.handleMethodCall,
+    );
     final controller = RhwpEditorController();
     final session = _FakeRhwpSession(pageCountValue: 1);
     session.pageLayerTreeJson = jsonEncode(_objectEditorLayerTreeJson());
     final document = RhwpDocument.fromSession(session);
     var changedCalls = 0;
+
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+    });
 
     await tester.pumpWidget(
       _WidgetHarness(
@@ -8190,7 +8202,15 @@ void main() {
         'paragraph': 2,
         'controlIndex': 1,
       },
+      {
+        'type': 'exportControlHtml',
+        'section': 0,
+        'paragraph': 2,
+        'controlIndex': 1,
+      },
     ]);
+    final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
+    expect(clipboardData?.text, 'bc');
     expect(session.historyCommands, isEmpty);
 
     session.commands.clear();
@@ -8218,12 +8238,125 @@ void main() {
     ]);
   });
 
-  testWidgets('RhwpNativeEditor cuts selected object controls', (tester) async {
+  testWidgets('RhwpNativeEditor falls back to object HTML clipboard paste', (
+    tester,
+  ) async {
+    final clipboard = _MockClipboard();
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      clipboard.handleMethodCall,
+    );
     final controller = RhwpEditorController();
     final session = _FakeRhwpSession(pageCountValue: 1);
     session.pageLayerTreeJson = jsonEncode(_objectEditorLayerTreeJson());
     final document = RhwpDocument.fromSession(session);
     var changedCalls = 0;
+
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+    });
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    await tester.tapAt(
+      pageTopLeft +
+          Offset(pageSize.width * 150 / 240, pageSize.height * 85 / 180),
+    );
+    await tester.pump();
+    expect(controller.objectSelection, isNotNull);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+
+    expect(session.commands.map(jsonDecode).toList(), [
+      {
+        'type': 'copyObjectControl',
+        'section': 0,
+        'paragraph': 2,
+        'controlIndex': 1,
+      },
+      {
+        'type': 'exportControlHtml',
+        'section': 0,
+        'paragraph': 2,
+        'controlIndex': 1,
+      },
+    ]);
+    final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
+    expect(clipboardData?.text, 'bc');
+
+    session.commands.clear();
+    session.hasObjectControlClipboard = false;
+    controller.clearObjectSelection();
+    controller.cursor = const RhwpCursorPosition(paragraph: 3, offset: 2);
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(controller.objectSelection, isNull);
+    expect(
+      controller.cursor,
+      const RhwpCursorPosition(paragraph: 3, offset: 4),
+    );
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+    ]);
+    expect(session.commands.map(jsonDecode).toList(), [
+      {'type': 'clipboardHasObjectControl'},
+      {
+        'type': 'pasteHtml',
+        'section': 0,
+        'paragraph': 3,
+        'offset': 2,
+        'html':
+            '<html><body><!--StartFragment--><p><span>bc</span></p><!--EndFragment--></body></html>',
+      },
+    ]);
+  });
+
+  testWidgets('RhwpNativeEditor cuts selected object controls', (tester) async {
+    final clipboard = _MockClipboard();
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      clipboard.handleMethodCall,
+    );
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_objectEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+    });
 
     await tester.pumpWidget(
       _WidgetHarness(
@@ -8263,6 +8396,12 @@ void main() {
     expect(session.commands.map(jsonDecode).toList(), [
       {
         'type': 'copyObjectControl',
+        'section': 0,
+        'paragraph': 2,
+        'controlIndex': 1,
+      },
+      {
+        'type': 'exportControlHtml',
         'section': 0,
         'paragraph': 2,
         'controlIndex': 1,
