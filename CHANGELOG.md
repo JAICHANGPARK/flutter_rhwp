@@ -45,6 +45,8 @@
   delivery is skipped after keyboard handling.
 * Covered Flutter-native replace-all Ctrl/Cmd+Enter duplicate submit delivery so
   bulk replacement remains single-shot and returns focus to the editor surface.
+* Restored Flutter-native editor focus after search toolbar find/previous/next
+  actions even when the replace field was active.
 * Added Flutter-native active ClickHere field controls that call rhwp core
   active-field APIs and rerender only the current page.
 * Added Flutter-native footnote deletion from the insert ribbon using rhwp core

@@ -17967,6 +17967,7 @@ class _EditorToolbarState extends State<_EditorToolbar> {
 
   void _runSearchToolbarAction(VoidCallback action) {
     widget.searchFocusNode.unfocus();
+    widget.replaceFocusNode.unfocus();
     action();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
