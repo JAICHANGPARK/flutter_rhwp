@@ -13605,6 +13605,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onFitPage: _controller.fitPage,
           onPreviousPage: () => unawaited(_controller.previousPage()),
           onNextPage: () => unawaited(_controller.nextPage()),
+          onGoToPage: _showGoToPageDialog,
           onZoomPreset: (zoom) => _controller.zoom = zoom,
           onToggleOverwriteMode: _toggleOverwriteMode,
         ),
@@ -22436,6 +22437,7 @@ class _EditorStatusBar extends StatelessWidget {
     required this.onFitPage,
     required this.onPreviousPage,
     required this.onNextPage,
+    required this.onGoToPage,
     required this.onZoomPreset,
     required this.onToggleOverwriteMode,
   });
@@ -22454,6 +22456,7 @@ class _EditorStatusBar extends StatelessWidget {
   final VoidCallback onFitPage;
   final VoidCallback onPreviousPage;
   final VoidCallback onNextPage;
+  final VoidCallback onGoToPage;
   final ValueChanged<double> onZoomPreset;
   final VoidCallback onToggleOverwriteMode;
 
@@ -22465,6 +22468,7 @@ class _EditorStatusBar extends StatelessWidget {
         ? 'Selection'
         : (overwriteMode ? 'Overwrite' : 'Insert');
     final canToggleInputMode = !busy && !hasTextSelection;
+    final canOpenGoToPage = !busy && pageCount != null && pageCount! > 0;
     return Material(
       color: Theme.of(context).colorScheme.surface,
       child: DecoratedBox(
@@ -22493,10 +22497,23 @@ class _EditorStatusBar extends StatelessWidget {
                 icon: Icons.keyboard_arrow_left,
                 onPressed: currentPage <= 0 ? null : onPreviousPage,
               ),
-              Text(
-                _pageStatusText(),
-                key: const ValueKey('rhwp-editor-status-page'),
-                style: Theme.of(context).textTheme.bodySmall,
+              Tooltip(
+                message: canOpenGoToPage ? 'Go to page' : _pageStatusText(),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(4),
+                  onTap: canOpenGoToPage ? onGoToPage : null,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
+                    child: Text(
+                      _pageStatusText(),
+                      key: const ValueKey('rhwp-editor-status-page'),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                ),
               ),
               _StatusBarIconButton(
                 tooltip: 'Next page',

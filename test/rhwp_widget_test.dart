@@ -2069,6 +2069,26 @@ void main() {
           .data,
       'Page 2 / 8',
     );
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-status-page')));
+    await tester.pump();
+
+    expect(find.text('Go to page'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-go-to-page-field')),
+      '7',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-go-to-page-apply')));
+    await tester.pumpAndSettle();
+
+    expect(controller.currentPage, 6);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('rhwp-editor-status-page')))
+          .data,
+      'Page 7 / 8',
+    );
   });
 
   testWidgets('RhwpNativeEditor edit ribbon restores undo and redo snapshots', (
