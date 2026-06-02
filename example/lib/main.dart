@@ -154,6 +154,21 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
     });
   }
 
+  Future<void> _closeDocument() async {
+    await _run('Close document', () async {
+      final previous = _document;
+      setState(() {
+        _document = null;
+        _metadata = null;
+        _sourceBytes = null;
+        _fileName = null;
+        _viewerKey = UniqueKey();
+      });
+      await previous?.close();
+      return 'Closed document';
+    });
+  }
+
   Future<RhwpEditorImage?> _pickEditorImage() async {
     final result = await FilePicker.pickFiles(
       dialogTitle: 'Insert picture',
@@ -500,6 +515,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
                       holdTextRefreshWhileFocused: true,
                       onNewRequested: _busy ? null : _createBlankDocument,
                       onOpenRequested: _busy ? null : _openDocument,
+                      onCloseRequested: _busy ? null : _closeDocument,
                       onImageRequested: _busy ? null : _pickEditorImage,
                       onExported: _busy ? null : _saveEditorExport,
                       onPrintRequested: _busy ? null : _printEditorDocument,

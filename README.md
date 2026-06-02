@@ -114,6 +114,7 @@ RhwpNativeEditor(
   editRefreshDelay: const Duration(milliseconds: 1200),
   onNewRequested: createBlankDocument,
   onOpenRequested: pickAndOpenDocument,
+  onCloseRequested: closeDocument,
   onImageRequested: pickImageForEditor,
   onExported: saveExportedDocument,
   onPrintRequested: printPdfDocument,
@@ -388,8 +389,9 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   DOCX/Text/Markdown/current-page SVG export menu from the file ribbon,
   app-level Print callback with PDF artifacts, Ctrl/Cmd+S HWP save,
   Ctrl/Cmd+Shift+S HWPX save, Ctrl/Cmd+P Print when `onPrintRequested` is
-  supplied or PDF export fallback otherwise, app-level file open callbacks and
-  document information from the file ribbon, page navigation controls,
+  supplied or PDF export fallback otherwise, app-level file new/open/close
+  callbacks with Ctrl/Cmd+N/O/W shortcuts and document information from the file
+  ribbon, page navigation controls,
   direct go-to-page from the view ribbon and
   Ctrl/Cmd+G, scroll-tracked current page reporting and previous/next page
   controls in the status bar, page setup from the page ribbon and F7,
@@ -494,9 +496,9 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   refresh delay for a steadier typing feel on large HWP files and defers HWP
   snapshot export until the user saves/exports or switches from the native
   editor to the full editor.
-  File-ribbon New and Ctrl/Cmd+N call the app-provided `onNewRequested`
-  callback, matching the Open callback pattern so platform-specific document
-  creation stays in the host app.
+  File-ribbon New/Open/Close and Ctrl/Cmd+N/O/W call app-provided callbacks,
+  so platform-specific document creation, picking, and close/discard prompts
+  stay in the host app.
   Pending text previews are updated through a scoped overlay notifier, so
   normal typing updates the caret/text preview without rebuilding the whole
   native editor surface. Viewer controller notifications are scoped so cursor

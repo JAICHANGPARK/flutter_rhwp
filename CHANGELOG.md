@@ -14,6 +14,8 @@
   be switched from the native editor chrome as well as the Insert key.
 * Added Flutter-native file-ribbon New and Ctrl/Cmd+N entry points that call an
   app-provided `onNewRequested` callback.
+* Added Flutter-native file-ribbon Close and Ctrl/Cmd+W entry points that call
+  an app-provided `onCloseRequested` callback.
 * Added a Flutter-native file-ribbon export menu for DOCX, text, Markdown, and
   current-page SVG artifacts through the existing `onExported` callback.
 * Added a Flutter-native file-ribbon Print entry point and Ctrl/Cmd+P print

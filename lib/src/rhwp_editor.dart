@@ -1379,6 +1379,7 @@ class RhwpEditor extends StatefulWidget {
     this.onChanged,
     this.onNewRequested,
     this.onOpenRequested,
+    this.onCloseRequested,
     this.onImageRequested,
     this.onExported,
     this.onPrintRequested,
@@ -1392,6 +1393,7 @@ class RhwpEditor extends StatefulWidget {
   final ValueChanged<RhwpDocument>? onChanged;
   final FutureOr<void> Function()? onNewRequested;
   final FutureOr<void> Function()? onOpenRequested;
+  final FutureOr<void> Function()? onCloseRequested;
   final RhwpEditorImagePicker? onImageRequested;
   final FutureOr<void> Function(RhwpExportedDocument document)? onExported;
   final FutureOr<void> Function(RhwpExportedDocument document)?
@@ -1430,6 +1432,7 @@ class RhwpNativeEditor extends StatelessWidget {
     this.onChanged,
     this.onNewRequested,
     this.onOpenRequested,
+    this.onCloseRequested,
     this.onImageRequested,
     this.onExported,
     this.onPrintRequested,
@@ -1443,6 +1446,7 @@ class RhwpNativeEditor extends StatelessWidget {
   final ValueChanged<RhwpDocument>? onChanged;
   final FutureOr<void> Function()? onNewRequested;
   final FutureOr<void> Function()? onOpenRequested;
+  final FutureOr<void> Function()? onCloseRequested;
   final RhwpEditorImagePicker? onImageRequested;
   final FutureOr<void> Function(RhwpExportedDocument document)? onExported;
   final FutureOr<void> Function(RhwpExportedDocument document)?
@@ -1459,6 +1463,7 @@ class RhwpNativeEditor extends StatelessWidget {
       onChanged: onChanged,
       onNewRequested: onNewRequested,
       onOpenRequested: onOpenRequested,
+      onCloseRequested: onCloseRequested,
       onImageRequested: onImageRequested,
       onExported: onExported,
       onPrintRequested: onPrintRequested,
@@ -1481,6 +1486,7 @@ class RhwpCommandEditor extends StatelessWidget {
     this.onChanged,
     this.onNewRequested,
     this.onOpenRequested,
+    this.onCloseRequested,
     this.onImageRequested,
     this.onExported,
     this.onPrintRequested,
@@ -1494,6 +1500,7 @@ class RhwpCommandEditor extends StatelessWidget {
   final ValueChanged<RhwpDocument>? onChanged;
   final FutureOr<void> Function()? onNewRequested;
   final FutureOr<void> Function()? onOpenRequested;
+  final FutureOr<void> Function()? onCloseRequested;
   final RhwpEditorImagePicker? onImageRequested;
   final FutureOr<void> Function(RhwpExportedDocument document)? onExported;
   final FutureOr<void> Function(RhwpExportedDocument document)?
@@ -1510,6 +1517,7 @@ class RhwpCommandEditor extends StatelessWidget {
       onChanged: onChanged,
       onNewRequested: onNewRequested,
       onOpenRequested: onOpenRequested,
+      onCloseRequested: onCloseRequested,
       onImageRequested: onImageRequested,
       onExported: onExported,
       onPrintRequested: onPrintRequested,
@@ -2312,6 +2320,35 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
     try {
       await onOpenRequested();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _visibleBusy = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _requestCloseFromEditor() async {
+    final onCloseRequested = widget.onCloseRequested;
+    if (_busy || onCloseRequested == null) {
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _visibleBusy = true;
+      _error = null;
+    });
+    try {
+      await onCloseRequested();
     } catch (error) {
       if (mounted) {
         setState(() {
@@ -12361,6 +12398,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         case LogicalKeyboardKey.keyO:
           _requestOpenFromEditor();
           return KeyEventResult.handled;
+        case LogicalKeyboardKey.keyW:
+          _requestCloseFromEditor();
+          return KeyEventResult.handled;
         case LogicalKeyboardKey.keyS:
           _exportFromEditor(
             HardwareKeyboard.instance.isShiftPressed
@@ -13650,6 +13690,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           insertTableTreatAsChar: _insertTableTreatAsChar,
           canNew: widget.onNewRequested != null,
           canOpen: widget.onOpenRequested != null,
+          canClose: widget.onCloseRequested != null,
           canPrint: widget.onPrintRequested != null,
           canInsertPicture: widget.onImageRequested != null,
           canExport: widget.onExported != null,
@@ -13658,6 +13699,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onInsert: _insertText,
           onNew: () => _runFocusedEditorAction(_requestNewFromEditor),
           onOpen: () => _runFocusedEditorAction(_requestOpenFromEditor),
+          onClose: () => _runFocusedEditorAction(_requestCloseFromEditor),
           onDocumentInfo: _showDocumentInfoDialog,
           onRenameFile: _showFileNameDialog,
           onSaveHwp: () => _exportFromEditor(RhwpExportFormat.hwp),
@@ -16369,6 +16411,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.insertTableTreatAsChar,
     required this.canNew,
     required this.canOpen,
+    required this.canClose,
     required this.canPrint,
     required this.canInsertPicture,
     required this.canExport,
@@ -16377,6 +16420,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onInsert,
     required this.onNew,
     required this.onOpen,
+    required this.onClose,
     required this.onDocumentInfo,
     required this.onRenameFile,
     required this.onSaveHwp,
@@ -16526,6 +16570,7 @@ class _EditorToolbar extends StatefulWidget {
   final bool insertTableTreatAsChar;
   final bool canNew;
   final bool canOpen;
+  final bool canClose;
   final bool canPrint;
   final bool canInsertPicture;
   final bool canExport;
@@ -16534,6 +16579,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onInsert;
   final VoidCallback onNew;
   final VoidCallback onOpen;
+  final VoidCallback onClose;
   final VoidCallback onDocumentInfo;
   final VoidCallback onRenameFile;
   final VoidCallback onSaveHwp;
@@ -16812,6 +16858,14 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               buttonKey: const ValueKey('rhwp-editor-open'),
               icon: Icons.folder_open,
               onPressed: widget.busy || !widget.canOpen ? null : widget.onOpen,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Close',
+              buttonKey: const ValueKey('rhwp-editor-close'),
+              icon: Icons.close_outlined,
+              onPressed: widget.busy || !widget.canClose
+                  ? null
+                  : widget.onClose,
             ),
             _ToolbarIconButton(
               tooltip: 'Document info',
