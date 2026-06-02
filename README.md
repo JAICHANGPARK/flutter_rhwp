@@ -498,10 +498,12 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   snapshot export until the user saves/exports or switches from the native
   editor to the full editor.
   `onDirtyChanged` reports when Rust-backed edit commands make the document
-  unsaved and when HWP/HWPX save callbacks complete. File-ribbon
-  New/Open/Close and Ctrl/Cmd+N/O/W call app-provided callbacks, so
-  platform-specific document creation, picking, and close/discard prompts stay
-  in the host app.
+  unsaved and when HWP/HWPX save callbacks complete. The same state is exposed
+  as `RhwpEditorController.dirty`, and apps can call
+  `RhwpEditorController.markClean()` after host-driven saves or discards.
+  File-ribbon New/Open/Close and Ctrl/Cmd+N/O/W call app-provided callbacks,
+  so platform-specific document creation, picking, and close/discard prompts
+  stay in the host app.
   Pending text previews are updated through a scoped overlay notifier, so
   normal typing updates the caret/text preview without rebuilding the whole
   native editor surface. Viewer controller notifications are scoped so cursor

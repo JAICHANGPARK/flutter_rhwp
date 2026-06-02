@@ -172,6 +172,30 @@ void main() {
     expect(controller.zoom, 0.75);
   });
 
+  test('RhwpEditorController exposes dirty state notifications', () {
+    final controller = RhwpEditorController();
+    final states = <bool>[];
+    controller.addListener(() {
+      states.add(controller.dirty);
+    });
+
+    expect(controller.dirty, isFalse);
+
+    controller.dirty = true;
+
+    expect(controller.dirty, isTrue);
+    expect(states, [true]);
+
+    controller.dirty = true;
+
+    expect(states, [true]);
+
+    controller.markClean();
+
+    expect(controller.dirty, isFalse);
+    expect(states, [true, false]);
+  });
+
   testWidgets('RhwpViewer fit page uses the current viewport height', (
     tester,
   ) async {
@@ -646,6 +670,8 @@ void main() {
       ),
     );
     await _pumpDocumentFrame(tester);
+
+    expect(controller.dirty, isFalse);
 
     await tester.enterText(
       find.byKey(const ValueKey('rhwp-editor-text-field')),
@@ -2438,6 +2464,7 @@ void main() {
     await _pumpDocumentFrame(tester);
 
     expect(dirtyStates, [true]);
+    expect(controller.dirty, isTrue);
 
     await tester.tap(find.text('파일'));
     await tester.pump();
@@ -2447,12 +2474,14 @@ void main() {
 
     expect(exported.single.fileName, 'sample.pdf');
     expect(dirtyStates, [true]);
+    expect(controller.dirty, isTrue);
 
     await tester.tap(find.byKey(const ValueKey('rhwp-editor-save-hwp')));
     await _pumpDocumentFrame(tester);
 
     expect(exported.last.fileName, 'sample.hwp');
     expect(dirtyStates, [true, false]);
+    expect(controller.dirty, isFalse);
     expect(session.commands.map((json) => jsonDecode(json)['type']), [
       'insertText',
     ]);
@@ -2486,6 +2515,8 @@ void main() {
       await tester.pumpWidget(buildEditor(firstDocument));
       await _pumpDocumentFrame(tester);
 
+      expect(controller.dirty, isFalse);
+
       await tester.enterText(
         find.byKey(const ValueKey('rhwp-editor-text-field')),
         'abc',
@@ -2494,11 +2525,13 @@ void main() {
       await _pumpDocumentFrame(tester);
 
       expect(dirtyStates, [true]);
+      expect(controller.dirty, isTrue);
 
       await tester.pumpWidget(buildEditor(secondDocument));
       await tester.pump();
 
       expect(dirtyStates, [true, false]);
+      expect(controller.dirty, isFalse);
     },
   );
 

@@ -1286,6 +1286,7 @@ class RhwpEditorController extends RhwpViewerController {
   RhwpSelectionRange _selection;
   RhwpTableCellSelection? _tableCellSelection;
   RhwpObjectSelection? _objectSelection;
+  bool _dirty = false;
 
   RhwpCursorPosition get cursor => _cursor;
 
@@ -1307,6 +1308,23 @@ class RhwpEditorController extends RhwpViewerController {
 
   void clearSelection() {
     selection = RhwpSelectionRange.collapsed(_cursor);
+  }
+
+  /// Whether the editor has Rust-backed edits that have not been saved.
+  bool get dirty => _dirty;
+
+  /// Updates the externally visible dirty state.
+  ///
+  /// Apps usually let [RhwpEditor] manage this automatically through edit and
+  /// save operations. The setter remains available for host-driven document
+  /// lifecycle flows that save or discard changes outside the editor widget.
+  set dirty(bool value) {
+    _setDirty(value);
+  }
+
+  /// Marks the current document as clean after an app-level save or discard.
+  void markClean() {
+    dirty = false;
   }
 
   /// The active table cell selection for page overlay and table commands.
@@ -1358,6 +1376,16 @@ class RhwpEditorController extends RhwpViewerController {
   /// Clears the active object/control selection.
   void clearObjectSelection() {
     objectSelection = null;
+  }
+
+  void _setDirty(bool value, {bool notify = true, bool forceNotify = false}) {
+    if (_dirty == value && !forceNotify) {
+      return;
+    }
+    _dirty = value;
+    if (notify) {
+      notifyListeners();
+    }
   }
 }
 
@@ -1772,7 +1800,6 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   bool _showRuler = false;
   bool _insertTableTreatAsChar = false;
   bool _overwriteMode = false;
-  bool _dirty = false;
   Object? _error;
   int _charFormatQueryRevision = 0;
   int _paraFormatQueryRevision = 0;
@@ -1808,8 +1835,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.document != widget.document) {
       _cancelDeferredEditRefresh();
-      final wasDirty = _dirty;
-      _dirty = false;
+      final wasDirty = _controller.dirty;
+      _controller._setDirty(false, notify: false);
       if (wasDirty) {
         _notifyDirtyChangedAfterFrame(false);
       }
@@ -2618,18 +2645,19 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   }
 
   void _setDirty(bool dirty) {
-    if (_dirty == dirty) {
+    if (_controller.dirty == dirty) {
       return;
     }
-    _dirty = dirty;
+    _controller._setDirty(dirty);
     widget.onDirtyChanged?.call(dirty);
   }
 
   void _notifyDirtyChangedAfterFrame(bool dirty) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _dirty != dirty) {
+      if (!mounted || _controller.dirty != dirty) {
         return;
       }
+      _controller._setDirty(dirty, forceNotify: true);
       widget.onDirtyChanged?.call(dirty);
     });
   }
