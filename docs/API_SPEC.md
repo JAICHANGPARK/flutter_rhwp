@@ -264,6 +264,18 @@ final exported = await controller.exportDocument(
 await saveBytes(exported.bytes, exported.fileName, exported.mimeType);
 ```
 
+## Mode switch handoff
+
+앱이 `RhwpNativeEditor`와 `RhwpFullEditor`를 함께 제공한다면 editor mode switch는 저장이 아니라 in-memory handoff로 처리한다.
+
+| 전환 | 권장 처리 |
+| --- | --- |
+| Native -> Full | `nativeDocument.exportHwp()`로 최신 bytes를 만들고 `RhwpFullEditor(initialBytes: bytes)`에 전달한다. 기존 dirty 상태는 유지한다. |
+| Full -> Native | attached `RhwpFullEditorController.exportDocument(RhwpExportFormat.hwp)`를 호출한 뒤 그 bytes를 `Rhwp.open`으로 연다. |
+| 전환 실패 | 기존 editor mode를 유지하고 사용자에게 실패 상태를 보여준다. |
+
+Full editor 자체의 edit/dirty 이벤트가 없으면 full editor 내부 편집 여부를 정확히 알기 어렵다. 이런 경우 close/open guard를 더 보수적으로 설계하거나, upstream editor dirty event bridge를 추가해야 한다.
+
 ## 구현 규칙
 
 - 모든 편집 명령은 async이므로 반드시 `await`한다.

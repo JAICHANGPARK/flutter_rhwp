@@ -17,6 +17,9 @@
   fidelity, platform, and release work.
 * Added `docs/API_SPEC.md` to map editor toolbar features to public callbacks
   and `RhwpDocument` command APIs.
+* Preserved example dirty state across native/full editor mode switches and
+  exported the attached full editor's latest HWP bytes before opening native
+  editor mode.
 
 ## 2026-05-24 (2026.5.24)
 

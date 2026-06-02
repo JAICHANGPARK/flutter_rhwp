@@ -424,6 +424,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
     RhwpDocument next, {
     required String fileName,
     Uint8List? sourceBytes,
+    bool dirty = false,
   }) async {
     final previous = _document;
     final metadata = await next.metadata();
@@ -432,15 +433,17 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
       _metadata = metadata;
       _sourceBytes = sourceBytes;
       _fileName = fileName;
-      _documentDirty = false;
+      _documentDirty = dirty;
       _viewerKey = UniqueKey();
     });
+    _editorController.dirty = dirty;
     await previous?.close();
   }
 
   Future<void> _replaceWebEditorSource({
     required String fileName,
     Uint8List? sourceBytes,
+    bool dirty = false,
   }) async {
     final previous = _document;
     setState(() {
@@ -448,10 +451,27 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
       _metadata = null;
       _sourceBytes = sourceBytes;
       _fileName = fileName;
-      _documentDirty = false;
+      _documentDirty = dirty;
       _viewerKey = UniqueKey();
     });
+    _editorController.dirty = dirty;
     await previous?.close();
+  }
+
+  Future<Uint8List> _sourceBytesForNativeEditor() async {
+    if (_usesFullEditor && _fullEditorController.isAttached) {
+      final exported = await _fullEditorController.exportDocument(
+        RhwpExportFormat.hwp,
+        sourceFileName: _fileName,
+      );
+      return exported.bytes;
+    }
+
+    final sourceBytes = _sourceBytes;
+    if (sourceBytes == null) {
+      throw StateError('No HWP/HWPX bytes are available for native editor');
+    }
+    return sourceBytes;
   }
 
   Future<void> _setEditorMode(_EditorMode mode) async {
@@ -466,10 +486,12 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
     final nativeDocument = _document;
     if (mode == _EditorMode.fullEditor && nativeDocument != null) {
       await _run('Open full editor', () async {
+        final dirty = _documentDirty || _editorController.dirty;
         final sourceBytes = await nativeDocument.exportHwp();
         await _replaceWebEditorSource(
           fileName: _fileName ?? 'document.hwp',
           sourceBytes: sourceBytes,
+          dirty: dirty,
         );
         setState(() {
           _editorMode = mode;
@@ -479,11 +501,18 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
       return;
     }
 
-    final sourceBytes = _sourceBytes;
     if (mode == _EditorMode.nativeEditor &&
         _document == null &&
-        sourceBytes != null) {
+        _sourceBytes == null &&
+        !_fullEditorController.isAttached) {
+      _showStatus('Open a HWP/HWPX file before switching to native editor');
+      return;
+    }
+
+    if (mode == _EditorMode.nativeEditor && _document == null) {
       await _run('Open native editor', () async {
+        final sourceBytes = await _sourceBytesForNativeEditor();
+        final dirty = _documentDirty;
         final next = await Rhwp.open(
           sourceBytes,
           fileName: _fileName ?? 'document.hwp',
@@ -492,17 +521,13 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
           next,
           fileName: _fileName ?? 'document.hwp',
           sourceBytes: sourceBytes,
+          dirty: dirty,
         );
         setState(() {
           _editorMode = mode;
         });
         return 'Switched to native editor';
       });
-      return;
-    }
-
-    if (mode == _EditorMode.nativeEditor && _document == null) {
-      _showStatus('Open a HWP/HWPX file before switching to native editor');
       return;
     }
 

@@ -17,13 +17,14 @@
 - [x] 작업 문서 `docs/2026-06-02_native_editor_unsaved_changes_guard.md`를 추가한다.
 - [x] 남은 작업을 `docs/ROADMAP.md`와 `docs/TODO.md`로 분리해서 관리한다.
 - [x] 패키지 사용자용 editor/toolbar API 명세를 `docs/API_SPEC.md`로 추가한다.
+- [x] native/full editor 전환 시 dirty 상태를 보존하고, full editor에서 native로 돌아갈 때 최신 HWP export bytes를 사용한다.
 
 ## 다음 우선순위
 
 - [ ] example 앱에 unsaved changes dialog widget test를 추가한다.
 - [ ] HWP/HWPX 저장 후 source bytes와 file name metadata가 host 앱에서 최신 상태로 유지되는지 검증한다.
 - [ ] Save와 Save As를 구분할지 결정하고 API/예제 흐름을 정리한다.
-- [ ] Web full editor와 native editor 사이 전환 시 dirty 상태가 손실되지 않도록 guard를 추가한다.
+- [ ] upstream full editor의 edit/dirty 이벤트를 Flutter controller로 브리지한다.
 - [ ] 실제 첨부 샘플 문서로 open, edit, save, reopen, PDF export smoke test를 자동화한다.
 - [ ] Web `WebAssembly.instantiate()`/cross-origin isolation 실행 조건을 README와 troubleshooting에 정리한다.
 - [ ] Desktop full editor host의 black screen 원인을 플랫폼별로 분리해서 문서화하고 fallback 상태를 표시한다.
