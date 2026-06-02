@@ -17101,6 +17101,17 @@ void main() {
       const ValueKey('rhwp-editor-replace-field'),
     );
     await tester.enterText(replaceField, 'AB');
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(find.text('2 / 2'), findsOneWidget);
+    expect(tester.widget<TextField>(replaceField).focusNode?.hasFocus, isTrue);
+    expect(session.commands, isEmpty);
+    expect(session.historyCommands, isEmpty);
+
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await _pumpDocumentFrame(tester);
 

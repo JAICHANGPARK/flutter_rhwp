@@ -6729,13 +6729,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     if (_searchMatches.isEmpty) {
       return;
     }
-    final keepSearchFocus = _searchFocusNode.hasFocus;
+    final searchToolFocusNode = _activeSearchToolFocusNode();
     setState(() {
       _activeSearchMatch = (_activeSearchMatch + 1) % _searchMatches.length;
     });
-    _selectActiveSearchMatch(focusEditor: !keepSearchFocus);
-    if (keepSearchFocus) {
-      _searchFocusNode.requestFocus();
+    _selectActiveSearchMatch(focusEditor: searchToolFocusNode == null);
+    if (searchToolFocusNode != null) {
+      searchToolFocusNode.requestFocus();
     }
   }
 
@@ -6743,16 +6743,26 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     if (_searchMatches.isEmpty) {
       return;
     }
-    final keepSearchFocus = _searchFocusNode.hasFocus;
+    final searchToolFocusNode = _activeSearchToolFocusNode();
     setState(() {
       _activeSearchMatch =
           (_activeSearchMatch - 1 + _searchMatches.length) %
           _searchMatches.length;
     });
-    _selectActiveSearchMatch(focusEditor: !keepSearchFocus);
-    if (keepSearchFocus) {
-      _searchFocusNode.requestFocus();
+    _selectActiveSearchMatch(focusEditor: searchToolFocusNode == null);
+    if (searchToolFocusNode != null) {
+      searchToolFocusNode.requestFocus();
     }
+  }
+
+  FocusNode? _activeSearchToolFocusNode() {
+    if (_searchFocusNode.hasFocus) {
+      return _searchFocusNode;
+    }
+    if (_replaceFocusNode.hasFocus) {
+      return _replaceFocusNode;
+    }
+    return null;
   }
 
   void _clearSearch() {
@@ -17865,6 +17875,8 @@ class _EditorToolbarState extends State<_EditorToolbar> {
         if (HardwareKeyboard.instance.isControlPressed ||
             HardwareKeyboard.instance.isMetaPressed) {
           _submitReplaceAllField();
+        } else if (HardwareKeyboard.instance.isShiftPressed) {
+          _navigateReplaceField(backward: true);
         } else {
           _submitReplaceField();
         }
@@ -17892,6 +17904,17 @@ class _EditorToolbarState extends State<_EditorToolbar> {
   void _submitReplaceAllField() {
     if (!widget.busy && widget.searchMatchCount > 0) {
       widget.onReplaceAll();
+    }
+  }
+
+  void _navigateReplaceField({required bool backward}) {
+    if (widget.busy || widget.searchMatchCount == 0) {
+      return;
+    }
+    if (backward) {
+      widget.onSearchPrevious();
+    } else {
+      widget.onSearchNext();
     }
   }
 
