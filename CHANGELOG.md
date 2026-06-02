@@ -28,6 +28,8 @@
   ribbon exports can be followed by Ctrl/Cmd+S/P without clicking the page.
 * Restored Flutter-native editor focus after clearing the search field so
   follow-up editor shortcuts can be used without clicking the page again.
+* Restored Flutter-native editor focus after clearing the replace field with
+  Escape so follow-up editor shortcuts continue from the document surface.
 * Added Flutter-native active ClickHere field controls that call rhwp core
   active-field APIs and rerender only the current page.
 * Added Flutter-native footnote deletion from the insert ribbon using rhwp core

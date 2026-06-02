@@ -6759,6 +6759,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _focusEditor();
   }
 
+  void _clearReplaceAndFocusEditor() {
+    _replaceController.clear();
+    _replaceFocusNode.unfocus();
+    _focusEditor();
+  }
+
   void _selectActiveSearchMatch() {
     if (_activeSearchMatch < 0 || _activeSearchMatch >= _searchMatches.length) {
       return;
@@ -13546,6 +13552,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onClearSearch: _clearSearchAndFocusEditor,
           onReplace: _replaceActiveSearchMatch,
           onReplaceAll: _replaceAllSearchMatches,
+          onClearReplace: _clearReplaceAndFocusEditor,
           onFieldProperties: _showFieldPropertiesDialog,
           onActivateField: _activateFieldAtCursor,
           onClearActiveField: _clearActiveField,
@@ -16222,6 +16229,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onClearSearch,
     required this.onReplace,
     required this.onReplaceAll,
+    required this.onClearReplace,
     required this.onFieldProperties,
     required this.onActivateField,
     required this.onClearActiveField,
@@ -16372,6 +16380,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onClearSearch;
   final VoidCallback onReplace;
   final VoidCallback onReplaceAll;
+  final VoidCallback onClearReplace;
   final VoidCallback onFieldProperties;
   final VoidCallback onActivateField;
   final VoidCallback onClearActiveField;
@@ -17831,8 +17840,7 @@ class _EditorToolbarState extends State<_EditorToolbar> {
         }
         return KeyEventResult.handled;
       case LogicalKeyboardKey.escape:
-        widget.replaceController.clear();
-        widget.replaceFocusNode.unfocus();
+        widget.onClearReplace();
         return KeyEventResult.handled;
     }
 

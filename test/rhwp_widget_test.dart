@@ -17108,9 +17108,19 @@ void main() {
     await tester.pump();
 
     expect(tester.widget<TextField>(replaceField).controller?.text, isEmpty);
-    expect(tester.testTextInput.hasAnyClients, isFalse);
+    expect(tester.widget<TextField>(replaceField).focusNode?.hasFocus, isFalse);
     expect(changedCalls, 1);
     expect(session.commands, hasLength(2));
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+
+    expect(find.text('Go to page'), findsOneWidget);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('RhwpNativeEditor replaces the active table cell search match', (
