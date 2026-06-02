@@ -6778,6 +6778,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   void _clearSearchAndFocusEditor() {
     _clearSearch();
     _searchFocusNode.unfocus();
+    _replaceFocusNode.unfocus();
     _focusEditor();
   }
 

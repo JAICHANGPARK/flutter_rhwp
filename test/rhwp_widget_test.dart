@@ -17057,6 +17057,65 @@ void main() {
     expect(session.historyCommands, isEmpty);
   });
 
+  testWidgets('RhwpNativeEditor clear search restores editor focus', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 3);
+    session.pageLayerTreeJsonByPage[2] = jsonEncode(
+      _editorLayerTreeJson(firstText: 'wxyz', secondText: 'xyqr'),
+    );
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('도구'));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-search-field')),
+      'xy',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-find')));
+    await _pumpDocumentFrame(tester);
+
+    final replaceField = find.byKey(
+      const ValueKey('rhwp-editor-replace-field'),
+    );
+    await tester.enterText(replaceField, 'AB');
+    expect(tester.widget<TextField>(replaceField).focusNode?.hasFocus, isTrue);
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-search-clear')));
+    await tester.pump();
+
+    expect(find.text('0 / 0'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-search-active')),
+      findsNothing,
+    );
+    expect(tester.widget<TextField>(replaceField).focusNode?.hasFocus, isFalse);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+
+    expect(find.text('Go to page'), findsOneWidget);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(session.commands, isEmpty);
+    expect(session.historyCommands, isEmpty);
+  });
+
   testWidgets('RhwpNativeEditor replaces the active search match', (
     tester,
   ) async {
