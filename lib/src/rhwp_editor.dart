@@ -4807,6 +4807,50 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
   }
 
+  Future<void> _goToCursorFromFields() async {
+    if (_busy) {
+      return;
+    }
+
+    final cursor = RhwpCursorPosition(
+      section: _parseNonNegative(_sectionController.text),
+      paragraph: _parseNonNegative(_paragraphController.text),
+      offset: _parseNonNegative(_offsetController.text),
+    );
+    setState(() {
+      _busy = true;
+      _visibleBusy = false;
+      _error = null;
+    });
+
+    try {
+      final page = await widget.document.pageOfPosition(
+        section: cursor.section,
+        paragraph: cursor.paragraph,
+      );
+      if (!mounted) {
+        return;
+      }
+      _controller.clearTableCellSelection();
+      _controller.cursor = cursor;
+      await _controller.goToPage(page);
+      _focusEditor();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _visibleBusy = false;
+        });
+      }
+    }
+  }
+
   Future<void> _showFieldsDialog() async {
     if (_busy) {
       return;
@@ -13513,6 +13557,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onClearFooterText: () => _clearHeaderFooterText(isHeader: false),
           onPreviousPage: () => unawaited(_controller.previousPage()),
           onNextPage: () => unawaited(_controller.nextPage()),
+          onGoToCursor: _goToCursorFromFields,
           onGoToPage: _showGoToPageDialog,
           onZoomOut: _controller.zoomOut,
           onZoomIn: _controller.zoomIn,
@@ -16187,6 +16232,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onClearFooterText,
     required this.onPreviousPage,
     required this.onNextPage,
+    required this.onGoToCursor,
     required this.onGoToPage,
     required this.onZoomOut,
     required this.onZoomIn,
@@ -16336,6 +16382,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onClearFooterText;
   final VoidCallback onPreviousPage;
   final VoidCallback onNextPage;
+  final VoidCallback onGoToCursor;
   final VoidCallback onGoToPage;
   final VoidCallback onZoomOut;
   final VoidCallback onZoomIn;
@@ -17808,11 +17855,30 @@ class _EditorToolbarState extends State<_EditorToolbar> {
 
   List<Widget> _cursorFields() {
     return [
-      _NumberField(label: 'Sec', controller: widget.sectionController),
+      _NumberField(
+        fieldKey: const ValueKey('rhwp-editor-section-field'),
+        label: 'Sec',
+        controller: widget.sectionController,
+      ),
       const SizedBox(width: 6),
-      _NumberField(label: 'Para', controller: widget.paragraphController),
+      _NumberField(
+        fieldKey: const ValueKey('rhwp-editor-paragraph-field'),
+        label: 'Para',
+        controller: widget.paragraphController,
+      ),
       const SizedBox(width: 6),
-      _NumberField(label: 'Offset', controller: widget.offsetController),
+      _NumberField(
+        fieldKey: const ValueKey('rhwp-editor-offset-field'),
+        label: 'Offset',
+        controller: widget.offsetController,
+      ),
+      const SizedBox(width: 6),
+      _ToolbarIconButton(
+        tooltip: 'Go to position',
+        buttonKey: const ValueKey('rhwp-editor-go-to-position'),
+        icon: Icons.my_location,
+        onPressed: widget.busy ? null : widget.onGoToCursor,
+      ),
     ];
   }
 }
@@ -22749,8 +22815,13 @@ bool _isSelectedZoomPreset(double zoom, double preset) {
 String _formatEditorZoom(double zoom) => '${(zoom * 100).round()}%';
 
 class _NumberField extends StatelessWidget {
-  const _NumberField({required this.label, required this.controller});
+  const _NumberField({
+    this.fieldKey,
+    required this.label,
+    required this.controller,
+  });
 
+  final Key? fieldKey;
   final String label;
   final TextEditingController controller;
 
@@ -22759,6 +22830,7 @@ class _NumberField extends StatelessWidget {
     return SizedBox(
       width: 64,
       child: TextField(
+        key: fieldKey,
         controller: controller,
         keyboardType: TextInputType.number,
         decoration: InputDecoration(

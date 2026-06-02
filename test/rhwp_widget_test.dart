@@ -1462,6 +1462,10 @@ void main() {
       'offset': 2,
     });
 
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-insert-column-break')),
+    );
+    await tester.pump();
     await tester.tap(
       find.byKey(const ValueKey('rhwp-editor-insert-column-break')),
     );
@@ -2078,6 +2082,58 @@ void main() {
     } finally {
       externalFocusNode.dispose();
     }
+  });
+
+  testWidgets('RhwpNativeEditor jumps to cursor from position fields', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 8);
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-section-field')),
+      '0',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-paragraph-field')),
+      '4',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-offset-field')),
+      '9',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-go-to-position')));
+    await tester.pumpAndSettle();
+    await _pumpDocumentFrame(tester);
+
+    expect(
+      controller.cursor,
+      const RhwpCursorPosition(paragraph: 4, offset: 9),
+    );
+    expect(controller.currentPage, 4);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('rhwp-editor-status-page')))
+          .data,
+      'Page 5 / 8',
+    );
+    expect(jsonDecode(session.commands.single), {
+      'type': 'getPageOfPosition',
+      'section': 0,
+      'paragraph': 4,
+    });
   });
 
   testWidgets('RhwpNativeEditor jumps to page from view ribbon and shortcut', (

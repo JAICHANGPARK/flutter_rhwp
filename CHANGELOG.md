@@ -16,6 +16,8 @@
   page dialog from the native editor chrome.
 * Added a Flutter-native status-bar position action for restoring editor focus
   and text input at the current cursor or selection.
+* Added a Flutter-native position-field navigation action that moves the native
+  editor caret and page viewport from the `Sec`/`Para`/`Offset` fields.
 * Added Flutter-native active ClickHere field controls that call rhwp core
   active-field APIs and rerender only the current page.
 * Added Flutter-native footnote deletion from the insert ribbon using rhwp core
