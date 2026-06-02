@@ -17041,6 +17041,67 @@ void main() {
     );
   });
 
+  testWidgets('RhwpNativeEditor handles replace field enter and escape keys', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 3);
+    session.pageLayerTreeJsonByPage[2] = jsonEncode(
+      _editorLayerTreeJson(firstText: 'wxyz', secondText: 'mnop'),
+    );
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('도구'));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-editor-search-field')),
+      'xy',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-find')));
+    await _pumpDocumentFrame(tester);
+
+    final replaceField = find.byKey(
+      const ValueKey('rhwp-editor-replace-field'),
+    );
+    await tester.enterText(replaceField, 'AB');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+    ]);
+    expect(session.commands.map((json) => jsonDecode(json)['type']), [
+      'deleteText',
+      'insertText',
+    ]);
+
+    await tester.enterText(replaceField, 'CD');
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+
+    expect(tester.widget<TextField>(replaceField).controller?.text, isEmpty);
+    expect(tester.testTextInput.hasAnyClients, isFalse);
+    expect(changedCalls, 1);
+    expect(session.commands, hasLength(2));
+  });
+
   testWidgets('RhwpNativeEditor replaces the active table cell search match', (
     tester,
   ) async {

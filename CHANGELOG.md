@@ -18,6 +18,8 @@
   and text input at the current cursor or selection.
 * Added a Flutter-native position-field navigation action that moves the native
   editor caret and page viewport from the `Sec`/`Para`/`Offset` fields.
+* Added Flutter-native replace-field keyboard handling so Enter applies the
+  active replacement and Escape clears/blurs the replace input.
 * Added Flutter-native active ClickHere field controls that call rhwp core
   active-field APIs and rerender only the current page.
 * Added Flutter-native footnote deletion from the insert ribbon using rhwp core
