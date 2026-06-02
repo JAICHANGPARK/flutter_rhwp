@@ -16960,9 +16960,8 @@ void main() {
     );
     expect(tester.widget<TextField>(searchField).focusNode?.hasFocus, isTrue);
 
-    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.testTextInput.receiveAction(TextInputAction.done);
     await _pumpDocumentFrame(tester);
 
     expect(find.text('1 / 2'), findsOneWidget);
@@ -16971,6 +16970,21 @@ void main() {
       const RhwpSelectionRange(
         start: RhwpCursorPosition(paragraph: 0, offset: 1),
         end: RhwpCursorPosition(paragraph: 0, offset: 3),
+      ),
+    );
+    expect(tester.widget<TextField>(searchField).focusNode?.hasFocus, isTrue);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(find.text('2 / 2'), findsOneWidget);
+    expect(
+      controller.selection,
+      const RhwpSelectionRange(
+        start: RhwpCursorPosition(paragraph: 1),
+        end: RhwpCursorPosition(paragraph: 1, offset: 2),
       ),
     );
     expect(tester.widget<TextField>(searchField).focusNode?.hasFocus, isTrue);

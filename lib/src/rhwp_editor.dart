@@ -16448,6 +16448,7 @@ class _EditorToolbar extends StatefulWidget {
 class _EditorToolbarState extends State<_EditorToolbar> {
   var _activeTab = _EditorTab.insert;
   final _toolbarFontSizeController = TextEditingController(text: '10.0');
+  var _searchKeySubmitHandled = false;
   var _replaceKeySubmitHandled = false;
   var _toolbarFontFamily = _fontFamilyOptions.first;
   var _toolbarLineSpacing = 160;
@@ -17684,6 +17685,16 @@ class _EditorToolbarState extends State<_EditorToolbar> {
                     labelText: 'Find',
                   ),
                   onSubmitted: (_) {
+                    if (_searchKeySubmitHandled) {
+                      _searchKeySubmitHandled = false;
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (!mounted) {
+                          return;
+                        }
+                        widget.searchFocusNode.requestFocus();
+                      });
+                      return;
+                    }
                     _submitSearchField(
                       backward: HardwareKeyboard.instance.isShiftPressed,
                     );
@@ -17850,7 +17861,14 @@ class _EditorToolbarState extends State<_EditorToolbar> {
     switch (event.logicalKey) {
       case LogicalKeyboardKey.enter:
       case LogicalKeyboardKey.numpadEnter:
+        _searchKeySubmitHandled = true;
         _submitSearchField(backward: HardwareKeyboard.instance.isShiftPressed);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) {
+            return;
+          }
+          _searchKeySubmitHandled = false;
+        });
         return KeyEventResult.handled;
       case LogicalKeyboardKey.escape:
         widget.onClearSearch();

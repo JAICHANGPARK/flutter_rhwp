@@ -39,6 +39,8 @@
   reusing the same command path as the tools-ribbon button.
 * Added Flutter-native replace-field Shift+Enter navigation to move to the
   previous search match while keeping replace input focus.
+* Guarded Flutter-native search-field Enter handling against duplicate
+  `TextField.onSubmitted` delivery so one key press advances only one match.
 * Added Flutter-native active ClickHere field controls that call rhwp core
   active-field APIs and rerender only the current page.
 * Added Flutter-native footnote deletion from the insert ribbon using rhwp core
