@@ -116,6 +116,7 @@ RhwpNativeEditor(
   onOpenRequested: pickAndOpenDocument,
   onImageRequested: pickImageForEditor,
   onExported: saveExportedDocument,
+  onPrintRequested: printPdfDocument,
 )
 ```
 
@@ -385,9 +386,11 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   delete, IME
   composing preview, context menus, HWP/HWPX/PDF quick export callbacks and a
   DOCX/Text/Markdown/current-page SVG export menu from the file ribbon,
-  Ctrl/Cmd+S HWP save, Ctrl/Cmd+Shift+S HWPX save, Ctrl/Cmd+P PDF export,
-  app-level file open callbacks and document information from the file
-  ribbon, page navigation controls, direct go-to-page from the view ribbon and
+  app-level Print callback with PDF artifacts, Ctrl/Cmd+S HWP save,
+  Ctrl/Cmd+Shift+S HWPX save, Ctrl/Cmd+P Print when `onPrintRequested` is
+  supplied or PDF export fallback otherwise, app-level file open callbacks and
+  document information from the file ribbon, page navigation controls,
+  direct go-to-page from the view ribbon and
   Ctrl/Cmd+G, scroll-tracked current page reporting and previous/next page
   controls in the status bar, page setup from the page ribbon and F7,
   transparent table border overlays,

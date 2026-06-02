@@ -2405,6 +2405,55 @@ void main() {
     expect(session.exportPdfCalls, 2);
   });
 
+  testWidgets('RhwpNativeEditor file ribbon prints PDF artifacts', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    final exported = <RhwpExportedDocument>[];
+    final printed = <RhwpExportedDocument>[];
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onExported: (document) => exported.add(document),
+            onPrintRequested: (document) => printed.add(document),
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('파일'));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-print')));
+    await _pumpDocumentFrame(tester);
+
+    expect(printed.single.fileName, 'sample.pdf');
+    expect(printed.single.bytes, [0x50, 0x44, 0x46]);
+    expect(exported, isEmpty);
+    expect(session.exportPdfCalls, 1);
+    expect(session.commands, isEmpty);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyP);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(printed, hasLength(2));
+    expect(printed.last.fileName, 'sample.pdf');
+    expect(exported, isEmpty);
+    expect(session.exportPdfCalls, 2);
+    expect(session.commands, isEmpty);
+  });
+
   testWidgets('RhwpNativeEditor file ribbon renames document file', (
     tester,
   ) async {

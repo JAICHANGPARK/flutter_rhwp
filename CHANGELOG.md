@@ -16,6 +16,8 @@
   app-provided `onNewRequested` callback.
 * Added a Flutter-native file-ribbon export menu for DOCX, text, Markdown, and
   current-page SVG artifacts through the existing `onExported` callback.
+* Added a Flutter-native file-ribbon Print entry point and Ctrl/Cmd+P print
+  routing through an app-provided `onPrintRequested` PDF artifact callback.
 * Added a Flutter-native status-bar page indicator action for opening the Go to
   page dialog from the native editor chrome.
 * Added a Flutter-native status-bar position action for restoring editor focus

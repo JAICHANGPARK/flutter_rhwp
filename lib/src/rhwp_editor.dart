@@ -1381,6 +1381,7 @@ class RhwpEditor extends StatefulWidget {
     this.onOpenRequested,
     this.onImageRequested,
     this.onExported,
+    this.onPrintRequested,
     this.editRefreshDelay = _defaultEditRefreshDelay,
     this.holdTextRefreshWhileFocused = true,
     this.convertToEditableOnLoad = true,
@@ -1393,6 +1394,8 @@ class RhwpEditor extends StatefulWidget {
   final FutureOr<void> Function()? onOpenRequested;
   final RhwpEditorImagePicker? onImageRequested;
   final FutureOr<void> Function(RhwpExportedDocument document)? onExported;
+  final FutureOr<void> Function(RhwpExportedDocument document)?
+  onPrintRequested;
 
   /// How long text-like edits wait before refreshing rendered page SVG.
   ///
@@ -1429,6 +1432,7 @@ class RhwpNativeEditor extends StatelessWidget {
     this.onOpenRequested,
     this.onImageRequested,
     this.onExported,
+    this.onPrintRequested,
     this.editRefreshDelay = _defaultEditRefreshDelay,
     this.holdTextRefreshWhileFocused = true,
     this.convertToEditableOnLoad = true,
@@ -1441,6 +1445,8 @@ class RhwpNativeEditor extends StatelessWidget {
   final FutureOr<void> Function()? onOpenRequested;
   final RhwpEditorImagePicker? onImageRequested;
   final FutureOr<void> Function(RhwpExportedDocument document)? onExported;
+  final FutureOr<void> Function(RhwpExportedDocument document)?
+  onPrintRequested;
   final Duration editRefreshDelay;
   final bool holdTextRefreshWhileFocused;
   final bool convertToEditableOnLoad;
@@ -1455,6 +1461,7 @@ class RhwpNativeEditor extends StatelessWidget {
       onOpenRequested: onOpenRequested,
       onImageRequested: onImageRequested,
       onExported: onExported,
+      onPrintRequested: onPrintRequested,
       editRefreshDelay: editRefreshDelay,
       holdTextRefreshWhileFocused: holdTextRefreshWhileFocused,
       convertToEditableOnLoad: convertToEditableOnLoad,
@@ -1476,6 +1483,7 @@ class RhwpCommandEditor extends StatelessWidget {
     this.onOpenRequested,
     this.onImageRequested,
     this.onExported,
+    this.onPrintRequested,
     this.editRefreshDelay = _defaultEditRefreshDelay,
     this.holdTextRefreshWhileFocused = true,
     this.convertToEditableOnLoad = true,
@@ -1488,6 +1496,8 @@ class RhwpCommandEditor extends StatelessWidget {
   final FutureOr<void> Function()? onOpenRequested;
   final RhwpEditorImagePicker? onImageRequested;
   final FutureOr<void> Function(RhwpExportedDocument document)? onExported;
+  final FutureOr<void> Function(RhwpExportedDocument document)?
+  onPrintRequested;
   final Duration editRefreshDelay;
   final bool holdTextRefreshWhileFocused;
   final bool convertToEditableOnLoad;
@@ -1502,6 +1512,7 @@ class RhwpCommandEditor extends StatelessWidget {
       onOpenRequested: onOpenRequested,
       onImageRequested: onImageRequested,
       onExported: onExported,
+      onPrintRequested: onPrintRequested,
       editRefreshDelay: editRefreshDelay,
       holdTextRefreshWhileFocused: holdTextRefreshWhileFocused,
       convertToEditableOnLoad: convertToEditableOnLoad,
@@ -2238,6 +2249,39 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           : null;
       final exported = await widget.document.exportDocument(format, page: page);
       await onExported(exported);
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _visibleBusy = false;
+        });
+        _focusEditor();
+      }
+    }
+  }
+
+  Future<void> _printFromEditor() async {
+    final onPrintRequested = widget.onPrintRequested;
+    if (_busy || onPrintRequested == null) {
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _visibleBusy = true;
+      _error = null;
+    });
+    try {
+      final exported = await widget.document.exportDocument(
+        RhwpExportFormat.pdf,
+      );
+      await onPrintRequested(exported);
     } catch (error) {
       if (mounted) {
         setState(() {
@@ -12325,7 +12369,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           );
           return KeyEventResult.handled;
         case LogicalKeyboardKey.keyP:
-          _exportFromEditor(RhwpExportFormat.pdf);
+          if (widget.onPrintRequested != null) {
+            _printFromEditor();
+          } else {
+            _exportFromEditor(RhwpExportFormat.pdf);
+          }
           return KeyEventResult.handled;
         case LogicalKeyboardKey.equal:
         case LogicalKeyboardKey.add:
@@ -13602,6 +13650,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           insertTableTreatAsChar: _insertTableTreatAsChar,
           canNew: widget.onNewRequested != null,
           canOpen: widget.onOpenRequested != null,
+          canPrint: widget.onPrintRequested != null,
           canInsertPicture: widget.onImageRequested != null,
           canExport: widget.onExported != null,
           searchMatchCount: _searchMatches.length,
@@ -13615,6 +13664,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onSaveHwpx: () => _exportFromEditor(RhwpExportFormat.hwpx),
           onExportPdf: () => _exportFromEditor(RhwpExportFormat.pdf),
           onExportFormat: _exportFromEditor,
+          onPrint: () => _runFocusedEditorAction(_printFromEditor),
           onDeleteBackward: _deleteBackward,
           onDeleteParagraph: _deleteCurrentParagraph,
           onInsertTable: _insertTable,
@@ -16319,6 +16369,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.insertTableTreatAsChar,
     required this.canNew,
     required this.canOpen,
+    required this.canPrint,
     required this.canInsertPicture,
     required this.canExport,
     required this.searchMatchCount,
@@ -16332,6 +16383,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onSaveHwpx,
     required this.onExportPdf,
     required this.onExportFormat,
+    required this.onPrint,
     required this.onDeleteBackward,
     required this.onDeleteParagraph,
     required this.onInsertTable,
@@ -16474,6 +16526,7 @@ class _EditorToolbar extends StatefulWidget {
   final bool insertTableTreatAsChar;
   final bool canNew;
   final bool canOpen;
+  final bool canPrint;
   final bool canInsertPicture;
   final bool canExport;
   final int searchMatchCount;
@@ -16487,6 +16540,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onSaveHwpx;
   final VoidCallback onExportPdf;
   final ValueChanged<RhwpExportFormat> onExportFormat;
+  final VoidCallback onPrint;
   final VoidCallback onDeleteBackward;
   final VoidCallback onDeleteParagraph;
   final VoidCallback onInsertTable;
@@ -16770,6 +16824,14 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               buttonKey: const ValueKey('rhwp-editor-rename-file'),
               icon: Icons.drive_file_rename_outline,
               onPressed: widget.busy ? null : widget.onRenameFile,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Print',
+              buttonKey: const ValueKey('rhwp-editor-print'),
+              icon: Icons.print_outlined,
+              onPressed: widget.busy || !widget.canPrint
+                  ? null
+                  : widget.onPrint,
             ),
             _ToolbarIconButton(
               tooltip: 'Save HWP',

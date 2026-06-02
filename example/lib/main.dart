@@ -194,6 +194,12 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
     });
   }
 
+  Future<void> _printEditorDocument(RhwpExportedDocument exported) async {
+    await _run('Print ${exported.fileName}', () {
+      return _writeExportedDocument(exported, dialogLabel: 'Print PDF');
+    });
+  }
+
   Future<String> _writeExportedDocument(
     RhwpExportedDocument exported, {
     String? dialogLabel,
@@ -496,6 +502,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
                       onOpenRequested: _busy ? null : _openDocument,
                       onImageRequested: _busy ? null : _pickEditorImage,
                       onExported: _busy ? null : _saveEditorExport,
+                      onPrintRequested: _busy ? null : _printEditorDocument,
                       onChanged: (_) async {
                         final metadata = await document.metadata();
                         if (!mounted) {
