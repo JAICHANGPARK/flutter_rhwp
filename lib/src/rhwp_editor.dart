@@ -6570,7 +6570,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     try {
       final matches = await _collectSearchMatches(query);
 
-      if (!mounted) {
+      if (!mounted || _searchController.text.trim() != query) {
         return;
       }
 

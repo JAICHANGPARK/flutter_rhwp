@@ -16787,6 +16787,51 @@ void main() {
     expect(session.historyCommands, isEmpty);
   });
 
+  testWidgets('RhwpNativeEditor ignores stale search results', (tester) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    final pendingTree = Completer<String>();
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('도구'));
+    await tester.pump();
+    final searchField = find.byKey(const ValueKey('rhwp-editor-search-field'));
+    await tester.enterText(searchField, 'xy');
+    session.pendingLayerTreeJsons.add(pendingTree);
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-find')));
+    await tester.pump();
+
+    expect(find.text('0 / 0'), findsOneWidget);
+
+    await tester.enterText(searchField, '');
+    await tester.pump();
+
+    pendingTree.complete(
+      jsonEncode(_editorLayerTreeJson(firstText: 'wxyz', secondText: 'mnop')),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(find.text('0 / 0'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-search-active')),
+      findsNothing,
+    );
+    expect(controller.selection.isCollapsed, isTrue);
+    expect(session.commands, isEmpty);
+    expect(session.historyCommands, isEmpty);
+  });
+
   testWidgets('RhwpNativeEditor finds text inside table cells', (tester) async {
     final controller = RhwpEditorController();
     final session = _FakeRhwpSession(pageCountValue: 1);
@@ -20986,6 +21031,7 @@ class _FakeRhwpSession implements rust.RhwpSession {
   final historyCommands = <String>[];
   final renderedPages = <int>[];
   final pendingRenderedSvgs = <Completer<String>>[];
+  final pendingLayerTreeJsons = <Completer<String>>[];
   final commandGates = <String, Completer<void>>{};
   final layerTreePages = <int>[];
   int exportHwpCalls = 0;
@@ -21363,6 +21409,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
   @override
   Future<String> pageLayerTree({required int page}) async {
     layerTreePages.add(page);
+    if (pendingLayerTreeJsons.isNotEmpty) {
+      return pendingLayerTreeJsons.removeAt(0).future;
+    }
     return pageLayerTreeJsonByPage[page] ?? pageLayerTreeJson;
   }
 
