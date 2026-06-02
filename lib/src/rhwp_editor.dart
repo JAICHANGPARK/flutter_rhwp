@@ -1377,6 +1377,7 @@ class RhwpEditor extends StatefulWidget {
     required this.document,
     this.controller,
     this.onChanged,
+    this.onNewRequested,
     this.onOpenRequested,
     this.onImageRequested,
     this.onExported,
@@ -1388,6 +1389,7 @@ class RhwpEditor extends StatefulWidget {
   final RhwpDocument document;
   final RhwpEditorController? controller;
   final ValueChanged<RhwpDocument>? onChanged;
+  final FutureOr<void> Function()? onNewRequested;
   final FutureOr<void> Function()? onOpenRequested;
   final RhwpEditorImagePicker? onImageRequested;
   final FutureOr<void> Function(RhwpExportedDocument document)? onExported;
@@ -1423,6 +1425,7 @@ class RhwpNativeEditor extends StatelessWidget {
     required this.document,
     this.controller,
     this.onChanged,
+    this.onNewRequested,
     this.onOpenRequested,
     this.onImageRequested,
     this.onExported,
@@ -1434,6 +1437,7 @@ class RhwpNativeEditor extends StatelessWidget {
   final RhwpDocument document;
   final RhwpEditorController? controller;
   final ValueChanged<RhwpDocument>? onChanged;
+  final FutureOr<void> Function()? onNewRequested;
   final FutureOr<void> Function()? onOpenRequested;
   final RhwpEditorImagePicker? onImageRequested;
   final FutureOr<void> Function(RhwpExportedDocument document)? onExported;
@@ -1447,6 +1451,7 @@ class RhwpNativeEditor extends StatelessWidget {
       document: document,
       controller: controller,
       onChanged: onChanged,
+      onNewRequested: onNewRequested,
       onOpenRequested: onOpenRequested,
       onImageRequested: onImageRequested,
       onExported: onExported,
@@ -1467,6 +1472,7 @@ class RhwpCommandEditor extends StatelessWidget {
     required this.document,
     this.controller,
     this.onChanged,
+    this.onNewRequested,
     this.onOpenRequested,
     this.onImageRequested,
     this.onExported,
@@ -1478,6 +1484,7 @@ class RhwpCommandEditor extends StatelessWidget {
   final RhwpDocument document;
   final RhwpEditorController? controller;
   final ValueChanged<RhwpDocument>? onChanged;
+  final FutureOr<void> Function()? onNewRequested;
   final FutureOr<void> Function()? onOpenRequested;
   final RhwpEditorImagePicker? onImageRequested;
   final FutureOr<void> Function(RhwpExportedDocument document)? onExported;
@@ -1491,6 +1498,7 @@ class RhwpCommandEditor extends StatelessWidget {
       document: document,
       controller: controller,
       onChanged: onChanged,
+      onNewRequested: onNewRequested,
       onOpenRequested: onOpenRequested,
       onImageRequested: onImageRequested,
       onExported: onExported,
@@ -2257,6 +2265,35 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
     try {
       await onOpenRequested();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _visibleBusy = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _requestNewFromEditor() async {
+    final onNewRequested = widget.onNewRequested;
+    if (_busy || onNewRequested == null) {
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _visibleBusy = true;
+      _error = null;
+    });
+    try {
+      await onNewRequested();
     } catch (error) {
       if (mounted) {
         setState(() {
@@ -12271,6 +12308,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         case LogicalKeyboardKey.keyY:
           _redoEdit();
           return KeyEventResult.handled;
+        case LogicalKeyboardKey.keyN:
+          _requestNewFromEditor();
+          return KeyEventResult.handled;
         case LogicalKeyboardKey.keyO:
           _requestOpenFromEditor();
           return KeyEventResult.handled;
@@ -13557,12 +13597,14 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           showTransparentTableBorders: _showTransparentTableBorders,
           showRuler: _showRuler,
           insertTableTreatAsChar: _insertTableTreatAsChar,
+          canNew: widget.onNewRequested != null,
           canOpen: widget.onOpenRequested != null,
           canInsertPicture: widget.onImageRequested != null,
           canExport: widget.onExported != null,
           searchMatchCount: _searchMatches.length,
           activeSearchMatch: _activeSearchMatch,
           onInsert: _insertText,
+          onNew: () => _runFocusedEditorAction(_requestNewFromEditor),
           onOpen: () => _runFocusedEditorAction(_requestOpenFromEditor),
           onDocumentInfo: _showDocumentInfoDialog,
           onRenameFile: _showFileNameDialog,
@@ -16271,12 +16313,14 @@ class _EditorToolbar extends StatefulWidget {
     required this.showTransparentTableBorders,
     required this.showRuler,
     required this.insertTableTreatAsChar,
+    required this.canNew,
     required this.canOpen,
     required this.canInsertPicture,
     required this.canExport,
     required this.searchMatchCount,
     required this.activeSearchMatch,
     required this.onInsert,
+    required this.onNew,
     required this.onOpen,
     required this.onDocumentInfo,
     required this.onRenameFile,
@@ -16423,12 +16467,14 @@ class _EditorToolbar extends StatefulWidget {
   final bool showTransparentTableBorders;
   final bool showRuler;
   final bool insertTableTreatAsChar;
+  final bool canNew;
   final bool canOpen;
   final bool canInsertPicture;
   final bool canExport;
   final int searchMatchCount;
   final int activeSearchMatch;
   final VoidCallback onInsert;
+  final VoidCallback onNew;
   final VoidCallback onOpen;
   final VoidCallback onDocumentInfo;
   final VoidCallback onRenameFile;
@@ -16695,6 +16741,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
         label: '파일',
         child: Row(
           children: [
+            _ToolbarIconButton(
+              tooltip: 'New',
+              buttonKey: const ValueKey('rhwp-editor-new'),
+              icon: Icons.note_add_outlined,
+              onPressed: widget.busy || !widget.canNew ? null : widget.onNew,
+            ),
             _ToolbarIconButton(
               tooltip: 'Open',
               buttonKey: const ValueKey('rhwp-editor-open'),

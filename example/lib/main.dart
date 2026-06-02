@@ -492,6 +492,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
                       controller: _editorController,
                       editRefreshDelay: const Duration(seconds: 5),
                       holdTextRefreshWhileFocused: true,
+                      onNewRequested: _busy ? null : _createBlankDocument,
                       onOpenRequested: _busy ? null : _openDocument,
                       onImageRequested: _busy ? null : _pickEditorImage,
                       onExported: _busy ? null : _saveEditorExport,

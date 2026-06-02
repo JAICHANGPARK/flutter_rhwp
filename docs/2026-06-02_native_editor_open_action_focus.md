@@ -33,5 +33,5 @@ focus 상태를 정리해 shortcut/event 흐름이 끊기지 않게 해야 한�
 `onOpenRequested` callback으로 이어지는지 확인했다.
 
 ```sh
-flutter test test/rhwp_widget_test.dart --plain-name "RhwpNativeEditor file ribbon requests app file open"
+flutter test test/rhwp_widget_test.dart --plain-name "RhwpNativeEditor file ribbon requests app new and open"
 ```

@@ -12,6 +12,8 @@
   shape dialog from the native editor chrome.
 * Added a Flutter-native status-bar input-mode toggle so Insert/Overwrite can
   be switched from the native editor chrome as well as the Insert key.
+* Added Flutter-native file-ribbon New and Ctrl/Cmd+N entry points that call an
+  app-provided `onNewRequested` callback.
 * Added a Flutter-native status-bar page indicator action for opening the Go to
   page dialog from the native editor chrome.
 * Added a Flutter-native status-bar position action for restoring editor focus

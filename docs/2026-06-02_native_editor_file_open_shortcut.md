@@ -35,5 +35,5 @@ Flutter-native editor의 파일 작업은 Rust core command가 아니라 앱 통
 확인했다.
 
 ```sh
-flutter test test/rhwp_widget_test.dart --plain-name "RhwpNativeEditor file ribbon requests app file open"
+flutter test test/rhwp_widget_test.dart --plain-name "RhwpNativeEditor file ribbon requests app new and open"
 ```

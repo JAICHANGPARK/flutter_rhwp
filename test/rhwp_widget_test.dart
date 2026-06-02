@@ -2436,12 +2436,13 @@ void main() {
     expect(session.exportHwpCalls, 1);
   });
 
-  testWidgets('RhwpNativeEditor file ribbon requests app file open', (
+  testWidgets('RhwpNativeEditor file ribbon requests app new and open', (
     tester,
   ) async {
     final controller = RhwpEditorController();
     final session = _FakeRhwpSession(pageCountValue: 1);
     final document = RhwpDocument.fromSession(session);
+    var newRequests = 0;
     var openRequests = 0;
 
     await tester.pumpWidget(
@@ -2452,6 +2453,7 @@ void main() {
           child: RhwpNativeEditor(
             document: document,
             controller: controller,
+            onNewRequested: () => newRequests += 1,
             onOpenRequested: () => openRequests += 1,
           ),
         ),
@@ -2462,9 +2464,24 @@ void main() {
     await tester.tap(find.text('파일'));
     await tester.pump();
 
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-new')));
+    await _pumpDocumentFrame(tester);
+
+    expect(newRequests, 1);
+    expect(openRequests, 0);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyN);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(newRequests, 2);
+    expect(openRequests, 0);
+
     await tester.tap(find.byKey(const ValueKey('rhwp-editor-open')));
     await _pumpDocumentFrame(tester);
 
+    expect(newRequests, 2);
     expect(openRequests, 1);
 
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
@@ -2472,6 +2489,7 @@ void main() {
     await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
     await _pumpDocumentFrame(tester);
 
+    expect(newRequests, 2);
     expect(openRequests, 2);
     expect(session.commands, isEmpty);
   });
