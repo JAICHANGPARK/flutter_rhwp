@@ -6583,7 +6583,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         _searchFocusNode.requestFocus();
       }
     } catch (error) {
-      if (!mounted) {
+      if (!mounted || _searchController.text.trim() != query) {
         return;
       }
       setState(() {
@@ -6650,7 +6650,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         );
       });
     } catch (error) {
-      if (!mounted) {
+      if (!mounted || _searchController.text.trim() != query) {
         return;
       }
       setState(() {

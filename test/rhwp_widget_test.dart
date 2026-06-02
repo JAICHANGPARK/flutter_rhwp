@@ -16832,6 +16832,48 @@ void main() {
     expect(session.historyCommands, isEmpty);
   });
 
+  testWidgets('RhwpNativeEditor ignores stale search errors', (tester) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    final pendingTree = Completer<String>();
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('도구'));
+    await tester.pump();
+    final searchField = find.byKey(const ValueKey('rhwp-editor-search-field'));
+    await tester.enterText(searchField, 'xy');
+    session.pendingLayerTreeJsons.add(pendingTree);
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-find')));
+    await tester.pump();
+
+    await tester.enterText(searchField, '');
+    await tester.pump();
+
+    pendingTree.completeError(StateError('stale search failure'));
+    await _pumpDocumentFrame(tester);
+
+    expect(find.text('0 / 0'), findsOneWidget);
+    expect(find.textContaining('stale search failure'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('rhwp-editor-search-active')),
+      findsNothing,
+    );
+    expect(controller.selection.isCollapsed, isTrue);
+    expect(session.commands, isEmpty);
+    expect(session.historyCommands, isEmpty);
+  });
+
   testWidgets('RhwpNativeEditor finds text inside table cells', (tester) async {
     final controller = RhwpEditorController();
     final session = _FakeRhwpSession(pageCountValue: 1);
