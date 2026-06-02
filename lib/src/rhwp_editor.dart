@@ -1734,6 +1734,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   bool _suppressControllerChangedSetState = false;
   bool _showParagraphMarks = false;
   bool _showTransparentTableBorders = false;
+  bool _showRuler = false;
   bool _insertTableTreatAsChar = false;
   bool _overwriteMode = false;
   Object? _error;
@@ -2006,6 +2007,13 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   void _toggleTransparentTableBorders() {
     setState(() {
       _showTransparentTableBorders = !_showTransparentTableBorders;
+    });
+    _focusEditor();
+  }
+
+  void _toggleRuler() {
+    setState(() {
+      _showRuler = !_showRuler;
     });
     _focusEditor();
   }
@@ -13334,6 +13342,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           zoom: _controller.zoom,
           showParagraphMarks: _showParagraphMarks,
           showTransparentTableBorders: _showTransparentTableBorders,
+          showRuler: _showRuler,
           insertTableTreatAsChar: _insertTableTreatAsChar,
           canOpen: widget.onOpenRequested != null,
           canInsertPicture: widget.onImageRequested != null,
@@ -13486,7 +13495,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onZoomPreset: (zoom) => _controller.zoom = zoom,
           onToggleParagraphMarks: _toggleParagraphMarks,
           onToggleTransparentTableBorders: _toggleTransparentTableBorders,
+          onToggleRuler: _toggleRuler,
         ),
+        if (_showRuler) _EditorRuler(zoom: _controller.zoom),
         Expanded(
           child: Listener(
             behavior: HitTestBehavior.translucent,
@@ -16026,6 +16037,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.zoom,
     required this.showParagraphMarks,
     required this.showTransparentTableBorders,
+    required this.showRuler,
     required this.insertTableTreatAsChar,
     required this.canOpen,
     required this.canInsertPicture,
@@ -16141,6 +16153,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onZoomPreset,
     required this.onToggleParagraphMarks,
     required this.onToggleTransparentTableBorders,
+    required this.onToggleRuler,
   });
 
   final bool busy;
@@ -16173,6 +16186,7 @@ class _EditorToolbar extends StatefulWidget {
   final double zoom;
   final bool showParagraphMarks;
   final bool showTransparentTableBorders;
+  final bool showRuler;
   final bool insertTableTreatAsChar;
   final bool canOpen;
   final bool canInsertPicture;
@@ -16288,6 +16302,7 @@ class _EditorToolbar extends StatefulWidget {
   final ValueChanged<double> onZoomPreset;
   final VoidCallback onToggleParagraphMarks;
   final VoidCallback onToggleTransparentTableBorders;
+  final VoidCallback onToggleRuler;
 
   @override
   State<_EditorToolbar> createState() => _EditorToolbarState();
@@ -16745,6 +16760,13 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               icon: Icons.border_clear_outlined,
               selected: widget.showTransparentTableBorders,
               onPressed: widget.onToggleTransparentTableBorders,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Ruler',
+              buttonKey: const ValueKey('rhwp-editor-toggle-ruler'),
+              icon: Icons.straighten,
+              selected: widget.showRuler,
+              onPressed: widget.onToggleRuler,
             ),
           ],
         ),
@@ -21822,6 +21844,144 @@ class _ToolbarDivider extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 8),
       color: Theme.of(context).dividerColor,
     );
+  }
+}
+
+class _EditorRuler extends StatelessWidget {
+  const _EditorRuler({required this.zoom});
+
+  final double zoom;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: colorScheme.surfaceContainerHighest,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(color: Theme.of(context).dividerColor),
+            bottom: BorderSide(color: Theme.of(context).dividerColor),
+          ),
+        ),
+        child: SizedBox(
+          key: const ValueKey('rhwp-editor-ruler'),
+          width: double.infinity,
+          height: 28,
+          child: CustomPaint(
+            painter: _EditorRulerPainter(
+              zoom: zoom,
+              tickColor: colorScheme.outline,
+              majorTickColor: colorScheme.onSurfaceVariant,
+              markerColor: colorScheme.primary,
+              textColor: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EditorRulerPainter extends CustomPainter {
+  const _EditorRulerPainter({
+    required this.zoom,
+    required this.tickColor,
+    required this.majorTickColor,
+    required this.markerColor,
+    required this.textColor,
+  });
+
+  final double zoom;
+  final Color tickColor;
+  final Color majorTickColor;
+  final Color markerColor;
+  final Color textColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0) {
+      return;
+    }
+
+    final minorPaint = Paint()
+      ..color = tickColor
+      ..strokeWidth = 1;
+    final majorPaint = Paint()
+      ..color = majorTickColor
+      ..strokeWidth = 1;
+    final markerPaint = Paint()
+      ..color = markerColor
+      ..strokeWidth = 2;
+
+    const leftInset = 36.0;
+    final tickStep = (10.0 * zoom).clamp(6.0, 24.0).toDouble();
+    final majorEvery = math.max(4, (10 / zoom.clamp(0.5, 2.0)).round());
+    final baseline = size.height - 1;
+    final tickCount = ((size.width - leftInset) / tickStep).ceil();
+
+    canvas.drawLine(
+      Offset(0, baseline),
+      Offset(size.width, baseline),
+      minorPaint,
+    );
+
+    for (var index = 0; index <= tickCount; index += 1) {
+      final x = leftInset + index * tickStep;
+      if (x > size.width) {
+        break;
+      }
+      final isMajor = index % majorEvery == 0;
+      final tickHeight = isMajor ? 16.0 : (index % 2 == 0 ? 11.0 : 7.0);
+      canvas.drawLine(
+        Offset(x, baseline),
+        Offset(x, baseline - tickHeight),
+        isMajor ? majorPaint : minorPaint,
+      );
+      if (isMajor) {
+        _paintLabel(canvas, index ~/ majorEvery, x + 3, 2);
+      }
+    }
+
+    _paintMarginMarker(canvas, leftInset + tickStep * 2, markerPaint, size);
+    if (size.width > leftInset) {
+      _paintMarginMarker(
+        canvas,
+        math.max(leftInset, size.width - tickStep * 2),
+        markerPaint,
+        size,
+      );
+    }
+  }
+
+  void _paintLabel(Canvas canvas, int value, double x, double y) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: value.toString(),
+        style: TextStyle(color: textColor, fontSize: 10),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout(maxWidth: 32);
+    painter.paint(canvas, Offset(x, y));
+  }
+
+  void _paintMarginMarker(Canvas canvas, double x, Paint paint, Size size) {
+    final path = Path()
+      ..moveTo(x, 4)
+      ..lineTo(x - 4, 10)
+      ..lineTo(x + 4, 10)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_EditorRulerPainter oldDelegate) {
+    return oldDelegate.zoom != zoom ||
+        oldDelegate.tickColor != tickColor ||
+        oldDelegate.majorTickColor != majorTickColor ||
+        oldDelegate.markerColor != markerColor ||
+        oldDelegate.textColor != textColor;
   }
 }
 

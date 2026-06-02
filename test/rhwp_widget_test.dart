@@ -2737,6 +2737,52 @@ void main() {
     },
   );
 
+  testWidgets('RhwpNativeEditor view ribbon toggles the native ruler', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(find.byKey(const ValueKey('rhwp-editor-ruler')), findsNothing);
+
+    await tester.tap(find.text('보기'));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-toggle-ruler')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-toggle-ruler')));
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('rhwp-editor-ruler')), findsOneWidget);
+    expect(changedCalls, 0);
+    expect(session.commands, isEmpty);
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-toggle-ruler')));
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('rhwp-editor-ruler')), findsNothing);
+    expect(changedCalls, 0);
+    expect(session.commands, isEmpty);
+  });
+
   testWidgets('RhwpNativeEditor page ribbon creates header and footer', (
     tester,
   ) async {
