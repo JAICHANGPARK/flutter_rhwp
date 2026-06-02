@@ -20,6 +20,8 @@
   editor caret and page viewport from the `Sec`/`Para`/`Offset` fields.
 * Added Flutter-native replace-field keyboard handling so Enter applies the
   active replacement and Escape clears/blurs the replace input.
+* Covered the Flutter-native Ctrl/Cmd+O file-open shortcut path through the
+  same app callback used by the file ribbon.
 * Added Flutter-native active ClickHere field controls that call rhwp core
   active-field APIs and rerender only the current page.
 * Added Flutter-native footnote deletion from the insert ribbon using rhwp core
