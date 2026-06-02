@@ -2642,6 +2642,84 @@ void main() {
     ]);
   });
 
+  testWidgets('RhwpNativeEditor page ribbon clears header and footer text', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1)
+      ..headerFooterExists = true
+      ..footerExists = true
+      ..headerFooterText = 'Old Header';
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('쪽'));
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-clear-header-text')),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.headerFooterText, isEmpty);
+    expect(session.commands.map(jsonDecode), [
+      {'type': 'getHeaderFooter', 'section': 0, 'isHeader': true, 'applyTo': 0},
+      {
+        'type': 'deleteTextInHeaderFooter',
+        'section': 0,
+        'isHeader': true,
+        'applyTo': 0,
+        'paragraph': 0,
+        'offset': 0,
+        'count': 10,
+      },
+    ]);
+
+    session.commands.clear();
+    session.headerFooterText = 'Old Footer';
+
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-clear-footer-text')),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 2);
+    expect(session.headerFooterText, isEmpty);
+    expect(session.commands.map(jsonDecode), [
+      {
+        'type': 'getHeaderFooter',
+        'section': 0,
+        'isHeader': false,
+        'applyTo': 0,
+      },
+      {
+        'type': 'deleteTextInHeaderFooter',
+        'section': 0,
+        'isHeader': false,
+        'applyTo': 0,
+        'paragraph': 0,
+        'offset': 0,
+        'count': 10,
+      },
+    ]);
+  });
+
   testWidgets('RhwpNativeEditor page ribbon deletes header footer controls', (
     tester,
   ) async {

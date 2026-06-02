@@ -1,6 +1,8 @@
 ## 2026.5.24
 
 * Updated plugin release metadata for the `2026.5.24` release.
+* Added Flutter-native page-ribbon controls for clearing existing header and
+  footer text through `deleteTextInHeaderFooter`.
 * Added Flutter-native selected object HTML clipboard fallback by exporting the
   selected control through `exportControlHtml` during copy and using `pasteHtml`
   when the native object clipboard is unavailable.

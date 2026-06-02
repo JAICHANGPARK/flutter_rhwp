@@ -5355,6 +5355,45 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
   }
 
+  Future<void> _clearHeaderFooterText({required bool isHeader}) async {
+    if (_busy) {
+      return;
+    }
+
+    final section = _parseNonNegative(_sectionController.text);
+    late final RhwpHeaderFooterInfo info;
+    try {
+      info = await widget.document.headerFooter(
+        section: section,
+        isHeader: isHeader,
+      );
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+      return;
+    }
+
+    final count = info.text?.runes.length ?? 0;
+    if (!mounted || !info.exists || count <= 0) {
+      return;
+    }
+
+    await _runEdit(() async {
+      await widget.document.deleteTextInHeaderFooter(
+        section: section,
+        isHeader: isHeader,
+        applyTo: info.applyTo ?? 0,
+        paragraph: 0,
+        offset: 0,
+        count: count,
+      );
+      _controller.cursor = _controller.cursor.copyWith(section: section);
+    });
+  }
+
   Future<void> _showHeaderFooterManagerDialog() async {
     if (_busy) {
       return;
@@ -13100,6 +13139,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onInsertHeaderText: () => _showHeaderFooterTextDialog(isHeader: true),
           onInsertFooterText: () =>
               _showHeaderFooterTextDialog(isHeader: false),
+          onClearHeaderText: () => _clearHeaderFooterText(isHeader: true),
+          onClearFooterText: () => _clearHeaderFooterText(isHeader: false),
           onPreviousPage: () => unawaited(_controller.previousPage()),
           onNextPage: () => unawaited(_controller.nextPage()),
           onGoToPage: _showGoToPageDialog,
@@ -15748,6 +15789,8 @@ class _EditorToolbar extends StatefulWidget {
     required this.onCreateFooter,
     required this.onInsertHeaderText,
     required this.onInsertFooterText,
+    required this.onClearHeaderText,
+    required this.onClearFooterText,
     required this.onPreviousPage,
     required this.onNextPage,
     required this.onGoToPage,
@@ -15888,6 +15931,8 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onCreateFooter;
   final VoidCallback onInsertHeaderText;
   final VoidCallback onInsertFooterText;
+  final VoidCallback onClearHeaderText;
+  final VoidCallback onClearFooterText;
   final VoidCallback onPreviousPage;
   final VoidCallback onNextPage;
   final VoidCallback onGoToPage;
@@ -16807,6 +16852,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               onPressed: widget.busy ? null : widget.onInsertHeaderText,
             ),
             _ToolbarIconButton(
+              tooltip: 'Clear header text',
+              buttonKey: const ValueKey('rhwp-editor-clear-header-text'),
+              icon: Icons.text_fields,
+              onPressed: widget.busy ? null : widget.onClearHeaderText,
+            ),
+            _ToolbarIconButton(
               tooltip: 'Footer',
               buttonKey: const ValueKey('rhwp-editor-create-footer'),
               icon: Icons.vertical_align_bottom,
@@ -16817,6 +16868,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               buttonKey: const ValueKey('rhwp-editor-insert-footer-text'),
               icon: Icons.text_decrease,
               onPressed: widget.busy ? null : widget.onInsertFooterText,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Clear footer text',
+              buttonKey: const ValueKey('rhwp-editor-clear-footer-text'),
+              icon: Icons.text_format,
+              onPressed: widget.busy ? null : widget.onClearFooterText,
             ),
           ],
         ),
