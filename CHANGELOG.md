@@ -8,6 +8,8 @@
 * Added Flutter-native ruler marker dragging for paragraph left margin,
   first-line indent, and right margin through the native paragraph-format
   command path.
+* Added a Flutter-native ruler double-click path for opening the paragraph
+  shape dialog from the native editor chrome.
 * Added Flutter-native active ClickHere field controls that call rhwp core
   active-field APIs and rerender only the current page.
 * Added Flutter-native footnote deletion from the insert ribbon using rhwp core

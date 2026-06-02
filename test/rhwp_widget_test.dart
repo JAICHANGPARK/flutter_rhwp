@@ -2917,6 +2917,118 @@ void main() {
     expect(changedCalls, 3);
   });
 
+  testWidgets('RhwpNativeEditor ruler opens paragraph shape dialog', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1)
+      ..paraPropertiesJson =
+          '{"alignment":"center","lineSpacing":180.0,"lineSpacingType":"Fixed","marginLeft":300.0,"marginRight":400.0,"indent":120.0,"spacingBefore":50.0,"spacingAfter":60.0,"paraShapeId":2}';
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('보기'));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-toggle-ruler')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-toggle-ruler')));
+    await tester.pump();
+
+    final rulerFinder = find.byKey(const ValueKey('rhwp-editor-ruler'));
+    final rulerTopLeft = tester.getTopLeft(rulerFinder);
+    await tester.tapAt(rulerTopLeft + const Offset(260, 14));
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tapAt(rulerTopLeft + const Offset(260, 14));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(session.commands, isEmpty);
+    expect(
+      tester
+          .widget<DropdownButtonFormField<String>>(
+            find.byKey(const ValueKey('rhwp-para-shape-alignment-field')),
+          )
+          .initialValue,
+      'center',
+    );
+    expect(
+      tester
+          .widget<DropdownButtonFormField<String>>(
+            find.byKey(
+              const ValueKey('rhwp-para-shape-line-spacing-type-field'),
+            ),
+          )
+          .initialValue,
+      'Fixed',
+    );
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('rhwp-para-shape-line-spacing-field')),
+          )
+          .controller
+          ?.text,
+      '180',
+    );
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('rhwp-para-shape-indent-field')),
+          )
+          .controller
+          ?.text,
+      '120',
+    );
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('rhwp-para-shape-margin-left-field')),
+          )
+          .controller
+          ?.text,
+      '300',
+    );
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('rhwp-para-shape-margin-right-field')),
+          )
+          .controller
+          ?.text,
+      '400',
+    );
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('rhwp-para-shape-spacing-before-field')),
+          )
+          .controller
+          ?.text,
+      '50',
+    );
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('rhwp-para-shape-spacing-after-field')),
+          )
+          .controller
+          ?.text,
+      '60',
+    );
+  });
+
   testWidgets('RhwpNativeEditor page ribbon creates header and footer', (
     tester,
   ) async {

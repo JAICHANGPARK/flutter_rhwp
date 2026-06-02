@@ -13535,6 +13535,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
                 _applyRulerParagraphFormat(indent: value),
             onRightMarginChanged: (value) =>
                 _applyRulerParagraphFormat(marginRight: value),
+            onParagraphShapeRequested: () =>
+                _runFocusedEditorAction(_showParaShapeDialog),
           ),
         Expanded(
           child: Listener(
@@ -21893,6 +21895,7 @@ class _EditorRuler extends StatefulWidget {
     required this.onLeftMarginChanged,
     required this.onFirstLineIndentChanged,
     required this.onRightMarginChanged,
+    required this.onParagraphShapeRequested,
   });
 
   final double zoom;
@@ -21901,6 +21904,7 @@ class _EditorRuler extends StatefulWidget {
   final ValueChanged<int> onLeftMarginChanged;
   final ValueChanged<int> onFirstLineIndentChanged;
   final ValueChanged<int> onRightMarginChanged;
+  final VoidCallback onParagraphShapeRequested;
 
   @override
   State<_EditorRuler> createState() => _EditorRulerState();
@@ -21938,72 +21942,80 @@ class _EditorRulerState extends State<_EditorRuler> {
                 markerPositions,
                 constraints.maxWidth,
               );
-              return Stack(
-                children: [
-                  CustomPaint(
-                    size: Size.infinite,
-                    painter: _EditorRulerPainter(
-                      zoom: widget.zoom,
-                      tickColor: colorScheme.outline,
-                      majorTickColor: colorScheme.onSurfaceVariant,
-                      textColor: colorScheme.onSurfaceVariant,
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onDoubleTap: widget.enabled
+                    ? widget.onParagraphShapeRequested
+                    : null,
+                child: Stack(
+                  children: [
+                    CustomPaint(
+                      size: Size.infinite,
+                      painter: _EditorRulerPainter(
+                        zoom: widget.zoom,
+                        tickColor: colorScheme.outline,
+                        majorTickColor: colorScheme.onSurfaceVariant,
+                        textColor: colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                  _EditorRulerMarker(
-                    key: const ValueKey('rhwp-editor-ruler-left-margin'),
-                    tooltip: 'Left margin',
-                    left: previewPositions.leftMargin,
-                    top: 1,
-                    enabled: widget.enabled,
-                    color: colorScheme.primary,
-                    direction: _EditorRulerMarkerDirection.down,
-                    onDragStart: () => _startDrag(
-                      _EditorRulerMetric.leftMargin,
-                      previewPositions.leftMargin,
+                    _EditorRulerMarker(
+                      key: const ValueKey('rhwp-editor-ruler-left-margin'),
+                      tooltip: 'Left margin',
+                      left: previewPositions.leftMargin,
+                      top: 1,
+                      enabled: widget.enabled,
+                      color: colorScheme.primary,
+                      direction: _EditorRulerMarkerDirection.down,
+                      onDragStart: () => _startDrag(
+                        _EditorRulerMetric.leftMargin,
+                        previewPositions.leftMargin,
+                      ),
+                      onDragUpdate: (delta) =>
+                          _updateDrag(delta, constraints.maxWidth),
+                      onDragEnd: () =>
+                          _endDrag(markerPositions, constraints.maxWidth),
+                      onDragCancel: _cancelDrag,
                     ),
-                    onDragUpdate: (delta) =>
-                        _updateDrag(delta, constraints.maxWidth),
-                    onDragEnd: () =>
-                        _endDrag(markerPositions, constraints.maxWidth),
-                    onDragCancel: _cancelDrag,
-                  ),
-                  _EditorRulerMarker(
-                    key: const ValueKey('rhwp-editor-ruler-first-line-indent'),
-                    tooltip: 'First-line indent',
-                    left: previewPositions.firstLineIndent,
-                    top: 13,
-                    enabled: widget.enabled,
-                    color: colorScheme.tertiary,
-                    direction: _EditorRulerMarkerDirection.up,
-                    onDragStart: () => _startDrag(
-                      _EditorRulerMetric.firstLineIndent,
-                      previewPositions.firstLineIndent,
+                    _EditorRulerMarker(
+                      key: const ValueKey(
+                        'rhwp-editor-ruler-first-line-indent',
+                      ),
+                      tooltip: 'First-line indent',
+                      left: previewPositions.firstLineIndent,
+                      top: 13,
+                      enabled: widget.enabled,
+                      color: colorScheme.tertiary,
+                      direction: _EditorRulerMarkerDirection.up,
+                      onDragStart: () => _startDrag(
+                        _EditorRulerMetric.firstLineIndent,
+                        previewPositions.firstLineIndent,
+                      ),
+                      onDragUpdate: (delta) =>
+                          _updateDrag(delta, constraints.maxWidth),
+                      onDragEnd: () =>
+                          _endDrag(markerPositions, constraints.maxWidth),
+                      onDragCancel: _cancelDrag,
                     ),
-                    onDragUpdate: (delta) =>
-                        _updateDrag(delta, constraints.maxWidth),
-                    onDragEnd: () =>
-                        _endDrag(markerPositions, constraints.maxWidth),
-                    onDragCancel: _cancelDrag,
-                  ),
-                  _EditorRulerMarker(
-                    key: const ValueKey('rhwp-editor-ruler-right-margin'),
-                    tooltip: 'Right margin',
-                    left: previewPositions.rightMargin,
-                    top: 1,
-                    enabled: widget.enabled,
-                    color: colorScheme.primary,
-                    direction: _EditorRulerMarkerDirection.down,
-                    onDragStart: () => _startDrag(
-                      _EditorRulerMetric.rightMargin,
-                      previewPositions.rightMargin,
+                    _EditorRulerMarker(
+                      key: const ValueKey('rhwp-editor-ruler-right-margin'),
+                      tooltip: 'Right margin',
+                      left: previewPositions.rightMargin,
+                      top: 1,
+                      enabled: widget.enabled,
+                      color: colorScheme.primary,
+                      direction: _EditorRulerMarkerDirection.down,
+                      onDragStart: () => _startDrag(
+                        _EditorRulerMetric.rightMargin,
+                        previewPositions.rightMargin,
+                      ),
+                      onDragUpdate: (delta) =>
+                          _updateDrag(delta, constraints.maxWidth),
+                      onDragEnd: () =>
+                          _endDrag(markerPositions, constraints.maxWidth),
+                      onDragCancel: _cancelDrag,
                     ),
-                    onDragUpdate: (delta) =>
-                        _updateDrag(delta, constraints.maxWidth),
-                    onDragEnd: () =>
-                        _endDrag(markerPositions, constraints.maxWidth),
-                    onDragCancel: _cancelDrag,
-                  ),
-                ],
+                  ],
+                ),
               );
             },
           ),
