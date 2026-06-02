@@ -17331,11 +17331,9 @@ void main() {
       find.byKey(const ValueKey('rhwp-editor-replace-field')),
       'ABCD',
     );
-    await tester.ensureVisible(
-      find.byKey(const ValueKey('rhwp-editor-replace-all')),
-    );
-    await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('rhwp-editor-replace-all')));
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
     await _pumpDocumentFrame(tester);
 
     expect(changedCalls, 1);

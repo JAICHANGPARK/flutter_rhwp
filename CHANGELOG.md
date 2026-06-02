@@ -35,6 +35,8 @@
 * Kept Flutter-native replace-field focus after Enter replaces a match when
   another search match remains, allowing repeated replacements without
   refocusing the field.
+* Added a Flutter-native replace-field Ctrl/Cmd+Enter shortcut for Replace all,
+  reusing the same command path as the tools-ribbon button.
 * Added Flutter-native active ClickHere field controls that call rhwp core
   active-field APIs and rerender only the current page.
 * Added Flutter-native footnote deletion from the insert ribbon using rhwp core

@@ -17862,7 +17862,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
       case LogicalKeyboardKey.enter:
       case LogicalKeyboardKey.numpadEnter:
         _replaceKeySubmitHandled = true;
-        _submitReplaceField();
+        if (HardwareKeyboard.instance.isControlPressed ||
+            HardwareKeyboard.instance.isMetaPressed) {
+          _submitReplaceAllField();
+        } else {
+          _submitReplaceField();
+        }
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) {
             return;
@@ -17881,6 +17886,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
   void _submitReplaceField() {
     if (!widget.busy && widget.searchMatchCount > 0) {
       widget.onReplace();
+    }
+  }
+
+  void _submitReplaceAllField() {
+    if (!widget.busy && widget.searchMatchCount > 0) {
+      widget.onReplaceAll();
     }
   }
 
