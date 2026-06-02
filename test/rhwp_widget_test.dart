@@ -10778,6 +10778,110 @@ void main() {
   );
 
   testWidgets(
+    'RhwpNativeEditor context menu edits table cell field properties',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 2200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      controller.tableCellSelection = const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+        activeCellParagraph: 0,
+        activeOffset: 2,
+        isTextEditing: true,
+      );
+      await tester.pump();
+
+      final pageFinder = find.byType(SvgPicture);
+      final pageTopLeft = tester.getTopLeft(pageFinder);
+      final pageSize = tester.getSize(pageFinder);
+      final cellTextPoint =
+          pageTopLeft +
+          Offset(pageSize.width * 118 / 240, pageSize.height * 76 / 180);
+
+      await tester.tapAt(cellTextPoint, buttons: kSecondaryMouseButton);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('누름틀 속성'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-field-props-guide-field')),
+        '셀 안내',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-field-props-memo-field')),
+        '셀 메모',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-field-props-name-field')),
+        'cell_field',
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('rhwp-field-props-editable-field')),
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('rhwp-field-props-update')));
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+      expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+        'saveSnapshot',
+      ]);
+      expect(session.commands.map(jsonDecode).toList(), [
+        {
+          'type': 'getFieldInfoAtInTableCell',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 0,
+          'offset': 2,
+          'isTextBox': false,
+        },
+        {'type': 'getClickHereProperties', 'fieldId': 7},
+        {
+          'type': 'updateClickHereProperties',
+          'fieldId': 7,
+          'guide': '셀 안내',
+          'memo': '셀 메모',
+          'name': 'cell_field',
+          'editable': false,
+        },
+      ]);
+    },
+  );
+
+  testWidgets(
     'RhwpNativeEditor context menu character shape sets pending table format',
     (tester) async {
       final controller = RhwpEditorController();

@@ -1,6 +1,8 @@
 ## 2026.5.24
 
 * Updated plugin release metadata for the `2026.5.24` release.
+* Covered Flutter-native table-cell context-menu ClickHere field property
+  editing through the table-cell field inspection command path.
 * Added Flutter-native body and table-cell context-menu field actions for
   opening the field list, editing click-here field properties, and removing the
   field at the current cursor.
