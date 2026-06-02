@@ -438,6 +438,7 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   footnote, equation, and bookmark insertion from the input ribbon and body
   context menu, footnote/equation/bookmark insertion with
   Ctrl/Cmd+Alt+F/E/B shortcuts,
+  table insertion with Ctrl/Cmd+Alt+T shortcut,
   bookmark list/add/delete/rename/go-to navigation through the input ribbon,
   page/column break insertion, plus table
   row above/below insertion and row deletion, column left/right insertion and

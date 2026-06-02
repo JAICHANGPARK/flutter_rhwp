@@ -1,6 +1,8 @@
 ## 2026.5.24
 
 * Updated plugin release metadata for the `2026.5.24` release.
+* Added a Flutter-native Ctrl/Cmd+Alt+T shortcut for inserting the current
+  table preset through the same native command path as the input ribbon.
 * Added a Flutter-native Ctrl/Cmd+Alt+B shortcut for opening the bookmark
   dialog through the same native command path as the input ribbon.
 * Added a Flutter-native Ctrl/Cmd+Alt+E shortcut for opening the equation
