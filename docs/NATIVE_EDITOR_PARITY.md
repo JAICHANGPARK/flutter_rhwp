@@ -116,7 +116,7 @@
 | Upstream 메뉴 | Flutter-native 상태 | 현재 연결 |
 | --- | --- | --- |
 | 표 만들기 | 완료 | insert table |
-| 표/셀 속성 | 완료 | table/cell properties dialogs, 표 캡션 설정 |
+| 표/셀 속성 | 완료 | table/cell properties dialogs, 표 캡션 생성/설정/삭제 |
 | 셀 테두리/배경 | 부분 | fill/border quick controls. full border matrix 필요 |
 | 위/아래 줄 추가, 왼쪽/오른쪽 칸 추가 | 완료 | row/column insertion |
 | 줄/칸 지우기 | 완료 | row/column deletion |

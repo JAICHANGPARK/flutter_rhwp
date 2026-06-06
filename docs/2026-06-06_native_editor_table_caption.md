@@ -3,7 +3,7 @@
 ## 작업한 내용
 
 - `RhwpTableProperties`가 `hasCaption`, `captionDirection`, `captionVertAlign`, `captionWidth`, `captionSpacing` 값을 파싱하도록 확장했다.
-- `RhwpCommand.setTableProperties`와 `RhwpDocument.setTableProperties()`에 표 캡션 설정 파라미터를 추가했다.
+- `RhwpCommand.setTableProperties`와 `RhwpDocument.setTableProperties()`에 표 캡션 생성/설정 파라미터를 추가했다.
 - Flutter-native 표 속성 다이얼로그에 Caption 토글, 캡션 방향, 세로 정렬, 폭, 간격 입력을 추가했다.
 - table properties widget test에서 표 캡션 생성 payload를 검증하도록 확장했다.
 - API spec, parity matrix, TODO, CHANGELOG에 표 캡션 지원 범위와 남은 그림/개체 캡션 범위를 반영했다.

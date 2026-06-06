@@ -5334,6 +5334,96 @@ void main() {
     ]);
   });
 
+  testWidgets('RhwpNativeEditor table properties can remove captions', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session
+      ..pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson())
+      ..tablePropertiesJson =
+          '{"cellSpacing":10,"paddingLeft":100,"paddingRight":110,"paddingTop":120,"paddingBottom":130,"pageBreak":1,"repeatHeader":false,"hasCaption":true,"captionDirection":3,"captionVertAlign":0,"captionWidth":8504,"captionSpacing":850}';
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    await tester.tapAt(
+      pageTopLeft +
+          Offset(pageSize.width * 100 / 240, pageSize.height * 60 / 180),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('표'));
+    await tester.pump();
+    final propertiesButton = find.byKey(
+      const ValueKey('rhwp-editor-table-properties'),
+    );
+    await tester.ensureVisible(propertiesButton);
+    await tester.tap(propertiesButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('표 속성'), findsOneWidget);
+    final captionSwitch = find.byKey(
+      const ValueKey('rhwp-table-has-caption-field'),
+    );
+    await tester.ensureVisible(captionSwitch);
+    await tester.tap(captionSwitch);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-table-properties-apply')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+    ]);
+    expect(session.commands.map(jsonDecode), [
+      {
+        'type': 'getTableProperties',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+      },
+      {
+        'type': 'setTableProperties',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'properties': {
+          'cellSpacing': 10,
+          'paddingLeft': 100,
+          'paddingRight': 110,
+          'paddingTop': 120,
+          'paddingBottom': 130,
+          'pageBreak': 1,
+          'repeatHeader': false,
+          'hasCaption': false,
+          'captionDirection': 3,
+          'captionVertAlign': 0,
+          'captionWidth': 8504,
+          'captionSpacing': 850,
+        },
+      },
+    ]);
+  });
+
   testWidgets(
     'RhwpNativeEditor edits selected cell properties from table ribbon',
     (tester) async {
@@ -22758,6 +22848,8 @@ class _FakeRhwpSession implements rust.RhwpSession {
       '{"pageNum":1,"pageNumType":0,"pictureNum":1,"tableNum":1,"equationNum":1,"columnSpacing":283,"defaultTabSpacing":8000,"hideHeader":false,"hideFooter":false,"hideMasterPage":false,"hideBorder":false,"hideFill":false,"hideEmptyLine":false}';
   String pageBorderFillJson =
       '{"attr":0,"spacingLeft":283,"spacingRight":283,"spacingTop":566,"spacingBottom":566,"borderFillId":2,"borderLeft":{"type":1,"width":1,"color":"#000000"},"borderRight":{"type":1,"width":1,"color":"#000000"},"borderTop":{"type":1,"width":1,"color":"#000000"},"borderBottom":{"type":1,"width":1,"color":"#000000"},"fillType":"none","fillColor":"#ffffff","patternColor":"#000000","patternType":0}';
+  String tablePropertiesJson =
+      '{"cellSpacing":10,"paddingLeft":100,"paddingRight":110,"paddingTop":120,"paddingBottom":130,"pageBreak":1,"repeatHeader":false,"hasCaption":false,"captionDirection":3,"captionVertAlign":0,"captionWidth":8504,"captionSpacing":850}';
   String shapeObjectPropertiesJson =
       '{"width":60,"height":50,"horzOffset":120,"vertOffset":60}';
   String pictureObjectPropertiesJson =
@@ -22951,7 +23043,7 @@ class _FakeRhwpSession implements rust.RhwpSession {
       return shapeObjectPropertiesJson;
     }
     if (command is Map && command['type'] == 'getTableProperties') {
-      return '{"cellSpacing":10,"paddingLeft":100,"paddingRight":110,"paddingTop":120,"paddingBottom":130,"pageBreak":1,"repeatHeader":false,"hasCaption":false,"captionDirection":3,"captionVertAlign":0,"captionWidth":8504,"captionSpacing":850}';
+      return tablePropertiesJson;
     }
     if (command is Map && command['type'] == 'getCellProperties') {
       final cellIndex = command['cellIndex'];

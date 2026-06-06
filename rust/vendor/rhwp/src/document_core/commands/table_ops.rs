@@ -980,6 +980,7 @@ impl DocumentCore {
 
         // 캡션 생성/수정
         let mut caption_created = false;
+        let mut caption_removed = false;
         if let Some(has_cap) = json_bool(json, "hasCaption") {
             if has_cap && table.caption.is_none() {
                 let mut cap = crate::model::shape::Caption::default();
@@ -1008,6 +1009,11 @@ impl DocumentCore {
                     .push(crate::model::control::Control::AutoNumber(an));
                 // attr bit 29: 캡션 존재 플래그 (한컴 호환성)
                 table.attr |= 1 << 29;
+            } else if !has_cap && table.caption.is_some() {
+                table.caption = None;
+                // attr bit 29: 캡션 존재 플래그 (한컴 호환성)
+                table.attr &= !(1 << 29);
+                caption_removed = true;
             }
         }
         // 캡션 속성 수정
@@ -1039,7 +1045,7 @@ impl DocumentCore {
                 caption_changed = true;
             }
         }
-        if caption_changed || caption_created {
+        if caption_changed || caption_created || caption_removed {
             table.dirty = true;
         }
 

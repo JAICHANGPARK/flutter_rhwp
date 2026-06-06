@@ -21,6 +21,8 @@ documents.
 - Evaluate table formulas from the Flutter-native table ribbon or the Dart API.
 - Format selected table-cell numbers with thousands separators and decimal
   place increase/decrease actions.
+- Create, configure, and remove table captions from the Flutter-native table
+  properties dialog or Dart table-properties API.
 - Create, configure, and remove picture captions from the Flutter-native object
   properties dialog or Dart object-properties API.
 - Rotate and flip selected shape/picture objects from the Flutter-native object

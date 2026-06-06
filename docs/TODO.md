@@ -41,6 +41,7 @@
 - [x] Flutter-native 표 리본에 선택 숫자 셀 1,000 단위 구분과 소수 자릿수 증감 기능을 추가한다.
 - [x] Flutter-native 개체 속성 dialog에 그림 캡션 생성/설정/삭제 기능을 추가한다.
 - [x] Flutter-native 개체 속성 dialog에 선택 개체 회전/좌우 대칭/상하 대칭 기능을 추가한다.
+- [x] Flutter-native 표 속성 dialog의 캡션 해제 동작을 rhwp core의 표 캡션 삭제로 연결한다.
 
 ## 다음 우선순위
 
