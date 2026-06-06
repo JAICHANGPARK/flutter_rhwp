@@ -31,6 +31,8 @@
   name metadata and covered the flow with an example widget test.
 * Updated Flutter-native editor clipboard ribbon state so Cut and Copy are
   enabled only when text, table cell, or object selection exists.
+* Updated Flutter-native editor Paste ribbon state so it is enabled only when
+  system clipboard text or internal rich/object clipboard data is available.
 * Added a Flutter-native editor parity matrix against the upstream Web editor
   menu and classified implemented, partial, and missing command areas.
 * Added Flutter-native format-copy controls that copy the current character and
@@ -42,6 +44,16 @@
   backed by rhwp core `resizeTableCells` deltas.
 * Added Flutter-native table formula preset buttons for selected-cell SUM,
   AVG, and PRODUCT calculations.
+* Added rhwp core `getColumnDef`/`setColumnDef` command APIs and
+  Flutter-native Page-ribbon 1/2/3-column layout presets.
+* Added a Flutter-native multi-column settings dialog for column count, type,
+  same-width mode, and spacing.
+* Added rhwp core `getSectionDef`/`setSectionDef` command APIs and a
+  Flutter-native section settings dialog for counters, tab spacing, and section
+  hide flags.
+* Added rhwp core `getPageBorderFill`/`setPageBorderFill` command APIs and a
+  Flutter-native Page-ribbon dialog for page border spacing, border line, and
+  solid background fill.
 
 ## 2026-06-02 (2026.6.2)
 

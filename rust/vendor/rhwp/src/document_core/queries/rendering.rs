@@ -23,6 +23,16 @@ use crate::document_core::DocumentCore;
 use crate::error::HwpError;
 use super::super::helpers::color_ref_to_css;
 
+fn default_page_border_lines_json() -> String {
+    concat!(
+        "\"borderLeft\":{\"type\":0,\"width\":0,\"color\":\"#000000\"},",
+        "\"borderRight\":{\"type\":0,\"width\":0,\"color\":\"#000000\"},",
+        "\"borderTop\":{\"type\":0,\"width\":0,\"color\":\"#000000\"},",
+        "\"borderBottom\":{\"type\":0,\"width\":0,\"color\":\"#000000\"}"
+    )
+    .to_string()
+}
+
 impl DocumentCore {
     /// 페이지 렌더 트리를 생성하여 반환한다 (native bridge / 외부 렌더러용).
     pub fn build_page_render_tree(&self, page_num: u32) -> Result<PageRenderTree, HwpError> {
@@ -730,6 +740,115 @@ impl DocumentCore {
             pd.margin_left, pd.margin_right, pd.margin_top, pd.margin_bottom,
             pd.margin_header, pd.margin_footer, pd.margin_gutter,
             pd.landscape, binding,
+        ))
+    }
+
+    /// 구역의 쪽 테두리/배경(PageBorderFill)을 반환한다.
+    pub fn get_page_border_fill_native(&self, section_idx: usize) -> Result<String, HwpError> {
+        use super::super::helpers::{border_line_type_to_u8_val, color_ref_to_css};
+        use crate::model::style::FillType;
+
+        let section = self.document.sections.get(section_idx)
+            .ok_or_else(|| HwpError::RenderError(format!("구역 {} 범위 초과", section_idx)))?;
+        let pbf = &section.section_def.page_border_fill;
+        let (border_json, fill_type, fill_color, pattern_color, pattern_type) =
+            if pbf.border_fill_id > 0 {
+                match self.document.doc_info.border_fills.get((pbf.border_fill_id - 1) as usize) {
+                    Some(bf) => {
+                        let dir_names = ["Left", "Right", "Top", "Bottom"];
+                        let borders_json: Vec<String> = bf.borders.iter().enumerate()
+                            .map(|(index, border)| {
+                                format!(
+                                    "\"border{}\":{{\"type\":{},\"width\":{},\"color\":\"{}\"}}",
+                                    dir_names[index],
+                                    border_line_type_to_u8_val(border.line_type),
+                                    border.width,
+                                    color_ref_to_css(border.color),
+                                )
+                            })
+                            .collect();
+                        let fill = match &bf.fill.solid {
+                            Some(solid) if bf.fill.fill_type == FillType::Solid => (
+                                "solid",
+                                color_ref_to_css(solid.background_color),
+                                color_ref_to_css(solid.pattern_color),
+                                solid.pattern_type,
+                            ),
+                            _ => ("none", "#ffffff".to_string(), "#000000".to_string(), 0),
+                        };
+                        (borders_json.join(","), fill.0, fill.1, fill.2, fill.3)
+                    }
+                    None => (
+                        default_page_border_lines_json(),
+                        "none",
+                        "#ffffff".to_string(),
+                        "#000000".to_string(),
+                        0,
+                    ),
+                }
+            } else {
+                (
+                    default_page_border_lines_json(),
+                    "none",
+                    "#ffffff".to_string(),
+                    "#000000".to_string(),
+                    0,
+                )
+            };
+
+        Ok(format!(
+            "{{\"attr\":{},\"spacingLeft\":{},\"spacingRight\":{},\"spacingTop\":{},\"spacingBottom\":{},\
+            \"borderFillId\":{},{},\"fillType\":\"{}\",\"fillColor\":\"{}\",\"patternColor\":\"{}\",\"patternType\":{}}}",
+            pbf.attr,
+            pbf.spacing_left,
+            pbf.spacing_right,
+            pbf.spacing_top,
+            pbf.spacing_bottom,
+            pbf.border_fill_id,
+            border_json,
+            fill_type,
+            fill_color,
+            pattern_color,
+            pattern_type,
+        ))
+    }
+
+    /// 구역의 쪽 테두리/배경(PageBorderFill)을 변경하고 재페이지네이션한다.
+    pub fn set_page_border_fill_native(&mut self, section_idx: usize, json: &str) -> Result<String, HwpError> {
+        use super::super::helpers::{json_i32, json_u16, json_u32};
+
+        let border_fill_id = self.create_border_fill_from_json(json);
+        let section = self.document.sections.get_mut(section_idx)
+            .ok_or_else(|| HwpError::RenderError(format!("구역 {} 범위 초과", section_idx)))?;
+        let pbf = &mut section.section_def.page_border_fill;
+
+        if let Some(v) = json_u32(json, "attr") { pbf.attr = v; }
+        if let Some(v) = json_i32(json, "spacingLeft") { pbf.spacing_left = v as i16; }
+        if let Some(v) = json_i32(json, "spacingRight") { pbf.spacing_right = v as i16; }
+        if let Some(v) = json_i32(json, "spacingTop") { pbf.spacing_top = v as i16; }
+        if let Some(v) = json_i32(json, "spacingBottom") { pbf.spacing_bottom = v as i16; }
+        if let Some(v) = json_u16(json, "borderFillId") {
+            pbf.border_fill_id = v;
+        } else {
+            pbf.border_fill_id = border_fill_id;
+        }
+
+        let updated_page_border_fill = section.section_def.page_border_fill.clone();
+        if let Some(para) = section.paragraphs.get_mut(0) {
+            for ctrl in &mut para.controls {
+                if let Control::SectionDef(ref mut sd) = ctrl {
+                    sd.page_border_fill = updated_page_border_fill;
+                    break;
+                }
+            }
+        }
+
+        section.raw_stream = None;
+        let page_count = self.recompose_and_paginate();
+        Ok(format!(
+            "{{\"ok\":true,\"pageCount\":{},\"borderFillId\":{}}}",
+            page_count,
+            self.document.sections[section_idx].section_def.page_border_fill.border_fill_id,
         ))
     }
 

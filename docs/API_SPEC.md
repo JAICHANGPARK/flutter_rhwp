@@ -220,7 +220,7 @@ Web/WASM에서 일부 export, 특히 PDF는 플랫폼 제약으로 `RhwpUnsuppor
 | Set object properties | `document.setObjectProperties(...)` |
 | Move line endpoint | `document.moveLineEndpoint(...)` |
 
-`RhwpNativeEditor` 기본 리본은 body selection, table-cell selection, object selection이 있을 때만 Cut/Copy를 활성화한다. Paste는 현재 시스템 clipboard와 내부 rich/object clipboard 상태를 읽어 실행한다.
+`RhwpNativeEditor` 기본 리본은 body selection, table-cell selection, object selection이 있을 때만 Cut/Copy를 활성화한다. Paste 버튼은 시스템 clipboard에 문자열이 있거나 같은 editor session에서 만든 내부 rich/object clipboard가 있을 때 활성화되며, 실행 시 `insertText(...)`, `pasteHtml(...)`, `pasteHtmlInCell(...)`, `pasteObjectControl(...)` 중 현재 selection에 맞는 경로를 사용한다.
 
 `Copy format`은 현재 cursor 또는 table-cell editing 위치의 character/paragraph properties를 snapshot으로 저장한다. `Apply copied format`은 저장된 character shape와 paragraph shape를 현재 body selection 또는 table-cell selection에 적용한다.
 
@@ -230,13 +230,32 @@ Web/WASM에서 일부 export, 특히 PDF는 플랫폼 제약으로 `RhwpUnsuppor
 | --- | --- |
 | Page break | `document.insertPageBreak(...)` |
 | Column break | `document.insertColumnBreak(...)` |
+| Multi-column section presets/settings | `document.columnDef(...)`, `document.setColumnDef(...)` |
 | New page number | `document.insertNewNumber(...)` |
+| Section settings | `document.sectionDef(...)`, `document.setSectionDef(...)` |
 | Page setup read/write | `document.pageSetup(...)`, `setPageSetup(...)` |
+| Page border/background | `document.pageBorderFill(...)`, `setPageBorderFill(...)` |
 | Page hide read/write | `document.pageHide(...)`, `setPageHide(...)` |
 | Create header/footer | `document.createHeader(...)`, `createFooter(...)` |
 | Header/footer info/list | `document.headerFooter(...)`, `headerFooterList(...)` |
 | Delete header/footer | `document.deleteHeaderFooter(...)` |
 | Header/footer text | `document.insertTextInHeaderFooter(...)`, `deleteTextInHeaderFooter(...)` |
+
+```dart
+final border = RhwpBorderLine(type: 1, width: 2, color: '#000000');
+await document.setPageBorderFill(
+  section: section,
+  spacingLeft: 283,
+  spacingRight: 283,
+  spacingTop: 566,
+  spacingBottom: 566,
+  borderLeft: border,
+  borderRight: border,
+  borderTop: border,
+  borderBottom: border,
+  fillColor: '#fef08a',
+);
+```
 
 ### References, fields, bookmarks
 

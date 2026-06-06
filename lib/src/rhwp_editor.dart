@@ -989,6 +989,76 @@ class _PageSetupDialogResult {
   final int binding;
 }
 
+class _PageBorderFillDialogResult {
+  const _PageBorderFillDialogResult({
+    required this.spacingLeft,
+    required this.spacingRight,
+    required this.spacingTop,
+    required this.spacingBottom,
+    required this.borderType,
+    required this.borderWidth,
+    required this.borderColor,
+    required this.fillColor,
+    required this.clearFill,
+  });
+
+  final int spacingLeft;
+  final int spacingRight;
+  final int spacingTop;
+  final int spacingBottom;
+  final int borderType;
+  final int borderWidth;
+  final String borderColor;
+  final String fillColor;
+  final bool clearFill;
+}
+
+class _ColumnDefDialogResult {
+  const _ColumnDefDialogResult({
+    required this.columnCount,
+    required this.columnType,
+    required this.sameWidth,
+    required this.spacing,
+  });
+
+  final int columnCount;
+  final RhwpColumnType columnType;
+  final bool sameWidth;
+  final int spacing;
+}
+
+class _SectionDefDialogResult {
+  const _SectionDefDialogResult({
+    required this.pageNumber,
+    required this.pageNumberType,
+    required this.pictureNumber,
+    required this.tableNumber,
+    required this.equationNumber,
+    required this.columnSpacing,
+    required this.defaultTabSpacing,
+    required this.hideHeader,
+    required this.hideFooter,
+    required this.hideMasterPage,
+    required this.hideBorder,
+    required this.hideFill,
+    required this.hideEmptyLine,
+  });
+
+  final int pageNumber;
+  final int pageNumberType;
+  final int pictureNumber;
+  final int tableNumber;
+  final int equationNumber;
+  final int columnSpacing;
+  final int defaultTabSpacing;
+  final bool hideHeader;
+  final bool hideFooter;
+  final bool hideMasterPage;
+  final bool hideBorder;
+  final bool hideFill;
+  final bool hideEmptyLine;
+}
+
 class _PageHideDialogResult {
   const _PageHideDialogResult({
     required this.hideHeader,
@@ -1819,6 +1889,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   _EditorClipboardDomain? _clipboardDomain;
   String? _clipboardHtml;
   String? _clipboardHtmlText;
+  bool _systemClipboardHasStrings = false;
+  int _clipboardAvailabilityRevision = 0;
   final _undoSnapshots = <int>[];
   final _redoSnapshots = <int>[];
   bool _busy = false;
@@ -1865,6 +1937,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     unawaited(_convertToEditableIfNeeded());
     unawaited(_syncCurrentCharFormat());
     unawaited(_syncCurrentParaFormat());
+    unawaited(_refreshPasteAvailability());
     _loadPageCount();
   }
 
@@ -2134,6 +2207,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
   void _handleFocusChanged() {
     if (_focusNode.hasFocus) {
+      unawaited(_refreshPasteAvailability());
       _cancelExternalFocusRefreshRelease();
       _textInputFocusReleaseTimer?.cancel();
       _textInputFocusReleaseTimer = null;
@@ -3260,7 +3334,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       if (selectedText.isEmpty) {
         return;
       }
-      await Clipboard.setData(ClipboardData(text: selectedText));
+      await _setPlainTextClipboard(selectedText);
       await _rememberEditingTableCellHtmlClipboard(
         tableSelection,
         selectedText,
@@ -3270,7 +3344,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
     final tableText = await _selectedTableCellText();
     if (tableText != null && tableText.isNotEmpty) {
-      await Clipboard.setData(ClipboardData(text: tableText));
+      await _setPlainTextClipboard(tableText);
       await _rememberTableSelectionHtmlClipboard(tableText);
       return;
     }
@@ -3279,7 +3353,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     if (text == null || text.isEmpty) {
       return;
     }
-    await Clipboard.setData(ClipboardData(text: text));
+    await _setPlainTextClipboard(text);
     await _rememberBodySelectionHtmlClipboard(text);
   }
 
@@ -3302,7 +3376,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       if (selectedText.isEmpty) {
         return;
       }
-      await Clipboard.setData(ClipboardData(text: selectedText));
+      await _setPlainTextClipboard(selectedText);
       await _rememberEditingTableCellHtmlClipboard(current, selectedText);
       final deletedTextOverlays = await _pendingTableCellDeletionOverlays(
         current,
@@ -3342,7 +3416,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       if (_busy) {
         return;
       }
-      await Clipboard.setData(ClipboardData(text: tableText));
+      await _setPlainTextClipboard(tableText);
       await _rememberTableSelectionHtmlClipboard(tableText);
       await _deleteSelectedTableCellText(tableSelection);
       return;
@@ -3355,7 +3429,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
     final selection = _controller.selection;
     final start = selection.normalizedStart;
-    await Clipboard.setData(ClipboardData(text: text));
+    await _setPlainTextClipboard(text);
     await _rememberBodySelectionHtmlClipboard(text);
     _recordPendingDeletionOverlay(selection);
     _setCursorForPendingText(start);
@@ -3386,8 +3460,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     final text = data?.text;
     if (text == null || text.isEmpty) {
+      _setSystemClipboardHasStrings(false);
       return;
     }
+    _setSystemClipboardHasStrings(true);
     if (await _pasteHtmlClipboardIfCurrent(text)) {
       return;
     }
@@ -3421,6 +3497,57 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     _clipboardDomain = _EditorClipboardDomain.richText;
     _clipboardHtml = html;
     _clipboardHtmlText = text;
+  }
+
+  bool get _hasInternalPasteClipboard {
+    return switch (_clipboardDomain) {
+      _EditorClipboardDomain.richText =>
+        (_clipboardHtml?.isNotEmpty ?? false) &&
+            (_clipboardHtmlText?.isNotEmpty ?? false),
+      _EditorClipboardDomain.objectControl => true,
+      _EditorClipboardDomain.text || null => false,
+    };
+  }
+
+  bool get _canPasteClipboard =>
+      _systemClipboardHasStrings || _hasInternalPasteClipboard;
+
+  Future<void> _refreshPasteAvailability() async {
+    final revision = ++_clipboardAvailabilityRevision;
+    final bool hasStrings;
+    try {
+      hasStrings = await Clipboard.hasStrings();
+    } catch (_) {
+      return;
+    }
+    if (!mounted || revision != _clipboardAvailabilityRevision) {
+      return;
+    }
+    _setSystemClipboardHasStrings(hasStrings);
+  }
+
+  Future<void> _setPlainTextClipboard(String text) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    _setSystemClipboardHasStrings(text.isNotEmpty);
+  }
+
+  void _setSystemClipboardHasStrings(bool value) {
+    if (_systemClipboardHasStrings == value) {
+      return;
+    }
+    if (mounted) {
+      setState(() {
+        _systemClipboardHasStrings = value;
+      });
+    } else {
+      _systemClipboardHasStrings = value;
+    }
+  }
+
+  void _notifyPasteAvailabilityChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _clearHtmlClipboard() {
@@ -4018,6 +4145,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       );
       _clipboardDomain = _EditorClipboardDomain.objectControl;
       _clearHtmlClipboard();
+      _notifyPasteAvailabilityChanged();
       await _rememberSelectedObjectHtmlClipboard(target);
     } catch (error) {
       if (mounted) {
@@ -4101,7 +4229,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       }
       _clipboardHtml = html;
       _clipboardHtmlText = text;
-      await Clipboard.setData(ClipboardData(text: text));
+      await _setPlainTextClipboard(text);
     } catch (_) {
       _clearHtmlClipboard();
     }
@@ -4627,6 +4755,173 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
 
   Future<void> _insertColumnBreak() async {
     await _insertDocumentBreak(columnBreak: true);
+  }
+
+  int _activeSection() {
+    return _controller.tableCellSelection?.section ??
+        _controller.objectSelection?.section ??
+        _controller.cursor.section;
+  }
+
+  Future<void> _setSectionColumnCount(int columnCount) async {
+    if (_busy || columnCount <= 0) {
+      return;
+    }
+
+    final section = _activeSection();
+    await _runEdit(() async {
+      await widget.document.setColumnDef(
+        section: section,
+        columnCount: columnCount,
+        columnType: columnCount > 1
+            ? RhwpColumnType.distribute
+            : RhwpColumnType.normal,
+        sameWidth: true,
+      );
+    });
+  }
+
+  Future<void> _showColumnDefDialog() async {
+    if (_busy) {
+      return;
+    }
+
+    final section = _activeSection();
+    late final RhwpColumnDef current;
+    try {
+      current = await widget.document.columnDef(section: section);
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+
+    final result = await showDialog<_ColumnDefDialogResult>(
+      context: context,
+      builder: (context) => _ColumnDefDialog(initial: current),
+    );
+    if (result == null) {
+      return;
+    }
+
+    await _runEdit(() async {
+      await widget.document.setColumnDef(
+        section: section,
+        columnCount: result.columnCount,
+        columnType: result.columnType,
+        sameWidth: result.sameWidth,
+        spacing: result.spacing,
+      );
+    });
+  }
+
+  Future<void> _showPageBorderFillDialog() async {
+    if (_busy) {
+      return;
+    }
+
+    final section = _activeSection();
+    late final RhwpPageBorderFill current;
+    try {
+      current = await widget.document.pageBorderFill(section: section);
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+
+    final result = await showDialog<_PageBorderFillDialogResult>(
+      context: context,
+      builder: (context) => _PageBorderFillDialog(initial: current),
+    );
+    if (result == null) {
+      return;
+    }
+
+    final borderLine = RhwpBorderLine(
+      type: result.borderType,
+      width: result.borderWidth,
+      color: result.borderColor,
+    );
+    await _runEdit(() async {
+      await widget.document.setPageBorderFill(
+        section: section,
+        attr: current.attr,
+        spacingLeft: result.spacingLeft,
+        spacingRight: result.spacingRight,
+        spacingTop: result.spacingTop,
+        spacingBottom: result.spacingBottom,
+        borderLeft: borderLine,
+        borderRight: borderLine,
+        borderTop: borderLine,
+        borderBottom: borderLine,
+        fillColor: result.fillColor,
+        patternColor: '#000000',
+        patternType: 0,
+        clearFill: result.clearFill,
+      );
+    });
+  }
+
+  Future<void> _showSectionDefDialog() async {
+    if (_busy) {
+      return;
+    }
+
+    final section = _activeSection();
+    late final RhwpSectionDef current;
+    try {
+      current = await widget.document.sectionDef(section: section);
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+
+    final result = await showDialog<_SectionDefDialogResult>(
+      context: context,
+      builder: (context) => _SectionDefDialog(initial: current),
+    );
+    if (result == null) {
+      return;
+    }
+
+    await _runEdit(() async {
+      await widget.document.setSectionDef(
+        section: section,
+        pageNumber: result.pageNumber,
+        pageNumberType: result.pageNumberType,
+        pictureNumber: result.pictureNumber,
+        tableNumber: result.tableNumber,
+        equationNumber: result.equationNumber,
+        columnSpacing: result.columnSpacing,
+        defaultTabSpacing: result.defaultTabSpacing,
+        hideHeader: result.hideHeader,
+        hideFooter: result.hideFooter,
+        hideMasterPage: result.hideMasterPage,
+        hideBorder: result.hideBorder,
+        hideFill: result.hideFill,
+        hideEmptyLine: result.hideEmptyLine,
+      );
+    });
   }
 
   Future<void> _insertDocumentBreak({required bool columnBreak}) async {
@@ -14140,6 +14435,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           canInsertPicture: widget.onImageRequested != null,
           canExport: widget.onExported != null,
           hasCopiedFormat: _copiedFormat != null,
+          canPaste: _canPasteClipboard,
           searchMatchCount: _searchMatches.length,
           activeSearchMatch: _activeSearchMatch,
           onInsert: _insertText,
@@ -14174,6 +14470,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onInsertParagraph: _insertParagraphAfterCursor,
           onInsertPageBreak: _insertPageBreak,
           onInsertColumnBreak: _insertColumnBreak,
+          onSetColumnCount: _setSectionColumnCount,
+          onColumnSettings: _showColumnDefDialog,
+          onSectionSettings: _showSectionDefDialog,
           onInsertTableRowAbove: () => _insertTableRow(below: false),
           onInsertTableRowBelow: _insertTableRow,
           onInsertTableColumnLeft: () => _insertTableColumn(right: false),
@@ -14281,6 +14580,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onRemoveField: _removeFieldAtCursor,
           onCompare: _showCompareDialog,
           onPageSetup: _showPageSetupDialog,
+          onPageBorderFill: _showPageBorderFillDialog,
           onPageHide: _showPageHideDialog,
           onInsertNewNumber: _showInsertNewNumberDialog,
           onHeaderFooterManager: _showHeaderFooterManagerDialog,
@@ -16872,6 +17172,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.canInsertPicture,
     required this.canExport,
     required this.hasCopiedFormat,
+    required this.canPaste,
     required this.searchMatchCount,
     required this.activeSearchMatch,
     required this.onInsert,
@@ -16902,6 +17203,9 @@ class _EditorToolbar extends StatefulWidget {
     required this.onInsertParagraph,
     required this.onInsertPageBreak,
     required this.onInsertColumnBreak,
+    required this.onSetColumnCount,
+    required this.onColumnSettings,
+    required this.onSectionSettings,
     required this.onInsertTableRowAbove,
     required this.onInsertTableRowBelow,
     required this.onInsertTableColumnLeft,
@@ -16976,6 +17280,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onRemoveField,
     required this.onCompare,
     required this.onPageSetup,
+    required this.onPageBorderFill,
     required this.onPageHide,
     required this.onInsertNewNumber,
     required this.onHeaderFooterManager,
@@ -17040,6 +17345,7 @@ class _EditorToolbar extends StatefulWidget {
   final bool canInsertPicture;
   final bool canExport;
   final bool hasCopiedFormat;
+  final bool canPaste;
   final int searchMatchCount;
   final int activeSearchMatch;
   final VoidCallback onInsert;
@@ -17070,6 +17376,9 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onInsertParagraph;
   final VoidCallback onInsertPageBreak;
   final VoidCallback onInsertColumnBreak;
+  final ValueChanged<int> onSetColumnCount;
+  final VoidCallback onColumnSettings;
+  final VoidCallback onSectionSettings;
   final VoidCallback onInsertTableRowAbove;
   final VoidCallback onInsertTableRowBelow;
   final VoidCallback onInsertTableColumnLeft;
@@ -17144,6 +17453,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onRemoveField;
   final VoidCallback onCompare;
   final VoidCallback onPageSetup;
+  final VoidCallback onPageBorderFill;
   final VoidCallback onPageHide;
   final VoidCallback onInsertNewNumber;
   final VoidCallback onHeaderFooterManager;
@@ -17447,7 +17757,9 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               tooltip: 'Paste',
               buttonKey: const ValueKey('rhwp-editor-paste'),
               icon: Icons.content_paste,
-              onPressed: widget.busy ? null : widget.onPaste,
+              onPressed: widget.busy || !widget.canPaste
+                  ? null
+                  : widget.onPaste,
             ),
             _ToolbarIconButton(
               tooltip: 'Copy format',
@@ -18132,6 +18444,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               onPressed: widget.busy ? null : widget.onPageSetup,
             ),
             _ToolbarIconButton(
+              tooltip: 'Page border/background',
+              buttonKey: const ValueKey('rhwp-editor-page-border-fill'),
+              icon: Icons.border_outer,
+              onPressed: widget.busy ? null : widget.onPageBorderFill,
+            ),
+            _ToolbarIconButton(
               tooltip: 'Page hide',
               buttonKey: const ValueKey('rhwp-editor-page-hide'),
               icon: Icons.visibility_off_outlined,
@@ -18142,6 +18460,36 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               buttonKey: const ValueKey('rhwp-editor-insert-new-number'),
               icon: Icons.format_list_numbered,
               onPressed: widget.busy ? null : widget.onInsertNewNumber,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Single column',
+              buttonKey: const ValueKey('rhwp-editor-column-count-1'),
+              icon: Icons.crop_square_outlined,
+              onPressed: widget.busy ? null : () => widget.onSetColumnCount(1),
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Two columns',
+              buttonKey: const ValueKey('rhwp-editor-column-count-2'),
+              icon: Icons.view_column_outlined,
+              onPressed: widget.busy ? null : () => widget.onSetColumnCount(2),
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Three columns',
+              buttonKey: const ValueKey('rhwp-editor-column-count-3'),
+              icon: Icons.view_week_outlined,
+              onPressed: widget.busy ? null : () => widget.onSetColumnCount(3),
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Column settings',
+              buttonKey: const ValueKey('rhwp-editor-column-settings'),
+              icon: Icons.tune,
+              onPressed: widget.busy ? null : widget.onColumnSettings,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Section settings',
+              buttonKey: const ValueKey('rhwp-editor-section-settings'),
+              icon: Icons.segment,
+              onPressed: widget.busy ? null : widget.onSectionSettings,
             ),
             _ToolbarIconButton(
               tooltip: 'Header/footer list',
@@ -21538,6 +21886,448 @@ class _HeaderFooterManagerDialogState
   }
 }
 
+class _ColumnDefDialog extends StatefulWidget {
+  const _ColumnDefDialog({required this.initial});
+
+  final RhwpColumnDef initial;
+
+  @override
+  State<_ColumnDefDialog> createState() => _ColumnDefDialogState();
+}
+
+class _ColumnDefDialogState extends State<_ColumnDefDialog> {
+  late final TextEditingController _columnCountController;
+  late final TextEditingController _spacingController;
+  late RhwpColumnType _columnType;
+  late bool _sameWidth;
+
+  static const _columnTypes = [
+    (label: 'Normal', value: RhwpColumnType.normal),
+    (label: 'Distribute', value: RhwpColumnType.distribute),
+    (label: 'Parallel', value: RhwpColumnType.parallel),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    _columnCountController = TextEditingController(
+      text: initial.columnCount.clamp(1, 256).toString(),
+    );
+    _spacingController = TextEditingController(
+      text: initial.spacing.clamp(0, 32767).toString(),
+    );
+    _columnType = initial.columnType;
+    _sameWidth = initial.sameWidth;
+  }
+
+  @override
+  void dispose() {
+    _columnCountController.dispose();
+    _spacingController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('다단 설정'),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    key: const ValueKey('rhwp-column-count-field'),
+                    controller: _columnCountController,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: const InputDecoration(
+                      labelText: 'Columns',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    key: const ValueKey('rhwp-column-spacing-field'),
+                    controller: _spacingController,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: const InputDecoration(
+                      labelText: 'Spacing',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<RhwpColumnType>(
+              key: const ValueKey('rhwp-column-type-field'),
+              initialValue: _columnType,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Column type',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              items: [
+                for (final type in _columnTypes)
+                  DropdownMenuItem<RhwpColumnType>(
+                    value: type.value,
+                    child: Text(type.label),
+                  ),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _columnType = value);
+                }
+              },
+            ),
+            const SizedBox(height: 12),
+            SwitchListTile(
+              key: const ValueKey('rhwp-column-same-width'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Same width'),
+              value: _sameWidth,
+              onChanged: (value) => setState(() => _sameWidth = value),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const ValueKey('rhwp-column-def-apply'),
+          onPressed: _submit,
+          child: const Text('Apply'),
+        ),
+      ],
+    );
+  }
+
+  void _submit() {
+    Navigator.of(context).pop(
+      _ColumnDefDialogResult(
+        columnCount: _parseBoundedInt(
+          _columnCountController.text,
+          min: 1,
+          max: 256,
+        ),
+        columnType: _columnType,
+        sameWidth: _sameWidth,
+        spacing: _parseBoundedInt(_spacingController.text, min: 0, max: 32767),
+      ),
+    );
+  }
+
+  int _parseBoundedInt(String text, {required int min, required int max}) {
+    final parsed = int.tryParse(text.trim()) ?? min;
+    return parsed.clamp(min, max).toInt();
+  }
+}
+
+class _SectionDefDialog extends StatefulWidget {
+  const _SectionDefDialog({required this.initial});
+
+  final RhwpSectionDef initial;
+
+  @override
+  State<_SectionDefDialog> createState() => _SectionDefDialogState();
+}
+
+class _SectionDefDialogState extends State<_SectionDefDialog> {
+  late final TextEditingController _pageNumberController;
+  late final TextEditingController _pictureNumberController;
+  late final TextEditingController _tableNumberController;
+  late final TextEditingController _equationNumberController;
+  late final TextEditingController _columnSpacingController;
+  late final TextEditingController _defaultTabSpacingController;
+  late int _pageNumberType;
+  late bool _hideHeader;
+  late bool _hideFooter;
+  late bool _hideMasterPage;
+  late bool _hideBorder;
+  late bool _hideFill;
+  late bool _hideEmptyLine;
+
+  static const _pageNumberTypes = [
+    (label: 'Number', value: 0),
+    (label: 'Roman', value: 1),
+    (label: 'Letter', value: 2),
+    (label: 'Circle', value: 3),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    _pageNumberController = TextEditingController(
+      text: initial.pageNumber.clamp(1, 65535).toString(),
+    );
+    _pictureNumberController = TextEditingController(
+      text: initial.pictureNumber.clamp(1, 65535).toString(),
+    );
+    _tableNumberController = TextEditingController(
+      text: initial.tableNumber.clamp(1, 65535).toString(),
+    );
+    _equationNumberController = TextEditingController(
+      text: initial.equationNumber.clamp(1, 65535).toString(),
+    );
+    _columnSpacingController = TextEditingController(
+      text: initial.columnSpacing.clamp(0, 32767).toString(),
+    );
+    _defaultTabSpacingController = TextEditingController(
+      text: initial.defaultTabSpacing.clamp(0, 65535).toString(),
+    );
+    _pageNumberType = initial.pageNumberType.clamp(0, 3).toInt();
+    _hideHeader = initial.hideHeader;
+    _hideFooter = initial.hideFooter;
+    _hideMasterPage = initial.hideMasterPage;
+    _hideBorder = initial.hideBorder;
+    _hideFill = initial.hideFill;
+    _hideEmptyLine = initial.hideEmptyLine;
+  }
+
+  @override
+  void dispose() {
+    _pageNumberController.dispose();
+    _pictureNumberController.dispose();
+    _tableNumberController.dispose();
+    _equationNumberController.dispose();
+    _columnSpacingController.dispose();
+    _defaultTabSpacingController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('구역 설정'),
+      content: SizedBox(
+        width: 480,
+        height: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _SectionDefNumberField(
+                      fieldKey: const ValueKey(
+                        'rhwp-section-page-number-field',
+                      ),
+                      label: 'Page',
+                      controller: _pageNumberController,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      key: const ValueKey(
+                        'rhwp-section-page-number-type-field',
+                      ),
+                      initialValue: _pageNumberType,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Page type',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: [
+                        for (final type in _pageNumberTypes)
+                          DropdownMenuItem<int>(
+                            value: type.value,
+                            child: Text(type.label),
+                          ),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => _pageNumberType = value);
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _SectionDefNumberField(
+                      fieldKey: const ValueKey(
+                        'rhwp-section-picture-number-field',
+                      ),
+                      label: 'Picture',
+                      controller: _pictureNumberController,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _SectionDefNumberField(
+                      fieldKey: const ValueKey(
+                        'rhwp-section-table-number-field',
+                      ),
+                      label: 'Table',
+                      controller: _tableNumberController,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _SectionDefNumberField(
+                      fieldKey: const ValueKey(
+                        'rhwp-section-equation-number-field',
+                      ),
+                      label: 'Equation',
+                      controller: _equationNumberController,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _SectionDefNumberField(
+                      fieldKey: const ValueKey(
+                        'rhwp-section-column-spacing-field',
+                      ),
+                      label: 'Column gap',
+                      controller: _columnSpacingController,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _SectionDefNumberField(
+                      fieldKey: const ValueKey(
+                        'rhwp-section-tab-spacing-field',
+                      ),
+                      label: 'Tab spacing',
+                      controller: _defaultTabSpacingController,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SwitchListTile(
+                key: const ValueKey('rhwp-section-hide-header'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Hide header'),
+                value: _hideHeader,
+                onChanged: (value) => setState(() => _hideHeader = value),
+              ),
+              SwitchListTile(
+                key: const ValueKey('rhwp-section-hide-footer'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Hide footer'),
+                value: _hideFooter,
+                onChanged: (value) => setState(() => _hideFooter = value),
+              ),
+              SwitchListTile(
+                key: const ValueKey('rhwp-section-hide-master-page'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Hide master page'),
+                value: _hideMasterPage,
+                onChanged: (value) => setState(() => _hideMasterPage = value),
+              ),
+              SwitchListTile(
+                key: const ValueKey('rhwp-section-hide-border'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Hide border'),
+                value: _hideBorder,
+                onChanged: (value) => setState(() => _hideBorder = value),
+              ),
+              SwitchListTile(
+                key: const ValueKey('rhwp-section-hide-fill'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Hide fill'),
+                value: _hideFill,
+                onChanged: (value) => setState(() => _hideFill = value),
+              ),
+              SwitchListTile(
+                key: const ValueKey('rhwp-section-hide-empty-line'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Hide empty lines'),
+                value: _hideEmptyLine,
+                onChanged: (value) => setState(() => _hideEmptyLine = value),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const ValueKey('rhwp-section-def-apply'),
+          onPressed: _submit,
+          child: const Text('Apply'),
+        ),
+      ],
+    );
+  }
+
+  void _submit() {
+    Navigator.of(context).pop(
+      _SectionDefDialogResult(
+        pageNumber: _parseBoundedInt(
+          _pageNumberController.text,
+          min: 1,
+          max: 65535,
+        ),
+        pageNumberType: _pageNumberType,
+        pictureNumber: _parseBoundedInt(
+          _pictureNumberController.text,
+          min: 1,
+          max: 65535,
+        ),
+        tableNumber: _parseBoundedInt(
+          _tableNumberController.text,
+          min: 1,
+          max: 65535,
+        ),
+        equationNumber: _parseBoundedInt(
+          _equationNumberController.text,
+          min: 1,
+          max: 65535,
+        ),
+        columnSpacing: _parseBoundedInt(
+          _columnSpacingController.text,
+          min: 0,
+          max: 32767,
+        ),
+        defaultTabSpacing: _parseBoundedInt(
+          _defaultTabSpacingController.text,
+          min: 0,
+          max: 65535,
+        ),
+        hideHeader: _hideHeader,
+        hideFooter: _hideFooter,
+        hideMasterPage: _hideMasterPage,
+        hideBorder: _hideBorder,
+        hideFill: _hideFill,
+        hideEmptyLine: _hideEmptyLine,
+      ),
+    );
+  }
+
+  int _parseBoundedInt(String text, {required int min, required int max}) {
+    final parsed = int.tryParse(text.trim()) ?? min;
+    return parsed.clamp(min, max).toInt();
+  }
+}
+
 class _PageSetupDialog extends StatefulWidget {
   const _PageSetupDialog({required this.initial});
 
@@ -21822,6 +22612,260 @@ class _PageSetupDialogState extends State<_PageSetupDialog> {
   }
 }
 
+class _PageBorderFillDialog extends StatefulWidget {
+  const _PageBorderFillDialog({required this.initial});
+
+  final RhwpPageBorderFill initial;
+
+  @override
+  State<_PageBorderFillDialog> createState() => _PageBorderFillDialogState();
+}
+
+class _PageBorderFillDialogState extends State<_PageBorderFillDialog> {
+  static const _borderTypes = [
+    (label: '없음', value: 0),
+    (label: '실선', value: 1),
+    (label: '파선', value: 2),
+    (label: '점선', value: 3),
+    (label: '이중선', value: 8),
+  ];
+
+  late final TextEditingController _spacingLeftController;
+  late final TextEditingController _spacingRightController;
+  late final TextEditingController _spacingTopController;
+  late final TextEditingController _spacingBottomController;
+  late int _borderType;
+  late int _borderWidth;
+  late String _borderColor;
+  late String _fillColor;
+  late bool _clearFill;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    _spacingLeftController = TextEditingController(
+      text: _formatHwpUnitMillimeters(initial.spacingLeft),
+    );
+    _spacingRightController = TextEditingController(
+      text: _formatHwpUnitMillimeters(initial.spacingRight),
+    );
+    _spacingTopController = TextEditingController(
+      text: _formatHwpUnitMillimeters(initial.spacingTop),
+    );
+    _spacingBottomController = TextEditingController(
+      text: _formatHwpUnitMillimeters(initial.spacingBottom),
+    );
+    _borderType =
+        _borderTypes.any((type) => type.value == initial.borderLeft.type)
+        ? initial.borderLeft.type
+        : 1;
+    _borderWidth = initial.borderLeft.width.clamp(0, 7).toInt();
+    _borderColor = _matchingSwatchValue(
+      initial.borderLeft.color,
+      _charColorSwatches,
+      '#000000',
+    );
+    _fillColor = _matchingSwatchValue(
+      initial.fillColor,
+      _charShadeSwatches,
+      '#ffffff',
+    );
+    _clearFill = initial.fillType == 'none';
+  }
+
+  @override
+  void dispose() {
+    _spacingLeftController.dispose();
+    _spacingRightController.dispose();
+    _spacingTopController.dispose();
+    _spacingBottomController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('쪽 테두리/배경'),
+      content: SizedBox(
+        width: 460,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _PageSetupNumberField(
+                      fieldKey: const ValueKey(
+                        'rhwp-page-border-spacing-left-field',
+                      ),
+                      label: 'Left',
+                      controller: _spacingLeftController,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _PageSetupNumberField(
+                      fieldKey: const ValueKey(
+                        'rhwp-page-border-spacing-right-field',
+                      ),
+                      label: 'Right',
+                      controller: _spacingRightController,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _PageSetupNumberField(
+                      fieldKey: const ValueKey(
+                        'rhwp-page-border-spacing-top-field',
+                      ),
+                      label: 'Top',
+                      controller: _spacingTopController,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _PageSetupNumberField(
+                      fieldKey: const ValueKey(
+                        'rhwp-page-border-spacing-bottom-field',
+                      ),
+                      label: 'Bottom',
+                      controller: _spacingBottomController,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      key: const ValueKey('rhwp-page-border-type-field'),
+                      initialValue: _borderType,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Border',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: [
+                        for (final type in _borderTypes)
+                          DropdownMenuItem<int>(
+                            value: type.value,
+                            child: Text(type.label),
+                          ),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => _borderType = value);
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      key: const ValueKey('rhwp-page-border-width-field'),
+                      initialValue: _borderWidth,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Width',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: [
+                        for (var width = 0; width <= 7; width++)
+                          DropdownMenuItem<int>(
+                            value: width,
+                            child: Text('$width'),
+                          ),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => _borderWidth = value);
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _DialogColorDropdown(
+                fieldKey: const ValueKey('rhwp-page-border-color-field'),
+                label: 'Border color',
+                value: _borderColor,
+                swatches: _charColorSwatches,
+                onChanged: (value) => setState(() => _borderColor = value),
+              ),
+              const SizedBox(height: 12),
+              SwitchListTile(
+                key: const ValueKey('rhwp-page-border-clear-fill'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('배경 채우기 없음'),
+                value: _clearFill,
+                onChanged: (value) => setState(() => _clearFill = value),
+              ),
+              _DialogColorDropdown(
+                fieldKey: const ValueKey('rhwp-page-border-fill-color-field'),
+                label: 'Fill color',
+                value: _fillColor,
+                swatches: _charShadeSwatches,
+                enabled: !_clearFill,
+                onChanged: (value) => setState(() => _fillColor = value),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const ValueKey('rhwp-page-border-fill-apply'),
+          onPressed: _apply,
+          child: const Text('Apply'),
+        ),
+      ],
+    );
+  }
+
+  void _apply() {
+    final initial = widget.initial;
+    Navigator.of(context).pop(
+      _PageBorderFillDialogResult(
+        spacingLeft: _hwpUnitFromMillimeters(
+          _spacingLeftController.text,
+          fallback: initial.spacingLeft,
+        ),
+        spacingRight: _hwpUnitFromMillimeters(
+          _spacingRightController.text,
+          fallback: initial.spacingRight,
+        ),
+        spacingTop: _hwpUnitFromMillimeters(
+          _spacingTopController.text,
+          fallback: initial.spacingTop,
+        ),
+        spacingBottom: _hwpUnitFromMillimeters(
+          _spacingBottomController.text,
+          fallback: initial.spacingBottom,
+        ),
+        borderType: _borderType,
+        borderWidth: _borderType == 0 ? 0 : _borderWidth,
+        borderColor: _borderType == 0 ? '#000000' : _borderColor,
+        fillColor: _fillColor,
+        clearFill: _clearFill,
+      ),
+    );
+  }
+}
+
 class _PageHideDialog extends StatefulWidget {
   const _PageHideDialog({required this.initial});
 
@@ -21950,6 +22994,80 @@ int _hwpUnitFromMillimeters(String source, {required int fallback}) {
   return (parsed * _hwpUnitsPerMillimeter).round();
 }
 
+String _matchingSwatchValue(
+  String source,
+  List<({String label, Color color, String value})> swatches,
+  String fallback,
+) {
+  final normalized = source.toLowerCase();
+  for (final swatch in swatches) {
+    if (swatch.value.toLowerCase() == normalized) {
+      return swatch.value;
+    }
+  }
+  return fallback;
+}
+
+class _DialogColorDropdown extends StatelessWidget {
+  const _DialogColorDropdown({
+    required this.fieldKey,
+    required this.label,
+    required this.value,
+    required this.swatches,
+    required this.onChanged,
+    this.enabled = true,
+  });
+
+  final Key fieldKey;
+  final String label;
+  final String value;
+  final List<({String label, Color color, String value})> swatches;
+  final ValueChanged<String> onChanged;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<String>(
+      key: fieldKey,
+      initialValue: value,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+        isDense: true,
+      ),
+      items: [
+        for (final swatch in swatches)
+          DropdownMenuItem<String>(
+            value: swatch.value,
+            child: Row(
+              children: [
+                SizedBox.square(
+                  dimension: 18,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: swatch.color,
+                      border: Border.all(color: Theme.of(context).dividerColor),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(swatch.label),
+              ],
+            ),
+          ),
+      ],
+      onChanged: enabled
+          ? (value) {
+              if (value != null) {
+                onChanged(value);
+              }
+            }
+          : null,
+    );
+  }
+}
+
 class _PageSetupNumberField extends StatelessWidget {
   const _PageSetupNumberField({
     required this.fieldKey,
@@ -21970,6 +23088,33 @@ class _PageSetupNumberField extends StatelessWidget {
       decoration: InputDecoration(
         labelText: label,
         suffixText: 'mm',
+        border: const OutlineInputBorder(),
+        isDense: true,
+      ),
+    );
+  }
+}
+
+class _SectionDefNumberField extends StatelessWidget {
+  const _SectionDefNumberField({
+    required this.fieldKey,
+    required this.label,
+    required this.controller,
+  });
+
+  final Key fieldKey;
+  final String label;
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      key: fieldKey,
+      controller: controller,
+      keyboardType: TextInputType.number,
+      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+      decoration: InputDecoration(
+        labelText: label,
         border: const OutlineInputBorder(),
         isDense: true,
       ),

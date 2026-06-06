@@ -534,6 +534,34 @@ impl RhwpSession {
                 .document
                 .insert_column_break_native(section as usize, paragraph as usize, offset as usize)
                 .map_err(error_to_string),
+            RhwpCommand::GetColumnDef { section } => inner
+                .document
+                .get_column_def(section)
+                .map_err(|error| format!("{error:?}")),
+            RhwpCommand::SetColumnDef {
+                section,
+                column_count,
+                column_type,
+                same_width,
+                spacing,
+            } => {
+                let column_count = u16::try_from(column_count)
+                    .map_err(|_| "columnCount must fit in u16".to_string())?;
+                let column_type = u8::try_from(column_type)
+                    .map_err(|_| "columnType must fit in u8".to_string())?;
+                let spacing =
+                    i16::try_from(spacing).map_err(|_| "spacing must fit in i16".to_string())?;
+                inner
+                    .document
+                    .set_column_def_native(
+                        section as usize,
+                        column_count,
+                        column_type,
+                        same_width,
+                        spacing,
+                    )
+                    .map_err(error_to_string)
+            }
             RhwpCommand::InsertNewNumber {
                 section,
                 paragraph,
@@ -1510,6 +1538,28 @@ impl RhwpSession {
                 .document
                 .set_page_def_native(section as usize, &properties.to_string())
                 .map_err(error_to_string),
+            RhwpCommand::GetPageBorderFill { section } => inner
+                .document
+                .get_page_border_fill_native(section as usize)
+                .map_err(error_to_string),
+            RhwpCommand::SetPageBorderFill {
+                section,
+                properties,
+            } => inner
+                .document
+                .set_page_border_fill_native(section as usize, &properties.to_string())
+                .map_err(error_to_string),
+            RhwpCommand::GetSectionDef { section } => inner
+                .document
+                .get_section_def_native(section as usize)
+                .map_err(error_to_string),
+            RhwpCommand::SetSectionDef {
+                section,
+                properties,
+            } => inner
+                .document
+                .set_section_def_native(section as usize, &properties.to_string())
+                .map_err(error_to_string),
             RhwpCommand::GetPageHide { section, paragraph } => inner
                 .document
                 .get_page_hide_native(section as usize, paragraph as usize)
@@ -1837,6 +1887,19 @@ enum RhwpCommand {
         section: u32,
         paragraph: u32,
         offset: u32,
+    },
+    GetColumnDef {
+        section: u32,
+    },
+    SetColumnDef {
+        section: u32,
+        #[serde(rename = "columnCount")]
+        column_count: u32,
+        #[serde(rename = "columnType")]
+        column_type: u32,
+        #[serde(rename = "sameWidth")]
+        same_width: bool,
+        spacing: i32,
     },
     InsertNewNumber {
         section: u32,
@@ -2400,6 +2463,20 @@ enum RhwpCommand {
         section: u32,
     },
     SetPageSetup {
+        section: u32,
+        properties: serde_json::Value,
+    },
+    GetPageBorderFill {
+        section: u32,
+    },
+    SetPageBorderFill {
+        section: u32,
+        properties: serde_json::Value,
+    },
+    GetSectionDef {
+        section: u32,
+    },
+    SetSectionDef {
         section: u32,
         properties: serde_json::Value,
     },
@@ -3427,6 +3504,50 @@ mod tests {
                     .to_string(),
             )
             .expect("page setup update should be accepted");
+        let page_border_fill = session
+            .apply_command(r#"{"type":"getPageBorderFill","section":0}"#.to_string())
+            .expect("page border fill query should be accepted");
+        let page_border_fill: Value = serde_json::from_str(&page_border_fill)
+            .expect("page border fill result should be JSON");
+        assert!(page_border_fill["spacingLeft"].as_i64().is_some());
+        session
+            .apply_command(
+                r##"{"type":"setPageBorderFill","section":0,"properties":{"spacingLeft":283,"spacingRight":283,"spacingTop":566,"spacingBottom":566,"borderLeft":{"type":1,"width":2,"color":"#000000"},"borderRight":{"type":1,"width":2,"color":"#000000"},"borderTop":{"type":1,"width":2,"color":"#000000"},"borderBottom":{"type":1,"width":2,"color":"#000000"},"fillType":"solid","fillColor":"#fef08a","patternColor":"#000000","patternType":0}}"##
+                    .to_string(),
+            )
+            .expect("page border fill update should be accepted");
+        let updated_page_border_fill = session
+            .apply_command(r#"{"type":"getPageBorderFill","section":0}"#.to_string())
+            .expect("updated page border fill query should be accepted");
+        let updated_page_border_fill: Value = serde_json::from_str(&updated_page_border_fill)
+            .expect("updated page border fill result should be JSON");
+        assert_eq!(updated_page_border_fill["spacingLeft"], 283);
+        assert_eq!(updated_page_border_fill["borderLeft"]["type"], 1);
+        assert_eq!(updated_page_border_fill["fillType"], "solid");
+        let section_def = session
+            .apply_command(r#"{"type":"getSectionDef","section":0}"#.to_string())
+            .expect("section def query should be accepted");
+        let section_def: Value =
+            serde_json::from_str(&section_def).expect("section def result should be JSON");
+        assert!(section_def["pageNum"].as_u64().is_some());
+        let section_update = session
+            .apply_command(
+                r#"{"type":"setSectionDef","section":0,"properties":{"pageNum":3,"pageNumType":1,"pictureNum":4,"tableNum":5,"equationNum":6,"columnSpacing":700,"defaultTabSpacing":9000,"hideHeader":true,"hideFooter":false,"hideMasterPage":true,"hideBorder":false,"hideFill":true,"hideEmptyLine":true}}"#
+                    .to_string(),
+            )
+            .expect("section def update should be accepted");
+        let section_update: Value = serde_json::from_str(&section_update)
+            .expect("section def update result should be JSON");
+        assert_eq!(section_update["ok"], true);
+        let updated_section_def = session
+            .apply_command(r#"{"type":"getSectionDef","section":0}"#.to_string())
+            .expect("updated section def query should be accepted");
+        let updated_section_def: Value = serde_json::from_str(&updated_section_def)
+            .expect("updated section def result should be JSON");
+        assert_eq!(updated_section_def["pageNum"], 3);
+        assert_eq!(updated_section_def["pageNumType"], 1);
+        assert_eq!(updated_section_def["hideHeader"], true);
+        assert_eq!(updated_section_def["hideFill"], true);
         let style_list = session
             .apply_command(r#"{"type":"getStyleList"}"#.to_string())
             .expect("style list query should be accepted");
@@ -4122,6 +4243,33 @@ mod tests {
         let column_break: Value =
             serde_json::from_str(&column_break).expect("column break result should be JSON");
         assert_eq!(column_break["charOffset"].as_u64(), Some(0));
+
+        let initial_column_def = session
+            .apply_command(r#"{"type":"getColumnDef","section":0}"#.to_string())
+            .expect("get column def command should be accepted");
+        let initial_column_def: Value =
+            serde_json::from_str(&initial_column_def).expect("column def result should be JSON");
+        assert!(initial_column_def["columnCount"].as_u64().is_some());
+
+        let set_column_def = session
+            .apply_command(
+                r#"{"type":"setColumnDef","section":0,"columnCount":2,"columnType":1,"sameWidth":true,"spacing":566}"#
+                    .to_string(),
+            )
+            .expect("set column def command should be accepted");
+        let set_column_def: Value =
+            serde_json::from_str(&set_column_def).expect("set column def result should be JSON");
+        assert_eq!(set_column_def["ok"], true);
+
+        let column_def = session
+            .apply_command(r#"{"type":"getColumnDef","section":0}"#.to_string())
+            .expect("get updated column def command should be accepted");
+        let column_def: Value =
+            serde_json::from_str(&column_def).expect("updated column def result should be JSON");
+        assert_eq!(column_def["columnCount"], 2);
+        assert_eq!(column_def["columnType"], 1);
+        assert_eq!(column_def["sameWidth"], true);
+        assert_eq!(column_def["spacing"], 566);
 
         let new_number = session
             .apply_command(format!(

@@ -33,6 +33,10 @@
 - [x] Flutter-native 입력 리본에 문자표 dialog를 추가한다.
 - [x] Flutter-native 표 리본에 셀 높이/너비 같게 기능을 추가한다.
 - [x] Flutter-native 표 리본에 SUM/AVG/PRODUCT 계산식 preset을 추가한다.
+- [x] 클립보드 리본의 Paste 활성 상태를 실제 clipboard readable 여부와 내부 rich/object clipboard 상태에 연결한다.
+- [x] Flutter-native Page 리본에 1/2/3단 다단 preset을 추가하고 `getColumnDef`/`setColumnDef` API를 연결한다.
+- [x] Flutter-native Page 리본에 다단 상세 설정 dialog를 추가한다.
+- [x] Flutter-native Page 리본에 구역 설정 dialog를 추가하고 `getSectionDef`/`setSectionDef` API를 연결한다.
 
 ## 다음 우선순위
 
@@ -47,12 +51,11 @@
 
 ## Native editor parity backlog
 
-- [ ] 클립보드 리본의 Paste 활성 상태를 실제 clipboard readable 여부나 내부 rich/object clipboard 상태와 연결할지 결정한다.
 - [ ] `docs/NATIVE_EDITOR_PARITY.md`의 부분/미구현 항목을 기능 단위 issue로 쪼갠다.
 - [ ] 하이퍼링크, 캡션, 주석 입력 기능을 구현한다.
 - [ ] 표 편집의 row/column sizing, border/fill, merge/split edge case를 실제 문서로 검증한다.
 - [ ] 표 숫자 서식 기능을 구현한다.
-- [ ] 쪽 테두리/배경, 다단 설정, 구역 설정 기능을 구현한다.
+- [ ] 쪽 테두리/배경 상세 옵션, 다단 개별 너비/구분선, 구역 상세 옵션을 구현한다.
 - [ ] 개체 편집의 image/shape/textbox/line 선택, 이동, 크기 변경, z-order edge case를 보강한다.
 - [ ] 필드/누름틀, bookmark, footnote, header/footer의 문서 round-trip을 검증한다.
 - [ ] IME composing, Space 입력, 빠른 입력, focus churn을 macOS/Windows/Linux에서 수동 검증한다.

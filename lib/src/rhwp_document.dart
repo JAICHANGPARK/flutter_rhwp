@@ -165,6 +165,27 @@ extension RhwpObjectZOrderOperationMetadata on RhwpObjectZOrderOperation {
   }
 }
 
+/// Multi-column layout mode for a document section.
+enum RhwpColumnType { normal, distribute, parallel }
+
+extension RhwpColumnTypeMetadata on RhwpColumnType {
+  int get commandValue {
+    return switch (this) {
+      RhwpColumnType.normal => 0,
+      RhwpColumnType.distribute => 1,
+      RhwpColumnType.parallel => 2,
+    };
+  }
+}
+
+RhwpColumnType _columnTypeFromCommandValue(int value) {
+  return switch (value) {
+    1 => RhwpColumnType.distribute,
+    2 => RhwpColumnType.parallel,
+    _ => RhwpColumnType.normal,
+  };
+}
+
 class RhwpDocumentMetadata {
   const RhwpDocumentMetadata({
     required this.pageCount,
@@ -729,6 +750,184 @@ class RhwpPageSetup {
   final Map<String, Object?>? raw;
 }
 
+class RhwpBorderLine {
+  const RhwpBorderLine({
+    required this.type,
+    required this.width,
+    required this.color,
+  });
+
+  factory RhwpBorderLine.fromJson(Object? source) {
+    if (source is! Map) {
+      return const RhwpBorderLine(type: 0, width: 0, color: '#000000');
+    }
+    final decoded = source.cast<String, Object?>();
+    return RhwpBorderLine(
+      type: _intFromJson(decoded['type']) ?? 0,
+      width: _intFromJson(decoded['width']) ?? 0,
+      color: decoded['color']?.toString() ?? '#000000',
+    );
+  }
+
+  final int type;
+  final int width;
+  final String color;
+
+  Map<String, Object?> toJson() => {
+    'type': type,
+    'width': width,
+    'color': color,
+  };
+}
+
+class RhwpPageBorderFill {
+  const RhwpPageBorderFill({
+    required this.attr,
+    required this.spacingLeft,
+    required this.spacingRight,
+    required this.spacingTop,
+    required this.spacingBottom,
+    required this.borderFillId,
+    required this.borderLeft,
+    required this.borderRight,
+    required this.borderTop,
+    required this.borderBottom,
+    required this.fillType,
+    required this.fillColor,
+    required this.patternColor,
+    required this.patternType,
+    required this.rawJson,
+    this.raw,
+  });
+
+  factory RhwpPageBorderFill.fromJsonString(String source) {
+    final decoded = RhwpDocument._tryDecodeObject(source);
+    return RhwpPageBorderFill(
+      attr: _intFromJson(decoded?['attr']) ?? 0,
+      spacingLeft: _intFromJson(decoded?['spacingLeft']) ?? 0,
+      spacingRight: _intFromJson(decoded?['spacingRight']) ?? 0,
+      spacingTop: _intFromJson(decoded?['spacingTop']) ?? 0,
+      spacingBottom: _intFromJson(decoded?['spacingBottom']) ?? 0,
+      borderFillId: _intFromJson(decoded?['borderFillId']) ?? 0,
+      borderLeft: RhwpBorderLine.fromJson(decoded?['borderLeft']),
+      borderRight: RhwpBorderLine.fromJson(decoded?['borderRight']),
+      borderTop: RhwpBorderLine.fromJson(decoded?['borderTop']),
+      borderBottom: RhwpBorderLine.fromJson(decoded?['borderBottom']),
+      fillType: decoded?['fillType']?.toString() ?? 'none',
+      fillColor: decoded?['fillColor']?.toString() ?? '#ffffff',
+      patternColor: decoded?['patternColor']?.toString() ?? '#000000',
+      patternType: _intFromJson(decoded?['patternType']) ?? 0,
+      rawJson: source,
+      raw: decoded,
+    );
+  }
+
+  final int attr;
+  final int spacingLeft;
+  final int spacingRight;
+  final int spacingTop;
+  final int spacingBottom;
+  final int borderFillId;
+  final RhwpBorderLine borderLeft;
+  final RhwpBorderLine borderRight;
+  final RhwpBorderLine borderTop;
+  final RhwpBorderLine borderBottom;
+  final String fillType;
+  final String fillColor;
+  final String patternColor;
+  final int patternType;
+  final String rawJson;
+  final Map<String, Object?>? raw;
+}
+
+class RhwpColumnDef {
+  const RhwpColumnDef({
+    required this.columnCount,
+    required this.columnType,
+    required this.sameWidth,
+    required this.spacing,
+    required this.rawJson,
+    this.raw,
+  });
+
+  factory RhwpColumnDef.fromJsonString(String source) {
+    final decoded = RhwpDocument._tryDecodeObject(source);
+    final columnType = _intFromJson(decoded?['columnType']) ?? 0;
+    return RhwpColumnDef(
+      columnCount: _intFromJson(decoded?['columnCount']) ?? 1,
+      columnType: _columnTypeFromCommandValue(columnType),
+      sameWidth: _boolFromJson(decoded?['sameWidth']) ?? true,
+      spacing: _intFromJson(decoded?['spacing']) ?? 0,
+      rawJson: source,
+      raw: decoded,
+    );
+  }
+
+  final int columnCount;
+  final RhwpColumnType columnType;
+  final bool sameWidth;
+  final int spacing;
+  final String rawJson;
+  final Map<String, Object?>? raw;
+}
+
+class RhwpSectionDef {
+  const RhwpSectionDef({
+    required this.pageNumber,
+    required this.pageNumberType,
+    required this.pictureNumber,
+    required this.tableNumber,
+    required this.equationNumber,
+    required this.columnSpacing,
+    required this.defaultTabSpacing,
+    required this.hideHeader,
+    required this.hideFooter,
+    required this.hideMasterPage,
+    required this.hideBorder,
+    required this.hideFill,
+    required this.hideEmptyLine,
+    required this.rawJson,
+    this.raw,
+  });
+
+  factory RhwpSectionDef.fromJsonString(String source) {
+    final decoded = RhwpDocument._tryDecodeObject(source);
+    return RhwpSectionDef(
+      pageNumber: _intFromJson(decoded?['pageNum']) ?? 1,
+      pageNumberType: _intFromJson(decoded?['pageNumType']) ?? 0,
+      pictureNumber: _intFromJson(decoded?['pictureNum']) ?? 1,
+      tableNumber: _intFromJson(decoded?['tableNum']) ?? 1,
+      equationNumber: _intFromJson(decoded?['equationNum']) ?? 1,
+      columnSpacing: _intFromJson(decoded?['columnSpacing']) ?? 0,
+      defaultTabSpacing: _intFromJson(decoded?['defaultTabSpacing']) ?? 8000,
+      hideHeader: _boolFromJson(decoded?['hideHeader']) ?? false,
+      hideFooter: _boolFromJson(decoded?['hideFooter']) ?? false,
+      hideMasterPage: _boolFromJson(decoded?['hideMasterPage']) ?? false,
+      hideBorder: _boolFromJson(decoded?['hideBorder']) ?? false,
+      hideFill: _boolFromJson(decoded?['hideFill']) ?? false,
+      hideEmptyLine: _boolFromJson(decoded?['hideEmptyLine']) ?? false,
+      rawJson: source,
+      raw: decoded,
+    );
+  }
+
+  final int pageNumber;
+  final int pageNumberType;
+  final int pictureNumber;
+  final int tableNumber;
+  final int equationNumber;
+  final int columnSpacing;
+  final int defaultTabSpacing;
+  final bool hideHeader;
+  final bool hideFooter;
+  final bool hideMasterPage;
+  final bool hideBorder;
+  final bool hideFill;
+  final bool hideEmptyLine;
+  final String rawJson;
+  final Map<String, Object?>? raw;
+}
+
 class RhwpPageHide {
   const RhwpPageHide({
     required this.exists,
@@ -1145,6 +1344,25 @@ abstract class RhwpCommand {
     required int paragraph,
     required int offset,
   }) = RhwpInsertColumnBreakCommand;
+
+  factory RhwpCommand.getColumnDef({required int section}) =
+      RhwpGetColumnDefCommand;
+
+  factory RhwpCommand.setColumnDef({
+    required int section,
+    required int columnCount,
+    required RhwpColumnType columnType,
+    required bool sameWidth,
+    required int spacing,
+  }) = RhwpSetColumnDefCommand;
+
+  factory RhwpCommand.getSectionDef({required int section}) =
+      RhwpGetSectionDefCommand;
+
+  factory RhwpCommand.setSectionDef({
+    required int section,
+    required Map<String, Object?> properties,
+  }) = RhwpSetSectionDefCommand;
 
   factory RhwpCommand.insertNewNumber({
     required int section,
@@ -1732,6 +1950,14 @@ abstract class RhwpCommand {
     bool? landscape,
     int? binding,
   }) = RhwpSetPageSetupCommand;
+
+  factory RhwpCommand.getPageBorderFill({required int section}) =
+      RhwpGetPageBorderFillCommand;
+
+  factory RhwpCommand.setPageBorderFill({
+    required int section,
+    required Map<String, Object?> properties,
+  }) = RhwpSetPageBorderFillCommand;
 
   factory RhwpCommand.getPageHide({
     required int section,
@@ -2509,6 +2735,70 @@ class RhwpInsertColumnBreakCommand extends RhwpCommand {
     'section': section,
     'paragraph': paragraph,
     'offset': offset,
+  };
+}
+
+class RhwpGetColumnDefCommand extends RhwpCommand {
+  const RhwpGetColumnDefCommand({required this.section});
+
+  final int section;
+
+  @override
+  Map<String, Object?> toJson() => {'type': 'getColumnDef', 'section': section};
+}
+
+class RhwpSetColumnDefCommand extends RhwpCommand {
+  const RhwpSetColumnDefCommand({
+    required this.section,
+    required this.columnCount,
+    this.columnType = RhwpColumnType.normal,
+    this.sameWidth = true,
+    this.spacing = 283,
+  });
+
+  final int section;
+  final int columnCount;
+  final RhwpColumnType columnType;
+  final bool sameWidth;
+  final int spacing;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'setColumnDef',
+    'section': section,
+    'columnCount': columnCount,
+    'columnType': columnType.commandValue,
+    'sameWidth': sameWidth,
+    'spacing': spacing,
+  };
+}
+
+class RhwpGetSectionDefCommand extends RhwpCommand {
+  const RhwpGetSectionDefCommand({required this.section});
+
+  final int section;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'getSectionDef',
+    'section': section,
+  };
+}
+
+class RhwpSetSectionDefCommand extends RhwpCommand {
+  const RhwpSetSectionDefCommand({
+    required this.section,
+    required this.properties,
+  });
+
+  final int section;
+  final Map<String, Object?> properties;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'setSectionDef',
+    'section': section,
+    'properties': properties,
   };
 }
 
@@ -4484,6 +4774,35 @@ class RhwpSetPageSetupCommand extends RhwpCommand {
   };
 }
 
+class RhwpGetPageBorderFillCommand extends RhwpCommand {
+  const RhwpGetPageBorderFillCommand({required this.section});
+
+  final int section;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'getPageBorderFill',
+    'section': section,
+  };
+}
+
+class RhwpSetPageBorderFillCommand extends RhwpCommand {
+  const RhwpSetPageBorderFillCommand({
+    required this.section,
+    required this.properties,
+  });
+
+  final int section;
+  final Map<String, Object?> properties;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'setPageBorderFill',
+    'section': section,
+    'properties': properties,
+  };
+}
+
 class RhwpGetPageHideCommand extends RhwpCommand {
   const RhwpGetPageHideCommand({
     required this.section,
@@ -4561,6 +4880,47 @@ Map<String, Object?> _pageSetupProperties({
   if (marginGutter != null) properties['marginGutter'] = marginGutter;
   if (landscape != null) properties['landscape'] = landscape;
   if (binding != null) properties['binding'] = binding;
+  return properties;
+}
+
+Map<String, Object?> _pageBorderFillProperties({
+  int? attr,
+  int? spacingLeft,
+  int? spacingRight,
+  int? spacingTop,
+  int? spacingBottom,
+  int? borderFillId,
+  RhwpBorderLine? borderLeft,
+  RhwpBorderLine? borderRight,
+  RhwpBorderLine? borderTop,
+  RhwpBorderLine? borderBottom,
+  String? fillType,
+  String? fillColor,
+  String? patternColor,
+  int? patternType,
+  bool clearFill = false,
+}) {
+  final properties = <String, Object?>{};
+  if (attr != null) properties['attr'] = attr;
+  if (spacingLeft != null) properties['spacingLeft'] = spacingLeft;
+  if (spacingRight != null) properties['spacingRight'] = spacingRight;
+  if (spacingTop != null) properties['spacingTop'] = spacingTop;
+  if (spacingBottom != null) properties['spacingBottom'] = spacingBottom;
+  if (borderFillId != null) properties['borderFillId'] = borderFillId;
+  if (borderLeft != null) properties['borderLeft'] = borderLeft.toJson();
+  if (borderRight != null) properties['borderRight'] = borderRight.toJson();
+  if (borderTop != null) properties['borderTop'] = borderTop.toJson();
+  if (borderBottom != null) properties['borderBottom'] = borderBottom.toJson();
+  if (clearFill) {
+    properties['fillType'] = 'none';
+  } else if (fillType != null) {
+    properties['fillType'] = fillType;
+  } else if (fillColor != null) {
+    properties['fillType'] = 'solid';
+  }
+  if (fillColor != null) properties['fillColor'] = fillColor;
+  if (patternColor != null) properties['patternColor'] = patternColor;
+  if (patternType != null) properties['patternType'] = patternType;
   return properties;
 }
 
@@ -5223,6 +5583,72 @@ class RhwpDocument {
         section: section,
         paragraph: paragraph,
         offset: offset,
+      ),
+    );
+  }
+
+  Future<RhwpColumnDef> columnDef({required int section}) async {
+    final result = await apply(RhwpCommand.getColumnDef(section: section));
+    return RhwpColumnDef.fromJsonString(result);
+  }
+
+  Future<String> setColumnDef({
+    required int section,
+    required int columnCount,
+    RhwpColumnType columnType = RhwpColumnType.normal,
+    bool sameWidth = true,
+    int spacing = 283,
+  }) {
+    return apply(
+      RhwpCommand.setColumnDef(
+        section: section,
+        columnCount: columnCount,
+        columnType: columnType,
+        sameWidth: sameWidth,
+        spacing: spacing,
+      ),
+    );
+  }
+
+  Future<RhwpSectionDef> sectionDef({required int section}) async {
+    final result = await apply(RhwpCommand.getSectionDef(section: section));
+    return RhwpSectionDef.fromJsonString(result);
+  }
+
+  Future<String> setSectionDef({
+    required int section,
+    required int pageNumber,
+    required int pageNumberType,
+    required int pictureNumber,
+    required int tableNumber,
+    required int equationNumber,
+    required int columnSpacing,
+    required int defaultTabSpacing,
+    required bool hideHeader,
+    required bool hideFooter,
+    required bool hideMasterPage,
+    required bool hideBorder,
+    required bool hideFill,
+    required bool hideEmptyLine,
+  }) {
+    return apply(
+      RhwpCommand.setSectionDef(
+        section: section,
+        properties: {
+          'pageNum': pageNumber,
+          'pageNumType': pageNumberType,
+          'pictureNum': pictureNumber,
+          'tableNum': tableNumber,
+          'equationNum': equationNumber,
+          'columnSpacing': columnSpacing,
+          'defaultTabSpacing': defaultTabSpacing,
+          'hideHeader': hideHeader,
+          'hideFooter': hideFooter,
+          'hideMasterPage': hideMasterPage,
+          'hideBorder': hideBorder,
+          'hideFill': hideFill,
+          'hideEmptyLine': hideEmptyLine,
+        },
       ),
     );
   }
@@ -6552,6 +6978,53 @@ class RhwpDocument {
         marginGutter: marginGutter,
         landscape: landscape,
         binding: binding,
+      ),
+    );
+  }
+
+  Future<RhwpPageBorderFill> pageBorderFill({required int section}) async {
+    final result = await apply(RhwpCommand.getPageBorderFill(section: section));
+    return RhwpPageBorderFill.fromJsonString(result);
+  }
+
+  Future<String> setPageBorderFill({
+    required int section,
+    int? attr,
+    int? spacingLeft,
+    int? spacingRight,
+    int? spacingTop,
+    int? spacingBottom,
+    int? borderFillId,
+    RhwpBorderLine? borderLeft,
+    RhwpBorderLine? borderRight,
+    RhwpBorderLine? borderTop,
+    RhwpBorderLine? borderBottom,
+    String? fillType,
+    String? fillColor,
+    String? patternColor,
+    int? patternType,
+    bool clearFill = false,
+  }) {
+    return apply(
+      RhwpCommand.setPageBorderFill(
+        section: section,
+        properties: _pageBorderFillProperties(
+          attr: attr,
+          spacingLeft: spacingLeft,
+          spacingRight: spacingRight,
+          spacingTop: spacingTop,
+          spacingBottom: spacingBottom,
+          borderFillId: borderFillId,
+          borderLeft: borderLeft,
+          borderRight: borderRight,
+          borderTop: borderTop,
+          borderBottom: borderBottom,
+          fillType: fillType,
+          fillColor: fillColor,
+          patternColor: patternColor,
+          patternType: patternType,
+          clearFill: clearFill,
+        ),
       ),
     );
   }

@@ -1574,6 +1574,10 @@ void main() {
     controller.cursor = const RhwpCursorPosition(offset: 2);
     await tester.pump();
 
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-insert-page-break')),
+    );
+    await tester.pump();
     await tester.tap(
       find.byKey(const ValueKey('rhwp-editor-insert-page-break')),
     );
@@ -1645,6 +1649,160 @@ void main() {
       'paragraph': 3,
       'offset': 4,
     });
+  });
+
+  testWidgets('RhwpNativeEditor applies section column presets', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1000, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 900,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.cursor = const RhwpCursorPosition(section: 0, paragraph: 1);
+    await tester.pump();
+
+    await tester.tap(find.text('쪽'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-column-count-2')));
+    await _pumpDocumentFrame(tester);
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-column-count-3')));
+    await _pumpDocumentFrame(tester);
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-column-count-1')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 3);
+    final commandPayloads = session.commands.map(jsonDecode).toList();
+    expect(commandPayloads.sublist(commandPayloads.length - 3), [
+      {
+        'type': 'setColumnDef',
+        'section': 0,
+        'columnCount': 2,
+        'columnType': 1,
+        'sameWidth': true,
+        'spacing': 283,
+      },
+      {
+        'type': 'setColumnDef',
+        'section': 0,
+        'columnCount': 3,
+        'columnType': 1,
+        'sameWidth': true,
+        'spacing': 283,
+      },
+      {
+        'type': 'setColumnDef',
+        'section': 0,
+        'columnCount': 1,
+        'columnType': 0,
+        'sameWidth': true,
+        'spacing': 283,
+      },
+    ]);
+  });
+
+  testWidgets('RhwpNativeEditor applies section column settings dialog', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1000, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1)
+      ..columnDefJson =
+          '{"columnCount":2,"columnType":2,"sameWidth":false,"spacing":700}';
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 900,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.cursor = const RhwpCursorPosition(section: 0, paragraph: 1);
+    await tester.pump();
+
+    await tester.tap(find.text('쪽'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-column-settings')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-column-settings')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.text('Parallel'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-column-count-field')),
+      '4',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-column-spacing-field')),
+      '900',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-column-type-field')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Distribute').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('rhwp-column-same-width')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-column-def-apply')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    final commandPayloads = session.commands.map(jsonDecode).toList();
+    expect(
+      commandPayloads,
+      contains(equals({'type': 'getColumnDef', 'section': 0})),
+    );
+    expect(
+      commandPayloads,
+      contains(
+        equals({
+          'type': 'setColumnDef',
+          'section': 0,
+          'columnCount': 4,
+          'columnType': 1,
+          'sameWidth': true,
+          'spacing': 900,
+        }),
+      ),
+    );
   });
 
   testWidgets('RhwpNativeEditor insert ribbon inserts a picture', (
@@ -4225,6 +4383,230 @@ void main() {
         'binding': 0,
       },
     });
+  });
+
+  testWidgets('RhwpNativeEditor page ribbon applies page border and fill', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 900,
+          height: 460,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('쪽'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-page-border-fill')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(jsonDecode(session.commands.single), {
+      'type': 'getPageBorderFill',
+      'section': 0,
+    });
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-page-border-spacing-left-field')),
+      '1',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-page-border-spacing-right-field')),
+      '1',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-page-border-spacing-top-field')),
+      '2',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-page-border-spacing-bottom-field')),
+      '2',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-page-border-width-field')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('2').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('rhwp-page-border-clear-fill')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-page-border-fill-color-field')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('노랑').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('rhwp-page-border-fill-apply')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'setPageBorderFill',
+      'section': 0,
+      'properties': {
+        'attr': 0,
+        'spacingLeft': 283,
+        'spacingRight': 283,
+        'spacingTop': 567,
+        'spacingBottom': 567,
+        'borderLeft': {'type': 1, 'width': 2, 'color': '#000000'},
+        'borderRight': {'type': 1, 'width': 2, 'color': '#000000'},
+        'borderTop': {'type': 1, 'width': 2, 'color': '#000000'},
+        'borderBottom': {'type': 1, 'width': 2, 'color': '#000000'},
+        'fillType': 'solid',
+        'fillColor': '#fef08a',
+        'patternColor': '#000000',
+        'patternType': 0,
+      },
+    });
+  });
+
+  testWidgets('RhwpNativeEditor page ribbon applies section settings', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1000, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1)
+      ..sectionDefJson =
+          '{"pageNum":2,"pageNumType":0,"pictureNum":3,"tableNum":4,"equationNum":5,"columnSpacing":600,"defaultTabSpacing":8000,"hideHeader":false,"hideFooter":true,"hideMasterPage":false,"hideBorder":true,"hideFill":false,"hideEmptyLine":false}';
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 900,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.cursor = const RhwpCursorPosition(section: 0, paragraph: 1);
+    await tester.pump();
+
+    await tester.tap(find.text('쪽'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-section-settings')),
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-section-settings')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.text('구역 설정'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-section-page-number-field')),
+      '8',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-section-picture-number-field')),
+      '9',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-section-table-number-field')),
+      '10',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-section-equation-number-field')),
+      '11',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-section-column-spacing-field')),
+      '700',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-section-tab-spacing-field')),
+      '9000',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-section-page-number-type-field')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Roman').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('rhwp-section-hide-header')));
+    await tester.tap(find.byKey(const ValueKey('rhwp-section-hide-footer')));
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-section-hide-master-page')),
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-section-hide-border')));
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-section-hide-fill')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-section-hide-fill')));
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-section-hide-empty-line')),
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-section-hide-empty-line')),
+    );
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-section-def-apply')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-section-def-apply')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    final commandPayloads = session.commands.map(jsonDecode).toList();
+    expect(
+      commandPayloads,
+      contains(equals({'type': 'getSectionDef', 'section': 0})),
+    );
+    expect(
+      commandPayloads,
+      contains(
+        equals({
+          'type': 'setSectionDef',
+          'section': 0,
+          'properties': {
+            'pageNum': 8,
+            'pageNumType': 1,
+            'pictureNum': 9,
+            'tableNum': 10,
+            'equationNum': 11,
+            'columnSpacing': 700,
+            'defaultTabSpacing': 9000,
+            'hideHeader': true,
+            'hideFooter': false,
+            'hideMasterPage': true,
+            'hideBorder': false,
+            'hideFill': true,
+            'hideEmptyLine': true,
+          },
+        }),
+      ),
+    );
   });
 
   testWidgets('RhwpNativeEditor page ribbon applies page hide options', (
@@ -21067,11 +21449,23 @@ void main() {
   });
 
   testWidgets(
-    'RhwpNativeEditor enables clipboard ribbon actions for selections',
+    'RhwpNativeEditor updates clipboard ribbon actions for paste availability',
     (tester) async {
+      final clipboard = _MockClipboard();
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        clipboard.handleMethodCall,
+      );
       final controller = RhwpEditorController();
       final session = _FakeRhwpSession(pageCountValue: 1);
       final document = RhwpDocument.fromSession(session);
+
+      addTearDown(() {
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        );
+      });
 
       await tester.pumpWidget(
         _WidgetHarness(
@@ -21093,7 +21487,7 @@ void main() {
 
       expect(toolbarButton('rhwp-editor-cut').onPressed, isNull);
       expect(toolbarButton('rhwp-editor-copy').onPressed, isNull);
-      expect(toolbarButton('rhwp-editor-paste').onPressed, isNotNull);
+      expect(toolbarButton('rhwp-editor-paste').onPressed, isNull);
 
       controller.selection = const RhwpSelectionRange(
         start: RhwpCursorPosition(offset: 1),
@@ -21103,6 +21497,12 @@ void main() {
 
       expect(toolbarButton('rhwp-editor-cut').onPressed, isNotNull);
       expect(toolbarButton('rhwp-editor-copy').onPressed, isNotNull);
+      expect(toolbarButton('rhwp-editor-paste').onPressed, isNull);
+
+      await tester.tap(find.byKey(const ValueKey('rhwp-editor-copy')));
+      await tester.pump();
+      await tester.pump();
+
       expect(toolbarButton('rhwp-editor-paste').onPressed, isNotNull);
 
       controller.clearSelection();
@@ -21952,6 +22352,12 @@ class _FakeRhwpSession implements rust.RhwpSession {
       '{"alignment":"justify","lineSpacing":160.0,"lineSpacingType":"Percent","marginLeft":0.0,"marginRight":0.0,"indent":0.0,"spacingBefore":0.0,"spacingAfter":0.0,"paraShapeId":0}';
   String bookmarksJson =
       '[{"name":"intro","sec":0,"para":0,"ctrlIdx":2,"charPos":1}]';
+  String columnDefJson =
+      '{"columnCount":1,"columnType":0,"sameWidth":true,"spacing":283}';
+  String sectionDefJson =
+      '{"pageNum":1,"pageNumType":0,"pictureNum":1,"tableNum":1,"equationNum":1,"columnSpacing":283,"defaultTabSpacing":8000,"hideHeader":false,"hideFooter":false,"hideMasterPage":false,"hideBorder":false,"hideFill":false,"hideEmptyLine":false}';
+  String pageBorderFillJson =
+      '{"attr":0,"spacingLeft":283,"spacingRight":283,"spacingTop":566,"spacingBottom":566,"borderFillId":2,"borderLeft":{"type":1,"width":1,"color":"#000000"},"borderRight":{"type":1,"width":1,"color":"#000000"},"borderTop":{"type":1,"width":1,"color":"#000000"},"borderBottom":{"type":1,"width":1,"color":"#000000"},"fillType":"none","fillColor":"#ffffff","patternColor":"#000000","patternType":0}';
   final cellPropertiesJsonByCellIndex = <int, String>{};
   String pageLayerTreeJson = jsonEncode(_editorLayerTreeJson());
   final pageLayerTreeJsonByPage = <int, String>{};
@@ -22000,6 +22406,15 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'getBookmarks') {
       return bookmarksJson;
+    }
+    if (command is Map && command['type'] == 'getColumnDef') {
+      return columnDefJson;
+    }
+    if (command is Map && command['type'] == 'getSectionDef') {
+      return sectionDefJson;
+    }
+    if (command is Map && command['type'] == 'getPageBorderFill') {
+      return pageBorderFillJson;
     }
     if (command is Map && command['type'] == 'getPageOfPosition') {
       final paragraph = command['paragraph'];

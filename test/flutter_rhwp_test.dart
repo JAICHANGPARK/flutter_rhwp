@@ -1979,6 +1979,54 @@ void main() {
     );
   });
 
+  test('page border fill commands serialize to the Rust envelope', () {
+    expect(
+      jsonDecode(
+        jsonEncode(RhwpCommand.getPageBorderFill(section: 1).toJson()),
+      ),
+      {'type': 'getPageBorderFill', 'section': 1},
+    );
+
+    const borderLine = RhwpBorderLine(type: 1, width: 2, color: '#000000');
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.setPageBorderFill(
+            section: 1,
+            properties: {
+              'spacingLeft': 283,
+              'spacingRight': 283,
+              'spacingTop': 566,
+              'spacingBottom': 566,
+              'borderLeft': borderLine.toJson(),
+              'borderRight': borderLine.toJson(),
+              'borderTop': borderLine.toJson(),
+              'borderBottom': borderLine.toJson(),
+              'fillType': 'solid',
+              'fillColor': '#fef08a',
+            },
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'setPageBorderFill',
+        'section': 1,
+        'properties': {
+          'spacingLeft': 283,
+          'spacingRight': 283,
+          'spacingTop': 566,
+          'spacingBottom': 566,
+          'borderLeft': {'type': 1, 'width': 2, 'color': '#000000'},
+          'borderRight': {'type': 1, 'width': 2, 'color': '#000000'},
+          'borderTop': {'type': 1, 'width': 2, 'color': '#000000'},
+          'borderBottom': {'type': 1, 'width': 2, 'color': '#000000'},
+          'fillType': 'solid',
+          'fillColor': '#fef08a',
+        },
+      },
+    );
+  });
+
   test('page hide commands serialize to the Rust envelope', () {
     expect(
       jsonDecode(
@@ -3686,6 +3734,54 @@ void main() {
       },
     });
 
+    final pageBorderFill = await document.pageBorderFill(section: 0);
+    expect(pageBorderFill.spacingLeft, 283);
+    expect(pageBorderFill.spacingTop, 566);
+    expect(pageBorderFill.borderFillId, 2);
+    expect(pageBorderFill.borderLeft.type, 1);
+    expect(pageBorderFill.borderLeft.width, 2);
+    expect(pageBorderFill.fillType, 'solid');
+    expect(pageBorderFill.fillColor, '#fef08a');
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'getPageBorderFill',
+      'section': 0,
+    });
+
+    const borderLine = RhwpBorderLine(type: 1, width: 2, color: '#000000');
+    await document.setPageBorderFill(
+      section: 0,
+      spacingLeft: 283,
+      spacingRight: 283,
+      spacingTop: 566,
+      spacingBottom: 566,
+      borderLeft: borderLine,
+      borderRight: borderLine,
+      borderTop: borderLine,
+      borderBottom: borderLine,
+      fillColor: '#fef08a',
+      patternColor: '#000000',
+      patternType: 0,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'setPageBorderFill',
+      'section': 0,
+      'properties': {
+        'spacingLeft': 283,
+        'spacingRight': 283,
+        'spacingTop': 566,
+        'spacingBottom': 566,
+        'borderLeft': {'type': 1, 'width': 2, 'color': '#000000'},
+        'borderRight': {'type': 1, 'width': 2, 'color': '#000000'},
+        'borderTop': {'type': 1, 'width': 2, 'color': '#000000'},
+        'borderBottom': {'type': 1, 'width': 2, 'color': '#000000'},
+        'fillType': 'solid',
+        'fillColor': '#fef08a',
+        'patternColor': '#000000',
+        'patternType': 0,
+      },
+    });
+
     final pageHide = await document.pageHide(section: 0, paragraph: 2);
     expect(pageHide.exists, isTrue);
     expect(pageHide.hideHeader, isFalse);
@@ -4390,6 +4486,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'getPageSetup') {
       return '{"width":59528,"height":84189,"marginLeft":8504,"marginRight":8504,"marginTop":5669,"marginBottom":4252,"marginHeader":4252,"marginFooter":4252,"marginGutter":0,"landscape":false,"binding":0}';
+    }
+    if (command is Map && command['type'] == 'getPageBorderFill') {
+      return '{"attr":0,"spacingLeft":283,"spacingRight":283,"spacingTop":566,"spacingBottom":566,"borderFillId":2,"borderLeft":{"type":1,"width":2,"color":"#000000"},"borderRight":{"type":1,"width":2,"color":"#000000"},"borderTop":{"type":1,"width":2,"color":"#000000"},"borderBottom":{"type":1,"width":2,"color":"#000000"},"fillType":"solid","fillColor":"#fef08a","patternColor":"#000000","patternType":0}';
     }
     if (command is Map && command['type'] == 'getPageHide') {
       return '{"ok":true,"exists":true,"hideHeader":false,"hideFooter":true,"hideMasterPage":false,"hideBorder":false,"hideFill":true,"hidePageNum":false}';

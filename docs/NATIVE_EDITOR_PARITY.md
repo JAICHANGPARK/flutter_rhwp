@@ -36,7 +36,7 @@
 | Upstream 메뉴 | Flutter-native 상태 | 현재 연결 |
 | --- | --- | --- |
 | 되돌리기 / 다시 실행 | 완료 | snapshot 기반 undo/redo |
-| 오려 두기 / 복사 / 붙이기 | 부분 | 본문, 표 셀, 개체 clipboard. Paste 활성 상태 세분화 필요 |
+| 오려 두기 / 복사 / 붙이기 | 완료 | 본문, 표 셀, 개체 clipboard. Paste는 system text와 내부 rich/object clipboard 상태 기반 활성화 |
 | 모양 복사 | 완료 | character/paragraph format snapshot copy and apply |
 | 지우기 | 부분 | delete text/range/object/table row/column |
 | 모두 선택 | 완료 | body/table-cell select all |
@@ -103,13 +103,13 @@
 | Upstream 메뉴 | Flutter-native 상태 | 현재 연결 |
 | --- | --- | --- |
 | 편집 용지 | 완료 | page setup |
-| 쪽 테두리/배경 | 미구현 | page border/background command/UI 필요 |
+| 쪽 테두리/배경 | 부분 | `getPageBorderFill`/`setPageBorderFill`, 간격/동일 테두리/단색 배경 dialog. 개별 방향 UI, 이미지/그라데이션/무늬 상세 옵션 필요 |
 | 머리말 / 꼬리말 | 부분 | create/list/edit/clear text. preset templates 필요 |
 | 새 번호로 시작 | 완료 | insert new page number |
 | 현재 쪽만 감추기 | 완료 | page hide dialog |
 | 쪽 나누기 / 단 나누기 | 완료 | page/column break commands |
-| 단 / 다단 설정 | 미구현 | column layout command/UI 필요 |
-| 구역 설정 | 미구현 | section settings command/UI 필요 |
+| 단 / 다단 설정 | 부분 | `getColumnDef`/`setColumnDef`, 1/2/3단 quick preset, 단 수/종류/동일 너비/간격 dialog. 개별 너비/구분선 필요 |
+| 구역 설정 | 부분 | `getSectionDef`/`setSectionDef`, 시작 번호/탭 간격/감춤 flags dialog. 전체 section 상세 옵션 필요 |
 
 ## Table
 
@@ -136,8 +136,7 @@
 
 ## 다음 구현 우선순위
 
-1. Paste 리본 상태를 system clipboard, rich text clipboard, object clipboard와 연결한다.
-2. 하이퍼링크, 캡션, 주석처럼 일반 문서 작성에 자주 쓰이는 Insert 메뉴를 추가한다.
-3. 표 number formatting을 table backlog로 분리해 구현한다.
-4. 쪽 테두리/배경, 다단 설정, 구역 설정을 page backlog로 분리해 구현한다.
-5. 문서 이력 관리는 upstream API 확인 후 별도 milestone으로 둔다.
+1. 하이퍼링크, 캡션, 주석처럼 일반 문서 작성에 자주 쓰이는 Insert 메뉴를 추가한다.
+2. 표 number formatting을 table backlog로 분리해 구현한다.
+3. 쪽 테두리/배경 상세 옵션, 다단 개별 너비/구분선, 구역 상세 옵션을 page backlog로 분리해 구현한다.
+4. 문서 이력 관리는 upstream API 확인 후 별도 milestone으로 둔다.
