@@ -4054,6 +4054,35 @@ mod tests {
         let table_cell_hyperlink: Value = serde_json::from_str(&table_cell_hyperlink)
             .expect("insert hyperlink in table cell result should be JSON");
         assert_eq!(table_cell_hyperlink["ok"], true);
+        let table_cell_hyperlink_field_id = table_cell_hyperlink["fieldId"]
+            .as_u64()
+            .expect("table cell hyperlink should return fieldId");
+        let table_cell_hyperlink_update = session
+            .apply_command(format!(
+                r#"{{"type":"updateHyperlink","fieldId":{},"url":"https://cell-updated.example","text":"Updated cell link"}}"#,
+                table_cell_hyperlink_field_id
+            ))
+            .expect("update hyperlink in table cell command should be accepted");
+        let table_cell_hyperlink_update: Value = serde_json::from_str(&table_cell_hyperlink_update)
+            .expect("update hyperlink in table cell result should be JSON");
+        assert_eq!(table_cell_hyperlink_update["ok"], true);
+        assert_eq!(
+            table_cell_hyperlink_update["newUrl"],
+            "https://cell-updated.example"
+        );
+        assert_eq!(table_cell_hyperlink_update["newText"], "Updated cell link");
+        let table_cell_hyperlink_info = session
+            .apply_command(
+                format!(
+                    r#"{{"type":"getFieldInfoAtInTableCell","section":0,"paragraph":{},"controlIndex":0,"cellIndex":2,"cellParagraph":0,"offset":1}}"#,
+                    table_paragraph
+                ),
+            )
+            .expect("get hyperlink field info in table cell command should be accepted");
+        let table_cell_hyperlink_info: Value = serde_json::from_str(&table_cell_hyperlink_info)
+            .expect("get hyperlink field info in table cell result should be JSON");
+        assert_eq!(table_cell_hyperlink_info["inField"], true);
+        assert_eq!(table_cell_hyperlink_info["fieldType"], "hyperlink");
         let table_cell_comment = session
             .apply_command(
                 format!(

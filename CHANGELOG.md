@@ -101,6 +101,8 @@
   table-cell text carets and kept them disabled for table block selection.
 * Covered table-cell hidden-comment lookup/edit/delete with Dart command
   serialization, document helper, widget, and Rust facade tests.
+* Verified active table-cell hyperlink editing through the Flutter-native tools
+  ribbon and Rust `updateHyperlink` path for table-cell field locations.
 
 ## 2026-06-02 (2026.6.2)
 

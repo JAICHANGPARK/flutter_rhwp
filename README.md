@@ -230,6 +230,22 @@ await document.updateHyperlink(
   text: 'Updated link',
 );
 
+final cellLink = await document.fieldInfoAtInTableCell(
+  section: 0,
+  paragraph: 0,
+  controlIndex: 0,
+  cellIndex: 1,
+  cellParagraph: 0,
+  offset: 0,
+);
+if (cellLink.inField && cellLink.fieldType == 'hyperlink') {
+  await document.updateHyperlink(
+    fieldId: cellLink.fieldId!,
+    url: 'https://cell-updated.example',
+    text: 'Updated cell link',
+  );
+}
+
 await document.insertHiddenComment(
   section: 0,
   paragraph: 0,

@@ -1837,6 +1837,119 @@ void main() {
     ]);
   });
 
+  testWidgets('RhwpNativeEditor tools ribbon edits table cell hyperlinks', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1)
+      ..pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson())
+      ..fieldInfoJson =
+          '{"inField":true,"fieldId":18,"fieldType":"hyperlink","startCharIdx":1,"endCharIdx":8,"isGuide":false,"guideName":""}'
+      ..fieldsJson =
+          '[{"fieldId":18,"fieldType":"hyperlink","name":"","guide":"","command":"https://cell-old.example","value":"Old cell link","location":{"sectionIndex":0,"paraIndex":5,"nestedPath":[{"kind":"tableCell","controlIndex":2,"cellIndex":7,"paraIndex":0}]}}]';
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 1100,
+          height: 520,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.tableCellSelection = const RhwpTableCellSelection(
+      section: 0,
+      paragraph: 5,
+      controlIndex: 2,
+      startRow: 1,
+      startColumn: 3,
+      endRow: 2,
+      endColumn: 3,
+      activeCellIndex: 7,
+      activeCellParagraph: 0,
+      activeOffset: 3,
+      isTextEditing: true,
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('도구'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-edit-hyperlink')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-edit-hyperlink')));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('rhwp-hyperlink-url-field')),
+          )
+          .controller
+          ?.text,
+      'https://cell-old.example',
+    );
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('rhwp-hyperlink-text-field')),
+          )
+          .controller
+          ?.text,
+      'Old cell link',
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-hyperlink-url-field')),
+      'https://cell-new.example',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-hyperlink-text-field')),
+      'New cell link',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-hyperlink-apply')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(controller.tableCellSelection?.activeOffset, 3);
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+    ]);
+    expect(session.commands.map(jsonDecode).toList(), [
+      {
+        'type': 'getFieldInfoAtInTableCell',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'cellIndex': 7,
+        'cellParagraph': 0,
+        'offset': 3,
+        'isTextBox': false,
+      },
+      {'type': 'getFieldList'},
+      {
+        'type': 'updateHyperlink',
+        'fieldId': 18,
+        'url': 'https://cell-new.example',
+        'text': 'New cell link',
+      },
+    ]);
+  });
+
   testWidgets(
     'RhwpNativeEditor tools ribbon activates and clears field state',
     (tester) async {

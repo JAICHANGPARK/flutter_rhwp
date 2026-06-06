@@ -74,7 +74,7 @@
 | 각주 | 완료 | insert/read/edit/delete footnote text |
 | 미주 / 각주·미주 모양 | 미구현 | endnote APIs/UI 필요 |
 | 문자표 | 완료 | common symbol character map dialog |
-| 하이퍼링크 | 부분 | 하이퍼링크 삽입/편집 dialog/API와 field marker 삭제. 활성 표 셀 텍스트 caret 내부 삽입 지원. HWPX field serialization round-trip 검증 필요 |
+| 하이퍼링크 | 부분 | 하이퍼링크 삽입/편집 dialog/API와 field marker 삭제. 활성 표 셀 텍스트 caret 내부 삽입과 `fieldId` 기반 편집 지원. HWPX field serialization round-trip 검증 필요 |
 | 책갈피 | 완료 | list/add/delete/rename/navigation |
 | 회전/대칭 | 부분 | object properties dialog/API에서 shape/picture rotation/flip 지원. 전용 ribbon preset/shortcut 검증 필요 |
 | 개체 속성 | 부분 | object size/offset dialog, rotation/flip, picture caption settings |
