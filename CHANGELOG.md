@@ -56,6 +56,9 @@
   solid background fill.
 * Extended Flutter-native table properties to expose table caption creation and
   caption direction, alignment, width, and spacing settings.
+* Expanded `docs/API_SPEC.md` with the `RhwpEditorController` context and
+  `RhwpDocument` command contract needed for host apps that build custom
+  editor toolbars.
 
 ## 2026-06-02 (2026.6.2)
 

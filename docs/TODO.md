@@ -37,6 +37,7 @@
 - [x] Flutter-native Page 리본에 1/2/3단 다단 preset을 추가하고 `getColumnDef`/`setColumnDef` API를 연결한다.
 - [x] Flutter-native Page 리본에 다단 상세 설정 dialog를 추가한다.
 - [x] Flutter-native Page 리본에 구역 설정 dialog를 추가하고 `getSectionDef`/`setSectionDef` API를 연결한다.
+- [x] 사용자 앱이 자체 툴바를 만들 때 필요한 `RhwpEditorController` context와 `RhwpDocument` command 연결 규칙을 `docs/API_SPEC.md`에 문서화한다.
 
 ## 다음 우선순위
 

@@ -70,6 +70,60 @@ RhwpNativeEditor(
 
 `dirty`는 마지막으로 인정된 HWP/HWPX 저장 또는 명시적 폐기 이후 메모리 안의 문서가 바뀐 상태를 뜻한다.
 
+## Toolbar implementation contract
+
+`RhwpNativeEditor`의 내장 리본을 그대로 쓰면 파일/저장/프린트/이미지 선택 같은 플랫폼 작업만 host callback으로 연결하면 된다. 앱이 자체 메뉴나 툴바를 만든다면 버튼은 `RhwpDocument` command API를 호출하고, 현재 편집 위치는 `RhwpEditorController`에서 읽는다.
+
+| 필요한 context | 읽는 곳 | 쓰는 기능 |
+| --- | --- | --- |
+| body cursor | `controller.cursor` | body text insert/delete, paragraph format, page/column break |
+| body selection | `controller.selection` | range delete, range char/paragraph format, selection HTML export |
+| table-cell selection | `controller.tableCellSelection` | row/column, cell format, merge/split, formula |
+| object selection | `controller.objectSelection` | object delete, properties, z-order, object copy/export |
+| dirty state | `controller.dirty`, `onDirtyChanged` | save guard, modified indicator |
+
+외부 툴바 버튼의 기본 흐름은 아래 순서로 맞춘다.
+
+1. 현재 context를 `RhwpEditorController`에서 읽는다.
+2. context가 없으면 버튼을 비활성화하거나 사용자에게 선택이 필요하다고 표시한다.
+3. `RhwpDocument` API를 `await`로 호출한다.
+4. 성공하면 표시 metadata와 page render를 갱신한다. `RhwpNativeEditor` 내부 리본은 이 갱신을 자동 처리하지만, 외부 툴바는 host app에서 현재 문서 화면을 다시 그리도록 연결해야 한다.
+5. HWP/HWPX primary save가 성공했을 때만 `controller.markClean()`을 호출한다.
+
+예를 들어 body cursor에 텍스트를 넣는 외부 버튼은 아래처럼 연결한다.
+
+```dart
+final cursor = editorController.cursor;
+await document.insertText(
+  section: cursor.section,
+  paragraph: cursor.paragraph,
+  offset: cursor.offset,
+  text: '추가 텍스트',
+);
+editorController.dirty = true;
+```
+
+선택된 표 셀에 fill을 넣는 버튼은 `tableCellSelection`의 section/paragraph/control/cell 좌표를 사용한다.
+
+```dart
+final cells = editorController.tableCellSelection;
+if (cells != null) {
+  await document.applyTableCellStyle(
+    section: cells.section,
+    paragraph: cells.paragraph,
+    controlIndex: cells.controlIndex,
+    startRow: cells.startRow,
+    startColumn: cells.startColumn,
+    endRow: cells.endRow,
+    endColumn: cells.endColumn,
+    fillColor: '#fef08a',
+  );
+  editorController.dirty = true;
+}
+```
+
+내장 리본과 외부 툴바를 동시에 쓰는 앱은 같은 `RhwpEditorController` 인스턴스를 넘겨야 cursor, selection, dirty 상태가 같은 기준으로 움직인다.
+
 ## Viewer API
 
 | 기능 | 호출 API |

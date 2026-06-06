@@ -65,6 +65,15 @@ Requirements:
 - Sandboxed macOS full editor with remote `@rhwp/editor`: outgoing network
   client entitlement
 
+## Documentation
+
+- [API spec](docs/API_SPEC.md): editor callbacks, toolbar command mapping, and
+  save/export contracts.
+- [Native editor parity](docs/NATIVE_EDITOR_PARITY.md): upstream Web editor
+  menu coverage versus the Flutter-native editor.
+- [Roadmap](docs/ROADMAP.md) and [TODO](docs/TODO.md): remaining native editor,
+  export, platform, and release work.
+
 ## Quick Start
 
 ```dart
