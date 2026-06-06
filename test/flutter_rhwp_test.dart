@@ -731,6 +731,31 @@ void main() {
     expect(
       jsonDecode(
         jsonEncode(
+          RhwpCommand.getTextInTableCell(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            cellIndex: 3,
+            cellParagraph: 0,
+            offset: 1,
+            count: 4,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'getTextInTableCell',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'cellIndex': 3,
+        'cellParagraph': 0,
+        'offset': 1,
+        'count': 4,
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
           RhwpCommand.deleteRangeInTableCell(
             section: 0,
             paragraph: 1,
@@ -2829,6 +2854,28 @@ void main() {
       'count': 1,
     });
 
+    final cellText = await document.textInTableCell(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      cellIndex: 2,
+      cellParagraph: 0,
+      offset: 1,
+      count: 4,
+    );
+
+    expect(cellText, 'cell');
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'getTextInTableCell',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'cellIndex': 2,
+      'cellParagraph': 0,
+      'offset': 1,
+      'count': 4,
+    });
+
     await document.deleteRangeInTableCell(
       section: 0,
       paragraph: 1,
@@ -4482,6 +4529,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
     }
     if (command is Map && command['type'] == 'getCellParagraphLength') {
       return '{"length":4}';
+    }
+    if (command is Map && command['type'] == 'getTextInTableCell') {
+      return 'cell';
     }
     if (command is Map && command['type'] == 'getSectionCount') {
       return '{"count":1}';

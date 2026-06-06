@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart'
     show TargetPlatform, debugDefaultTargetPlatformOverride, kIsWeb;
@@ -5827,6 +5828,87 @@ void main() {
         'writeResult': true,
       },
     ]);
+  });
+
+  testWidgets('RhwpNativeEditor formats selected table cell numbers', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+    session.cellTextByCellAndParagraph['7:0'] = '1234';
+    session.cellTextByCellAndParagraph['8:0'] = '1,234.50';
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.tableCellSelection = const RhwpTableCellSelection(
+      section: 0,
+      paragraph: 5,
+      controlIndex: 2,
+      startRow: 1,
+      startColumn: 3,
+      endRow: 2,
+      endColumn: 4,
+      activeCellIndex: 7,
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('표'));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-table-toggle-thousands')),
+    );
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-table-toggle-thousands')),
+    );
+    await _pumpDocumentFrame(tester);
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-table-increase-decimals')),
+    );
+    await _pumpDocumentFrame(tester);
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-table-decrease-decimals')),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 3);
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+      'saveSnapshot',
+      'saveSnapshot',
+    ]);
+    final insertTexts = session.commands
+        .map(jsonDecode)
+        .where((command) => command['type'] == 'insertTextInTableCell')
+        .map((command) => command['text'])
+        .toList();
+    expect(insertTexts, [
+      '1,234',
+      '1234.50',
+      '1,234.0',
+      '1234.500',
+      '1,234',
+      '1234.50',
+    ]);
+    expect(session.cellTextByCellAndParagraph['7:0'], '1,234');
+    expect(session.cellTextByCellAndParagraph['8:0'], '1234.50');
   });
 
   testWidgets('RhwpNativeEditor taps table cell to set table edit context', (
@@ -22396,6 +22478,7 @@ class _FakeRhwpSession implements rust.RhwpSession {
   String pageBorderFillJson =
       '{"attr":0,"spacingLeft":283,"spacingRight":283,"spacingTop":566,"spacingBottom":566,"borderFillId":2,"borderLeft":{"type":1,"width":1,"color":"#000000"},"borderRight":{"type":1,"width":1,"color":"#000000"},"borderTop":{"type":1,"width":1,"color":"#000000"},"borderBottom":{"type":1,"width":1,"color":"#000000"},"fillType":"none","fillColor":"#ffffff","patternColor":"#000000","patternType":0}';
   final cellPropertiesJsonByCellIndex = <int, String>{};
+  final cellTextByCellAndParagraph = <String, String>{};
   String pageLayerTreeJson = jsonEncode(_editorLayerTreeJson());
   final pageLayerTreeJsonByPage = <int, String>{};
   final bodyParagraphLengths = <int, int>{0: 4, 1: 4};
@@ -22621,10 +22704,76 @@ class _FakeRhwpSession implements rust.RhwpSession {
       return '{"length":$length}';
     }
     if (command is Map && command['type'] == 'getCellParagraphCount') {
+      final cellIndex = command['cellIndex'];
+      if (cellIndex is int) {
+        final count = _cellParagraphCount(cellIndex);
+        return '{"count":$count}';
+      }
       return '{"count":2}';
     }
     if (command is Map && command['type'] == 'getCellParagraphLength') {
+      final cellIndex = command['cellIndex'];
+      final cellParagraph = command['cellParagraph'];
+      if (cellIndex is int && cellParagraph is int) {
+        final text = _cellText(cellIndex, cellParagraph);
+        return '{"length":${text.runes.length}}';
+      }
       return '{"length":4}';
+    }
+    if (command is Map && command['type'] == 'getTextInTableCell') {
+      final cellIndex = command['cellIndex'];
+      final cellParagraph = command['cellParagraph'];
+      final offset = command['offset'];
+      final count = command['count'];
+      if (cellIndex is int &&
+          cellParagraph is int &&
+          offset is int &&
+          count is int) {
+        final text = _cellText(cellIndex, cellParagraph);
+        final start = offset.clamp(0, text.length).toInt();
+        final end = (start + count).clamp(start, text.length).toInt();
+        return text.substring(start, end);
+      }
+      return 'cell';
+    }
+    if (command is Map && command['type'] == 'deleteTextInTableCell') {
+      final cellIndex = command['cellIndex'];
+      final cellParagraph = command['cellParagraph'];
+      final offset = command['offset'];
+      final count = command['count'];
+      if (cellIndex is int &&
+          cellParagraph is int &&
+          offset is int &&
+          count is int) {
+        final text = _cellText(cellIndex, cellParagraph);
+        final start = offset.clamp(0, text.length).toInt();
+        final end = (start + count).clamp(start, text.length).toInt();
+        _setCellText(
+          cellIndex,
+          cellParagraph,
+          '${text.substring(0, start)}${text.substring(end)}',
+        );
+      }
+      return '{"ok":true,"charOffset":0}';
+    }
+    if (command is Map && command['type'] == 'insertTextInTableCell') {
+      final cellIndex = command['cellIndex'];
+      final cellParagraph = command['cellParagraph'];
+      final offset = command['offset'];
+      final inserted = command['text'];
+      if (cellIndex is int &&
+          cellParagraph is int &&
+          offset is int &&
+          inserted is String) {
+        final text = _cellText(cellIndex, cellParagraph);
+        final start = offset.clamp(0, text.length).toInt();
+        _setCellText(
+          cellIndex,
+          cellParagraph,
+          '${text.substring(0, start)}$inserted${text.substring(start)}',
+        );
+      }
+      return '{"ok":true,"charOffset":0}';
     }
     if (command is Map && command['type'] == 'evaluateTableFormula') {
       return '{"ok":true,"result":3,"formula":"=SUM(A1:B1)"}';
@@ -22715,6 +22864,39 @@ class _FakeRhwpSession implements rust.RhwpSession {
     if (gate != null && !gate.isCompleted) {
       await gate.future;
     }
+  }
+
+  int _cellParagraphCount(int cellIndex) {
+    final paragraphIndexes = <int>{};
+    for (final key in cellTextByCellAndParagraph.keys) {
+      final parts = key.split(':');
+      if (parts.length != 2) {
+        continue;
+      }
+      if (int.tryParse(parts.first) == cellIndex) {
+        final paragraph = int.tryParse(parts.last);
+        if (paragraph != null) {
+          paragraphIndexes.add(paragraph);
+        }
+      }
+    }
+    if (paragraphIndexes.isEmpty) {
+      return 2;
+    }
+    return paragraphIndexes.reduce(math.max) + 1;
+  }
+
+  String _cellText(int cellIndex, int cellParagraph) {
+    return cellTextByCellAndParagraph[_cellTextKey(cellIndex, cellParagraph)] ??
+        'cell';
+  }
+
+  void _setCellText(int cellIndex, int cellParagraph, String text) {
+    cellTextByCellAndParagraph[_cellTextKey(cellIndex, cellParagraph)] = text;
+  }
+
+  String _cellTextKey(int cellIndex, int cellParagraph) {
+    return '$cellIndex:$cellParagraph';
   }
 
   @override

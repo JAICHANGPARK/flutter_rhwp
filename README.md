@@ -19,6 +19,8 @@ documents.
 - Use `RhwpFullEditor` for the upstream Web editor UI.
 - Use `RhwpNativeEditor` for the Flutter widget editor track.
 - Evaluate table formulas from the Flutter-native table ribbon or the Dart API.
+- Format selected table-cell numbers with thousands separators and decimal
+  place increase/decrease actions.
 - Manage bookmarks from the Flutter-native input ribbon or the Dart API.
 - Manage HWP fields/누름틀 values from the Flutter-native tools ribbon or the
   Dart API.

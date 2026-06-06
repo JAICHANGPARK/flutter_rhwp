@@ -123,7 +123,7 @@
 | 셀 나누기 / 셀 합치기 | 완료 | split/merge commands |
 | 셀 높이를 같게 / 셀 너비를 같게 | 완료 | selected cell max width/height 기준 `resizeTableCells` |
 | 블록 계산식 / 합계 / 평균 / 곱 | 완료 | formula field, SUM/AVG/PRODUCT selected-cell presets |
-| 1,000 단위 구분 / 자릿점 넣기/빼기 | 미구현 | table number formatting command/UI 필요 |
+| 1,000 단위 구분 / 자릿점 넣기/빼기 | 완료 | 선택된 순수 숫자 셀 문단의 1,000 구분 토글, 소수 자릿수 증가/감소 |
 
 ## Tools
 
@@ -137,6 +137,5 @@
 ## 다음 구현 우선순위
 
 1. 하이퍼링크, 캡션, 주석처럼 일반 문서 작성에 자주 쓰이는 Insert 메뉴를 추가한다.
-2. 표 number formatting을 table backlog로 분리해 구현한다.
-3. 쪽 테두리/배경 상세 옵션, 다단 개별 너비/구분선, 구역 상세 옵션을 page backlog로 분리해 구현한다.
-4. 문서 이력 관리는 upstream API 확인 후 별도 milestone으로 둔다.
+2. 쪽 테두리/배경 상세 옵션, 다단 개별 너비/구분선, 구역 상세 옵션을 page backlog로 분리해 구현한다.
+3. 문서 이력 관리는 upstream API 확인 후 별도 milestone으로 둔다.

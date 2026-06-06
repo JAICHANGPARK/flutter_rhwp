@@ -20,6 +20,12 @@ import 'rhwp_viewer.dart';
 
 typedef RhwpEditorImagePicker = FutureOr<RhwpEditorImage?> Function();
 
+enum _TableNumberFormatAction {
+  toggleThousands,
+  increaseDecimal,
+  decreaseDecimal,
+}
+
 class RhwpEditorImage {
   const RhwpEditorImage({
     required this.bytes,
@@ -6202,6 +6208,154 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     final formula = '=$functionName(${_tableFormulaRange(selection)})';
     _setTextIfChanged(_tableFormulaController, formula);
     await _evaluateTableFormula();
+  }
+
+  Future<void> _formatSelectedTableNumbers(
+    _TableNumberFormatAction action,
+  ) async {
+    if (_busy) {
+      return;
+    }
+
+    final selection = _editableTableCellSelection;
+    if (selection == null) {
+      return;
+    }
+
+    final targets = await _tableCellStyleTargets(selection);
+    if (!mounted || targets.isEmpty) {
+      return;
+    }
+
+    final replacements =
+        <({int cellIndex, int cellParagraph, int length, String text})>[];
+    final seen = <int>{};
+    for (final target in targets) {
+      final cellIndex = target.cell.modelCellIndex;
+      if (cellIndex == null || !seen.add(cellIndex)) {
+        continue;
+      }
+
+      final paragraphCount = await widget.document.cellParagraphCount(
+        section: selection.section,
+        paragraph: selection.paragraph,
+        controlIndex: selection.controlIndex,
+        cellIndex: cellIndex,
+      );
+      for (
+        var cellParagraph = 0;
+        cellParagraph < paragraphCount;
+        cellParagraph += 1
+      ) {
+        final length = await widget.document.cellParagraphLength(
+          section: selection.section,
+          paragraph: selection.paragraph,
+          controlIndex: selection.controlIndex,
+          cellIndex: cellIndex,
+          cellParagraph: cellParagraph,
+        );
+        if (length <= 0) {
+          continue;
+        }
+
+        final text = await widget.document.textInTableCell(
+          section: selection.section,
+          paragraph: selection.paragraph,
+          controlIndex: selection.controlIndex,
+          cellIndex: cellIndex,
+          cellParagraph: cellParagraph,
+          offset: 0,
+          count: length,
+        );
+        final formatted = _formatTableNumberText(text, action);
+        if (formatted == null || formatted == text) {
+          continue;
+        }
+
+        replacements.add((
+          cellIndex: cellIndex,
+          cellParagraph: cellParagraph,
+          length: length,
+          text: formatted,
+        ));
+      }
+    }
+
+    if (!mounted || replacements.isEmpty) {
+      _focusEditor();
+      return;
+    }
+
+    await _runEdit(() async {
+      for (final replacement in replacements) {
+        await widget.document.deleteTextInTableCell(
+          section: selection.section,
+          paragraph: selection.paragraph,
+          controlIndex: selection.controlIndex,
+          cellIndex: replacement.cellIndex,
+          cellParagraph: replacement.cellParagraph,
+          offset: 0,
+          count: replacement.length,
+        );
+        await widget.document.insertTextInTableCell(
+          section: selection.section,
+          paragraph: selection.paragraph,
+          controlIndex: selection.controlIndex,
+          cellIndex: replacement.cellIndex,
+          cellParagraph: replacement.cellParagraph,
+          offset: 0,
+          text: replacement.text,
+        );
+      }
+      _controller.tableCellSelection = selection;
+    });
+  }
+
+  String? _formatTableNumberText(String text, _TableNumberFormatAction action) {
+    final match = RegExp(
+      r'^(\s*)([+-]?)(\d[\d,]*)(?:\.(\d+))?(\s*)$',
+    ).firstMatch(text);
+    if (match == null) {
+      return null;
+    }
+
+    final leading = match.group(1) ?? '';
+    final sign = match.group(2) ?? '';
+    final integer = match.group(3) ?? '';
+    final decimals = match.group(4);
+    final trailing = match.group(5) ?? '';
+    final normalizedInteger = integer.replaceAll(',', '');
+    final nextInteger = switch (action) {
+      _TableNumberFormatAction.toggleThousands =>
+        integer.contains(',')
+            ? normalizedInteger
+            : _groupThousands(normalizedInteger),
+      _ => integer,
+    };
+    final nextDecimals = switch (action) {
+      _TableNumberFormatAction.increaseDecimal => '${decimals ?? ''}0',
+      _TableNumberFormatAction.decreaseDecimal =>
+        decimals == null
+            ? null
+            : decimals.length <= 1
+            ? null
+            : decimals.substring(0, decimals.length - 1),
+      _ => decimals,
+    };
+    final decimalText = nextDecimals == null ? '' : '.$nextDecimals';
+    return '$leading$sign$nextInteger$decimalText$trailing';
+  }
+
+  String _groupThousands(String digits) {
+    final buffer = StringBuffer();
+    for (var index = 0; index < digits.length; index += 1) {
+      final remaining = digits.length - index;
+      buffer.write(digits[index]);
+      if (remaining > 1 && remaining % 3 == 1) {
+        buffer.write(',');
+      }
+    }
+    return buffer.toString();
   }
 
   String _tableFormulaRange(RhwpTableCellSelection selection) {
@@ -14503,6 +14657,15 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onEqualizeCellWidths: _equalizeSelectedTableCellWidths,
           onEvaluateTableFormula: _evaluateTableFormula,
           onEvaluateTableFormulaPreset: _evaluateTableFormulaPreset,
+          onToggleTableThousandsSeparator: () => _formatSelectedTableNumbers(
+            _TableNumberFormatAction.toggleThousands,
+          ),
+          onIncreaseTableDecimalPlaces: () => _formatSelectedTableNumbers(
+            _TableNumberFormatAction.increaseDecimal,
+          ),
+          onDecreaseTableDecimalPlaces: () => _formatSelectedTableNumbers(
+            _TableNumberFormatAction.decreaseDecimal,
+          ),
           onCellFillColor: (fillColor) =>
               _applyTableCellStyle(fillColor: fillColor),
           onCellBorder: () => _applyTableCellStyle(
@@ -17236,6 +17399,9 @@ class _EditorToolbar extends StatefulWidget {
     required this.onEqualizeCellWidths,
     required this.onEvaluateTableFormula,
     required this.onEvaluateTableFormulaPreset,
+    required this.onToggleTableThousandsSeparator,
+    required this.onIncreaseTableDecimalPlaces,
+    required this.onDecreaseTableDecimalPlaces,
     required this.onCellFillColor,
     required this.onCellBorder,
     required this.onClearCellFill,
@@ -17409,6 +17575,9 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onEqualizeCellWidths;
   final VoidCallback onEvaluateTableFormula;
   final ValueChanged<String> onEvaluateTableFormulaPreset;
+  final VoidCallback onToggleTableThousandsSeparator;
+  final VoidCallback onIncreaseTableDecimalPlaces;
+  final VoidCallback onDecreaseTableDecimalPlaces;
   final ValueChanged<String> onCellFillColor;
   final VoidCallback onCellBorder;
   final VoidCallback onClearCellFill;
@@ -18670,6 +18839,37 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               icon: Icons.close,
               onPressed: canEditActiveCell
                   ? () => widget.onEvaluateTableFormulaPreset('PRODUCT')
+                  : null,
+            ),
+          ],
+        ),
+      ),
+      _RibbonGroup(
+        label: '숫자',
+        child: Row(
+          children: [
+            _ToolbarIconButton(
+              tooltip: 'Toggle thousands separator',
+              buttonKey: const ValueKey('rhwp-editor-table-toggle-thousands'),
+              icon: Icons.format_list_numbered,
+              onPressed: canEditActiveCell
+                  ? widget.onToggleTableThousandsSeparator
+                  : null,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Increase decimal places',
+              buttonKey: const ValueKey('rhwp-editor-table-increase-decimals'),
+              icon: Icons.exposure_plus_1,
+              onPressed: canEditActiveCell
+                  ? widget.onIncreaseTableDecimalPlaces
+                  : null,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Decrease decimal places',
+              buttonKey: const ValueKey('rhwp-editor-table-decrease-decimals'),
+              icon: Icons.exposure_minus_1,
+              onPressed: canEditActiveCell
+                  ? widget.onDecreaseTableDecimalPlaces
                   : null,
             ),
           ],

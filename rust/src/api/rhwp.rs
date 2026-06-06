@@ -225,6 +225,26 @@ impl RhwpSession {
                     count as usize,
                 )
                 .map_err(error_to_string),
+            RhwpCommand::GetTextInTableCell {
+                section,
+                paragraph,
+                control_index,
+                cell_index,
+                cell_paragraph,
+                offset,
+                count,
+            } => inner
+                .document
+                .get_text_in_cell_native(
+                    section as usize,
+                    paragraph as usize,
+                    control_index as usize,
+                    cell_index as usize,
+                    cell_paragraph as usize,
+                    offset as usize,
+                    count as usize,
+                )
+                .map_err(error_to_string),
             RhwpCommand::SplitParagraphInTableCell {
                 section,
                 paragraph,
@@ -1687,6 +1707,18 @@ enum RhwpCommand {
         text: String,
     },
     DeleteTextInTableCell {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "cellIndex")]
+        cell_index: u32,
+        #[serde(rename = "cellParagraph")]
+        cell_paragraph: u32,
+        offset: u32,
+        count: u32,
+    },
+    GetTextInTableCell {
         section: u32,
         paragraph: u32,
         #[serde(rename = "controlIndex")]

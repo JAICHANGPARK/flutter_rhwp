@@ -263,11 +263,22 @@ await document.setTableProperties(
 | Delete cell text range | `document.deleteRangeInTableCell(...)` |
 | Split/merge cell paragraph | `document.splitParagraphInTableCell(...)`, `mergeParagraphInTableCell(...)` |
 | Cell paragraph count/length | `document.cellParagraphCount(...)`, `cellParagraphLength(...)` |
+| Read cell text | `document.textInTableCell(...)` |
 | Cell character format | `document.applyCharFormatInTableCell(...)` |
 | Cell paragraph format | `document.applyParaFormatInTableCell(...)` |
 | Read cell character/paragraph state | `document.cellCharPropertiesAt(...)`, `cellParaPropertiesAt(...)` |
 | HTML paste in cell | `document.pasteHtmlInCell(...)` |
 | Export cell selection HTML | `document.exportSelectionInCellHtml(...)` |
+
+### Table number formatting
+
+| 툴바 기능 | 호출 API |
+| --- | --- |
+| 1,000 단위 구분 | 선택 셀의 `cellParagraphCount(...)`, `cellParagraphLength(...)`, `textInTableCell(...)`로 숫자 텍스트를 읽은 뒤 `deleteTextInTableCell(...)` + `insertTextInTableCell(...)` |
+| 자릿점 넣기 | 같은 경로로 소수 자릿수를 하나 늘린 텍스트를 다시 쓴다. |
+| 자릿점 빼기 | 같은 경로로 소수 자릿수를 하나 줄인 텍스트를 다시 쓴다. |
+
+`RhwpNativeEditor` 기본 표 리본은 순수 숫자 셀 문단만 변경한다. 일반 문장, 단위가 붙은 텍스트, 숫자와 문자가 섞인 셀은 변경하지 않는다.
 
 ### Objects and clipboard
 

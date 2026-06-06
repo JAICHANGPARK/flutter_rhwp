@@ -59,6 +59,9 @@
 * Expanded `docs/API_SPEC.md` with the `RhwpEditorController` context and
   `RhwpDocument` command contract needed for host apps that build custom
   editor toolbars.
+* Added `getTextInTableCell`/`textInTableCell` command APIs and Flutter-native
+  table ribbon controls for selected-cell thousands separators and decimal
+  place increase/decrease formatting.
 
 ## 2026-06-02 (2026.6.2)
 

@@ -1164,6 +1164,16 @@ abstract class RhwpCommand {
     required int count,
   }) = RhwpDeleteTextInTableCellCommand;
 
+  factory RhwpCommand.getTextInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int offset,
+    required int count,
+  }) = RhwpGetTextInTableCellCommand;
+
   factory RhwpCommand.deleteRangeInTableCell({
     required int section,
     required int paragraph,
@@ -2108,6 +2118,38 @@ class RhwpDeleteTextInTableCellCommand extends RhwpCommand {
   @override
   Map<String, Object?> toJson() => {
     'type': 'deleteTextInTableCell',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'cellIndex': cellIndex,
+    'cellParagraph': cellParagraph,
+    'offset': offset,
+    'count': count,
+  };
+}
+
+class RhwpGetTextInTableCellCommand extends RhwpCommand {
+  const RhwpGetTextInTableCellCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+    required this.cellParagraph,
+    required this.offset,
+    required this.count,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+  final int cellParagraph;
+  final int offset;
+  final int count;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'getTextInTableCell',
     'section': section,
     'paragraph': paragraph,
     'controlIndex': controlIndex,
@@ -5181,6 +5223,28 @@ class RhwpDocument {
   }) {
     return apply(
       RhwpCommand.deleteTextInTableCell(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        cellIndex: cellIndex,
+        cellParagraph: cellParagraph,
+        offset: offset,
+        count: count,
+      ),
+    );
+  }
+
+  Future<String> textInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int offset,
+    required int count,
+  }) {
+    return apply(
+      RhwpCommand.getTextInTableCell(
         section: section,
         paragraph: paragraph,
         controlIndex: controlIndex,
