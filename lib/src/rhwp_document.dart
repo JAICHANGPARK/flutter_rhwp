@@ -1347,6 +1347,21 @@ abstract class RhwpCommand {
     int color,
   }) = RhwpInsertEquationCommand;
 
+  factory RhwpCommand.insertHyperlink({
+    required int section,
+    required int paragraph,
+    required int offset,
+    required String url,
+    required String text,
+  }) = RhwpInsertHyperlinkCommand;
+
+  factory RhwpCommand.insertHiddenComment({
+    required int section,
+    required int paragraph,
+    required int offset,
+    required String text,
+  }) = RhwpInsertHiddenCommentCommand;
+
   factory RhwpCommand.insertPicture({
     required int section,
     required int paragraph,
@@ -2619,6 +2634,55 @@ class RhwpInsertEquationCommand extends RhwpCommand {
     'script': script,
     'fontSize': fontSize,
     'color': color,
+  };
+}
+
+class RhwpInsertHyperlinkCommand extends RhwpCommand {
+  const RhwpInsertHyperlinkCommand({
+    required this.section,
+    required this.paragraph,
+    required this.offset,
+    required this.url,
+    required this.text,
+  });
+
+  final int section;
+  final int paragraph;
+  final int offset;
+  final String url;
+  final String text;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'insertHyperlink',
+    'section': section,
+    'paragraph': paragraph,
+    'offset': offset,
+    'url': url,
+    'text': text,
+  };
+}
+
+class RhwpInsertHiddenCommentCommand extends RhwpCommand {
+  const RhwpInsertHiddenCommentCommand({
+    required this.section,
+    required this.paragraph,
+    required this.offset,
+    required this.text,
+  });
+
+  final int section;
+  final int paragraph;
+  final int offset;
+  final String text;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'insertHiddenComment',
+    'section': section,
+    'paragraph': paragraph,
+    'offset': offset,
+    'text': text,
   };
 }
 
@@ -5620,6 +5684,40 @@ class RhwpDocument {
         script: script,
         fontSize: fontSize,
         color: color,
+      ),
+    );
+  }
+
+  Future<String> insertHyperlink({
+    required int section,
+    required int paragraph,
+    required int offset,
+    required String url,
+    required String text,
+  }) {
+    return apply(
+      RhwpCommand.insertHyperlink(
+        section: section,
+        paragraph: paragraph,
+        offset: offset,
+        url: url,
+        text: text,
+      ),
+    );
+  }
+
+  Future<String> insertHiddenComment({
+    required int section,
+    required int paragraph,
+    required int offset,
+    required String text,
+  }) {
+    return apply(
+      RhwpCommand.insertHiddenComment(
+        section: section,
+        paragraph: paragraph,
+        offset: offset,
+        text: text,
       ),
     );
   }

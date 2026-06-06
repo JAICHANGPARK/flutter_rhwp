@@ -18,6 +18,7 @@
 - `RhwpNativeEditor`의 Flutter-native 리본, status bar, caret/selection overlay.
 - 본문/표 셀 텍스트 입력, 삭제, 붙여넣기, 선택, undo/redo, 검색/바꾸기.
 - 문자/문단/스타일/표/개체/필드/머리말/꼬리말 일부 편집 명령.
+- 하이퍼링크와 숨은 주석 삽입을 위한 Flutter-native 리본/API/Rust command 경로.
 - Web full editor fallback host와 Flutter-native editor toggle.
 - dirty 상태, modified indicator, New/Open/Close unsaved changes guard.
 - full editor/Web editor의 conservative dirty bridge와 mode switch dirty handoff.

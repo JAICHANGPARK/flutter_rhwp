@@ -28,6 +28,8 @@ documents.
 - Rotate and flip selected shape/picture objects from the Flutter-native object
   properties dialog or Dart object-properties API.
 - Manage bookmarks from the Flutter-native input ribbon or the Dart API.
+- Insert hyperlinks and hidden comments from the Flutter-native input ribbon or
+  the Dart API.
 - Manage HWP fields/누름틀 values from the Flutter-native tools ribbon or the
   Dart API.
 - Inspect, edit ClickHere field properties, and remove field markers at the
@@ -206,6 +208,21 @@ await document.addBookmark(
   paragraph: 0,
   offset: 0,
   name: 'intro',
+);
+
+await document.insertHyperlink(
+  section: 0,
+  paragraph: 0,
+  offset: 0,
+  url: 'https://example.com',
+  text: 'Example',
+);
+
+await document.insertHiddenComment(
+  section: 0,
+  paragraph: 0,
+  offset: 0,
+  text: '검토 의견',
 );
 
 final bookmarks = await document.bookmarks();

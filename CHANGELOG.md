@@ -66,6 +66,14 @@
   properties and the Flutter-native object properties dialog.
 * Added selected object rotation and horizontal/vertical flip fields to object
   properties and the Flutter-native object properties dialog.
+* Added Flutter-native hyperlink insertion from the input ribbon and
+  `RhwpDocument.insertHyperlink(...)`, backed by an rhwp hyperlink field
+  command path.
+* Added Flutter-native hidden-comment insertion from the input ribbon and
+  `RhwpDocument.insertHiddenComment(...)`, backed by an rhwp hidden-comment
+  control command path.
+* Covered hyperlink/comment insertion with a native editor widget test and an
+  Rust facade command smoke test.
 
 ## 2026-06-02 (2026.6.2)
 

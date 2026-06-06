@@ -1150,6 +1150,19 @@ class _EquationDialogResult {
   final int color;
 }
 
+class _HyperlinkDialogResult {
+  const _HyperlinkDialogResult({required this.url, required this.text});
+
+  final String url;
+  final String text;
+}
+
+class _HiddenCommentDialogResult {
+  const _HiddenCommentDialogResult({required this.text});
+
+  final String text;
+}
+
 enum _BookmarkDialogAction { add, delete, rename, goTo }
 
 class _BookmarkDialogResult {
@@ -5328,6 +5341,74 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         color: result.color,
       );
       _controller.cursor = cursor.copyWith(offset: cursor.offset + 1);
+    });
+  }
+
+  Future<void> _showInsertHyperlinkDialog() async {
+    if (_busy || _controller.tableCellSelection != null) {
+      return;
+    }
+
+    final suggestedText = await _selectedText();
+    if (!mounted) {
+      return;
+    }
+    final result = await showDialog<_HyperlinkDialogResult>(
+      context: context,
+      builder: (context) =>
+          _HyperlinkDialog(initialText: suggestedText?.trim() ?? ''),
+    );
+    if (result == null ||
+        result.url.trim().isEmpty ||
+        result.text.trim().isEmpty) {
+      return;
+    }
+
+    final selection = _controller.selection;
+    final cursor = selection.isCollapsed
+        ? _controller.cursor
+        : selection.normalizedStart;
+    await _runEdit(() async {
+      if (!selection.isCollapsed) {
+        await _deleteSelectedText(selection);
+      }
+      final response = await widget.document.insertHyperlink(
+        section: cursor.section,
+        paragraph: cursor.paragraph,
+        offset: cursor.offset,
+        url: result.url.trim(),
+        text: result.text,
+      );
+      _throwIfCommandRejected(response);
+      _controller.cursor = cursor.copyWith(
+        offset: cursor.offset + result.text.length,
+      );
+    });
+  }
+
+  Future<void> _showInsertHiddenCommentDialog() async {
+    if (_busy || _controller.tableCellSelection != null) {
+      return;
+    }
+
+    final result = await showDialog<_HiddenCommentDialogResult>(
+      context: context,
+      builder: (context) => const _HiddenCommentDialog(),
+    );
+    if (result == null || result.text.trim().isEmpty) {
+      return;
+    }
+
+    final cursor = _readCursor();
+    await _runEdit(() async {
+      final response = await widget.document.insertHiddenComment(
+        section: cursor.section,
+        paragraph: cursor.paragraph,
+        offset: cursor.offset,
+        text: result.text,
+      );
+      _throwIfCommandRejected(response);
+      _controller.cursor = cursor;
     });
   }
 
@@ -14658,6 +14739,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onEditFootnote: _showFootnoteTextDialog,
           onDeleteFootnote: _deleteFootnoteAtCursor,
           onInsertEquation: _showInsertEquationDialog,
+          onInsertHyperlink: _showInsertHyperlinkDialog,
+          onInsertHiddenComment: _showInsertHiddenCommentDialog,
           onCharacterMap: _showCharacterMapDialog,
           onBookmark: _showBookmarkDialog,
           onFields: _showFieldsDialog,
@@ -17400,6 +17483,8 @@ class _EditorToolbar extends StatefulWidget {
     required this.onEditFootnote,
     required this.onDeleteFootnote,
     required this.onInsertEquation,
+    required this.onInsertHyperlink,
+    required this.onInsertHiddenComment,
     required this.onCharacterMap,
     required this.onBookmark,
     required this.onFields,
@@ -17576,6 +17661,8 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onEditFootnote;
   final VoidCallback onDeleteFootnote;
   final VoidCallback onInsertEquation;
+  final VoidCallback onInsertHyperlink;
+  final VoidCallback onInsertHiddenComment;
   final VoidCallback onCharacterMap;
   final VoidCallback onBookmark;
   final VoidCallback onFields;
@@ -18268,6 +18355,22 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               buttonKey: const ValueKey('rhwp-editor-insert-equation'),
               icon: Icons.functions,
               onPressed: widget.busy ? null : widget.onInsertEquation,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Insert hyperlink',
+              buttonKey: const ValueKey('rhwp-editor-insert-hyperlink'),
+              icon: Icons.link,
+              onPressed: widget.busy || widget.tableCellSelection != null
+                  ? null
+                  : widget.onInsertHyperlink,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Insert comment',
+              buttonKey: const ValueKey('rhwp-editor-insert-hidden-comment'),
+              icon: Icons.comment_outlined,
+              onPressed: widget.busy || widget.tableCellSelection != null
+                  ? null
+                  : widget.onInsertHiddenComment,
             ),
             _ToolbarIconButton(
               tooltip: 'Character map',
@@ -21423,6 +21526,145 @@ class _EquationDialogState extends State<_EquationDialog> {
 int _equationColorFromHex(String value) {
   final hex = value.replaceFirst('#', '');
   return int.tryParse(hex, radix: 16) ?? 0;
+}
+
+class _HyperlinkDialog extends StatefulWidget {
+  const _HyperlinkDialog({required this.initialText});
+
+  final String initialText;
+
+  @override
+  State<_HyperlinkDialog> createState() => _HyperlinkDialogState();
+}
+
+class _HyperlinkDialogState extends State<_HyperlinkDialog> {
+  final _urlController = TextEditingController(text: 'https://');
+  late final TextEditingController _textController;
+
+  @override
+  void initState() {
+    super.initState();
+    _textController = TextEditingController(text: widget.initialText);
+  }
+
+  @override
+  void dispose() {
+    _urlController.dispose();
+    _textController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('하이퍼링크'),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              key: const ValueKey('rhwp-hyperlink-url-field'),
+              controller: _urlController,
+              keyboardType: TextInputType.url,
+              decoration: const InputDecoration(
+                labelText: 'URL',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              onSubmitted: (_) => _apply(),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const ValueKey('rhwp-hyperlink-text-field'),
+              controller: _textController,
+              decoration: const InputDecoration(
+                labelText: 'Display text',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              onSubmitted: (_) => _apply(),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const ValueKey('rhwp-hyperlink-apply'),
+          onPressed: _apply,
+          child: const Text('Insert'),
+        ),
+      ],
+    );
+  }
+
+  void _apply() {
+    Navigator.of(context).pop(
+      _HyperlinkDialogResult(
+        url: _urlController.text,
+        text: _textController.text,
+      ),
+    );
+  }
+}
+
+class _HiddenCommentDialog extends StatefulWidget {
+  const _HiddenCommentDialog();
+
+  @override
+  State<_HiddenCommentDialog> createState() => _HiddenCommentDialogState();
+}
+
+class _HiddenCommentDialogState extends State<_HiddenCommentDialog> {
+  final _textController = TextEditingController();
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('주석'),
+      content: SizedBox(
+        width: 420,
+        child: TextField(
+          key: const ValueKey('rhwp-hidden-comment-text-field'),
+          controller: _textController,
+          minLines: 3,
+          maxLines: 6,
+          decoration: const InputDecoration(
+            labelText: 'Comment',
+            border: OutlineInputBorder(),
+            isDense: true,
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const ValueKey('rhwp-hidden-comment-apply'),
+          onPressed: _apply,
+          child: const Text('Insert'),
+        ),
+      ],
+    );
+  }
+
+  void _apply() {
+    Navigator.of(
+      context,
+    ).pop(_HiddenCommentDialogResult(text: _textController.text));
+  }
 }
 
 class _BookmarkDialog extends StatefulWidget {

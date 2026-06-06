@@ -447,6 +447,36 @@ impl RhwpSession {
                     color,
                 )
                 .map_err(error_to_string),
+            RhwpCommand::InsertHyperlink {
+                section,
+                paragraph,
+                offset,
+                url,
+                text,
+            } => inner
+                .document
+                .insert_hyperlink_native(
+                    section as usize,
+                    paragraph as usize,
+                    offset as usize,
+                    &url,
+                    &text,
+                )
+                .map_err(error_to_string),
+            RhwpCommand::InsertHiddenComment {
+                section,
+                paragraph,
+                offset,
+                text,
+            } => inner
+                .document
+                .insert_hidden_comment_native(
+                    section as usize,
+                    paragraph as usize,
+                    offset as usize,
+                    &text,
+                )
+                .map_err(error_to_string),
             RhwpCommand::InsertPicture {
                 section,
                 paragraph,
@@ -1847,6 +1877,19 @@ enum RhwpCommand {
         #[serde(rename = "fontSize")]
         font_size: u32,
         color: u32,
+    },
+    InsertHyperlink {
+        section: u32,
+        paragraph: u32,
+        offset: u32,
+        url: String,
+        text: String,
+    },
+    InsertHiddenComment {
+        section: u32,
+        paragraph: u32,
+        offset: u32,
+        text: String,
     },
     InsertPicture {
         section: u32,
@@ -3373,6 +3416,38 @@ mod tests {
                     .to_string(),
             )
             .expect("insert equation command should be accepted");
+        let hyperlink_result = session
+            .apply_command(
+                r#"{"type":"insertHyperlink","section":0,"paragraph":0,"offset":5,"url":"https://example.com","text":"Example"}"#
+                    .to_string(),
+            )
+            .expect("insert hyperlink command should be accepted");
+        let hyperlink: Value = serde_json::from_str(&hyperlink_result)
+            .expect("insert hyperlink result should be JSON");
+        assert_eq!(hyperlink["ok"], true);
+        assert!(hyperlink["fieldId"].as_u64().is_some());
+        let fields_result = session
+            .apply_command(r#"{"type":"getFieldList"}"#.to_string())
+            .expect("get field list command should be accepted");
+        let fields: Value =
+            serde_json::from_str(&fields_result).expect("field list result should be JSON");
+        assert!(
+            fields.as_array().is_some_and(|items| items
+                .iter()
+                .any(|item| item["fieldType"].as_str() == Some("hyperlink")
+                    && item["value"].as_str() == Some("Example"))),
+            "inserted hyperlink field should be discoverable"
+        );
+        let hidden_comment_result = session
+            .apply_command(
+                r#"{"type":"insertHiddenComment","section":0,"paragraph":0,"offset":5,"text":"검토 의견"}"#
+                    .to_string(),
+            )
+            .expect("insert hidden comment command should be accepted");
+        let hidden_comment: Value = serde_json::from_str(&hidden_comment_result)
+            .expect("insert hidden comment result should be JSON");
+        assert_eq!(hidden_comment["ok"], true);
+        assert!(hidden_comment["controlIdx"].as_u64().is_some());
         session
             .apply_command(
                 r#"{"type":"addBookmark","section":0,"paragraph":0,"offset":5,"name":"intro"}"#

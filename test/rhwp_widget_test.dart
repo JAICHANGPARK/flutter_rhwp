@@ -708,7 +708,7 @@ void main() {
     await tester.pumpWidget(
       _WidgetHarness(
         child: SizedBox(
-          width: 720,
+          width: 1000,
           height: 420,
           child: RhwpNativeEditor(
             document: document,
@@ -788,6 +788,53 @@ void main() {
       'script': 'sqrt x',
       'fontSize': 1200,
       'color': 0x2563eb,
+    });
+
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-insert-hyperlink')),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-hyperlink-url-field')),
+      'https://example.com',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-hyperlink-text-field')),
+      'Example',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-hyperlink-apply')));
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.cursor.offset, 11);
+    expect(changedCalls, 5);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'insertHyperlink',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 4,
+      'url': 'https://example.com',
+      'text': 'Example',
+    });
+
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-insert-hidden-comment')),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-hidden-comment-text-field')),
+      '검토 의견',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-hidden-comment-apply')));
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.cursor.offset, 11);
+    expect(changedCalls, 6);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'insertHiddenComment',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 11,
+      'text': '검토 의견',
     });
   });
 
