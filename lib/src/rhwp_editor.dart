@@ -632,6 +632,9 @@ class _ObjectPropertiesDialogResult {
     required this.height,
     required this.horzOffset,
     required this.vertOffset,
+    this.rotationAngle,
+    this.horzFlip,
+    this.vertFlip,
     this.hasCaption,
     this.captionDirection,
     this.captionVerticalAlign,
@@ -644,6 +647,9 @@ class _ObjectPropertiesDialogResult {
   final int height;
   final int horzOffset;
   final int vertOffset;
+  final int? rotationAngle;
+  final bool? horzFlip;
+  final bool? vertFlip;
   final bool? hasCaption;
   final String? captionDirection;
   final String? captionVerticalAlign;
@@ -4466,6 +4472,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         height: result.height,
         horzOffset: result.horzOffset,
         vertOffset: result.vertOffset,
+        rotationAngle: result.rotationAngle,
+        horzFlip: result.horzFlip,
+        vertFlip: result.vertFlip,
         hasCaption: result.hasCaption,
         captionDirection: result.captionDirection,
         captionVerticalAlign: result.captionVerticalAlign,
@@ -23492,9 +23501,13 @@ class _ObjectPropertiesDialogState extends State<_ObjectPropertiesDialog> {
   late final TextEditingController _heightController;
   late final TextEditingController _horzOffsetController;
   late final TextEditingController _vertOffsetController;
+  late final TextEditingController _rotationAngleController;
   late final TextEditingController _captionWidthController;
   late final TextEditingController _captionSpacingController;
+  late final bool _supportsTransform;
   late final bool _supportsCaption;
+  late bool _horzFlip;
+  late bool _vertFlip;
   late bool _hasCaption;
   late bool _captionIncludeMargin;
   late String _captionDirection;
@@ -23503,6 +23516,9 @@ class _ObjectPropertiesDialogState extends State<_ObjectPropertiesDialog> {
   @override
   void initState() {
     super.initState();
+    _supportsTransform = widget.properties.supportsTransform;
+    _horzFlip = widget.properties.horzFlip ?? false;
+    _vertFlip = widget.properties.vertFlip ?? false;
     _supportsCaption = widget.properties.supportsCaption;
     _hasCaption = widget.properties.hasCaption ?? false;
     _captionDirection = _normalizeChoice(
@@ -23528,6 +23544,9 @@ class _ObjectPropertiesDialogState extends State<_ObjectPropertiesDialog> {
     _vertOffsetController = TextEditingController(
       text: _initialValue(widget.properties.vertOffset),
     );
+    _rotationAngleController = TextEditingController(
+      text: _initialValue(widget.properties.rotationAngle),
+    );
     _captionWidthController = TextEditingController(
       text: _initialValue(_initialCaptionWidth()),
     );
@@ -23542,6 +23561,7 @@ class _ObjectPropertiesDialogState extends State<_ObjectPropertiesDialog> {
     _heightController.dispose();
     _horzOffsetController.dispose();
     _vertOffsetController.dispose();
+    _rotationAngleController.dispose();
     _captionWidthController.dispose();
     _captionSpacingController.dispose();
     super.dispose();
@@ -23596,6 +23616,50 @@ class _ObjectPropertiesDialogState extends State<_ObjectPropertiesDialog> {
                   ),
                 ],
               ),
+              if (_supportsTransform) ...[
+                const SizedBox(height: 16),
+                const Divider(),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ObjectPropertiesNumberField(
+                        fieldKey: const ValueKey(
+                          'rhwp-object-rotation-angle-field',
+                        ),
+                        label: '회전',
+                        controller: _rotationAngleController,
+                      ),
+                    ),
+                    const Spacer(),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: CheckboxListTile(
+                        key: const ValueKey('rhwp-object-horz-flip-field'),
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('좌우 대칭'),
+                        value: _horzFlip,
+                        onChanged: (value) =>
+                            setState(() => _horzFlip = value ?? false),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: CheckboxListTile(
+                        key: const ValueKey('rhwp-object-vert-flip-field'),
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('상하 대칭'),
+                        value: _vertFlip,
+                        onChanged: (value) =>
+                            setState(() => _vertFlip = value ?? false),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               if (_supportsCaption) ...[
                 const SizedBox(height: 16),
                 const Divider(),
@@ -23740,6 +23804,14 @@ class _ObjectPropertiesDialogState extends State<_ObjectPropertiesDialog> {
           _vertOffsetController,
           fallback: widget.properties.vertOffset,
         ),
+        rotationAngle: _supportsTransform
+            ? _readRotationAngle(
+                _rotationAngleController,
+                fallback: widget.properties.rotationAngle,
+              )
+            : null,
+        horzFlip: _supportsTransform ? _horzFlip : null,
+        vertFlip: _supportsTransform ? _vertFlip : null,
         hasCaption: _supportsCaption ? _hasCaption : null,
         captionDirection: _supportsCaption && _hasCaption
             ? _captionDirection
@@ -23789,6 +23861,11 @@ class _ObjectPropertiesDialogState extends State<_ObjectPropertiesDialog> {
   int _readNonNegative(TextEditingController controller, {int? fallback}) {
     final parsed = int.tryParse(controller.text.trim()) ?? fallback ?? 0;
     return math.max(0, parsed);
+  }
+
+  int _readRotationAngle(TextEditingController controller, {int? fallback}) {
+    final parsed = int.tryParse(controller.text.trim()) ?? fallback ?? 0;
+    return parsed.clamp(-360, 360).toInt();
   }
 }
 

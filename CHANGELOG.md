@@ -64,6 +64,8 @@
   place increase/decrease formatting.
 * Added picture caption creation/configuration/removal fields to object
   properties and the Flutter-native object properties dialog.
+* Added selected object rotation and horizontal/vertical flip fields to object
+  properties and the Flutter-native object properties dialog.
 
 ## 2026-06-02 (2026.6.2)
 

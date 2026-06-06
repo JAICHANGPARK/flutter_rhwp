@@ -76,8 +76,8 @@
 | 문자표 | 완료 | common symbol character map dialog |
 | 하이퍼링크 | 미구현 | hyperlink insert/edit command/UI 필요 |
 | 책갈피 | 완료 | list/add/delete/rename/navigation |
-| 회전/대칭 | 미구현 | object rotation/flip command/UI 필요 |
-| 개체 속성 | 부분 | object size/offset dialog, picture caption settings |
+| 회전/대칭 | 부분 | object properties dialog/API에서 shape/picture rotation/flip 지원. 전용 ribbon preset/shortcut 검증 필요 |
+| 개체 속성 | 부분 | object size/offset dialog, rotation/flip, picture caption settings |
 | 개체 지우기 | 완료 | selected object delete |
 
 ## Format
@@ -96,7 +96,7 @@
 | 배분 정렬 | 부분 | API option 문서화/shortcut 보강 필요 |
 | 줄 간격 늘림 / 줄임 | 부분 | preset 적용 가능. increment/decrement shortcut parity 필요 |
 | 스타일 | 완료 | style picker, F6 |
-| 개체 속성 | 부분 | selected object dialog, picture caption settings |
+| 개체 속성 | 부분 | selected object dialog, rotation/flip, picture caption settings |
 
 ## Page
 

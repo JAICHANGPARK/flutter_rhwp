@@ -298,6 +298,7 @@ await document.setTableProperties(
 | Z-order | `document.changeObjectZOrder(...)` |
 | Read object properties | `document.objectProperties(...)` |
 | Set object size/position | `document.setObjectProperties(...)` |
+| Rotate/flip object | `document.setObjectProperties(..., rotationAngle: 90, horzFlip: true, vertFlip: false)` |
 | Create/configure picture caption | `document.setObjectProperties(..., hasCaption: true, captionDirection: 'Bottom', captionVerticalAlign: 'Top', captionWidth: ..., captionSpacing: ...)` |
 | Move line endpoint | `document.moveLineEndpoint(...)` |
 
@@ -306,6 +307,8 @@ await document.setTableProperties(
 `Copy format`은 현재 cursor 또는 table-cell editing 위치의 character/paragraph properties를 snapshot으로 저장한다. `Apply copied format`은 저장된 character shape와 paragraph shape를 현재 body selection 또는 table-cell selection에 적용한다.
 
 그림 캡션은 `objectType`이 `picture`, `image`, `img`인 선택 개체에서 동작한다. `captionDirection`은 `Left`, `Right`, `Top`, `Bottom`이고, `captionVerticalAlign`은 `Top`, `Center`, `Bottom`이다. `hasCaption: false`를 보내면 기존 그림 캡션을 제거한다. Shape/textbox 같은 비그림 개체 캡션은 아직 지원 범위 검증이 필요하다.
+
+회전/대칭은 rhwp core가 `rotationAngle`, `horzFlip`, `vertFlip` 속성을 반환하는 shape/picture 객체에서 동작한다. `RhwpNativeEditor`의 기본 dialog는 해당 속성이 있는 객체에서만 회전/대칭 컨트롤을 표시한다.
 
 ### Page, header, footer
 

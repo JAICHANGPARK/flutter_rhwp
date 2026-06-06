@@ -10671,6 +10671,96 @@ void main() {
   );
 
   testWidgets(
+    'RhwpNativeEditor object properties can transform selected objects',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session
+        ..pageLayerTreeJson = jsonEncode(_objectEditorLayerTreeJson())
+        ..shapeObjectPropertiesJson =
+            '{"width":60,"height":50,"horzOffset":120,"vertOffset":60,"rotationAngle":15,"horzFlip":false,"vertFlip":true}';
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      final pageFinder = find.byType(SvgPicture);
+      final pageTopLeft = tester.getTopLeft(pageFinder);
+      final pageSize = tester.getSize(pageFinder);
+      await tester.tapAt(
+        pageTopLeft +
+            Offset(pageSize.width * 150 / 240, pageSize.height * 85 / 180),
+      );
+      await tester.pump();
+
+      final propertiesButton = find.byKey(
+        const ValueKey('rhwp-editor-object-properties'),
+      );
+      await tester.ensureVisible(propertiesButton);
+      await tester.tap(propertiesButton);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      final rotationField = find.byKey(
+        const ValueKey('rhwp-object-rotation-angle-field'),
+      );
+      expect(rotationField, findsOneWidget);
+      await tester.enterText(rotationField, '45');
+      await tester.tap(
+        find.byKey(const ValueKey('rhwp-object-horz-flip-field')),
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('rhwp-object-vert-flip-field')),
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('rhwp-object-properties-apply')),
+      );
+      await _pumpDocumentFrame(tester);
+
+      expect(controller.objectSelection, isNotNull);
+      expect(changedCalls, 1);
+      expect(session.commands.map(jsonDecode).toList(), [
+        {
+          'type': 'getObjectProperties',
+          'section': 0,
+          'paragraph': 2,
+          'controlIndex': 1,
+          'objectType': 'shape',
+        },
+        {
+          'type': 'setObjectProperties',
+          'section': 0,
+          'paragraph': 2,
+          'controlIndex': 1,
+          'objectType': 'shape',
+          'properties': {
+            'width': 60,
+            'height': 50,
+            'horzOffset': 120,
+            'vertOffset': 60,
+            'rotationAngle': 45,
+            'horzFlip': true,
+            'vertFlip': false,
+          },
+        },
+      ]);
+    },
+  );
+
+  testWidgets(
     'RhwpNativeEditor object properties can create picture captions',
     (tester) async {
       final controller = RhwpEditorController();
@@ -22668,6 +22758,8 @@ class _FakeRhwpSession implements rust.RhwpSession {
       '{"pageNum":1,"pageNumType":0,"pictureNum":1,"tableNum":1,"equationNum":1,"columnSpacing":283,"defaultTabSpacing":8000,"hideHeader":false,"hideFooter":false,"hideMasterPage":false,"hideBorder":false,"hideFill":false,"hideEmptyLine":false}';
   String pageBorderFillJson =
       '{"attr":0,"spacingLeft":283,"spacingRight":283,"spacingTop":566,"spacingBottom":566,"borderFillId":2,"borderLeft":{"type":1,"width":1,"color":"#000000"},"borderRight":{"type":1,"width":1,"color":"#000000"},"borderTop":{"type":1,"width":1,"color":"#000000"},"borderBottom":{"type":1,"width":1,"color":"#000000"},"fillType":"none","fillColor":"#ffffff","patternColor":"#000000","patternType":0}';
+  String shapeObjectPropertiesJson =
+      '{"width":60,"height":50,"horzOffset":120,"vertOffset":60}';
   String pictureObjectPropertiesJson =
       '{"width":60,"height":50,"horzOffset":120,"vertOffset":60,"hasCaption":false,"captionDirection":"Bottom","captionVertAlign":"Top","captionWidth":0,"captionSpacing":0,"captionIncludeMargin":false}';
   final cellPropertiesJsonByCellIndex = <int, String>{};
@@ -22856,7 +22948,7 @@ class _FakeRhwpSession implements rust.RhwpSession {
       if (command['objectType'] == 'picture') {
         return pictureObjectPropertiesJson;
       }
-      return '{"width":60,"height":50,"horzOffset":120,"vertOffset":60}';
+      return shapeObjectPropertiesJson;
     }
     if (command is Map && command['type'] == 'getTableProperties') {
       return '{"cellSpacing":10,"paddingLeft":100,"paddingRight":110,"paddingTop":120,"paddingBottom":130,"pageBreak":1,"repeatHeader":false,"hasCaption":false,"captionDirection":3,"captionVertAlign":0,"captionWidth":8504,"captionSpacing":850}';

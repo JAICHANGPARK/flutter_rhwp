@@ -208,6 +208,9 @@ class RhwpObjectProperties {
     this.height,
     this.horzOffset,
     this.vertOffset,
+    this.rotationAngle,
+    this.horzFlip,
+    this.vertFlip,
     this.hasCaption,
     this.captionDirection,
     this.captionVerticalAlign,
@@ -225,6 +228,9 @@ class RhwpObjectProperties {
       height: _intFromJson(decoded?['height']),
       horzOffset: _intFromJson(decoded?['horzOffset']),
       vertOffset: _intFromJson(decoded?['vertOffset']),
+      rotationAngle: _intFromJson(decoded?['rotationAngle']),
+      horzFlip: _boolFromJson(decoded?['horzFlip']),
+      vertFlip: _boolFromJson(decoded?['vertFlip']),
       hasCaption: _boolFromJson(decoded?['hasCaption']),
       captionDirection: _stringFromJson(decoded?['captionDirection']),
       captionVerticalAlign: _stringFromJson(decoded?['captionVertAlign']),
@@ -240,6 +246,9 @@ class RhwpObjectProperties {
   final int? height;
   final int? horzOffset;
   final int? vertOffset;
+  final int? rotationAngle;
+  final bool? horzFlip;
+  final bool? vertFlip;
   final bool? hasCaption;
   final String? captionDirection;
   final String? captionVerticalAlign;
@@ -256,6 +265,10 @@ class RhwpObjectProperties {
         captionWidth != null ||
         captionSpacing != null ||
         captionIncludeMargin != null;
+  }
+
+  bool get supportsTransform {
+    return rotationAngle != null || horzFlip != null || vertFlip != null;
   }
 }
 
@@ -1804,6 +1817,9 @@ abstract class RhwpCommand {
     int? height,
     int? horzOffset,
     int? vertOffset,
+    int? rotationAngle,
+    bool? horzFlip,
+    bool? vertFlip,
     bool? hasCaption,
     String? captionDirection,
     String? captionVerticalAlign,
@@ -4098,6 +4114,9 @@ class RhwpSetObjectPropertiesCommand extends RhwpCommand {
     this.height,
     this.horzOffset,
     this.vertOffset,
+    this.rotationAngle,
+    this.horzFlip,
+    this.vertFlip,
     this.hasCaption,
     this.captionDirection,
     this.captionVerticalAlign,
@@ -4114,6 +4133,9 @@ class RhwpSetObjectPropertiesCommand extends RhwpCommand {
   final int? height;
   final int? horzOffset;
   final int? vertOffset;
+  final int? rotationAngle;
+  final bool? horzFlip;
+  final bool? vertFlip;
   final bool? hasCaption;
   final String? captionDirection;
   final String? captionVerticalAlign;
@@ -4133,6 +4155,9 @@ class RhwpSetObjectPropertiesCommand extends RhwpCommand {
       if (height != null) 'height': height,
       if (horzOffset != null) 'horzOffset': horzOffset,
       if (vertOffset != null) 'vertOffset': vertOffset,
+      if (rotationAngle != null) 'rotationAngle': rotationAngle,
+      if (horzFlip != null) 'horzFlip': horzFlip,
+      if (vertFlip != null) 'vertFlip': vertFlip,
       if (hasCaption != null) 'hasCaption': hasCaption,
       if (captionDirection != null) 'captionDirection': captionDirection,
       if (captionVerticalAlign != null)
@@ -6649,6 +6674,9 @@ class RhwpDocument {
     int? height,
     int? horzOffset,
     int? vertOffset,
+    int? rotationAngle,
+    bool? horzFlip,
+    bool? vertFlip,
     bool? hasCaption,
     String? captionDirection,
     String? captionVerticalAlign,
@@ -6666,6 +6694,9 @@ class RhwpDocument {
         height: height,
         horzOffset: horzOffset,
         vertOffset: vertOffset,
+        rotationAngle: rotationAngle,
+        horzFlip: horzFlip,
+        vertFlip: vertFlip,
         hasCaption: hasCaption,
         captionDirection: captionDirection,
         captionVerticalAlign: captionVerticalAlign,

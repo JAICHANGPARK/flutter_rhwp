@@ -1584,6 +1584,9 @@ void main() {
             height: 2400,
             horzOffset: 80,
             vertOffset: 90,
+            rotationAngle: 90,
+            horzFlip: true,
+            vertFlip: false,
             hasCaption: true,
             captionDirection: 'Bottom',
             captionVerticalAlign: 'Top',
@@ -1604,6 +1607,9 @@ void main() {
           'height': 2400,
           'horzOffset': 80,
           'vertOffset': 90,
+          'rotationAngle': 90,
+          'horzFlip': true,
+          'vertFlip': false,
           'hasCaption': true,
           'captionDirection': 'Bottom',
           'captionVertAlign': 'Top',
@@ -3720,6 +3726,10 @@ void main() {
     expect(objectProperties.height, 2000);
     expect(objectProperties.horzOffset, 30);
     expect(objectProperties.vertOffset, 40);
+    expect(objectProperties.rotationAngle, 15);
+    expect(objectProperties.horzFlip, true);
+    expect(objectProperties.vertFlip, false);
+    expect(objectProperties.supportsTransform, true);
     expect(objectProperties.hasCaption, false);
     expect(objectProperties.captionDirection, 'Bottom');
     expect(objectProperties.captionVerticalAlign, 'Top');
@@ -3744,6 +3754,9 @@ void main() {
       height: 2400,
       horzOffset: 80,
       vertOffset: 90,
+      rotationAngle: 90,
+      horzFlip: true,
+      vertFlip: false,
       hasCaption: true,
       captionDirection: 'Bottom',
       captionVerticalAlign: 'Top',
@@ -3763,6 +3776,9 @@ void main() {
         'height': 2400,
         'horzOffset': 80,
         'vertOffset': 90,
+        'rotationAngle': 90,
+        'horzFlip': true,
+        'vertFlip': false,
         'hasCaption': true,
         'captionDirection': 'Bottom',
         'captionVertAlign': 'Top',
@@ -4547,7 +4563,7 @@ class _FakeRhwpSession implements rust.RhwpSession {
       return '{"ok":true,"converted":false}';
     }
     if (command is Map && command['type'] == 'getObjectProperties') {
-      return '{"width":1000,"height":2000,"horzOffset":30,"vertOffset":40,"hasCaption":false,"captionDirection":"Bottom","captionVertAlign":"Top","captionWidth":0,"captionSpacing":0,"captionIncludeMargin":false}';
+      return '{"width":1000,"height":2000,"horzOffset":30,"vertOffset":40,"rotationAngle":15,"horzFlip":true,"vertFlip":false,"hasCaption":false,"captionDirection":"Bottom","captionVertAlign":"Top","captionWidth":0,"captionSpacing":0,"captionIncludeMargin":false}';
     }
     if (command is Map && command['type'] == 'getTableProperties') {
       return '{"cellSpacing":10,"paddingLeft":100,"paddingRight":110,"paddingTop":120,"paddingBottom":130,"pageBreak":1,"repeatHeader":false,"hasCaption":true,"captionDirection":3,"captionVertAlign":0,"captionWidth":8504,"captionSpacing":850}';
