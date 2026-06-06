@@ -62,6 +62,8 @@
 * Added `getTextInTableCell`/`textInTableCell` command APIs and Flutter-native
   table ribbon controls for selected-cell thousands separators and decimal
   place increase/decrease formatting.
+* Added picture caption creation/configuration/removal fields to object
+  properties and the Flutter-native object properties dialog.
 
 ## 2026-06-02 (2026.6.2)
 

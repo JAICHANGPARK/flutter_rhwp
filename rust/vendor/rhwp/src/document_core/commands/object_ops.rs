@@ -462,7 +462,9 @@ impl DocumentCore {
                 if let Some(v) = json_i16(props_json, "captionSpacing") { cap.spacing = v; }
                 if let Some(v) = json_bool(props_json, "captionIncludeMargin") { cap.include_margin = v; }
             } else {
-                // 캡션 제거 — 현재는 None 처리하지 않음 (캡션에 텍스트가 있을 수 있으므로)
+                pic.caption = None;
+                // attr bit 29: 캡션 존재 플래그 (한컴 호환성)
+                pic.common.attr &= !(1 << 29);
             }
         }
 

@@ -632,12 +632,24 @@ class _ObjectPropertiesDialogResult {
     required this.height,
     required this.horzOffset,
     required this.vertOffset,
+    this.hasCaption,
+    this.captionDirection,
+    this.captionVerticalAlign,
+    this.captionWidth,
+    this.captionSpacing,
+    this.captionIncludeMargin,
   });
 
   final int width;
   final int height;
   final int horzOffset;
   final int vertOffset;
+  final bool? hasCaption;
+  final String? captionDirection;
+  final String? captionVerticalAlign;
+  final int? captionWidth;
+  final int? captionSpacing;
+  final bool? captionIncludeMargin;
 }
 
 class _CharColorPickerResult {
@@ -4454,6 +4466,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         height: result.height,
         horzOffset: result.horzOffset,
         vertOffset: result.vertOffset,
+        hasCaption: result.hasCaption,
+        captionDirection: result.captionDirection,
+        captionVerticalAlign: result.captionVerticalAlign,
+        captionWidth: result.captionWidth,
+        captionSpacing: result.captionSpacing,
+        captionIncludeMargin: result.captionIncludeMargin,
       );
     });
   }
@@ -23458,14 +23476,46 @@ class _ObjectPropertiesDialog extends StatefulWidget {
 }
 
 class _ObjectPropertiesDialogState extends State<_ObjectPropertiesDialog> {
+  static const List<String> _captionDirections = [
+    'Bottom',
+    'Top',
+    'Left',
+    'Right',
+  ];
+  static const List<String> _captionVerticalAlignments = [
+    'Top',
+    'Center',
+    'Bottom',
+  ];
+
   late final TextEditingController _widthController;
   late final TextEditingController _heightController;
   late final TextEditingController _horzOffsetController;
   late final TextEditingController _vertOffsetController;
+  late final TextEditingController _captionWidthController;
+  late final TextEditingController _captionSpacingController;
+  late final bool _supportsCaption;
+  late bool _hasCaption;
+  late bool _captionIncludeMargin;
+  late String _captionDirection;
+  late String _captionVerticalAlign;
 
   @override
   void initState() {
     super.initState();
+    _supportsCaption = widget.properties.supportsCaption;
+    _hasCaption = widget.properties.hasCaption ?? false;
+    _captionDirection = _normalizeChoice(
+      widget.properties.captionDirection,
+      _captionDirections,
+      'Bottom',
+    );
+    _captionVerticalAlign = _normalizeChoice(
+      widget.properties.captionVerticalAlign,
+      _captionVerticalAlignments,
+      'Top',
+    );
+    _captionIncludeMargin = widget.properties.captionIncludeMargin ?? false;
     _widthController = TextEditingController(
       text: _initialValue(widget.properties.width),
     );
@@ -23478,6 +23528,12 @@ class _ObjectPropertiesDialogState extends State<_ObjectPropertiesDialog> {
     _vertOffsetController = TextEditingController(
       text: _initialValue(widget.properties.vertOffset),
     );
+    _captionWidthController = TextEditingController(
+      text: _initialValue(_initialCaptionWidth()),
+    );
+    _captionSpacingController = TextEditingController(
+      text: _initialValue(widget.properties.captionSpacing),
+    );
   }
 
   @override
@@ -23486,6 +23542,8 @@ class _ObjectPropertiesDialogState extends State<_ObjectPropertiesDialog> {
     _heightController.dispose();
     _horzOffsetController.dispose();
     _vertOffsetController.dispose();
+    _captionWidthController.dispose();
+    _captionSpacingController.dispose();
     super.dispose();
   }
 
@@ -23494,50 +23552,159 @@ class _ObjectPropertiesDialogState extends State<_ObjectPropertiesDialog> {
     return AlertDialog(
       title: const Text('개체 속성'),
       content: SizedBox(
-        width: 420,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _ObjectPropertiesNumberField(
-                    fieldKey: const ValueKey('rhwp-object-width-field'),
-                    label: '너비',
-                    controller: _widthController,
+        width: 460,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _ObjectPropertiesNumberField(
+                      fieldKey: const ValueKey('rhwp-object-width-field'),
+                      label: '너비',
+                      controller: _widthController,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _ObjectPropertiesNumberField(
-                    fieldKey: const ValueKey('rhwp-object-height-field'),
-                    label: '높이',
-                    controller: _heightController,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _ObjectPropertiesNumberField(
+                      fieldKey: const ValueKey('rhwp-object-height-field'),
+                      label: '높이',
+                      controller: _heightController,
+                    ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _ObjectPropertiesNumberField(
+                      fieldKey: const ValueKey('rhwp-object-horz-offset-field'),
+                      label: '가로 위치',
+                      controller: _horzOffsetController,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _ObjectPropertiesNumberField(
+                      fieldKey: const ValueKey('rhwp-object-vert-offset-field'),
+                      label: '세로 위치',
+                      controller: _vertOffsetController,
+                    ),
+                  ),
+                ],
+              ),
+              if (_supportsCaption) ...[
+                const SizedBox(height: 16),
+                const Divider(),
+                SwitchListTile(
+                  key: const ValueKey('rhwp-object-caption-switch'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('캡션'),
+                  value: _hasCaption,
+                  onChanged: (value) => setState(() => _hasCaption = value),
                 ),
+                if (_hasCaption) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          key: const ValueKey(
+                            'rhwp-object-caption-direction-field',
+                          ),
+                          initialValue: _captionDirection,
+                          decoration: const InputDecoration(
+                            labelText: '방향',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          items: _captionDirections
+                              .map(
+                                (value) => DropdownMenuItem(
+                                  value: value,
+                                  child: Text(value),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (value) {
+                            if (value == null) {
+                              return;
+                            }
+                            setState(() => _captionDirection = value);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          key: const ValueKey(
+                            'rhwp-object-caption-vert-align-field',
+                          ),
+                          initialValue: _captionVerticalAlign,
+                          decoration: const InputDecoration(
+                            labelText: '세로 정렬',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          items: _captionVerticalAlignments
+                              .map(
+                                (value) => DropdownMenuItem(
+                                  value: value,
+                                  child: Text(value),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (value) {
+                            if (value == null) {
+                              return;
+                            }
+                            setState(() => _captionVerticalAlign = value);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _ObjectPropertiesNumberField(
+                          fieldKey: const ValueKey(
+                            'rhwp-object-caption-width-field',
+                          ),
+                          label: '캡션 너비',
+                          controller: _captionWidthController,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _ObjectPropertiesNumberField(
+                          fieldKey: const ValueKey(
+                            'rhwp-object-caption-spacing-field',
+                          ),
+                          label: '간격',
+                          controller: _captionSpacingController,
+                        ),
+                      ),
+                    ],
+                  ),
+                  CheckboxListTile(
+                    key: const ValueKey(
+                      'rhwp-object-caption-include-margin-field',
+                    ),
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('여백 포함'),
+                    value: _captionIncludeMargin,
+                    onChanged: (value) =>
+                        setState(() => _captionIncludeMargin = value ?? false),
+                  ),
+                ],
               ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _ObjectPropertiesNumberField(
-                    fieldKey: const ValueKey('rhwp-object-horz-offset-field'),
-                    label: '가로 위치',
-                    controller: _horzOffsetController,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _ObjectPropertiesNumberField(
-                    fieldKey: const ValueKey('rhwp-object-vert-offset-field'),
-                    label: '세로 위치',
-                    controller: _vertOffsetController,
-                  ),
-                ),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       actions: [
@@ -23573,12 +23740,50 @@ class _ObjectPropertiesDialogState extends State<_ObjectPropertiesDialog> {
           _vertOffsetController,
           fallback: widget.properties.vertOffset,
         ),
+        hasCaption: _supportsCaption ? _hasCaption : null,
+        captionDirection: _supportsCaption && _hasCaption
+            ? _captionDirection
+            : null,
+        captionVerticalAlign: _supportsCaption && _hasCaption
+            ? _captionVerticalAlign
+            : null,
+        captionWidth: _supportsCaption && _hasCaption
+            ? _readNonNegative(
+                _captionWidthController,
+                fallback: _initialCaptionWidth(),
+              )
+            : null,
+        captionSpacing: _supportsCaption && _hasCaption
+            ? _readNonNegative(
+                _captionSpacingController,
+                fallback: widget.properties.captionSpacing,
+              )
+            : null,
+        captionIncludeMargin: _supportsCaption && _hasCaption
+            ? _captionIncludeMargin
+            : null,
       ),
     );
   }
 
   String _initialValue(int? value) {
     return (value ?? 0).toString();
+  }
+
+  int? _initialCaptionWidth() {
+    final captionWidth = widget.properties.captionWidth;
+    if (captionWidth != null && captionWidth > 0) {
+      return captionWidth;
+    }
+    return widget.properties.width;
+  }
+
+  String _normalizeChoice(
+    String? value,
+    List<String> allowed,
+    String fallback,
+  ) {
+    return allowed.contains(value) ? value! : fallback;
   }
 
   int _readNonNegative(TextEditingController controller, {int? fallback}) {

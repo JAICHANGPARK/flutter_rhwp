@@ -10670,6 +10670,197 @@ void main() {
     },
   );
 
+  testWidgets(
+    'RhwpNativeEditor object properties can create picture captions',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(
+        _objectEditorLayerTreeJson(objectType: 'picture'),
+      );
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      final pageFinder = find.byType(SvgPicture);
+      final pageTopLeft = tester.getTopLeft(pageFinder);
+      final pageSize = tester.getSize(pageFinder);
+      await tester.tapAt(
+        pageTopLeft +
+            Offset(pageSize.width * 150 / 240, pageSize.height * 85 / 180),
+      );
+      await tester.pump();
+
+      final propertiesButton = find.byKey(
+        const ValueKey('rhwp-editor-object-properties'),
+      );
+      await tester.ensureVisible(propertiesButton);
+      await tester.tap(propertiesButton);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      final captionSwitch = find.byKey(
+        const ValueKey('rhwp-object-caption-switch'),
+      );
+      expect(captionSwitch, findsOneWidget);
+      await tester.tap(captionSwitch);
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('rhwp-object-caption-width-field')),
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-object-caption-width-field')),
+        '1400',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-object-caption-spacing-field')),
+        '120',
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('rhwp-object-caption-include-margin-field')),
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('rhwp-object-properties-apply')),
+      );
+      await _pumpDocumentFrame(tester);
+
+      expect(controller.objectSelection, isNotNull);
+      expect(changedCalls, 1);
+      expect(session.commands.map(jsonDecode).toList(), [
+        {
+          'type': 'getObjectProperties',
+          'section': 0,
+          'paragraph': 2,
+          'controlIndex': 1,
+          'objectType': 'picture',
+        },
+        {
+          'type': 'setObjectProperties',
+          'section': 0,
+          'paragraph': 2,
+          'controlIndex': 1,
+          'objectType': 'picture',
+          'properties': {
+            'width': 60,
+            'height': 50,
+            'horzOffset': 120,
+            'vertOffset': 60,
+            'hasCaption': true,
+            'captionDirection': 'Bottom',
+            'captionVertAlign': 'Top',
+            'captionWidth': 1400,
+            'captionSpacing': 120,
+            'captionIncludeMargin': true,
+          },
+        },
+      ]);
+    },
+  );
+
+  testWidgets('RhwpNativeEditor object properties can remove picture captions', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session
+      ..pageLayerTreeJson = jsonEncode(
+        _objectEditorLayerTreeJson(objectType: 'picture'),
+      )
+      ..pictureObjectPropertiesJson =
+          '{"width":60,"height":50,"horzOffset":120,"vertOffset":60,"hasCaption":true,"captionDirection":"Top","captionVertAlign":"Center","captionWidth":900,"captionSpacing":80,"captionIncludeMargin":true}';
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    final pageFinder = find.byType(SvgPicture);
+    final pageTopLeft = tester.getTopLeft(pageFinder);
+    final pageSize = tester.getSize(pageFinder);
+    await tester.tapAt(
+      pageTopLeft +
+          Offset(pageSize.width * 150 / 240, pageSize.height * 85 / 180),
+    );
+    await tester.pump();
+
+    final propertiesButton = find.byKey(
+      const ValueKey('rhwp-editor-object-properties'),
+    );
+    await tester.ensureVisible(propertiesButton);
+    await tester.tap(propertiesButton);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('rhwp-object-caption-width-field')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-object-caption-switch')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('rhwp-object-caption-width-field')),
+      findsNothing,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-object-properties-apply')),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.objectSelection, isNotNull);
+    expect(changedCalls, 1);
+    expect(session.commands.map(jsonDecode).toList(), [
+      {
+        'type': 'getObjectProperties',
+        'section': 0,
+        'paragraph': 2,
+        'controlIndex': 1,
+        'objectType': 'picture',
+      },
+      {
+        'type': 'setObjectProperties',
+        'section': 0,
+        'paragraph': 2,
+        'controlIndex': 1,
+        'objectType': 'picture',
+        'properties': {
+          'width': 60,
+          'height': 50,
+          'horzOffset': 120,
+          'vertOffset': 60,
+          'hasCaption': false,
+        },
+      },
+    ]);
+  });
+
   testWidgets('RhwpNativeEditor drags selected objects to update position', (
     tester,
   ) async {
@@ -22477,6 +22668,8 @@ class _FakeRhwpSession implements rust.RhwpSession {
       '{"pageNum":1,"pageNumType":0,"pictureNum":1,"tableNum":1,"equationNum":1,"columnSpacing":283,"defaultTabSpacing":8000,"hideHeader":false,"hideFooter":false,"hideMasterPage":false,"hideBorder":false,"hideFill":false,"hideEmptyLine":false}';
   String pageBorderFillJson =
       '{"attr":0,"spacingLeft":283,"spacingRight":283,"spacingTop":566,"spacingBottom":566,"borderFillId":2,"borderLeft":{"type":1,"width":1,"color":"#000000"},"borderRight":{"type":1,"width":1,"color":"#000000"},"borderTop":{"type":1,"width":1,"color":"#000000"},"borderBottom":{"type":1,"width":1,"color":"#000000"},"fillType":"none","fillColor":"#ffffff","patternColor":"#000000","patternType":0}';
+  String pictureObjectPropertiesJson =
+      '{"width":60,"height":50,"horzOffset":120,"vertOffset":60,"hasCaption":false,"captionDirection":"Bottom","captionVertAlign":"Top","captionWidth":0,"captionSpacing":0,"captionIncludeMargin":false}';
   final cellPropertiesJsonByCellIndex = <int, String>{};
   final cellTextByCellAndParagraph = <String, String>{};
   String pageLayerTreeJson = jsonEncode(_editorLayerTreeJson());
@@ -22660,6 +22853,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
       }
     }
     if (command is Map && command['type'] == 'getObjectProperties') {
+      if (command['objectType'] == 'picture') {
+        return pictureObjectPropertiesJson;
+      }
       return '{"width":60,"height":50,"horzOffset":120,"vertOffset":60}';
     }
     if (command is Map && command['type'] == 'getTableProperties') {
@@ -23183,7 +23379,7 @@ Map<String, Object?> _tableClipboardLayerTreeJson() {
   };
 }
 
-Map<String, Object?> _objectEditorLayerTreeJson() {
+Map<String, Object?> _objectEditorLayerTreeJson({String objectType = 'shape'}) {
   return {
     'pageWidth': 240,
     'pageHeight': 180,
@@ -23193,7 +23389,7 @@ Map<String, Object?> _objectEditorLayerTreeJson() {
       'children': [
         _editorTextRunLayerNode(paragraph: 0, y: 40),
         {
-          'type': 'shape',
+          'type': objectType,
           'rect': {'left': 120, 'top': 60, 'right': 180, 'bottom': 110},
           'sectionIndex': 0,
           'paraIndex': 2,

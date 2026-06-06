@@ -1579,11 +1579,17 @@ void main() {
             section: 0,
             paragraph: 2,
             controlIndex: 4,
-            objectType: 'shape',
+            objectType: 'picture',
             width: 1200,
             height: 2400,
             horzOffset: 80,
             vertOffset: 90,
+            hasCaption: true,
+            captionDirection: 'Bottom',
+            captionVerticalAlign: 'Top',
+            captionWidth: 1000,
+            captionSpacing: 120,
+            captionIncludeMargin: true,
           ).toJson(),
         ),
       ),
@@ -1592,12 +1598,18 @@ void main() {
         'section': 0,
         'paragraph': 2,
         'controlIndex': 4,
-        'objectType': 'shape',
+        'objectType': 'picture',
         'properties': {
           'width': 1200,
           'height': 2400,
           'horzOffset': 80,
           'vertOffset': 90,
+          'hasCaption': true,
+          'captionDirection': 'Bottom',
+          'captionVertAlign': 'Top',
+          'captionWidth': 1000,
+          'captionSpacing': 120,
+          'captionIncludeMargin': true,
         },
       },
     );
@@ -3708,6 +3720,13 @@ void main() {
     expect(objectProperties.height, 2000);
     expect(objectProperties.horzOffset, 30);
     expect(objectProperties.vertOffset, 40);
+    expect(objectProperties.hasCaption, false);
+    expect(objectProperties.captionDirection, 'Bottom');
+    expect(objectProperties.captionVerticalAlign, 'Top');
+    expect(objectProperties.captionWidth, 0);
+    expect(objectProperties.captionSpacing, 0);
+    expect(objectProperties.captionIncludeMargin, false);
+    expect(objectProperties.supportsCaption, true);
     expect(jsonDecode(session.lastCommandJson!), {
       'type': 'getObjectProperties',
       'section': 0,
@@ -3725,6 +3744,12 @@ void main() {
       height: 2400,
       horzOffset: 80,
       vertOffset: 90,
+      hasCaption: true,
+      captionDirection: 'Bottom',
+      captionVerticalAlign: 'Top',
+      captionWidth: 1000,
+      captionSpacing: 120,
+      captionIncludeMargin: true,
     );
 
     expect(jsonDecode(session.lastCommandJson!), {
@@ -3738,6 +3763,12 @@ void main() {
         'height': 2400,
         'horzOffset': 80,
         'vertOffset': 90,
+        'hasCaption': true,
+        'captionDirection': 'Bottom',
+        'captionVertAlign': 'Top',
+        'captionWidth': 1000,
+        'captionSpacing': 120,
+        'captionIncludeMargin': true,
       },
     });
 
@@ -4516,7 +4547,7 @@ class _FakeRhwpSession implements rust.RhwpSession {
       return '{"ok":true,"converted":false}';
     }
     if (command is Map && command['type'] == 'getObjectProperties') {
-      return '{"width":1000,"height":2000,"horzOffset":30,"vertOffset":40}';
+      return '{"width":1000,"height":2000,"horzOffset":30,"vertOffset":40,"hasCaption":false,"captionDirection":"Bottom","captionVertAlign":"Top","captionWidth":0,"captionSpacing":0,"captionIncludeMargin":false}';
     }
     if (command is Map && command['type'] == 'getTableProperties') {
       return '{"cellSpacing":10,"paddingLeft":100,"paddingRight":110,"paddingTop":120,"paddingBottom":130,"pageBreak":1,"repeatHeader":false,"hasCaption":true,"captionDirection":3,"captionVertAlign":0,"captionWidth":8504,"captionSpacing":850}';

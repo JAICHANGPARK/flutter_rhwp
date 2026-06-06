@@ -39,6 +39,7 @@
 - [x] Flutter-native Page 리본에 구역 설정 dialog를 추가하고 `getSectionDef`/`setSectionDef` API를 연결한다.
 - [x] 사용자 앱이 자체 툴바를 만들 때 필요한 `RhwpEditorController` context와 `RhwpDocument` command 연결 규칙을 `docs/API_SPEC.md`에 문서화한다.
 - [x] Flutter-native 표 리본에 선택 숫자 셀 1,000 단위 구분과 소수 자릿수 증감 기능을 추가한다.
+- [x] Flutter-native 개체 속성 dialog에 그림 캡션 생성/설정/삭제 기능을 추가한다.
 
 ## 다음 우선순위
 
@@ -54,7 +55,8 @@
 ## Native editor parity backlog
 
 - [ ] `docs/NATIVE_EDITOR_PARITY.md`의 부분/미구현 항목을 기능 단위 issue로 쪼갠다.
-- [ ] 하이퍼링크, 그림/개체 캡션, 주석 입력 기능을 구현한다.
+- [ ] 하이퍼링크와 주석 입력 기능을 구현한다.
+- [ ] Shape/textbox 등 비그림 개체 캡션 지원 가능 범위를 검증한다.
 - [ ] 표 편집의 row/column sizing, border/fill, merge/split edge case를 실제 문서로 검증한다.
 - [x] 표 숫자 서식 기능을 구현한다.
 - [ ] 쪽 테두리/배경 상세 옵션, 다단 개별 너비/구분선, 구역 상세 옵션을 구현한다.

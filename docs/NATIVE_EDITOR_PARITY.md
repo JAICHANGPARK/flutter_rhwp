@@ -68,7 +68,7 @@
 | 글상자 | 부분 | shape preset as textbox |
 | 수식 | 완료 | equation insert dialog |
 | 필드 입력 | 부분 | fields list/value/click-here properties 중심 |
-| 캡션 넣기 | 부분 | 표 캡션은 table properties dialog/API에서 지원. 그림/개체 캡션 command/UI 필요 |
+| 캡션 넣기 | 부분 | 표 캡션과 그림 캡션 생성/설정/삭제 지원. shape/textbox 등 비그림 개체 캡션 검증 필요 |
 | 문단 띠 | 미구현 | paragraph band command/UI 필요 |
 | 주석 | 미구현 | comment/annotation command/UI 필요 |
 | 각주 | 완료 | insert/read/edit/delete footnote text |
@@ -77,7 +77,7 @@
 | 하이퍼링크 | 미구현 | hyperlink insert/edit command/UI 필요 |
 | 책갈피 | 완료 | list/add/delete/rename/navigation |
 | 회전/대칭 | 미구현 | object rotation/flip command/UI 필요 |
-| 개체 속성 | 부분 | object size/offset dialog |
+| 개체 속성 | 부분 | object size/offset dialog, picture caption settings |
 | 개체 지우기 | 완료 | selected object delete |
 
 ## Format
@@ -96,7 +96,7 @@
 | 배분 정렬 | 부분 | API option 문서화/shortcut 보강 필요 |
 | 줄 간격 늘림 / 줄임 | 부분 | preset 적용 가능. increment/decrement shortcut parity 필요 |
 | 스타일 | 완료 | style picker, F6 |
-| 개체 속성 | 부분 | selected object dialog |
+| 개체 속성 | 부분 | selected object dialog, picture caption settings |
 
 ## Page
 
@@ -136,6 +136,6 @@
 
 ## 다음 구현 우선순위
 
-1. 하이퍼링크, 캡션, 주석처럼 일반 문서 작성에 자주 쓰이는 Insert 메뉴를 추가한다.
+1. 하이퍼링크, 주석, 비그림 개체 캡션처럼 일반 문서 작성에 자주 쓰이는 Insert 메뉴를 추가한다.
 2. 쪽 테두리/배경 상세 옵션, 다단 개별 너비/구분선, 구역 상세 옵션을 page backlog로 분리해 구현한다.
 3. 문서 이력 관리는 upstream API 확인 후 별도 milestone으로 둔다.

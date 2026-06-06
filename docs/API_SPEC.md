@@ -297,12 +297,15 @@ await document.setTableProperties(
 | Paste HTML | `document.pasteHtml(...)` |
 | Z-order | `document.changeObjectZOrder(...)` |
 | Read object properties | `document.objectProperties(...)` |
-| Set object properties | `document.setObjectProperties(...)` |
+| Set object size/position | `document.setObjectProperties(...)` |
+| Create/configure picture caption | `document.setObjectProperties(..., hasCaption: true, captionDirection: 'Bottom', captionVerticalAlign: 'Top', captionWidth: ..., captionSpacing: ...)` |
 | Move line endpoint | `document.moveLineEndpoint(...)` |
 
 `RhwpNativeEditor` 기본 리본은 body selection, table-cell selection, object selection이 있을 때만 Cut/Copy를 활성화한다. Paste 버튼은 시스템 clipboard에 문자열이 있거나 같은 editor session에서 만든 내부 rich/object clipboard가 있을 때 활성화되며, 실행 시 `insertText(...)`, `pasteHtml(...)`, `pasteHtmlInCell(...)`, `pasteObjectControl(...)` 중 현재 selection에 맞는 경로를 사용한다.
 
 `Copy format`은 현재 cursor 또는 table-cell editing 위치의 character/paragraph properties를 snapshot으로 저장한다. `Apply copied format`은 저장된 character shape와 paragraph shape를 현재 body selection 또는 table-cell selection에 적용한다.
+
+그림 캡션은 `objectType`이 `picture`, `image`, `img`인 선택 개체에서 동작한다. `captionDirection`은 `Left`, `Right`, `Top`, `Bottom`이고, `captionVerticalAlign`은 `Top`, `Center`, `Bottom`이다. `hasCaption: false`를 보내면 기존 그림 캡션을 제거한다. Shape/textbox 같은 비그림 개체 캡션은 아직 지원 범위 검증이 필요하다.
 
 ### Page, header, footer
 

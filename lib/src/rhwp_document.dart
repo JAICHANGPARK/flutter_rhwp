@@ -208,6 +208,12 @@ class RhwpObjectProperties {
     this.height,
     this.horzOffset,
     this.vertOffset,
+    this.hasCaption,
+    this.captionDirection,
+    this.captionVerticalAlign,
+    this.captionWidth,
+    this.captionSpacing,
+    this.captionIncludeMargin,
     required this.rawJson,
     this.raw,
   });
@@ -219,6 +225,12 @@ class RhwpObjectProperties {
       height: _intFromJson(decoded?['height']),
       horzOffset: _intFromJson(decoded?['horzOffset']),
       vertOffset: _intFromJson(decoded?['vertOffset']),
+      hasCaption: _boolFromJson(decoded?['hasCaption']),
+      captionDirection: _stringFromJson(decoded?['captionDirection']),
+      captionVerticalAlign: _stringFromJson(decoded?['captionVertAlign']),
+      captionWidth: _intFromJson(decoded?['captionWidth']),
+      captionSpacing: _intFromJson(decoded?['captionSpacing']),
+      captionIncludeMargin: _boolFromJson(decoded?['captionIncludeMargin']),
       rawJson: source,
       raw: decoded,
     );
@@ -228,8 +240,23 @@ class RhwpObjectProperties {
   final int? height;
   final int? horzOffset;
   final int? vertOffset;
+  final bool? hasCaption;
+  final String? captionDirection;
+  final String? captionVerticalAlign;
+  final int? captionWidth;
+  final int? captionSpacing;
+  final bool? captionIncludeMargin;
   final String rawJson;
   final Map<String, Object?>? raw;
+
+  bool get supportsCaption {
+    return hasCaption != null ||
+        captionDirection != null ||
+        captionVerticalAlign != null ||
+        captionWidth != null ||
+        captionSpacing != null ||
+        captionIncludeMargin != null;
+  }
 }
 
 class RhwpTableProperties {
@@ -1125,6 +1152,14 @@ bool? _boolFromJson(Object? value) {
   return null;
 }
 
+String? _stringFromJson(Object? value) {
+  if (value is String) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+  return null;
+}
+
 abstract class RhwpCommand {
   const RhwpCommand();
 
@@ -1769,6 +1804,12 @@ abstract class RhwpCommand {
     int? height,
     int? horzOffset,
     int? vertOffset,
+    bool? hasCaption,
+    String? captionDirection,
+    String? captionVerticalAlign,
+    int? captionWidth,
+    int? captionSpacing,
+    bool? captionIncludeMargin,
   }) = RhwpSetObjectPropertiesCommand;
 
   factory RhwpCommand.moveLineEndpoint({
@@ -4057,6 +4098,12 @@ class RhwpSetObjectPropertiesCommand extends RhwpCommand {
     this.height,
     this.horzOffset,
     this.vertOffset,
+    this.hasCaption,
+    this.captionDirection,
+    this.captionVerticalAlign,
+    this.captionWidth,
+    this.captionSpacing,
+    this.captionIncludeMargin,
   });
 
   final int section;
@@ -4067,6 +4114,12 @@ class RhwpSetObjectPropertiesCommand extends RhwpCommand {
   final int? height;
   final int? horzOffset;
   final int? vertOffset;
+  final bool? hasCaption;
+  final String? captionDirection;
+  final String? captionVerticalAlign;
+  final int? captionWidth;
+  final int? captionSpacing;
+  final bool? captionIncludeMargin;
 
   @override
   Map<String, Object?> toJson() => {
@@ -4080,6 +4133,14 @@ class RhwpSetObjectPropertiesCommand extends RhwpCommand {
       if (height != null) 'height': height,
       if (horzOffset != null) 'horzOffset': horzOffset,
       if (vertOffset != null) 'vertOffset': vertOffset,
+      if (hasCaption != null) 'hasCaption': hasCaption,
+      if (captionDirection != null) 'captionDirection': captionDirection,
+      if (captionVerticalAlign != null)
+        'captionVertAlign': captionVerticalAlign,
+      if (captionWidth != null) 'captionWidth': captionWidth,
+      if (captionSpacing != null) 'captionSpacing': captionSpacing,
+      if (captionIncludeMargin != null)
+        'captionIncludeMargin': captionIncludeMargin,
     },
   };
 }
@@ -6588,6 +6649,12 @@ class RhwpDocument {
     int? height,
     int? horzOffset,
     int? vertOffset,
+    bool? hasCaption,
+    String? captionDirection,
+    String? captionVerticalAlign,
+    int? captionWidth,
+    int? captionSpacing,
+    bool? captionIncludeMargin,
   }) {
     return apply(
       RhwpCommand.setObjectProperties(
@@ -6599,6 +6666,12 @@ class RhwpDocument {
         height: height,
         horzOffset: horzOffset,
         vertOffset: vertOffset,
+        hasCaption: hasCaption,
+        captionDirection: captionDirection,
+        captionVerticalAlign: captionVerticalAlign,
+        captionWidth: captionWidth,
+        captionSpacing: captionSpacing,
+        captionIncludeMargin: captionIncludeMargin,
       ),
     );
   }

@@ -21,6 +21,8 @@ documents.
 - Evaluate table formulas from the Flutter-native table ribbon or the Dart API.
 - Format selected table-cell numbers with thousands separators and decimal
   place increase/decrease actions.
+- Create, configure, and remove picture captions from the Flutter-native object
+  properties dialog or Dart object-properties API.
 - Manage bookmarks from the Flutter-native input ribbon or the Dart API.
 - Manage HWP fields/누름틀 values from the Flutter-native tools ribbon or the
   Dart API.
@@ -476,7 +478,8 @@ export HWP/HWPX/PDF/DOCX/TXT/MD/SVG.
   resize handles for selected non-table objects, dedicated table-object
   movement through rhwp table offset commands, Delete/Backspace table-control
   deletion, Delete/Backspace object deletion, object size/position properties,
-  and object z-order actions from the edit ribbon and context menu,
+  picture caption settings, and object z-order actions from the edit ribbon and
+  context menu,
   scroll-preserving page refresh after edits, and drag range
   selection and Shift+click range extension for rendered table cells, plus
   selected-cell
