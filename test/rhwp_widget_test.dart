@@ -5264,6 +5264,38 @@ void main() {
       find.byKey(const ValueKey('rhwp-table-repeat-header-field')),
     );
     await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-table-has-caption-field')),
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-table-has-caption-field')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-table-caption-direction-field')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Top').last);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-table-caption-vertical-align-field')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Center').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-table-caption-width-field')),
+      '9000',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-table-caption-spacing-field')),
+      '700',
+    );
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-table-properties-apply')),
+    );
+    await tester.pump();
     await tester.tap(find.byKey(const ValueKey('rhwp-table-properties-apply')));
     await _pumpDocumentFrame(tester);
 
@@ -5291,6 +5323,11 @@ void main() {
           'paddingBottom': 240,
           'pageBreak': 1,
           'repeatHeader': true,
+          'hasCaption': true,
+          'captionDirection': 2,
+          'captionVertAlign': 1,
+          'captionWidth': 9000,
+          'captionSpacing': 700,
         },
       },
     ]);
@@ -22543,7 +22580,7 @@ class _FakeRhwpSession implements rust.RhwpSession {
       return '{"width":60,"height":50,"horzOffset":120,"vertOffset":60}';
     }
     if (command is Map && command['type'] == 'getTableProperties') {
-      return '{"cellSpacing":10,"paddingLeft":100,"paddingRight":110,"paddingTop":120,"paddingBottom":130,"pageBreak":1,"repeatHeader":false}';
+      return '{"cellSpacing":10,"paddingLeft":100,"paddingRight":110,"paddingTop":120,"paddingBottom":130,"pageBreak":1,"repeatHeader":false,"hasCaption":false,"captionDirection":3,"captionVertAlign":0,"captionWidth":8504,"captionSpacing":850}';
     }
     if (command is Map && command['type'] == 'getCellProperties') {
       final cellIndex = command['cellIndex'];

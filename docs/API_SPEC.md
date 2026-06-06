@@ -185,6 +185,21 @@ Web/WASM에서 일부 export, 특히 PDF는 플랫폼 제약으로 `RhwpUnsuppor
 | Delete table object | `document.deleteTableControl(...)` |
 | Move table object | `document.moveTableOffset(...)` |
 
+`setTableProperties(...)`는 cell spacing, padding, page break, repeat header뿐 아니라 표 캡션도 다룬다. `captionDirection`은 `0=Left`, `1=Right`, `2=Top`, `3=Bottom`이고, `captionVerticalAlign`은 `0=Top`, `1=Center`, `2=Bottom`이다.
+
+```dart
+await document.setTableProperties(
+  section: section,
+  paragraph: paragraph,
+  controlIndex: controlIndex,
+  hasCaption: true,
+  captionDirection: 3,
+  captionVerticalAlign: 0,
+  captionWidth: 8504,
+  captionSpacing: 850,
+);
+```
+
 ### Table-cell text
 
 | 툴바 기능 | 호출 API |

@@ -68,7 +68,7 @@
 | 글상자 | 부분 | shape preset as textbox |
 | 수식 | 완료 | equation insert dialog |
 | 필드 입력 | 부분 | fields list/value/click-here properties 중심 |
-| 캡션 넣기 | 미구현 | caption command/UI 필요 |
+| 캡션 넣기 | 부분 | 표 캡션은 table properties dialog/API에서 지원. 그림/개체 캡션 command/UI 필요 |
 | 문단 띠 | 미구현 | paragraph band command/UI 필요 |
 | 주석 | 미구현 | comment/annotation command/UI 필요 |
 | 각주 | 완료 | insert/read/edit/delete footnote text |
@@ -116,7 +116,7 @@
 | Upstream 메뉴 | Flutter-native 상태 | 현재 연결 |
 | --- | --- | --- |
 | 표 만들기 | 완료 | insert table |
-| 표/셀 속성 | 완료 | table/cell properties dialogs |
+| 표/셀 속성 | 완료 | table/cell properties dialogs, 표 캡션 설정 |
 | 셀 테두리/배경 | 부분 | fill/border quick controls. full border matrix 필요 |
 | 위/아래 줄 추가, 왼쪽/오른쪽 칸 추가 | 완료 | row/column insertion |
 | 줄/칸 지우기 | 완료 | row/column deletion |

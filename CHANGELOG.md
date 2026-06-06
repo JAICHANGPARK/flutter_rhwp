@@ -54,6 +54,8 @@
 * Added rhwp core `getPageBorderFill`/`setPageBorderFill` command APIs and a
   Flutter-native Page-ribbon dialog for page border spacing, border line, and
   solid background fill.
+* Extended Flutter-native table properties to expose table caption creation and
+  caption direction, alignment, width, and spacing settings.
 
 ## 2026-06-02 (2026.6.2)
 

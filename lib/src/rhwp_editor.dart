@@ -1184,6 +1184,11 @@ class _TablePropertiesDialogResult {
     required this.paddingBottom,
     required this.pageBreak,
     required this.repeatHeader,
+    required this.hasCaption,
+    required this.captionDirection,
+    required this.captionVerticalAlign,
+    required this.captionWidth,
+    required this.captionSpacing,
   });
 
   final int cellSpacing;
@@ -1193,6 +1198,11 @@ class _TablePropertiesDialogResult {
   final int paddingBottom;
   final int pageBreak;
   final bool repeatHeader;
+  final bool hasCaption;
+  final int captionDirection;
+  final int captionVerticalAlign;
+  final int captionWidth;
+  final int captionSpacing;
 }
 
 class _CellPropertiesDialogResult {
@@ -6051,6 +6061,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         paddingBottom: result.paddingBottom,
         pageBreak: result.pageBreak,
         repeatHeader: result.repeatHeader,
+        hasCaption: result.hasCaption,
+        captionDirection: result.captionDirection,
+        captionVerticalAlign: result.captionVerticalAlign,
+        captionWidth: result.captionWidth,
+        captionSpacing: result.captionSpacing,
       );
     });
   }
@@ -19346,8 +19361,13 @@ class _TablePropertiesDialogState extends State<_TablePropertiesDialog> {
   late final TextEditingController _paddingRightController;
   late final TextEditingController _paddingTopController;
   late final TextEditingController _paddingBottomController;
+  late final TextEditingController _captionWidthController;
+  late final TextEditingController _captionSpacingController;
   late int _pageBreak;
   late bool _repeatHeader;
+  late bool _hasCaption;
+  late int _captionDirection;
+  late int _captionVerticalAlign;
 
   @override
   void initState() {
@@ -19368,8 +19388,17 @@ class _TablePropertiesDialogState extends State<_TablePropertiesDialog> {
     _paddingBottomController = TextEditingController(
       text: _initialValue(properties.paddingBottom),
     );
+    _captionWidthController = TextEditingController(
+      text: _initialValue(properties.captionWidth ?? 8504),
+    );
+    _captionSpacingController = TextEditingController(
+      text: _initialValue(properties.captionSpacing ?? 850),
+    );
     _pageBreak = (properties.pageBreak ?? 0).clamp(0, 2);
     _repeatHeader = properties.repeatHeader ?? false;
+    _hasCaption = properties.hasCaption ?? false;
+    _captionDirection = (properties.captionDirection ?? 3).clamp(0, 3);
+    _captionVerticalAlign = (properties.captionVerticalAlign ?? 0).clamp(0, 2);
   }
 
   @override
@@ -19379,6 +19408,8 @@ class _TablePropertiesDialogState extends State<_TablePropertiesDialog> {
     _paddingRightController.dispose();
     _paddingTopController.dispose();
     _paddingBottomController.dispose();
+    _captionWidthController.dispose();
+    _captionSpacingController.dispose();
     super.dispose();
   }
 
@@ -19465,6 +19496,91 @@ class _TablePropertiesDialogState extends State<_TablePropertiesDialog> {
                 value: _repeatHeader,
                 onChanged: (value) => setState(() => _repeatHeader = value),
               ),
+              const Divider(height: 20),
+              SwitchListTile(
+                key: const ValueKey('rhwp-table-has-caption-field'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Caption'),
+                value: _hasCaption,
+                onChanged: (value) => setState(() => _hasCaption = value),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      key: const ValueKey('rhwp-table-caption-direction-field'),
+                      initialValue: _captionDirection,
+                      decoration: const InputDecoration(
+                        labelText: 'Caption direction',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 0, child: Text('Left')),
+                        DropdownMenuItem(value: 1, child: Text('Right')),
+                        DropdownMenuItem(value: 2, child: Text('Top')),
+                        DropdownMenuItem(value: 3, child: Text('Bottom')),
+                      ],
+                      onChanged: _hasCaption
+                          ? (value) {
+                              if (value != null) {
+                                setState(() => _captionDirection = value);
+                              }
+                            }
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      key: const ValueKey(
+                        'rhwp-table-caption-vertical-align-field',
+                      ),
+                      initialValue: _captionVerticalAlign,
+                      decoration: const InputDecoration(
+                        labelText: 'Caption align',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 0, child: Text('Top')),
+                        DropdownMenuItem(value: 1, child: Text('Center')),
+                        DropdownMenuItem(value: 2, child: Text('Bottom')),
+                      ],
+                      onChanged: _hasCaption
+                          ? (value) {
+                              if (value != null) {
+                                setState(() => _captionVerticalAlign = value);
+                              }
+                            }
+                          : null,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _numberField(
+                      key: const ValueKey('rhwp-table-caption-width-field'),
+                      label: 'Caption width',
+                      controller: _captionWidthController,
+                      enabled: _hasCaption,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _numberField(
+                      key: const ValueKey('rhwp-table-caption-spacing-field'),
+                      label: 'Caption spacing',
+                      controller: _captionSpacingController,
+                      enabled: _hasCaption,
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -19487,10 +19603,12 @@ class _TablePropertiesDialogState extends State<_TablePropertiesDialog> {
     required Key key,
     required String label,
     required TextEditingController controller,
+    bool enabled = true,
   }) {
     return TextField(
       key: key,
       controller: controller,
+      enabled: enabled,
       keyboardType: TextInputType.number,
       decoration: InputDecoration(
         labelText: label,
@@ -19510,6 +19628,11 @@ class _TablePropertiesDialogState extends State<_TablePropertiesDialog> {
         paddingBottom: _readNonNegative(_paddingBottomController),
         pageBreak: _pageBreak,
         repeatHeader: _repeatHeader,
+        hasCaption: _hasCaption,
+        captionDirection: _captionDirection,
+        captionVerticalAlign: _captionVerticalAlign,
+        captionWidth: _readNonNegative(_captionWidthController),
+        captionSpacing: _readNonNegative(_captionSpacingController),
       ),
     );
   }
@@ -19725,10 +19848,12 @@ class _CellPropertiesDialogState extends State<_CellPropertiesDialog> {
     required Key key,
     required String label,
     required TextEditingController controller,
+    bool enabled = true,
   }) {
     return TextField(
       key: key,
       controller: controller,
+      enabled: enabled,
       keyboardType: TextInputType.number,
       decoration: InputDecoration(
         labelText: label,

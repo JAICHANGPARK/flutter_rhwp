@@ -241,6 +241,11 @@ class RhwpTableProperties {
     this.paddingBottom,
     this.pageBreak,
     this.repeatHeader,
+    this.hasCaption,
+    this.captionDirection,
+    this.captionVerticalAlign,
+    this.captionWidth,
+    this.captionSpacing,
     required this.rawJson,
     this.raw,
   });
@@ -257,6 +262,11 @@ class RhwpTableProperties {
       repeatHeader: decoded?['repeatHeader'] is bool
           ? decoded!['repeatHeader'] as bool
           : null,
+      hasCaption: _boolFromJson(decoded?['hasCaption']),
+      captionDirection: _intFromJson(decoded?['captionDirection']),
+      captionVerticalAlign: _intFromJson(decoded?['captionVertAlign']),
+      captionWidth: _intFromJson(decoded?['captionWidth']),
+      captionSpacing: _intFromJson(decoded?['captionSpacing']),
       rawJson: source,
       raw: decoded,
     );
@@ -269,6 +279,11 @@ class RhwpTableProperties {
   final int? paddingBottom;
   final int? pageBreak;
   final bool? repeatHeader;
+  final bool? hasCaption;
+  final int? captionDirection;
+  final int? captionVerticalAlign;
+  final int? captionWidth;
+  final int? captionSpacing;
   final String rawJson;
   final Map<String, Object?>? raw;
 }
@@ -1584,6 +1599,11 @@ abstract class RhwpCommand {
     int? paddingBottom,
     int? pageBreak,
     bool? repeatHeader,
+    bool? hasCaption,
+    int? captionDirection,
+    int? captionVerticalAlign,
+    int? captionWidth,
+    int? captionSpacing,
   }) = RhwpSetTablePropertiesCommand;
 
   factory RhwpCommand.getCellProperties({
@@ -3504,6 +3524,11 @@ class RhwpSetTablePropertiesCommand extends RhwpCommand {
     this.paddingBottom,
     this.pageBreak,
     this.repeatHeader,
+    this.hasCaption,
+    this.captionDirection,
+    this.captionVerticalAlign,
+    this.captionWidth,
+    this.captionSpacing,
   });
 
   final int section;
@@ -3516,6 +3541,11 @@ class RhwpSetTablePropertiesCommand extends RhwpCommand {
   final int? paddingBottom;
   final int? pageBreak;
   final bool? repeatHeader;
+  final bool? hasCaption;
+  final int? captionDirection;
+  final int? captionVerticalAlign;
+  final int? captionWidth;
+  final int? captionSpacing;
 
   @override
   Map<String, Object?> toJson() => {
@@ -3531,6 +3561,12 @@ class RhwpSetTablePropertiesCommand extends RhwpCommand {
       if (paddingBottom != null) 'paddingBottom': paddingBottom,
       if (pageBreak != null) 'pageBreak': pageBreak,
       if (repeatHeader != null) 'repeatHeader': repeatHeader,
+      if (hasCaption != null) 'hasCaption': hasCaption,
+      if (captionDirection != null) 'captionDirection': captionDirection,
+      if (captionVerticalAlign != null)
+        'captionVertAlign': captionVerticalAlign,
+      if (captionWidth != null) 'captionWidth': captionWidth,
+      if (captionSpacing != null) 'captionSpacing': captionSpacing,
     },
   };
 }
@@ -6147,6 +6183,11 @@ class RhwpDocument {
     int? paddingBottom,
     int? pageBreak,
     bool? repeatHeader,
+    bool? hasCaption,
+    int? captionDirection,
+    int? captionVerticalAlign,
+    int? captionWidth,
+    int? captionSpacing,
   }) {
     return apply(
       RhwpCommand.setTableProperties(
@@ -6160,6 +6201,11 @@ class RhwpDocument {
         paddingBottom: paddingBottom,
         pageBreak: pageBreak,
         repeatHeader: repeatHeader,
+        hasCaption: hasCaption,
+        captionDirection: captionDirection,
+        captionVerticalAlign: captionVerticalAlign,
+        captionWidth: captionWidth,
+        captionSpacing: captionSpacing,
       ),
     );
   }

@@ -1155,6 +1155,11 @@ void main() {
             paddingBottom: 130,
             pageBreak: 2,
             repeatHeader: true,
+            hasCaption: true,
+            captionDirection: 2,
+            captionVerticalAlign: 1,
+            captionWidth: 8504,
+            captionSpacing: 850,
           ).toJson(),
         ),
       ),
@@ -1171,6 +1176,11 @@ void main() {
           'paddingBottom': 130,
           'pageBreak': 2,
           'repeatHeader': true,
+          'hasCaption': true,
+          'captionDirection': 2,
+          'captionVertAlign': 1,
+          'captionWidth': 8504,
+          'captionSpacing': 850,
         },
       },
     );
@@ -3313,6 +3323,11 @@ void main() {
     expect(tableProperties.paddingBottom, 130);
     expect(tableProperties.pageBreak, 1);
     expect(tableProperties.repeatHeader, isFalse);
+    expect(tableProperties.hasCaption, isTrue);
+    expect(tableProperties.captionDirection, 3);
+    expect(tableProperties.captionVerticalAlign, 0);
+    expect(tableProperties.captionWidth, 8504);
+    expect(tableProperties.captionSpacing, 850);
     expect(jsonDecode(session.lastCommandJson!), {
       'type': 'getTableProperties',
       'section': 0,
@@ -3331,6 +3346,11 @@ void main() {
       paddingBottom: 240,
       pageBreak: 2,
       repeatHeader: true,
+      hasCaption: true,
+      captionDirection: 2,
+      captionVerticalAlign: 1,
+      captionWidth: 9000,
+      captionSpacing: 700,
     );
 
     expect(jsonDecode(session.lastCommandJson!), {
@@ -3346,6 +3366,11 @@ void main() {
         'paddingBottom': 240,
         'pageBreak': 2,
         'repeatHeader': true,
+        'hasCaption': true,
+        'captionDirection': 2,
+        'captionVertAlign': 1,
+        'captionWidth': 9000,
+        'captionSpacing': 700,
       },
     });
 
@@ -4447,7 +4472,7 @@ class _FakeRhwpSession implements rust.RhwpSession {
       return '{"width":1000,"height":2000,"horzOffset":30,"vertOffset":40}';
     }
     if (command is Map && command['type'] == 'getTableProperties') {
-      return '{"cellSpacing":10,"paddingLeft":100,"paddingRight":110,"paddingTop":120,"paddingBottom":130,"pageBreak":1,"repeatHeader":false}';
+      return '{"cellSpacing":10,"paddingLeft":100,"paddingRight":110,"paddingTop":120,"paddingBottom":130,"pageBreak":1,"repeatHeader":false,"hasCaption":true,"captionDirection":3,"captionVertAlign":0,"captionWidth":8504,"captionSpacing":850}';
     }
     if (command is Map && command['type'] == 'getCellProperties') {
       return '{"width":5000,"height":3000,"paddingLeft":100,"paddingRight":110,"paddingTop":120,"paddingBottom":130,"verticalAlign":1,"textDirection":0,"isHeader":false,"cellProtect":false}';
