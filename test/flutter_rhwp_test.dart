@@ -518,6 +518,39 @@ void main() {
     expect(
       jsonDecode(
         jsonEncode(
+          RhwpCommand.hiddenCommentAt(
+            section: 0,
+            paragraph: 1,
+            offset: 2,
+          ).toJson(),
+        ),
+      ),
+      {'type': 'hiddenCommentAt', 'section': 0, 'paragraph': 1, 'offset': 2},
+    );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.updateHiddenCommentAt(
+            section: 0,
+            paragraph: 1,
+            offset: 2,
+            text: 'edited',
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'updateHiddenCommentAt',
+        'section': 0,
+        'paragraph': 1,
+        'offset': 2,
+        'text': 'edited',
+      },
+    );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
           RhwpCommand.deleteHiddenCommentAt(
             section: 0,
             paragraph: 1,

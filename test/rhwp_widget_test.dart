@@ -700,6 +700,11 @@ void main() {
   testWidgets('RhwpNativeEditor toolbar applies insert and delete commands', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(1200, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final controller = RhwpEditorController();
     final session = _FakeRhwpSession(pageCountValue: 0);
     final document = RhwpDocument.fromSession(session);
@@ -838,12 +843,49 @@ void main() {
     });
 
     await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-edit-hidden-comment')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('rhwp-hidden-comment-text-field')),
+          )
+          .controller
+          ?.text,
+      '검토 의견',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-hidden-comment-text-field')),
+      '수정 의견',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-hidden-comment-apply')));
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.cursor.offset, 11);
+    expect(changedCalls, 7);
+    final recentHiddenCommentCommands = session.commands
+        .map(jsonDecode)
+        .toList()
+        .sublist(session.commands.length - 2);
+    expect(recentHiddenCommentCommands, [
+      {'type': 'hiddenCommentAt', 'section': 0, 'paragraph': 0, 'offset': 11},
+      {
+        'type': 'updateHiddenCommentAt',
+        'section': 0,
+        'paragraph': 0,
+        'offset': 11,
+        'text': '수정 의견',
+      },
+    ]);
+
+    await tester.tap(
       find.byKey(const ValueKey('rhwp-editor-delete-hidden-comment')),
     );
     await _pumpDocumentFrame(tester);
 
     expect(controller.cursor.offset, 11);
-    expect(changedCalls, 7);
+    expect(changedCalls, 8);
     expect(jsonDecode(session.commands.last), {
       'type': 'deleteHiddenCommentAt',
       'section': 0,
@@ -23027,6 +23069,8 @@ class _FakeRhwpSession implements rust.RhwpSession {
   String headerFooterText = '';
   bool footnoteExists = false;
   String footnoteText = '';
+  bool hiddenCommentExists = false;
+  String hiddenCommentText = '';
   String fileName = 'sample.hwp';
   String extractedText = 'alpha\nbeta';
   String extractedMarkdown = '# alpha\n\nbeta';
@@ -23169,6 +23213,50 @@ class _FakeRhwpSession implements rust.RhwpSession {
     if (command is Map && command['type'] == 'insertTextInFootnote') {
       footnoteText = command['text']?.toString() ?? '';
       return '{"ok":true,"charOffset":0}';
+    }
+    if (command is Map && command['type'] == 'insertHiddenComment') {
+      hiddenCommentExists = true;
+      hiddenCommentText = command['text']?.toString() ?? '';
+      return '{"ok":true,"paraIdx":0,"controlIdx":2,"offset":${command['offset'] ?? 0}}';
+    }
+    if (command is Map && command['type'] == 'hiddenCommentAt') {
+      if (!hiddenCommentExists) {
+        return '{"hit":false}';
+      }
+      return jsonEncode({
+        'hit': true,
+        'sectionIndex': 0,
+        'paragraphIndex': 0,
+        'controlIndex': 2,
+        'charOffset': command['offset'] ?? 0,
+        'text': hiddenCommentText,
+      });
+    }
+    if (command is Map && command['type'] == 'updateHiddenCommentAt') {
+      hiddenCommentExists = true;
+      hiddenCommentText = command['text']?.toString() ?? '';
+      return jsonEncode({
+        'ok': true,
+        'sectionIndex': 0,
+        'paragraphIndex': 0,
+        'controlIndex': 2,
+        'charOffset': command['offset'] ?? 0,
+        'oldText': '',
+        'newText': hiddenCommentText,
+      });
+    }
+    if (command is Map && command['type'] == 'deleteHiddenCommentAt') {
+      hiddenCommentExists = false;
+      final deletedText = hiddenCommentText;
+      hiddenCommentText = '';
+      return jsonEncode({
+        'ok': true,
+        'sectionIndex': 0,
+        'paragraphIndex': 0,
+        'controlIndex': 2,
+        'charOffset': command['offset'] ?? 0,
+        'text': deletedText,
+      });
     }
     if (command is Map && command['type'] == 'setFileName') {
       fileName = command['name']?.toString() ?? fileName;

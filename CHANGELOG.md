@@ -82,6 +82,9 @@
   action that updates both the hyperlink URL command and visible display text.
 * Added `RhwpDocument.deleteHiddenCommentAt(...)` and a Flutter-native delete
   comment action for removing hidden-comment controls at the body caret.
+* Added `RhwpDocument.hiddenCommentAt(...)` and
+  `RhwpDocument.updateHiddenCommentAt(...)` with Flutter-native hidden-comment
+  editing from the input ribbon and context menu.
 
 ## 2026-06-02 (2026.6.2)
 

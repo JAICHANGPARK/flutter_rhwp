@@ -497,6 +497,28 @@ impl RhwpSession {
                     offset as usize,
                 )
                 .map_err(error_to_string),
+            RhwpCommand::HiddenCommentAt {
+                section,
+                paragraph,
+                offset,
+            } => inner
+                .document
+                .hidden_comment_at_native(section as usize, paragraph as usize, offset as usize)
+                .map_err(error_to_string),
+            RhwpCommand::UpdateHiddenCommentAt {
+                section,
+                paragraph,
+                offset,
+                text,
+            } => inner
+                .document
+                .update_hidden_comment_at_native(
+                    section as usize,
+                    paragraph as usize,
+                    offset as usize,
+                    &text,
+                )
+                .map_err(error_to_string),
             RhwpCommand::InsertPicture {
                 section,
                 paragraph,
@@ -1921,6 +1943,17 @@ enum RhwpCommand {
         section: u32,
         paragraph: u32,
         offset: u32,
+    },
+    HiddenCommentAt {
+        section: u32,
+        paragraph: u32,
+        offset: u32,
+    },
+    UpdateHiddenCommentAt {
+        section: u32,
+        paragraph: u32,
+        offset: u32,
+        text: String,
     },
     InsertPicture {
         section: u32,
@@ -3533,6 +3566,25 @@ mod tests {
             .expect("insert hidden comment result should be JSON");
         assert_eq!(hidden_comment["ok"], true);
         assert!(hidden_comment["controlIdx"].as_u64().is_some());
+        let hidden_comment_hit_result = session
+            .apply_command(
+                r#"{"type":"hiddenCommentAt","section":0,"paragraph":0,"offset":5}"#.to_string(),
+            )
+            .expect("hidden comment hit command should be accepted");
+        let hidden_comment_hit: Value = serde_json::from_str(&hidden_comment_hit_result)
+            .expect("hidden comment hit result should be JSON");
+        assert_eq!(hidden_comment_hit["hit"], true);
+        assert_eq!(hidden_comment_hit["text"], "검토 의견");
+        let update_hidden_comment_result = session
+            .apply_command(
+                r#"{"type":"updateHiddenCommentAt","section":0,"paragraph":0,"offset":5,"text":"수정 의견"}"#
+                    .to_string(),
+            )
+            .expect("update hidden comment command should be accepted");
+        let update_hidden_comment: Value = serde_json::from_str(&update_hidden_comment_result)
+            .expect("update hidden comment result should be JSON");
+        assert_eq!(update_hidden_comment["ok"], true);
+        assert_eq!(update_hidden_comment["newText"], "수정 의견");
         let delete_hidden_comment_result = session
             .apply_command(
                 r#"{"type":"deleteHiddenCommentAt","section":0,"paragraph":0,"offset":5}"#

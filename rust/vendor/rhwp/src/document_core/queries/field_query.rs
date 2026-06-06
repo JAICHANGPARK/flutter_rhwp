@@ -245,6 +245,90 @@ impl DocumentCore {
         ))
     }
 
+    /// 커서 위치의 숨은 주석 내용을 조회한다.
+    pub fn hidden_comment_at_native(
+        &self,
+        section_idx: usize,
+        para_idx: usize,
+        char_offset: usize,
+    ) -> Result<String, HwpError> {
+        let section = self
+            .document
+            .sections
+            .get(section_idx)
+            .ok_or_else(|| HwpError::RenderError("구역 범위 초과".into()))?;
+        let paragraph = section
+            .paragraphs
+            .get(para_idx)
+            .ok_or_else(|| HwpError::RenderError("문단 범위 초과".into()))?;
+
+        let Some((control_idx, comment_offset)) = find_hidden_comment_at(paragraph, char_offset)
+        else {
+            return Ok(r#"{"hit":false}"#.to_string());
+        };
+        let text = match paragraph.controls.get(control_idx) {
+            Some(Control::HiddenComment(comment)) => hidden_comment_text(comment),
+            _ => String::new(),
+        };
+
+        Ok(format!(
+            r#"{{"hit":true,"sectionIndex":{},"paragraphIndex":{},"controlIndex":{},"charOffset":{},"text":{}}}"#,
+            section_idx,
+            para_idx,
+            control_idx,
+            comment_offset,
+            json_escape(&text),
+        ))
+    }
+
+    /// 커서 위치의 숨은 주석 내용을 교체한다.
+    pub fn update_hidden_comment_at_native(
+        &mut self,
+        section_idx: usize,
+        para_idx: usize,
+        char_offset: usize,
+        text: &str,
+    ) -> Result<String, HwpError> {
+        if text.trim().is_empty() {
+            return Ok(r#"{"ok":false,"error":"주석 내용을 입력하세요."}"#.to_string());
+        }
+
+        let section = self
+            .document
+            .sections
+            .get_mut(section_idx)
+            .ok_or_else(|| HwpError::RenderError("구역 범위 초과".into()))?;
+        let paragraph = section
+            .paragraphs
+            .get_mut(para_idx)
+            .ok_or_else(|| HwpError::RenderError("문단 범위 초과".into()))?;
+
+        let (control_idx, comment_offset) = find_hidden_comment_at(paragraph, char_offset)
+            .ok_or_else(|| HwpError::RenderError("커서 위치에 숨은 주석 없음".into()))?;
+        let old_text = match paragraph.controls.get(control_idx) {
+            Some(Control::HiddenComment(comment)) => hidden_comment_text(comment),
+            _ => String::new(),
+        };
+        match paragraph.controls.get_mut(control_idx) {
+            Some(Control::HiddenComment(comment)) => set_hidden_comment_text(comment, text),
+            _ => return Err(HwpError::RenderError("숨은 주석 컨트롤 없음".into())),
+        }
+        section.raw_stream = None;
+
+        self.recompose_section(section_idx);
+        self.invalidate_page_tree_cache();
+
+        Ok(format!(
+            r#"{{"ok":true,"sectionIndex":{},"paragraphIndex":{},"controlIndex":{},"charOffset":{},"oldText":{},"newText":{}}}"#,
+            section_idx,
+            para_idx,
+            control_idx,
+            comment_offset,
+            json_escape(&old_text),
+            json_escape(text),
+        ))
+    }
+
     fn next_field_id(&self) -> u32 {
         let mut max_id = 0;
         for section in &self.document.sections {
@@ -846,6 +930,12 @@ fn hidden_comment_text(comment: &HiddenComment) -> String {
         .map(|paragraph| paragraph.text.as_str())
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+fn set_hidden_comment_text(comment: &mut HiddenComment, text: &str) {
+    let mut paragraph = Paragraph::new_empty();
+    paragraph.insert_text_at(0, text);
+    comment.paragraphs = vec![paragraph];
 }
 
 fn next_field_id_from_paragraphs(paragraphs: &[Paragraph], max_id: &mut u32) {

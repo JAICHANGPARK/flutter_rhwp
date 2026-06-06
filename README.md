@@ -31,6 +31,8 @@ documents.
 - Insert hyperlinks and hidden comments from the Flutter-native input ribbon or
   the Dart API.
 - Delete hidden comments from the Flutter-native input ribbon or the Dart API.
+- Read and edit hidden comment text from the Flutter-native input ribbon or
+  the Dart API.
 - Edit hyperlink URLs and display text from the Flutter-native tools ribbon or
   the Dart API.
 - Manage HWP fields/누름틀 values from the Flutter-native tools ribbon or the
@@ -235,6 +237,20 @@ await document.insertHiddenComment(
   offset: 0,
   text: '검토 의견',
 );
+
+final comment = await document.hiddenCommentAt(
+  section: 0,
+  paragraph: 0,
+  offset: 0,
+);
+if (comment.hit) {
+  await document.updateHiddenCommentAt(
+    section: 0,
+    paragraph: 0,
+    offset: 0,
+    text: '수정 의견',
+  );
+}
 
 await document.deleteHiddenCommentAt(
   section: 0,

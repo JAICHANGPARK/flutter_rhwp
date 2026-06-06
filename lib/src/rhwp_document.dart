@@ -505,6 +505,39 @@ class RhwpFootnoteHit {
   final Map<String, Object?>? raw;
 }
 
+class RhwpHiddenCommentHit {
+  const RhwpHiddenCommentHit({
+    required this.hit,
+    this.section,
+    this.paragraph,
+    this.controlIndex,
+    this.charOffset,
+    this.text,
+    this.raw,
+  });
+
+  factory RhwpHiddenCommentHit.fromJsonString(String source) {
+    final decoded = RhwpDocument._tryDecodeObject(source) ?? const {};
+    return RhwpHiddenCommentHit(
+      hit: decoded['hit'] == true,
+      section: _intFromJson(decoded['sectionIndex']),
+      paragraph: _intFromJson(decoded['paragraphIndex']),
+      controlIndex: _intFromJson(decoded['controlIndex']),
+      charOffset: _intFromJson(decoded['charOffset']),
+      text: decoded['text']?.toString(),
+      raw: decoded,
+    );
+  }
+
+  final bool hit;
+  final int? section;
+  final int? paragraph;
+  final int? controlIndex;
+  final int? charOffset;
+  final String? text;
+  final Map<String, Object?>? raw;
+}
+
 class RhwpFootnoteInfo {
   const RhwpFootnoteInfo({
     required this.ok,
@@ -1373,6 +1406,19 @@ abstract class RhwpCommand {
     required int paragraph,
     required int offset,
   }) = RhwpDeleteHiddenCommentAtCommand;
+
+  factory RhwpCommand.hiddenCommentAt({
+    required int section,
+    required int paragraph,
+    required int offset,
+  }) = RhwpHiddenCommentAtCommand;
+
+  factory RhwpCommand.updateHiddenCommentAt({
+    required int section,
+    required int paragraph,
+    required int offset,
+    required String text,
+  }) = RhwpUpdateHiddenCommentAtCommand;
 
   factory RhwpCommand.insertPicture({
     required int section,
@@ -2735,6 +2781,49 @@ class RhwpDeleteHiddenCommentAtCommand extends RhwpCommand {
     'section': section,
     'paragraph': paragraph,
     'offset': offset,
+  };
+}
+
+class RhwpHiddenCommentAtCommand extends RhwpCommand {
+  const RhwpHiddenCommentAtCommand({
+    required this.section,
+    required this.paragraph,
+    required this.offset,
+  });
+
+  final int section;
+  final int paragraph;
+  final int offset;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'hiddenCommentAt',
+    'section': section,
+    'paragraph': paragraph,
+    'offset': offset,
+  };
+}
+
+class RhwpUpdateHiddenCommentAtCommand extends RhwpCommand {
+  const RhwpUpdateHiddenCommentAtCommand({
+    required this.section,
+    required this.paragraph,
+    required this.offset,
+    required this.text,
+  });
+
+  final int section;
+  final int paragraph;
+  final int offset;
+  final String text;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'updateHiddenCommentAt',
+    'section': section,
+    'paragraph': paragraph,
+    'offset': offset,
+    'text': text,
   };
 }
 
@@ -5794,6 +5883,37 @@ class RhwpDocument {
         section: section,
         paragraph: paragraph,
         offset: offset,
+      ),
+    );
+  }
+
+  Future<RhwpHiddenCommentHit> hiddenCommentAt({
+    required int section,
+    required int paragraph,
+    required int offset,
+  }) async {
+    final result = await apply(
+      RhwpCommand.hiddenCommentAt(
+        section: section,
+        paragraph: paragraph,
+        offset: offset,
+      ),
+    );
+    return RhwpHiddenCommentHit.fromJsonString(result);
+  }
+
+  Future<String> updateHiddenCommentAt({
+    required int section,
+    required int paragraph,
+    required int offset,
+    required String text,
+  }) {
+    return apply(
+      RhwpCommand.updateHiddenCommentAt(
+        section: section,
+        paragraph: paragraph,
+        offset: offset,
+        text: text,
       ),
     );
   }
