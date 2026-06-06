@@ -1235,6 +1235,27 @@ abstract class RhwpCommand {
     required String text,
   }) = RhwpInsertTextInTableCellCommand;
 
+  factory RhwpCommand.insertHyperlinkInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int offset,
+    required String url,
+    required String text,
+  }) = RhwpInsertHyperlinkInTableCellCommand;
+
+  factory RhwpCommand.insertHiddenCommentInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int offset,
+    required String text,
+  }) = RhwpInsertHiddenCommentInTableCellCommand;
+
   factory RhwpCommand.deleteTextInTableCell({
     required int section,
     required int paragraph,
@@ -2216,6 +2237,73 @@ class RhwpInsertTextInTableCellCommand extends RhwpCommand {
   @override
   Map<String, Object?> toJson() => {
     'type': 'insertTextInTableCell',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'cellIndex': cellIndex,
+    'cellParagraph': cellParagraph,
+    'offset': offset,
+    'text': text,
+  };
+}
+
+class RhwpInsertHyperlinkInTableCellCommand extends RhwpCommand {
+  const RhwpInsertHyperlinkInTableCellCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+    required this.cellParagraph,
+    required this.offset,
+    required this.url,
+    required this.text,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+  final int cellParagraph;
+  final int offset;
+  final String url;
+  final String text;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'insertHyperlinkInTableCell',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'cellIndex': cellIndex,
+    'cellParagraph': cellParagraph,
+    'offset': offset,
+    'url': url,
+    'text': text,
+  };
+}
+
+class RhwpInsertHiddenCommentInTableCellCommand extends RhwpCommand {
+  const RhwpInsertHiddenCommentInTableCellCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+    required this.cellParagraph,
+    required this.offset,
+    required this.text,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+  final int cellParagraph;
+  final int offset;
+  final String text;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'insertHiddenCommentInTableCell',
     'section': section,
     'paragraph': paragraph,
     'controlIndex': controlIndex,
@@ -5492,6 +5580,52 @@ class RhwpDocument {
   }) {
     return apply(
       RhwpCommand.insertTextInTableCell(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        cellIndex: cellIndex,
+        cellParagraph: cellParagraph,
+        offset: offset,
+        text: text,
+      ),
+    );
+  }
+
+  Future<String> insertHyperlinkInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int offset,
+    required String url,
+    required String text,
+  }) {
+    return apply(
+      RhwpCommand.insertHyperlinkInTableCell(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        cellIndex: cellIndex,
+        cellParagraph: cellParagraph,
+        offset: offset,
+        url: url,
+        text: text,
+      ),
+    );
+  }
+
+  Future<String> insertHiddenCommentInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int offset,
+    required String text,
+  }) {
+    return apply(
+      RhwpCommand.insertHiddenCommentInTableCell(
         section: section,
         paragraph: paragraph,
         controlIndex: controlIndex,

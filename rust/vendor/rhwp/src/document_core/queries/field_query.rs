@@ -85,45 +85,8 @@ impl DocumentCore {
             .get_mut(para_idx)
             .ok_or_else(|| HwpError::RenderError("문단 범위 초과".into()))?;
 
-        let start = char_offset.min(paragraph.text.chars().count());
-        let insert_idx = find_control_insert_index(paragraph, start);
-
-        paragraph.insert_text_at(start, display_text);
-        let end = start + display_text.chars().count();
-
-        ensure_ctrl_data_len(paragraph);
-        for range in &mut paragraph.field_ranges {
-            if range.control_idx >= insert_idx {
-                range.control_idx += 1;
-            }
-        }
-
-        paragraph.controls.insert(
-            insert_idx,
-            Control::Field(Field {
-                field_type: FieldType::Hyperlink,
-                command: url.to_string(),
-                properties: 0,
-                extra_properties: 0,
-                field_id: next_field_id,
-                ctrl_id: tags::FIELD_HYPERLINK,
-                ctrl_data_name: None,
-                memo_index: 0,
-            }),
-        );
-        paragraph.ctrl_data_records.insert(insert_idx, None);
-        paragraph.field_ranges.push(FieldRange {
-            start_char_idx: start,
-            end_char_idx: end,
-            control_idx: insert_idx,
-        });
-
-        if start == 0 {
-            for offset in &mut paragraph.char_offsets {
-                *offset += 8;
-            }
-        }
-        rebuild_char_offsets(paragraph);
+        let (insert_idx, start, end) =
+            insert_hyperlink_in_paragraph(paragraph, char_offset, url, display_text, next_field_id);
 
         self.recompose_section(section_idx);
         self.invalidate_page_tree_cache();
@@ -131,6 +94,64 @@ impl DocumentCore {
         Ok(format!(
             r#"{{"ok":true,"fieldId":{},"paraIdx":{},"controlIdx":{},"startOffset":{},"endOffset":{}}}"#,
             next_field_id, para_idx, insert_idx, start, end
+        ))
+    }
+
+    /// 표 셀 내부 문단의 지정 위치에 하이퍼링크 필드를 삽입한다.
+    pub fn insert_hyperlink_in_cell_native(
+        &mut self,
+        section_idx: usize,
+        parent_para_idx: usize,
+        control_idx: usize,
+        cell_idx: usize,
+        cell_para_idx: usize,
+        char_offset: usize,
+        url: &str,
+        text: &str,
+    ) -> Result<String, HwpError> {
+        let url = url.trim();
+        if url.is_empty() {
+            return Ok(r#"{"ok":false,"error":"하이퍼링크 주소를 입력하세요."}"#.to_string());
+        }
+        let display_text = if text.trim().is_empty() { url } else { text };
+        if display_text.is_empty() {
+            return Ok(r#"{"ok":false,"error":"표시 텍스트를 입력하세요."}"#.to_string());
+        }
+
+        let next_field_id = self.next_field_id();
+        let (insert_idx, start, end) = {
+            let paragraph = self.get_cell_paragraph_mut(
+                section_idx,
+                parent_para_idx,
+                control_idx,
+                cell_idx,
+                cell_para_idx,
+            )?;
+            insert_hyperlink_in_paragraph(
+                paragraph,
+                char_offset,
+                url,
+                display_text,
+                next_field_id,
+            )
+        };
+
+        self.document.sections[section_idx].raw_stream = None;
+        self.mark_cell_control_dirty(section_idx, parent_para_idx, control_idx);
+        self.reflow_cell_paragraph(
+            section_idx,
+            parent_para_idx,
+            control_idx,
+            cell_idx,
+            cell_para_idx,
+        );
+        self.mark_section_dirty(section_idx);
+        self.paginate_if_needed();
+        self.invalidate_page_tree_cache();
+
+        Ok(format!(
+            r#"{{"ok":true,"fieldId":{},"paraIdx":{},"controlIdx":{},"cellIndex":{},"cellParagraph":{},"startOffset":{},"endOffset":{}}}"#,
+            next_field_id, parent_para_idx, insert_idx, cell_idx, cell_para_idx, start, end
         ))
     }
 
@@ -157,26 +178,8 @@ impl DocumentCore {
             .get_mut(para_idx)
             .ok_or_else(|| HwpError::RenderError("문단 범위 초과".into()))?;
 
-        let insert_offset = char_offset.min(paragraph.text.chars().count());
-        let insert_idx = find_control_insert_index(paragraph, insert_offset);
-        ensure_ctrl_data_len(paragraph);
-        for range in &mut paragraph.field_ranges {
-            if range.control_idx >= insert_idx {
-                range.control_idx += 1;
-            }
-        }
-
-        let mut comment_paragraph = Paragraph::new_empty();
-        comment_paragraph.insert_text_at(0, text);
-        let comment = HiddenComment {
-            paragraphs: vec![comment_paragraph],
-        };
-
-        paragraph
-            .controls
-            .insert(insert_idx, Control::HiddenComment(Box::new(comment)));
-        paragraph.ctrl_data_records.insert(insert_idx, None);
-        add_control_gap(paragraph, insert_offset);
+        let (insert_idx, insert_offset) =
+            insert_hidden_comment_in_paragraph(paragraph, char_offset, text);
 
         self.recompose_section(section_idx);
         self.invalidate_page_tree_cache();
@@ -184,6 +187,51 @@ impl DocumentCore {
         Ok(format!(
             r#"{{"ok":true,"paraIdx":{},"controlIdx":{},"offset":{}}}"#,
             para_idx, insert_idx, insert_offset
+        ))
+    }
+
+    /// 표 셀 내부 문단의 지정 위치에 숨은 주석 컨트롤을 삽입한다.
+    pub fn insert_hidden_comment_in_cell_native(
+        &mut self,
+        section_idx: usize,
+        parent_para_idx: usize,
+        control_idx: usize,
+        cell_idx: usize,
+        cell_para_idx: usize,
+        char_offset: usize,
+        text: &str,
+    ) -> Result<String, HwpError> {
+        if text.trim().is_empty() {
+            return Ok(r#"{"ok":false,"error":"주석 내용을 입력하세요."}"#.to_string());
+        }
+
+        let (insert_idx, insert_offset) = {
+            let paragraph = self.get_cell_paragraph_mut(
+                section_idx,
+                parent_para_idx,
+                control_idx,
+                cell_idx,
+                cell_para_idx,
+            )?;
+            insert_hidden_comment_in_paragraph(paragraph, char_offset, text)
+        };
+
+        self.document.sections[section_idx].raw_stream = None;
+        self.mark_cell_control_dirty(section_idx, parent_para_idx, control_idx);
+        self.reflow_cell_paragraph(
+            section_idx,
+            parent_para_idx,
+            control_idx,
+            cell_idx,
+            cell_para_idx,
+        );
+        self.mark_section_dirty(section_idx);
+        self.paginate_if_needed();
+        self.invalidate_page_tree_cache();
+
+        Ok(format!(
+            r#"{{"ok":true,"paraIdx":{},"controlIdx":{},"cellIndex":{},"cellParagraph":{},"offset":{}}}"#,
+            parent_para_idx, insert_idx, cell_idx, cell_para_idx, insert_offset
         ))
     }
 
@@ -881,6 +929,85 @@ fn ensure_ctrl_data_len(para: &mut Paragraph) {
     while para.ctrl_data_records.len() < para.controls.len() {
         para.ctrl_data_records.push(None);
     }
+}
+
+fn insert_hyperlink_in_paragraph(
+    paragraph: &mut Paragraph,
+    char_offset: usize,
+    url: &str,
+    display_text: &str,
+    field_id: u32,
+) -> (usize, usize, usize) {
+    let start = char_offset.min(paragraph.text.chars().count());
+    let insert_idx = find_control_insert_index(paragraph, start);
+
+    paragraph.insert_text_at(start, display_text);
+    let end = start + display_text.chars().count();
+
+    ensure_ctrl_data_len(paragraph);
+    for range in &mut paragraph.field_ranges {
+        if range.control_idx >= insert_idx {
+            range.control_idx += 1;
+        }
+    }
+
+    paragraph.controls.insert(
+        insert_idx,
+        Control::Field(Field {
+            field_type: FieldType::Hyperlink,
+            command: url.to_string(),
+            properties: 0,
+            extra_properties: 0,
+            field_id,
+            ctrl_id: tags::FIELD_HYPERLINK,
+            ctrl_data_name: None,
+            memo_index: 0,
+        }),
+    );
+    paragraph.ctrl_data_records.insert(insert_idx, None);
+    paragraph.field_ranges.push(FieldRange {
+        start_char_idx: start,
+        end_char_idx: end,
+        control_idx: insert_idx,
+    });
+
+    if start == 0 {
+        for offset in &mut paragraph.char_offsets {
+            *offset += 8;
+        }
+    }
+    rebuild_char_offsets(paragraph);
+
+    (insert_idx, start, end)
+}
+
+fn insert_hidden_comment_in_paragraph(
+    paragraph: &mut Paragraph,
+    char_offset: usize,
+    text: &str,
+) -> (usize, usize) {
+    let insert_offset = char_offset.min(paragraph.text.chars().count());
+    let insert_idx = find_control_insert_index(paragraph, insert_offset);
+    ensure_ctrl_data_len(paragraph);
+    for range in &mut paragraph.field_ranges {
+        if range.control_idx >= insert_idx {
+            range.control_idx += 1;
+        }
+    }
+
+    let mut comment_paragraph = Paragraph::new_empty();
+    comment_paragraph.insert_text_at(0, text);
+    let comment = HiddenComment {
+        paragraphs: vec![comment_paragraph],
+    };
+
+    paragraph
+        .controls
+        .insert(insert_idx, Control::HiddenComment(Box::new(comment)));
+    paragraph.ctrl_data_records.insert(insert_idx, None);
+    add_control_gap(paragraph, insert_offset);
+
+    (insert_idx, insert_offset)
 }
 
 fn add_control_gap(para: &mut Paragraph, char_offset: usize) {

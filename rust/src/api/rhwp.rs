@@ -205,6 +205,48 @@ impl RhwpSession {
                     &text,
                 )
                 .map_err(error_to_string),
+            RhwpCommand::InsertHyperlinkInTableCell {
+                section,
+                paragraph,
+                control_index,
+                cell_index,
+                cell_paragraph,
+                offset,
+                url,
+                text,
+            } => inner
+                .document
+                .insert_hyperlink_in_cell_native(
+                    section as usize,
+                    paragraph as usize,
+                    control_index as usize,
+                    cell_index as usize,
+                    cell_paragraph as usize,
+                    offset as usize,
+                    &url,
+                    &text,
+                )
+                .map_err(error_to_string),
+            RhwpCommand::InsertHiddenCommentInTableCell {
+                section,
+                paragraph,
+                control_index,
+                cell_index,
+                cell_paragraph,
+                offset,
+                text,
+            } => inner
+                .document
+                .insert_hidden_comment_in_cell_native(
+                    section as usize,
+                    paragraph as usize,
+                    control_index as usize,
+                    cell_index as usize,
+                    cell_paragraph as usize,
+                    offset as usize,
+                    &text,
+                )
+                .map_err(error_to_string),
             RhwpCommand::DeleteTextInTableCell {
                 section,
                 paragraph,
@@ -1767,6 +1809,31 @@ enum RhwpCommand {
         count: u32,
     },
     InsertTextInTableCell {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "cellIndex")]
+        cell_index: u32,
+        #[serde(rename = "cellParagraph")]
+        cell_paragraph: u32,
+        offset: u32,
+        text: String,
+    },
+    InsertHyperlinkInTableCell {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "cellIndex")]
+        cell_index: u32,
+        #[serde(rename = "cellParagraph")]
+        cell_paragraph: u32,
+        offset: u32,
+        url: String,
+        text: String,
+    },
+    InsertHiddenCommentInTableCell {
         section: u32,
         paragraph: u32,
         #[serde(rename = "controlIndex")]
@@ -3886,6 +3953,28 @@ mod tests {
                 ),
             )
             .expect("insert text in table cell command should be accepted");
+        let table_cell_hyperlink = session
+            .apply_command(
+                format!(
+                    r#"{{"type":"insertHyperlinkInTableCell","section":0,"paragraph":{},"controlIndex":0,"cellIndex":2,"cellParagraph":0,"offset":0,"url":"https://example.com","text":"Link"}}"#,
+                    table_paragraph
+                ),
+            )
+            .expect("insert hyperlink in table cell command should be accepted");
+        let table_cell_hyperlink: Value = serde_json::from_str(&table_cell_hyperlink)
+            .expect("insert hyperlink in table cell result should be JSON");
+        assert_eq!(table_cell_hyperlink["ok"], true);
+        let table_cell_comment = session
+            .apply_command(
+                format!(
+                    r#"{{"type":"insertHiddenCommentInTableCell","section":0,"paragraph":{},"controlIndex":0,"cellIndex":2,"cellParagraph":0,"offset":4,"text":"셀 검토"}}"#,
+                    table_paragraph
+                ),
+            )
+            .expect("insert hidden comment in table cell command should be accepted");
+        let table_cell_comment: Value = serde_json::from_str(&table_cell_comment)
+            .expect("insert hidden comment in table cell result should be JSON");
+        assert_eq!(table_cell_comment["ok"], true);
         session
             .apply_command(
                 format!(

@@ -85,6 +85,14 @@
 * Added `RhwpDocument.hiddenCommentAt(...)` and
   `RhwpDocument.updateHiddenCommentAt(...)` with Flutter-native hidden-comment
   editing from the input ribbon and context menu.
+* Added `RhwpDocument.insertHyperlinkInTableCell(...)` and
+  `RhwpDocument.insertHiddenCommentInTableCell(...)` for active table-cell text
+  editing positions.
+* Enabled the Flutter-native input ribbon hyperlink/comment buttons when a
+  table-cell text caret is active, while keeping them disabled for table block
+  selection.
+* Covered table-cell hyperlink/comment insertion with Dart command serialization,
+  document helper, widget, and Rust facade tests.
 
 ## 2026-06-02 (2026.6.2)
 

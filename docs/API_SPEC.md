@@ -259,6 +259,8 @@ await document.setTableProperties(
 | 툴바 기능 | 호출 API |
 | --- | --- |
 | Insert cell text | `document.insertTextInTableCell(...)` |
+| Insert cell hyperlink | `document.insertHyperlinkInTableCell(...)` |
+| Insert cell hidden comment | `document.insertHiddenCommentInTableCell(...)` |
 | Delete cell text | `document.deleteTextInTableCell(...)` |
 | Delete cell text range | `document.deleteRangeInTableCell(...)` |
 | Split/merge cell paragraph | `document.splitParagraphInTableCell(...)`, `mergeParagraphInTableCell(...)` |
@@ -352,8 +354,10 @@ await document.setPageBorderFill(
 | Footnote text | `document.insertTextInFootnote(...)`, `deleteTextInFootnote(...)` |
 | Insert equation | `document.insertEquation(...)` |
 | Insert hyperlink | `document.insertHyperlink(...)` |
+| Insert table-cell hyperlink | `document.insertHyperlinkInTableCell(...)` |
 | Edit hyperlink | `document.updateHyperlink(...)` |
 | Insert hidden comment | `document.insertHiddenComment(...)` |
+| Insert table-cell hidden comment | `document.insertHiddenCommentInTableCell(...)` |
 | Read/edit hidden comment | `document.hiddenCommentAt(...)`, `updateHiddenCommentAt(...)` |
 | Delete hidden comment | `document.deleteHiddenCommentAt(...)` |
 | Bookmark list/add/delete/rename | `document.bookmarks()`, `addBookmark(...)`, `deleteBookmark(...)`, `renameBookmark(...)` |
@@ -364,15 +368,17 @@ await document.setPageBorderFill(
 | Remove field | `document.removeFieldAt(...)`, `removeFieldAtInTableCell(...)` |
 | ClickHere properties | `document.clickHereProperties(...)`, `updateClickHereProperties(...)` |
 
-하이퍼링크와 숨은 주석은 현재 본문 caret/selection 기준으로 삽입한다. 기본
-`RhwpNativeEditor` 리본은 표 셀 편집 중에는 이 두 버튼을 비활성화한다.
-하이퍼링크의 표시 텍스트가 선택 영역에 삽입될 때는 기존 선택 텍스트를 삭제한
-뒤 같은 위치에 hyperlink field range를 만든다. `fieldInfoAt(...)`은
-ClickHere뿐 아니라 hyperlink field도 반환한다. `removeFieldAt(...)`은 현재
-caret의 field marker를 제거하고 표시 텍스트는 유지한다. ClickHere 속성 편집은
+하이퍼링크와 숨은 주석은 본문 caret/selection 또는 활성 표 셀 텍스트 caret에
+삽입할 수 있다. 기본 `RhwpNativeEditor` 리본은 표 전체/셀 블록 선택에서는 이
+두 버튼을 비활성화하고, `tableCellSelection.isTextEditing == true`이며
+`activeCellIndex`가 있을 때 표 셀 내부 삽입 API를 호출한다. 하이퍼링크의 표시
+텍스트가 선택 영역에 삽입될 때는 기존 선택 텍스트를 삭제한 뒤 같은 위치에
+hyperlink field range를 만든다. `fieldInfoAt(...)`은 ClickHere뿐 아니라
+hyperlink field도 반환한다. `removeFieldAt(...)`은 현재 caret의 field marker를
+제거하고 표시 텍스트는 유지한다. ClickHere 속성 편집은
 `fieldType == clickhere`일 때만 사용한다. `updateHyperlink(...)`는 hyperlink
-field의 URL command와 표시 텍스트를 함께 갱신한다. HWPX field serialization,
-표 셀 내부 삽입은 추가 검증/구현 대상이다.
+field의 URL command와 표시 텍스트를 함께 갱신한다. HWPX field serialization과
+표 셀 내부 하이퍼링크/숨은 주석 round-trip 검증은 추가 검증 대상이다.
 
 ```dart
 await document.insertHyperlink(
@@ -389,6 +395,30 @@ await document.insertHiddenComment(
   offset: controller.cursor.offset,
   text: '검토 의견',
 );
+
+final cell = controller.tableCellSelection;
+if (cell != null && cell.isTextEditing && cell.activeCellIndex != null) {
+  await document.insertHyperlinkInTableCell(
+    section: cell.section,
+    paragraph: cell.paragraph,
+    controlIndex: cell.controlIndex,
+    cellIndex: cell.activeCellIndex!,
+    cellParagraph: cell.activeCellParagraph,
+    offset: cell.activeOffset,
+    url: 'https://example.com',
+    text: 'Cell link',
+  );
+
+  await document.insertHiddenCommentInTableCell(
+    section: cell.section,
+    paragraph: cell.paragraph,
+    controlIndex: cell.controlIndex,
+    cellIndex: cell.activeCellIndex!,
+    cellParagraph: cell.activeCellParagraph,
+    offset: cell.activeOffset,
+    text: '셀 검토 의견',
+  );
+}
 
 await document.deleteHiddenCommentAt(
   section: controller.cursor.section,

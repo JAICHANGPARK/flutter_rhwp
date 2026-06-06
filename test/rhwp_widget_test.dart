@@ -894,6 +894,108 @@ void main() {
     });
   });
 
+  testWidgets(
+    'RhwpNativeEditor inserts hyperlinks and comments in table cell text',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 700);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+      final document = RhwpDocument.fromSession(session);
+      var changedCalls = 0;
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 1000,
+            height: 420,
+            child: RhwpNativeEditor(
+              document: document,
+              controller: controller,
+              onChanged: (_) => changedCalls += 1,
+            ),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      controller.tableCellSelection = const RhwpTableCellSelection(
+        section: 0,
+        paragraph: 5,
+        controlIndex: 2,
+        startRow: 1,
+        startColumn: 3,
+        endRow: 2,
+        endColumn: 3,
+        activeCellIndex: 7,
+        activeCellParagraph: 0,
+        activeOffset: 2,
+        isTextEditing: true,
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('입력'));
+      await tester.pump();
+
+      await tester.tap(
+        find.byKey(const ValueKey('rhwp-editor-insert-hyperlink')),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-hyperlink-url-field')),
+        'https://example.com',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-hyperlink-text-field')),
+        'CellLink',
+      );
+      await tester.tap(find.byKey(const ValueKey('rhwp-hyperlink-apply')));
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 1);
+      expect(controller.tableCellSelection?.activeOffset, 10);
+      expect(jsonDecode(session.commands.last), {
+        'type': 'insertHyperlinkInTableCell',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'cellIndex': 7,
+        'cellParagraph': 0,
+        'offset': 2,
+        'url': 'https://example.com',
+        'text': 'CellLink',
+      });
+
+      await tester.tap(
+        find.byKey(const ValueKey('rhwp-editor-insert-hidden-comment')),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-hidden-comment-text-field')),
+        '셀 검토',
+      );
+      await tester.tap(find.byKey(const ValueKey('rhwp-hidden-comment-apply')));
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 2);
+      expect(controller.tableCellSelection?.activeOffset, 10);
+      expect(jsonDecode(session.commands.last), {
+        'type': 'insertHiddenCommentInTableCell',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'cellIndex': 7,
+        'cellParagraph': 0,
+        'offset': 10,
+        'text': '셀 검토',
+      });
+    },
+  );
+
   testWidgets('RhwpNativeEditor insert ribbon edits footnote text', (
     tester,
   ) async {

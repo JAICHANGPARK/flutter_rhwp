@@ -5348,11 +5348,16 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   }
 
   Future<void> _showInsertHyperlinkDialog() async {
-    if (_busy || _controller.tableCellSelection != null) {
+    if (_busy) {
       return;
     }
 
-    final suggestedText = await _selectedText();
+    final tableSelection = _editableTableCellSelection;
+    final suggestedText = tableSelection == null
+        ? await _selectedText()
+        : tableSelection.hasTextSelection
+        ? await _selectedEditingTableCellText(tableSelection)
+        : null;
     if (!mounted) {
       return;
     }
@@ -5367,11 +5372,46 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
-    final selection = _controller.selection;
-    final cursor = selection.isCollapsed
-        ? _controller.cursor
-        : selection.normalizedStart;
     await _runEdit(() async {
+      var editingTableSelection = tableSelection?.copyWith(
+        activeOffset: _parseNonNegative(_offsetController.text),
+        isTextEditing: true,
+      );
+      if (editingTableSelection != null) {
+        final afterDeletionSelection =
+            await _deleteEditingTableCellTextSelection(editingTableSelection);
+        if (afterDeletionSelection != null) {
+          editingTableSelection = afterDeletionSelection;
+        }
+        final offset = editingTableSelection.activeOffset;
+        final response = await widget.document.insertHyperlinkInTableCell(
+          section: editingTableSelection.section,
+          paragraph: editingTableSelection.paragraph,
+          controlIndex: editingTableSelection.controlIndex,
+          cellIndex: editingTableSelection.activeCellIndex!,
+          cellParagraph: editingTableSelection.activeCellParagraph,
+          offset: offset,
+          url: result.url.trim(),
+          text: result.text,
+        );
+        _throwIfCommandRejected(response);
+        final nextOffset =
+            _readIntResult(response, 'endOffset') ??
+            offset + result.text.length;
+        final nextSelection = editingTableSelection.copyWith(
+          activeOffset: nextOffset,
+          isTextEditing: true,
+          clearTextSelection: true,
+        );
+        _syncTableSelectionFields(nextSelection);
+        _controller.tableCellSelection = nextSelection;
+        return;
+      }
+
+      final selection = _controller.selection;
+      final cursor = selection.isCollapsed
+          ? _controller.cursor
+          : selection.normalizedStart;
       if (!selection.isCollapsed) {
         await _deleteSelectedText(selection);
       }
@@ -5458,7 +5498,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   }
 
   Future<void> _showInsertHiddenCommentDialog() async {
-    if (_busy || _controller.tableCellSelection != null) {
+    if (_busy) {
       return;
     }
 
@@ -5470,8 +5510,35 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
-    final cursor = _readCursor();
     await _runEdit(() async {
+      final tableSelection = _editableTableCellSelection;
+      if (tableSelection != null) {
+        final offset = _parseNonNegative(_offsetController.text);
+        final insertSelection = tableSelection.copyWith(
+          activeOffset: offset,
+          isTextEditing: true,
+        );
+        final response = await widget.document.insertHiddenCommentInTableCell(
+          section: insertSelection.section,
+          paragraph: insertSelection.paragraph,
+          controlIndex: insertSelection.controlIndex,
+          cellIndex: insertSelection.activeCellIndex!,
+          cellParagraph: insertSelection.activeCellParagraph,
+          offset: offset,
+          text: result.text,
+        );
+        _throwIfCommandRejected(response);
+        final nextSelection = insertSelection.copyWith(
+          activeOffset: _readIntResult(response, 'offset') ?? offset,
+          isTextEditing: true,
+          clearTextSelection: true,
+        );
+        _syncTableSelectionFields(nextSelection);
+        _controller.tableCellSelection = nextSelection;
+        return;
+      }
+
+      final cursor = _readCursor();
       final response = await widget.document.insertHiddenComment(
         section: cursor.section,
         paragraph: cursor.paragraph,
@@ -18497,6 +18564,11 @@ class _EditorToolbarState extends State<_EditorToolbar> {
   }
 
   List<Widget> _insertGroups() {
+    final tableSelection = widget.tableCellSelection;
+    final canInsertReference =
+        tableSelection == null ||
+        (tableSelection.isTextEditing &&
+            tableSelection.activeCellIndex != null);
     return [
       _RibbonGroup(
         label: '위치',
@@ -18552,7 +18624,7 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               tooltip: 'Insert hyperlink',
               buttonKey: const ValueKey('rhwp-editor-insert-hyperlink'),
               icon: Icons.link,
-              onPressed: widget.busy || widget.tableCellSelection != null
+              onPressed: widget.busy || !canInsertReference
                   ? null
                   : widget.onInsertHyperlink,
             ),
@@ -18560,7 +18632,7 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               tooltip: 'Insert comment',
               buttonKey: const ValueKey('rhwp-editor-insert-hidden-comment'),
               icon: Icons.comment_outlined,
-              onPressed: widget.busy || widget.tableCellSelection != null
+              onPressed: widget.busy || !canInsertReference
                   ? null
                   : widget.onInsertHiddenComment,
             ),

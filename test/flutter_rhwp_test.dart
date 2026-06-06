@@ -775,6 +775,58 @@ void main() {
     expect(
       jsonDecode(
         jsonEncode(
+          RhwpCommand.insertHyperlinkInTableCell(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            cellIndex: 3,
+            cellParagraph: 0,
+            offset: 4,
+            url: 'https://example.com',
+            text: 'Example',
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'insertHyperlinkInTableCell',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'cellIndex': 3,
+        'cellParagraph': 0,
+        'offset': 4,
+        'url': 'https://example.com',
+        'text': 'Example',
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.insertHiddenCommentInTableCell(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            cellIndex: 3,
+            cellParagraph: 0,
+            offset: 4,
+            text: '검토',
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'insertHiddenCommentInTableCell',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'cellIndex': 3,
+        'cellParagraph': 0,
+        'offset': 4,
+        'text': '검토',
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
           RhwpCommand.deleteTextInTableCell(
             section: 0,
             paragraph: 1,
@@ -2918,6 +2970,50 @@ void main() {
       'cellParagraph': 0,
       'offset': 2,
       'text': 'cell',
+    });
+
+    await document.insertHyperlinkInTableCell(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      cellIndex: 2,
+      cellParagraph: 0,
+      offset: 2,
+      url: 'https://example.com',
+      text: 'Example',
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'insertHyperlinkInTableCell',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'cellIndex': 2,
+      'cellParagraph': 0,
+      'offset': 2,
+      'url': 'https://example.com',
+      'text': 'Example',
+    });
+
+    await document.insertHiddenCommentInTableCell(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      cellIndex: 2,
+      cellParagraph: 0,
+      offset: 2,
+      text: '검토',
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'insertHiddenCommentInTableCell',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'cellIndex': 2,
+      'cellParagraph': 0,
+      'offset': 2,
+      'text': '검토',
     });
 
     await document.deleteTextInTableCell(

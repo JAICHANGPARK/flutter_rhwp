@@ -365,7 +365,7 @@ impl DocumentCore {
     }
 
     /// 부모 컨트롤(표 또는 글상자)의 dirty를 마킹한다.
-    fn mark_cell_control_dirty(
+    pub(crate) fn mark_cell_control_dirty(
         &mut self,
         section_idx: usize,
         parent_para_idx: usize,

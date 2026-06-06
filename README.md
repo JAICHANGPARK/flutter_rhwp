@@ -28,8 +28,8 @@ documents.
 - Rotate and flip selected shape/picture objects from the Flutter-native object
   properties dialog or Dart object-properties API.
 - Manage bookmarks from the Flutter-native input ribbon or the Dart API.
-- Insert hyperlinks and hidden comments from the Flutter-native input ribbon or
-  the Dart API.
+- Insert hyperlinks and hidden comments in body text or active table-cell text
+  from the Flutter-native input ribbon or the Dart API.
 - Delete hidden comments from the Flutter-native input ribbon or the Dart API.
 - Read and edit hidden comment text from the Flutter-native input ribbon or
   the Dart API.
@@ -236,6 +236,27 @@ await document.insertHiddenComment(
   paragraph: 0,
   offset: 0,
   text: '검토 의견',
+);
+
+await document.insertHyperlinkInTableCell(
+  section: 0,
+  paragraph: 0,
+  controlIndex: 0,
+  cellIndex: 1,
+  cellParagraph: 0,
+  offset: 0,
+  url: 'https://example.com',
+  text: 'Cell link',
+);
+
+await document.insertHiddenCommentInTableCell(
+  section: 0,
+  paragraph: 0,
+  controlIndex: 0,
+  cellIndex: 1,
+  cellParagraph: 0,
+  offset: 0,
+  text: '셀 검토 의견',
 );
 
 final comment = await document.hiddenCommentAt(
