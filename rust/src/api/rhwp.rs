@@ -485,6 +485,18 @@ impl RhwpSession {
                     &text,
                 )
                 .map_err(error_to_string),
+            RhwpCommand::DeleteHiddenCommentAt {
+                section,
+                paragraph,
+                offset,
+            } => inner
+                .document
+                .delete_hidden_comment_at_native(
+                    section as usize,
+                    paragraph as usize,
+                    offset as usize,
+                )
+                .map_err(error_to_string),
             RhwpCommand::InsertPicture {
                 section,
                 paragraph,
@@ -1904,6 +1916,11 @@ enum RhwpCommand {
         paragraph: u32,
         offset: u32,
         text: String,
+    },
+    DeleteHiddenCommentAt {
+        section: u32,
+        paragraph: u32,
+        offset: u32,
     },
     InsertPicture {
         section: u32,
@@ -3516,6 +3533,15 @@ mod tests {
             .expect("insert hidden comment result should be JSON");
         assert_eq!(hidden_comment["ok"], true);
         assert!(hidden_comment["controlIdx"].as_u64().is_some());
+        let delete_hidden_comment_result = session
+            .apply_command(
+                r#"{"type":"deleteHiddenCommentAt","section":0,"paragraph":0,"offset":5}"#
+                    .to_string(),
+            )
+            .expect("delete hidden comment command should be accepted");
+        let delete_hidden_comment: Value = serde_json::from_str(&delete_hidden_comment_result)
+            .expect("delete hidden comment result should be JSON");
+        assert_eq!(delete_hidden_comment["ok"], true);
         session
             .apply_command(
                 r#"{"type":"addBookmark","section":0,"paragraph":0,"offset":5,"name":"intro"}"#

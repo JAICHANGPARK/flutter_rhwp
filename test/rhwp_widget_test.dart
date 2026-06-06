@@ -836,6 +836,20 @@ void main() {
       'offset': 11,
       'text': '검토 의견',
     });
+
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-delete-hidden-comment')),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(controller.cursor.offset, 11);
+    expect(changedCalls, 7);
+    expect(jsonDecode(session.commands.last), {
+      'type': 'deleteHiddenCommentAt',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 11,
+    });
   });
 
   testWidgets('RhwpNativeEditor insert ribbon edits footnote text', (

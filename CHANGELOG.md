@@ -80,6 +80,8 @@
   inside a non-ClickHere field such as a hyperlink.
 * Added `RhwpDocument.updateHyperlink(...)` and a Flutter-native edit hyperlink
   action that updates both the hyperlink URL command and visible display text.
+* Added `RhwpDocument.deleteHiddenCommentAt(...)` and a Flutter-native delete
+  comment action for removing hidden-comment controls at the body caret.
 
 ## 2026-06-02 (2026.6.2)
 

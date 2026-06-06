@@ -583,6 +583,7 @@ enum _EditorContextMenuAction {
   editHyperlink,
   fieldProperties,
   removeField,
+  deleteHiddenComment,
   insertRectangle,
   insertEllipse,
   insertLine,
@@ -5475,6 +5476,23 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         paragraph: cursor.paragraph,
         offset: cursor.offset,
         text: result.text,
+      );
+      _throwIfCommandRejected(response);
+      _controller.cursor = cursor;
+    });
+  }
+
+  Future<void> _deleteHiddenCommentAtCursor() async {
+    if (_busy || _controller.tableCellSelection != null) {
+      return;
+    }
+
+    final cursor = _readCursor();
+    await _runEdit(() async {
+      final response = await widget.document.deleteHiddenCommentAt(
+        section: cursor.section,
+        paragraph: cursor.paragraph,
+        offset: cursor.offset,
       );
       _throwIfCommandRejected(response);
       _controller.cursor = cursor;
@@ -12388,6 +12406,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         await _showFieldPropertiesDialog();
       case _EditorContextMenuAction.removeField:
         await _removeFieldAtCursor();
+      case _EditorContextMenuAction.deleteHiddenComment:
+        await _deleteHiddenCommentAtCursor();
       case _EditorContextMenuAction.insertRectangle:
         await _insertShape(_EditorShapePreset.rectangle);
       case _EditorContextMenuAction.insertEllipse:
@@ -12975,6 +12995,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         icon: Icons.input,
         label: '필드 목록',
         enabled: !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.deleteHiddenComment,
+        icon: Icons.comments_disabled_outlined,
+        label: '주석 삭제',
+        enabled: !_busy && _controller.tableCellSelection == null,
       ),
       _contextMenuItem(
         action: _EditorContextMenuAction.editHyperlink,
@@ -14825,6 +14851,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onInsertEquation: _showInsertEquationDialog,
           onInsertHyperlink: _showInsertHyperlinkDialog,
           onInsertHiddenComment: _showInsertHiddenCommentDialog,
+          onDeleteHiddenComment: _deleteHiddenCommentAtCursor,
           onCharacterMap: _showCharacterMapDialog,
           onBookmark: _showBookmarkDialog,
           onFields: _showFieldsDialog,
@@ -17570,6 +17597,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onInsertEquation,
     required this.onInsertHyperlink,
     required this.onInsertHiddenComment,
+    required this.onDeleteHiddenComment,
     required this.onCharacterMap,
     required this.onBookmark,
     required this.onFields,
@@ -17749,6 +17777,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onInsertEquation;
   final VoidCallback onInsertHyperlink;
   final VoidCallback onInsertHiddenComment;
+  final VoidCallback onDeleteHiddenComment;
   final VoidCallback onCharacterMap;
   final VoidCallback onBookmark;
   final VoidCallback onFields;
@@ -18458,6 +18487,14 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               onPressed: widget.busy || widget.tableCellSelection != null
                   ? null
                   : widget.onInsertHiddenComment,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Delete comment',
+              buttonKey: const ValueKey('rhwp-editor-delete-hidden-comment'),
+              icon: Icons.comments_disabled_outlined,
+              onPressed: widget.busy || widget.tableCellSelection != null
+                  ? null
+                  : widget.onDeleteHiddenComment,
             ),
             _ToolbarIconButton(
               tooltip: 'Character map',

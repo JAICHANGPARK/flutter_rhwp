@@ -30,6 +30,7 @@ documents.
 - Manage bookmarks from the Flutter-native input ribbon or the Dart API.
 - Insert hyperlinks and hidden comments from the Flutter-native input ribbon or
   the Dart API.
+- Delete hidden comments from the Flutter-native input ribbon or the Dart API.
 - Edit hyperlink URLs and display text from the Flutter-native tools ribbon or
   the Dart API.
 - Manage HWP fields/누름틀 values from the Flutter-native tools ribbon or the
@@ -233,6 +234,12 @@ await document.insertHiddenComment(
   paragraph: 0,
   offset: 0,
   text: '검토 의견',
+);
+
+await document.deleteHiddenCommentAt(
+  section: 0,
+  paragraph: 0,
+  offset: 0,
 );
 
 final bookmarks = await document.bookmarks();

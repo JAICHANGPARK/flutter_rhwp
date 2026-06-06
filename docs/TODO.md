@@ -45,6 +45,7 @@
 - [x] Flutter-native 입력 리본에 하이퍼링크와 숨은 주석 삽입 기능을 추가한다.
 - [x] 하이퍼링크 field marker를 `fieldInfoAt`/`removeFieldAt`으로 인식하고 삭제할 수 있게 한다.
 - [x] 하이퍼링크 URL과 표시 텍스트 편집 기능을 구현한다.
+- [x] 숨은 주석 삭제 기능을 구현한다.
 
 ## 다음 우선순위
 
@@ -63,7 +64,8 @@
 - [x] 하이퍼링크와 숨은 주석 입력 기능을 구현한다.
 - [x] 하이퍼링크 field marker 삭제 기능을 구현한다.
 - [x] 하이퍼링크 편집 기능을 구현한다.
-- [ ] 주석 삭제, 표 셀 내부 삽입, HWPX field serialization round-trip을 검증한다.
+- [x] 숨은 주석 삭제 기능을 구현한다.
+- [ ] 주석 편집, 표 셀 내부 삽입, HWPX field serialization round-trip을 검증한다.
 - [ ] Shape/textbox 등 비그림 개체 캡션 지원 가능 범위를 검증한다.
 - [ ] 표 편집의 row/column sizing, border/fill, merge/split edge case를 실제 문서로 검증한다.
 - [x] 표 숫자 서식 기능을 구현한다.

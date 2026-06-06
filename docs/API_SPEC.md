@@ -354,6 +354,7 @@ await document.setPageBorderFill(
 | Insert hyperlink | `document.insertHyperlink(...)` |
 | Edit hyperlink | `document.updateHyperlink(...)` |
 | Insert hidden comment | `document.insertHiddenComment(...)` |
+| Delete hidden comment | `document.deleteHiddenCommentAt(...)` |
 | Bookmark list/add/delete/rename | `document.bookmarks()`, `addBookmark(...)`, `deleteBookmark(...)`, `renameBookmark(...)` |
 | Field list | `document.fields()` |
 | Get/set field value | `document.fieldValue(...)`, `setFieldValue(...)`, `fieldValueByName(...)`, `setFieldValueByName(...)` |
@@ -370,7 +371,7 @@ ClickHere뿐 아니라 hyperlink field도 반환한다. `removeFieldAt(...)`은 
 caret의 field marker를 제거하고 표시 텍스트는 유지한다. ClickHere 속성 편집은
 `fieldType == clickhere`일 때만 사용한다. `updateHyperlink(...)`는 hyperlink
 field의 URL command와 표시 텍스트를 함께 갱신한다. HWPX field serialization,
-주석 편집/삭제, 표 셀 내부 삽입은 추가 검증/구현 대상이다.
+주석 편집, 표 셀 내부 삽입은 추가 검증/구현 대상이다.
 
 ```dart
 await document.insertHyperlink(
@@ -386,6 +387,12 @@ await document.insertHiddenComment(
   paragraph: controller.cursor.paragraph,
   offset: controller.cursor.offset,
   text: '검토 의견',
+);
+
+await document.deleteHiddenCommentAt(
+  section: controller.cursor.section,
+  paragraph: controller.cursor.paragraph,
+  offset: controller.cursor.offset,
 );
 
 final fieldInfo = await document.fieldInfoAt(

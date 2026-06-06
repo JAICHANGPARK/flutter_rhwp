@@ -1368,6 +1368,12 @@ abstract class RhwpCommand {
     required String text,
   }) = RhwpInsertHiddenCommentCommand;
 
+  factory RhwpCommand.deleteHiddenCommentAt({
+    required int section,
+    required int paragraph,
+    required int offset,
+  }) = RhwpDeleteHiddenCommentAtCommand;
+
   factory RhwpCommand.insertPicture({
     required int section,
     required int paragraph,
@@ -2709,6 +2715,26 @@ class RhwpInsertHiddenCommentCommand extends RhwpCommand {
     'paragraph': paragraph,
     'offset': offset,
     'text': text,
+  };
+}
+
+class RhwpDeleteHiddenCommentAtCommand extends RhwpCommand {
+  const RhwpDeleteHiddenCommentAtCommand({
+    required this.section,
+    required this.paragraph,
+    required this.offset,
+  });
+
+  final int section;
+  final int paragraph;
+  final int offset;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'deleteHiddenCommentAt',
+    'section': section,
+    'paragraph': paragraph,
+    'offset': offset,
   };
 }
 
@@ -5754,6 +5780,20 @@ class RhwpDocument {
         paragraph: paragraph,
         offset: offset,
         text: text,
+      ),
+    );
+  }
+
+  Future<String> deleteHiddenCommentAt({
+    required int section,
+    required int paragraph,
+    required int offset,
+  }) {
+    return apply(
+      RhwpCommand.deleteHiddenCommentAt(
+        section: section,
+        paragraph: paragraph,
+        offset: offset,
       ),
     );
   }

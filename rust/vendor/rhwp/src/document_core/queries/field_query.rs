@@ -187,6 +187,64 @@ impl DocumentCore {
         ))
     }
 
+    /// 커서 위치의 숨은 주석 컨트롤을 삭제한다.
+    pub fn delete_hidden_comment_at_native(
+        &mut self,
+        section_idx: usize,
+        para_idx: usize,
+        char_offset: usize,
+    ) -> Result<String, HwpError> {
+        let section = self
+            .document
+            .sections
+            .get_mut(section_idx)
+            .ok_or_else(|| HwpError::RenderError("구역 범위 초과".into()))?;
+        let paragraph = section
+            .paragraphs
+            .get_mut(para_idx)
+            .ok_or_else(|| HwpError::RenderError("문단 범위 초과".into()))?;
+
+        let (control_idx, comment_offset) = find_hidden_comment_at(paragraph, char_offset)
+            .ok_or_else(|| HwpError::RenderError("커서 위치에 숨은 주석 없음".into()))?;
+        let deleted_text = match paragraph.controls.get(control_idx) {
+            Some(Control::HiddenComment(comment)) => hidden_comment_text(comment),
+            _ => String::new(),
+        };
+
+        paragraph.controls.remove(control_idx);
+        if control_idx < paragraph.ctrl_data_records.len() {
+            paragraph.ctrl_data_records.remove(control_idx);
+        }
+        for range in &mut paragraph.field_ranges {
+            if range.control_idx > control_idx {
+                range.control_idx -= 1;
+            }
+        }
+        subtract_control_gap(paragraph, comment_offset);
+        rebuild_char_offsets(paragraph);
+
+        if !paragraph
+            .controls
+            .iter()
+            .any(|control| matches!(control, Control::HiddenComment(_)))
+        {
+            paragraph.control_mask &= !(1u32 << 0x000F);
+        }
+        section.raw_stream = None;
+
+        self.recompose_section(section_idx);
+        self.invalidate_page_tree_cache();
+
+        Ok(format!(
+            r#"{{"ok":true,"sectionIndex":{},"paragraphIndex":{},"controlIndex":{},"charOffset":{},"text":{}}}"#,
+            section_idx,
+            para_idx,
+            control_idx,
+            comment_offset,
+            json_escape(&deleted_text),
+        ))
+    }
+
     fn next_field_id(&self) -> u32 {
         let mut max_id = 0;
         for section in &self.document.sections {
@@ -765,6 +823,29 @@ fn find_control_insert_index(para: &Paragraph, char_offset: usize) -> usize {
         }
     }
     para.controls.len()
+}
+
+fn find_hidden_comment_at(para: &Paragraph, char_offset: usize) -> Option<(usize, usize)> {
+    let positions = find_control_text_positions(para);
+    for (control_idx, control) in para.controls.iter().enumerate() {
+        if !matches!(control, Control::HiddenComment(_)) {
+            continue;
+        }
+        let comment_pos = positions.get(control_idx).copied()?;
+        if char_offset == comment_pos || char_offset == comment_pos.saturating_add(1) {
+            return Some((control_idx, comment_pos));
+        }
+    }
+    None
+}
+
+fn hidden_comment_text(comment: &HiddenComment) -> String {
+    comment
+        .paragraphs
+        .iter()
+        .map(|paragraph| paragraph.text.as_str())
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn next_field_id_from_paragraphs(paragraphs: &[Paragraph], max_id: &mut u32) {

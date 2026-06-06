@@ -518,6 +518,24 @@ void main() {
     expect(
       jsonDecode(
         jsonEncode(
+          RhwpCommand.deleteHiddenCommentAt(
+            section: 0,
+            paragraph: 1,
+            offset: 2,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'deleteHiddenCommentAt',
+        'section': 0,
+        'paragraph': 1,
+        'offset': 2,
+      },
+    );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
           RhwpCommand.updateClickHereProperties(
             fieldId: 7,
             guide: 'guide',

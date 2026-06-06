@@ -70,7 +70,7 @@
 | 필드 입력 | 부분 | fields list/value/click-here properties 중심 |
 | 캡션 넣기 | 부분 | 표 캡션과 그림 캡션 생성/설정/삭제 지원. shape/textbox 등 비그림 개체 캡션 검증 필요 |
 | 문단 띠 | 미구현 | paragraph band command/UI 필요 |
-| 주석 | 부분 | 숨은 주석 삽입 dialog/API. 편집/삭제, 일반 주석 변형, 표 셀 내부 삽입, 저장 round-trip 검증 필요 |
+| 주석 | 부분 | 숨은 주석 삽입/삭제 dialog/API. 편집, 일반 주석 변형, 표 셀 내부 삽입, 저장 round-trip 검증 필요 |
 | 각주 | 완료 | insert/read/edit/delete footnote text |
 | 미주 / 각주·미주 모양 | 미구현 | endnote APIs/UI 필요 |
 | 문자표 | 완료 | common symbol character map dialog |
@@ -136,6 +136,6 @@
 
 ## 다음 구현 우선순위
 
-1. 주석 삭제, 하이퍼링크/필드 round-trip 검증, 비그림 개체 캡션처럼 일반 문서 작성에 자주 쓰이는 Insert 메뉴를 보강한다.
+1. 주석 편집, 하이퍼링크/필드 round-trip 검증, 비그림 개체 캡션처럼 일반 문서 작성에 자주 쓰이는 Insert 메뉴를 보강한다.
 2. 쪽 테두리/배경 상세 옵션, 다단 개별 너비/구분선, 구역 상세 옵션을 page backlog로 분리해 구현한다.
 3. 문서 이력 관리는 upstream API 확인 후 별도 milestone으로 둔다.
