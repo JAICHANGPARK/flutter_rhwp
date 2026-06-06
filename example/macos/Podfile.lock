@@ -1,5 +1,5 @@
 PODS:
-  - flutter_rhwp (2026.5.24):
+  - flutter_rhwp (2026.6.6):
     - FlutterMacOS
   - FlutterMacOS (1.0.0)
 
@@ -14,7 +14,7 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral
 
 SPEC CHECKSUMS:
-  flutter_rhwp: 52bd8a80b40b6d5b5fd57ff0085ba135439cde5a
+  flutter_rhwp: 5e4a8202bdb5a3032b3fd11c3973cc4e574f28cc
   FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
 
 PODFILE CHECKSUM: 54d867c82ac51cbd61b565781b9fada492027009

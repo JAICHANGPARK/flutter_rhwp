@@ -2,8 +2,8 @@
 
 ## 기준
 
-- 기준일: 2026-06-02
-- 패키지 버전: `2026.6.2`
+- 기준일: 2026-06-06
+- 패키지 버전: `2026.6.6`
 - import: `package:flutter_rhwp/flutter_rhwp.dart`
 
 이 문서는 앱 개발자가 `flutter_rhwp`를 붙일 때 어떤 기능에 어떤 API를 호출해야 하는지 정리한다. `RhwpNativeEditor` 안의 기본 리본은 대부분 내부에서 처리하지만, 파일 선택, 저장, 프린트, 이미지 선택처럼 플랫폼 UX가 필요한 기능은 host app 콜백으로 연결해야 한다. 앱이 자체 툴바를 만들 때는 아래 `RhwpDocument` 명령 API를 직접 호출한다.
@@ -17,7 +17,7 @@
 | `RhwpFullEditor` | upstream `@rhwp/editor` 전체 UI host | `RhwpFullEditor`, `RhwpFullEditorController.export*` |
 | `RhwpWebEditor` | Web 전용 upstream editor embed | `RhwpWebEditor`, `RhwpWebEditorController.export*` |
 
-`RhwpFullEditor`와 `RhwpWebEditor`는 upstream editor UI가 내부 메뉴와 툴바를 처리한다. Flutter 앱에서 직접 연결하는 공개 API는 현재 export 계열이 중심이다. Flutter-native 커스텀 툴바나 앱 메뉴는 `RhwpNativeEditor`와 `RhwpDocument` command API를 기준으로 만든다.
+`RhwpFullEditor`와 `RhwpWebEditor`는 upstream editor UI가 내부 메뉴와 툴바를 처리한다. Flutter 앱에서 직접 연결하는 공개 API는 현재 export 계열과 dirty 상태 확인이 중심이다. Flutter-native 커스텀 툴바나 앱 메뉴는 `RhwpNativeEditor`와 `RhwpDocument` command API를 기준으로 만든다.
 
 ## 문서 수명주기
 
@@ -255,6 +255,7 @@ RhwpFullEditor(
   controller: controller,
   initialBytes: bytes,
   fileName: fileName,
+  onDirtyChanged: updateUnsavedIndicator,
 );
 
 final exported = await controller.exportDocument(
@@ -262,7 +263,16 @@ final exported = await controller.exportDocument(
   sourceFileName: fileName,
 );
 await saveBytes(exported.bytes, exported.fileName, exported.mimeType);
+controller.markClean();
 ```
+
+| Full/Web editor 기능 | 호출 API | 앱 구현 |
+| --- | --- | --- |
+| 수정 상태 표시 | `onDirtyChanged`, `controller.dirty` | upstream editor 내부 입력/클릭/붙여넣기/키 이벤트를 감지해 저장 안 된 변경사항 indicator를 표시한다. |
+| 저장 완료/폐기 처리 | `controller.markClean()` | host app이 HWP/HWPX 저장 또는 변경 폐기를 완료한 뒤 호출한다. |
+| 현재 문서 export | `controller.exportDocument(format, sourceFileName: name)` | full editor 내부 최신 상태를 bytes로 받아 저장하거나 mode switch에 사용한다. |
+
+Full/Web editor dirty bridge는 upstream editor의 공식 edit 이벤트가 아니라 host가 삽입한 conservative 이벤트 감지다. 일반 입력, 붙여넣기, 삭제, Enter/Tab, toolbar-like 클릭은 dirty로 잡지만, upstream 내부에서 programmatic하게만 발생하는 일부 명령은 추가 검증이 필요하다.
 
 ## Mode switch handoff
 
@@ -271,10 +281,8 @@ await saveBytes(exported.bytes, exported.fileName, exported.mimeType);
 | 전환 | 권장 처리 |
 | --- | --- |
 | Native -> Full | `nativeDocument.exportHwp()`로 최신 bytes를 만들고 `RhwpFullEditor(initialBytes: bytes)`에 전달한다. 기존 dirty 상태는 유지한다. |
-| Full -> Native | attached `RhwpFullEditorController.exportDocument(RhwpExportFormat.hwp)`를 호출한 뒤 그 bytes를 `Rhwp.open`으로 연다. |
+| Full -> Native | attached `RhwpFullEditorController.exportDocument(RhwpExportFormat.hwp)`를 호출한 뒤 그 bytes를 `Rhwp.open`으로 연다. full editor controller의 dirty 상태를 native editor controller로 넘긴다. |
 | 전환 실패 | 기존 editor mode를 유지하고 사용자에게 실패 상태를 보여준다. |
-
-Full editor 자체의 edit/dirty 이벤트가 없으면 full editor 내부 편집 여부를 정확히 알기 어렵다. 이런 경우 close/open guard를 더 보수적으로 설계하거나, upstream editor dirty event bridge를 추가해야 한다.
 
 ## 구현 규칙
 

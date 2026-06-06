@@ -15,12 +15,14 @@ class RhwpFullEditor extends StatelessWidget {
     this.initialBytes,
     this.fileName,
     this.controller,
+    this.onDirtyChanged,
   });
 
   final String moduleUrl;
   final Uint8List? initialBytes;
   final String? fileName;
   final RhwpFullEditorController? controller;
+  final ValueChanged<bool>? onDirtyChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +31,7 @@ class RhwpFullEditor extends StatelessWidget {
       initialBytes: initialBytes,
       fileName: fileName,
       controller: controller,
+      onDirtyChanged: onDirtyChanged,
     );
   }
 }

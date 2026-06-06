@@ -196,6 +196,54 @@ void main() {
     expect(states, [true, false]);
   });
 
+  test('RhwpFullEditorController exposes dirty state notifications', () {
+    final controller = RhwpFullEditorController();
+    final states = <bool>[];
+    controller.addListener(() {
+      states.add(controller.dirty);
+    });
+
+    expect(controller.dirty, isFalse);
+
+    controller.dirty = true;
+
+    expect(controller.dirty, isTrue);
+    expect(states, [true]);
+
+    controller.dirty = true;
+
+    expect(states, [true]);
+
+    controller.markClean();
+
+    expect(controller.dirty, isFalse);
+    expect(states, [true, false]);
+  });
+
+  test('RhwpWebEditorController exposes dirty state notifications', () {
+    final controller = RhwpWebEditorController();
+    final states = <bool>[];
+    controller.addListener(() {
+      states.add(controller.dirty);
+    });
+
+    expect(controller.dirty, isFalse);
+
+    controller.dirty = true;
+
+    expect(controller.dirty, isTrue);
+    expect(states, [true]);
+
+    controller.dirty = true;
+
+    expect(states, [true]);
+
+    controller.markClean();
+
+    expect(controller.dirty, isFalse);
+    expect(states, [true, false]);
+  });
+
   testWidgets('RhwpViewer fit page uses the current viewport height', (
     tester,
   ) async {

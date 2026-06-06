@@ -2,8 +2,8 @@
 
 ## 현재 기준
 
-- 기준일: 2026-06-02
-- 패키지 버전: `2026.6.2`
+- 기준일: 2026-06-06
+- 패키지 버전: `2026.6.6`
 - 전체 목표: `rhwp` 기반 HWP/HWPX 읽기, 보기, 편집, 저장, 내보내기를 Flutter 플러그인으로 제공한다.
 - 전체 진행률 추정: 55~65%
 
@@ -20,6 +20,7 @@
 - 문자/문단/스타일/표/개체/필드/머리말/꼬리말 일부 편집 명령.
 - Web full editor fallback host와 Flutter-native editor toggle.
 - dirty 상태, modified indicator, New/Open/Close unsaved changes guard.
+- full editor/Web editor의 conservative dirty bridge와 mode switch dirty handoff.
 - 주요 native editor widget test coverage.
 
 ## 남은 큰 영역

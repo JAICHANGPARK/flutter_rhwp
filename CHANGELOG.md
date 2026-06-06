@@ -1,3 +1,21 @@
+## 2026-06-06 (2026.6.6)
+
+* Updated plugin release metadata for the `2026.6.6` release, including
+  Flutter, Rust crate, and iOS/macOS podspec metadata.
+* Updated `flutter_rust_bridge` and generated bridge bindings to `2.12.0`.
+* Added dirty-state tracking to `RhwpFullEditorController` and
+  `RhwpWebEditorController`, including `dirty`, `markClean()`, and listener
+  notifications.
+* Added `RhwpFullEditor.onDirtyChanged` and `RhwpWebEditor.onDirtyChanged` so
+  host apps can show unsaved-change indicators for upstream editor surfaces.
+* Bridged conservative upstream editor dirty events from Web and desktop
+  full-editor hosts through injected input, keyboard, paste, drop, and
+  toolbar-like click listeners.
+* Updated the example app so full editor changes participate in New/Open/Close
+  unsaved-change guards and dirty mode-switch handoff.
+* Documented full/Web editor dirty APIs and the conservative nature of the
+  upstream editor event bridge.
+
 ## 2026-06-02 (2026.6.2)
 
 * Updated plugin release metadata for the `2026.6.2` release.

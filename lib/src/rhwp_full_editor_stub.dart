@@ -6,7 +6,28 @@ import 'rhwp_document.dart';
 import 'rhwp_exception.dart';
 
 class RhwpFullEditorController extends ChangeNotifier {
+  bool _dirty = false;
+
   bool get isAttached => false;
+
+  bool get dirty => _dirty;
+
+  set dirty(bool value) {
+    _setDirty(value);
+  }
+
+  void markClean() {
+    dirty = false;
+  }
+
+  bool _setDirty(bool value) {
+    if (_dirty == value) {
+      return false;
+    }
+    _dirty = value;
+    notifyListeners();
+    return true;
+  }
 
   Future<Uint8List> export(RhwpExportFormat format) async {
     throw const RhwpUnsupportedPlatformException(
@@ -50,12 +71,14 @@ class RhwpFullEditor extends StatelessWidget {
     this.initialBytes,
     this.fileName,
     this.controller,
+    this.onDirtyChanged,
   });
 
   final String moduleUrl;
   final Uint8List? initialBytes;
   final String? fileName;
   final RhwpFullEditorController? controller;
+  final ValueChanged<bool>? onDirtyChanged;
 
   @override
   Widget build(BuildContext context) {

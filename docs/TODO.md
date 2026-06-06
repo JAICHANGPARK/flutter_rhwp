@@ -18,13 +18,17 @@
 - [x] 남은 작업을 `docs/ROADMAP.md`와 `docs/TODO.md`로 분리해서 관리한다.
 - [x] 패키지 사용자용 editor/toolbar API 명세를 `docs/API_SPEC.md`로 추가한다.
 - [x] native/full editor 전환 시 dirty 상태를 보존하고, full editor에서 native로 돌아갈 때 최신 HWP export bytes를 사용한다.
+- [x] upstream full editor의 edit/dirty 이벤트를 Flutter controller로 브리지한다.
+- [x] `flutter_rust_bridge`/codegen 2.12.0 갱신을 반영한다.
+- [x] 버전을 오늘 날짜 기준 `2026.6.6`으로 올린다.
 
 ## 다음 우선순위
 
 - [ ] example 앱에 unsaved changes dialog widget test를 추가한다.
 - [ ] HWP/HWPX 저장 후 source bytes와 file name metadata가 host 앱에서 최신 상태로 유지되는지 검증한다.
 - [ ] Save와 Save As를 구분할지 결정하고 API/예제 흐름을 정리한다.
-- [ ] upstream full editor의 edit/dirty 이벤트를 Flutter controller로 브리지한다.
+- [ ] upstream full editor dirty bridge를 실제 desktop WebView와 Web Chrome에서 수동 검증한다.
+- [ ] upstream editor에서 공식 dirty/edit event를 제공하면 현재 conservative event bridge를 공식 event 기반으로 교체한다.
 - [ ] 실제 첨부 샘플 문서로 open, edit, save, reopen, PDF export smoke test를 자동화한다.
 - [ ] Web `WebAssembly.instantiate()`/cross-origin isolation 실행 조건을 README와 troubleshooting에 정리한다.
 - [ ] Desktop full editor host의 black screen 원인을 플랫폼별로 분리해서 문서화하고 fallback 상태를 표시한다.

@@ -13,8 +13,32 @@ class RhwpFullEditorController extends ChangeNotifier {
   WebViewController? _webViewController;
   var _nextRequest = 0;
   final _pendingExports = <String, Completer<Uint8List>>{};
+  bool _dirty = false;
 
   bool get isAttached => _webViewController != null;
+
+  bool get dirty => _dirty;
+
+  set dirty(bool value) {
+    _setDirty(value);
+  }
+
+  void markClean() {
+    dirty = false;
+  }
+
+  bool _setDirty(bool value) {
+    if (_dirty == value) {
+      return false;
+    }
+    _dirty = value;
+    notifyListeners();
+    return true;
+  }
+
+  bool _markDirty() {
+    return _setDirty(true);
+  }
 
   Future<Uint8List> export(RhwpExportFormat format) async {
     final webViewController = _webViewController;
@@ -134,12 +158,14 @@ class RhwpFullEditor extends StatefulWidget {
     this.initialBytes,
     this.fileName,
     this.controller,
+    this.onDirtyChanged,
   });
 
   final String moduleUrl;
   final Uint8List? initialBytes;
   final String? fileName;
   final RhwpFullEditorController? controller;
+  final ValueChanged<bool>? onDirtyChanged;
 
   @override
   State<RhwpFullEditor> createState() => _RhwpFullEditorState();
@@ -296,6 +322,12 @@ class _RhwpFullEditorState extends State<RhwpFullEditor> {
           }
           return;
         }
+        if (event == 'dirty') {
+          if (_controller._markDirty()) {
+            widget.onDirtyChanged?.call(true);
+          }
+          return;
+        }
       }
     } catch (_) {
       // Export responses are handled by the controller below.
@@ -401,6 +433,35 @@ function setMessage(message) {
 
 function hideMessage() {
   document.getElementById('message')?.remove();
+}
+
+function markDirty() {
+  post({ event: 'dirty', dirty: true });
+}
+
+function installDirtyTracking() {
+  const host = document.getElementById('editor');
+  if (!host) return;
+  const dirtyEvents = ['beforeinput', 'input', 'change', 'paste', 'cut', 'drop', 'compositionend'];
+  for (const eventName of dirtyEvents) {
+    host.addEventListener(eventName, markDirty, true);
+  }
+  host.addEventListener('keydown', (event) => {
+    if (event.defaultPrevented) return;
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+    if (event.key && event.key.length === 1) {
+      markDirty();
+      return;
+    }
+    if (['Backspace', 'Delete', 'Enter', 'Tab'].includes(event.key)) {
+      markDirty();
+    }
+  }, true);
+  host.addEventListener('click', (event) => {
+    const target = event.target;
+    const closest = target?.closest?.('button,[role="button"],input,select,textarea,[contenteditable="true"]');
+    if (closest) markDirty();
+  }, true);
 }
 
 function decodeBase64(value) {
@@ -572,6 +633,7 @@ async function start() {
         'rhwp full editor was mounted, but this @rhwp/editor build did not expose a known byte-loading API.',
       );
     }
+    installDirtyTracking();
     post({ event: 'ready' });
   } catch (error) {
     console.error(error);

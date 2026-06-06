@@ -10,8 +10,32 @@ import 'rhwp_exception.dart';
 /// This controller is only functional on Web. On other platforms its methods
 /// throw [RhwpUnsupportedPlatformException].
 class RhwpWebEditorController extends ChangeNotifier {
+  bool _dirty = false;
+
   /// Whether this controller is attached to a mounted [RhwpWebEditor].
   bool get isAttached => false;
+
+  /// Whether the upstream Web editor has unsaved in-memory changes.
+  bool get dirty => _dirty;
+
+  /// Updates the externally visible dirty state.
+  set dirty(bool value) {
+    _setDirty(value);
+  }
+
+  /// Marks the upstream Web editor state as clean after save or discard.
+  void markClean() {
+    dirty = false;
+  }
+
+  bool _setDirty(bool value) {
+    if (_dirty == value) {
+      return false;
+    }
+    _dirty = value;
+    notifyListeners();
+    return true;
+  }
 
   /// Exports the current upstream editor state as raw bytes.
   ///
@@ -63,6 +87,7 @@ class RhwpWebEditor extends StatelessWidget {
     this.initialBytes,
     this.fileName,
     this.controller,
+    this.onDirtyChanged,
   });
 
   static const defaultModuleUrl = 'https://esm.sh/@rhwp/editor';
@@ -71,6 +96,7 @@ class RhwpWebEditor extends StatelessWidget {
   final Uint8List? initialBytes;
   final String? fileName;
   final RhwpWebEditorController? controller;
+  final ValueChanged<bool>? onDirtyChanged;
 
   @override
   Widget build(BuildContext context) {

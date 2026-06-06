@@ -190,6 +190,8 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
         _documentDirty = false;
         _viewerKey = UniqueKey();
       });
+      _editorController.markClean();
+      _fullEditorController.markClean();
       await previous?.close();
       return 'Closed document';
     });
@@ -234,6 +236,8 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
         setState(() {
           _documentDirty = false;
         });
+        _editorController.markClean();
+        _fullEditorController.markClean();
       }
       return status.status;
     });
@@ -247,7 +251,9 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
   }
 
   Future<bool> _confirmUnsavedChanges(RhwpEditorFileAction action) async {
-    if (!_documentDirty && !_editorController.dirty) {
+    if (!_documentDirty &&
+        !_editorController.dirty &&
+        !_fullEditorController.dirty) {
       return true;
     }
 
@@ -315,6 +321,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
         _documentDirty = false;
       });
       _editorController.markClean();
+      _fullEditorController.markClean();
       return true;
     } catch (error) {
       if (!mounted) {
@@ -334,6 +341,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
       _documentDirty = false;
     });
     _editorController.markClean();
+    _fullEditorController.markClean();
     return true;
   }
 
@@ -437,6 +445,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
       _viewerKey = UniqueKey();
     });
     _editorController.dirty = dirty;
+    _fullEditorController.markClean();
     await previous?.close();
   }
 
@@ -455,6 +464,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
       _viewerKey = UniqueKey();
     });
     _editorController.dirty = dirty;
+    _fullEditorController.dirty = dirty;
     await previous?.close();
   }
 
@@ -486,7 +496,10 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
     final nativeDocument = _document;
     if (mode == _EditorMode.fullEditor && nativeDocument != null) {
       await _run('Open full editor', () async {
-        final dirty = _documentDirty || _editorController.dirty;
+        final dirty =
+            _documentDirty ||
+            _editorController.dirty ||
+            _fullEditorController.dirty;
         final sourceBytes = await nativeDocument.exportHwp();
         await _replaceWebEditorSource(
           fileName: _fileName ?? 'document.hwp',
@@ -512,7 +525,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
     if (mode == _EditorMode.nativeEditor && _document == null) {
       await _run('Open native editor', () async {
         final sourceBytes = await _sourceBytesForNativeEditor();
-        final dirty = _documentDirty;
+        final dirty = _documentDirty || _fullEditorController.dirty;
         final next = await Rhwp.open(
           sourceBytes,
           fileName: _fileName ?? 'document.hwp',
@@ -673,6 +686,11 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
                       moduleUrl: widget.webEditorModuleUrl,
                       initialBytes: _sourceBytes,
                       fileName: _fileName,
+                      onDirtyChanged: (dirty) {
+                        setState(() {
+                          _documentDirty = dirty;
+                        });
+                      },
                     )
                   : document == null
                   ? const SizedBox.shrink()

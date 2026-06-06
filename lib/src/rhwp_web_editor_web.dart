@@ -15,9 +15,36 @@ external JSPromise<JSString> _exportEditorBytes(String hostId, String format);
 /// Controls an embedded upstream `@rhwp/editor` instance.
 class RhwpWebEditorController extends ChangeNotifier {
   String? _hostId;
+  bool _dirty = false;
 
   /// Whether this controller is attached to a mounted [RhwpWebEditor].
   bool get isAttached => _hostId != null;
+
+  /// Whether the upstream Web editor has unsaved in-memory changes.
+  bool get dirty => _dirty;
+
+  /// Updates the externally visible dirty state.
+  set dirty(bool value) {
+    _setDirty(value);
+  }
+
+  /// Marks the upstream Web editor state as clean after save or discard.
+  void markClean() {
+    dirty = false;
+  }
+
+  bool _setDirty(bool value) {
+    if (_dirty == value) {
+      return false;
+    }
+    _dirty = value;
+    notifyListeners();
+    return true;
+  }
+
+  bool _markDirty() {
+    return _setDirty(true);
+  }
 
   /// Exports the current upstream editor state as raw bytes.
   ///
@@ -92,6 +119,7 @@ class RhwpWebEditor extends StatefulWidget {
     this.initialBytes,
     this.fileName,
     this.controller,
+    this.onDirtyChanged,
   });
 
   static const defaultModuleUrl = 'https://esm.sh/@rhwp/editor';
@@ -100,6 +128,7 @@ class RhwpWebEditor extends StatefulWidget {
   final Uint8List? initialBytes;
   final String? fileName;
   final RhwpWebEditorController? controller;
+  final ValueChanged<bool>? onDirtyChanged;
 
   @override
   State<RhwpWebEditor> createState() => _RhwpWebEditorState();
@@ -110,6 +139,8 @@ class _RhwpWebEditorState extends State<RhwpWebEditor> {
 
   late final String _viewType;
   late final String _hostId;
+  late final String _dirtyEventName;
+  late final web.EventListener _dirtyEventListener;
   late RhwpWebEditorController _controller;
   late bool _ownsController;
 
@@ -119,9 +150,16 @@ class _RhwpWebEditorState extends State<RhwpWebEditor> {
     final viewId = _nextViewId++;
     _viewType = 'flutter-rhwp-web-editor-$viewId';
     _hostId = 'flutter-rhwp-web-editor-host-$viewId';
+    _dirtyEventName = 'flutter-rhwp-web-editor-dirty-$_hostId';
+    _dirtyEventListener = ((web.Event _) {
+      if (_controller._markDirty()) {
+        widget.onDirtyChanged?.call(true);
+      }
+    }).toJS;
     _controller = widget.controller ?? RhwpWebEditorController();
     _ownsController = widget.controller == null;
     _controller._attach(_hostId);
+    web.window.addEventListener(_dirtyEventName, _dirtyEventListener);
     ui_web.platformViewRegistry.registerViewFactory(
       _viewType,
       (_) => _createEditorHost(),
@@ -145,6 +183,7 @@ class _RhwpWebEditorState extends State<RhwpWebEditor> {
 
   @override
   void dispose() {
+    web.window.removeEventListener(_dirtyEventName, _dirtyEventListener);
     _controller._detach(_hostId);
     if (_ownsController) {
       _controller.dispose();
@@ -207,11 +246,39 @@ class _RhwpWebEditorState extends State<RhwpWebEditor> {
     return '''
 (() => {
   const hostId = ${jsonEncode(hostId)};
+  const dirtyEventName = ${jsonEncode(_dirtyEventName)};
   const moduleUrl = ${jsonEncode(widget.moduleUrl)};
   const fileName = ${jsonEncode(widget.fileName)};
   const initialBase64 = ${jsonEncode(initialBase64)};
 
   window.__flutterRhwpWebEditors = window.__flutterRhwpWebEditors || new Map();
+
+  function markDirty() {
+    window.dispatchEvent(new Event(dirtyEventName));
+  }
+
+  function installDirtyTracking(host) {
+    const dirtyEvents = ['beforeinput', 'input', 'change', 'paste', 'cut', 'drop', 'compositionend'];
+    for (const eventName of dirtyEvents) {
+      host.addEventListener(eventName, markDirty, true);
+    }
+    host.addEventListener('keydown', (event) => {
+      if (event.defaultPrevented) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.key && event.key.length === 1) {
+        markDirty();
+        return;
+      }
+      if (['Backspace', 'Delete', 'Enter', 'Tab'].includes(event.key)) {
+        markDirty();
+      }
+    }, true);
+    host.addEventListener('click', (event) => {
+      const target = event.target;
+      const closest = target?.closest?.('button,[role="button"],input,select,textarea,[contenteditable="true"]');
+      if (closest) markDirty();
+    }, true);
+  }
 
   function installExportBridge() {
     if (typeof window.__flutterRhwpWebEditorExport === 'function') {
@@ -412,6 +479,7 @@ class _RhwpWebEditorState extends State<RhwpWebEditor> {
           'rhwp Web editor was mounted, but this @rhwp/editor build did not expose a known byte-loading API.',
         );
       }
+      installDirtyTracking(host);
     } catch (error) {
       console.error(error);
       setMessage(
