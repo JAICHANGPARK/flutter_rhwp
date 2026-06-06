@@ -199,6 +199,9 @@ Web/WASM에서 일부 export, 특히 PDF는 플랫폼 제약으로 `RhwpUnsuppor
 
 | 툴바 기능 | 호출 API |
 | --- | --- |
+| Cut selected text/cell/object | `RhwpNativeEditor` 기본 리본 또는 `document.delete*` + clipboard 저장 |
+| Copy selected text/cell/object | `RhwpNativeEditor` 기본 리본 또는 `document.exportSelectionHtml(...)` / `exportControlHtml(...)` |
+| Paste clipboard text/object | `RhwpNativeEditor` 기본 리본 또는 `document.insertText(...)`, `pasteHtml(...)`, `pasteObjectControl(...)` |
 | Insert picture | `document.insertPicture(...)` |
 | Insert shape | `document.insertShape(...)` |
 | Delete object | `document.deleteObjectControl(...)` |
@@ -210,6 +213,8 @@ Web/WASM에서 일부 export, 특히 PDF는 플랫폼 제약으로 `RhwpUnsuppor
 | Read object properties | `document.objectProperties(...)` |
 | Set object properties | `document.setObjectProperties(...)` |
 | Move line endpoint | `document.moveLineEndpoint(...)` |
+
+`RhwpNativeEditor` 기본 리본은 body selection, table-cell selection, object selection이 있을 때만 Cut/Copy를 활성화한다. Paste는 현재 시스템 clipboard와 내부 rich/object clipboard 상태를 읽어 실행한다.
 
 ### Page, header, footer
 

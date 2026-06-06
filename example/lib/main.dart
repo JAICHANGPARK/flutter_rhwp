@@ -35,6 +35,12 @@ bool get _supportsFullEditorHost {
 }
 
 typedef RhwpSampleBytesLoader = Future<Uint8List> Function();
+typedef RhwpExampleSaveFile =
+    Future<String?> Function({
+      required RhwpExportedDocument exported,
+      required String dialogTitle,
+      required List<String> allowedExtensions,
+    });
 
 enum _UnsavedChangesDecision { save, discard, cancel }
 
@@ -53,17 +59,63 @@ class _WriteExportedDocumentResult {
 class RhwpExampleApp extends StatefulWidget {
   const RhwpExampleApp({
     super.key,
+    this.controller,
     this.autoOpenSample = true,
+    this.startInNativeEditor = false,
+    this.initialDocument,
+    this.initialFileName,
+    this.initialSourceBytes,
+    this.initialFilePath,
     this.webEditorModuleUrl = _webEditorModuleUrl,
     this.sampleBytesLoader,
+    this.saveFile,
   });
 
+  final RhwpExampleAppController? controller;
   final bool autoOpenSample;
+  final bool startInNativeEditor;
+  final RhwpDocument? initialDocument;
+  final String? initialFileName;
+  final Uint8List? initialSourceBytes;
+  final String? initialFilePath;
   final String webEditorModuleUrl;
   final RhwpSampleBytesLoader? sampleBytesLoader;
+  final RhwpExampleSaveFile? saveFile;
 
   @override
   State<RhwpExampleApp> createState() => _RhwpExampleAppState();
+}
+
+class RhwpExampleAppController {
+  _RhwpExampleAppState? _state;
+
+  bool get isAttached => _state != null;
+
+  bool get usesFullEditor => _state?._usesFullEditor ?? false;
+
+  bool get hasDocument => _state?._document != null;
+
+  Object? get error => _state?._error;
+
+  String? get status => _state?._status;
+
+  Future<void> saveAsHwp() {
+    return _state?._saveExport(_ExportKind.hwp) ?? Future<void>.value();
+  }
+
+  Future<void> saveAsHwpx() {
+    return _state?._saveExport(_ExportKind.hwpx) ?? Future<void>.value();
+  }
+
+  void _attach(_RhwpExampleAppState state) {
+    _state = state;
+  }
+
+  void _detach(_RhwpExampleAppState state) {
+    if (_state == state) {
+      _state = null;
+    }
+  }
 }
 
 class _RhwpExampleAppState extends State<RhwpExampleApp> {
@@ -78,9 +130,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
   String? _fileName;
   String? _filePath;
   String? _status;
-  _EditorMode _editorMode = _supportsFullEditorHost
-      ? _EditorMode.fullEditor
-      : _EditorMode.nativeEditor;
+  late _EditorMode _editorMode;
   bool _busy = false;
   bool _documentDirty = false;
 
@@ -89,13 +139,55 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
   @override
   void initState() {
     super.initState();
-    if (widget.autoOpenSample) {
+    widget.controller?._attach(this);
+    _editorMode = widget.startInNativeEditor || !_supportsFullEditorHost
+        ? _EditorMode.nativeEditor
+        : _EditorMode.fullEditor;
+    final initialDocument = widget.initialDocument;
+    if (initialDocument != null) {
+      _document = initialDocument;
+      _sourceBytes = widget.initialSourceBytes;
+      _fileName = widget.initialFileName;
+      _filePath = widget.initialFilePath;
+      _loadInitialDocumentMetadata(initialDocument);
+    } else if (widget.autoOpenSample) {
       _openSampleDocument();
+    }
+  }
+
+  Future<void> _loadInitialDocumentMetadata(RhwpDocument document) async {
+    try {
+      final metadata = await document.metadata();
+      if (!mounted || _document != document) {
+        return;
+      }
+      setState(() {
+        _metadata = metadata;
+        _fileName ??= metadata.fileName;
+      });
+    } catch (error) {
+      if (!mounted || _document != document) {
+        return;
+      }
+      setState(() {
+        _error = error;
+        _status = 'Failed';
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant RhwpExampleApp oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller?._detach(this);
+      widget.controller?._attach(this);
     }
   }
 
   @override
   void dispose() {
+    widget.controller?._detach(this);
     _document?.close();
     _editorController.dispose();
     _fullEditorController.dispose();
@@ -254,7 +346,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
         dialogLabel: kind.label,
       );
       if (status.completed && kind.isPrimaryDocument) {
-        _recordSavedDocument(exported, status);
+        await _recordSavedDocument(exported, status);
       }
       return status.status;
     });
@@ -269,7 +361,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
             : null,
       );
       if (result.completed && exported.format.isPrimaryDocument) {
-        _recordSavedDocument(exported, result);
+        await _recordSavedDocument(exported, result);
       }
       return result.status;
     });
@@ -355,7 +447,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
       if (!result.completed) {
         return false;
       }
-      _recordSavedDocument(exported, result);
+      await _recordSavedDocument(exported, result);
       return true;
     } catch (error) {
       if (!mounted) {
@@ -407,14 +499,23 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
       );
     }
 
-    final path = await FilePicker.saveFile(
-      dialogTitle:
-          '${exported.intent.dialogTitleVerb} ${dialogLabel ?? exported.format.fileExtension.toUpperCase()}',
-      fileName: exported.fileName,
-      type: FileType.custom,
-      allowedExtensions: [exported.format.fileExtension],
-      bytes: exported.bytes,
-    );
+    final dialogTitle =
+        '${exported.intent.dialogTitleVerb} ${dialogLabel ?? exported.format.fileExtension.toUpperCase()}';
+    final allowedExtensions = [exported.format.fileExtension];
+    final saveFile = widget.saveFile;
+    final path = saveFile == null
+        ? await FilePicker.saveFile(
+            dialogTitle: dialogTitle,
+            fileName: exported.fileName,
+            type: FileType.custom,
+            allowedExtensions: allowedExtensions,
+            bytes: exported.bytes,
+          )
+        : await saveFile(
+            exported: exported,
+            dialogTitle: dialogTitle,
+            allowedExtensions: allowedExtensions,
+          );
 
     if (path == null) {
       if (kIsWeb) {
@@ -527,13 +628,40 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
     await previous?.close();
   }
 
-  void _recordSavedDocument(
+  Future<void> _recordSavedDocument(
     RhwpExportedDocument exported,
     _WriteExportedDocumentResult result,
-  ) {
+  ) async {
     final savedFileName = _fileNameFromPath(result.path) ?? exported.fileName;
+    final document = _document;
+    var sourceBytes = exported.bytes;
+    RhwpDocumentMetadata? metadata;
+
+    if (document != null && exported.format.isPrimaryDocument) {
+      final currentMetadata = await document.metadata();
+      if (currentMetadata.fileName != savedFileName) {
+        await document.setFileName(savedFileName);
+      }
+      metadata = await document.metadata();
+      if (widget.saveFile == null &&
+          result.path != null &&
+          supportsLocalFileWrite) {
+        final updatedExport = await document.exportDocument(
+          exported.format,
+          sourceFileName: savedFileName,
+          intent: RhwpExportIntent.save,
+        );
+        sourceBytes = updatedExport.bytes;
+        await writeLocalFile(result.path!, sourceBytes);
+      }
+    }
+
+    if (!mounted) {
+      return;
+    }
     setState(() {
-      _sourceBytes = exported.bytes;
+      _metadata = metadata ?? _metadata;
+      _sourceBytes = sourceBytes;
       _fileName = savedFileName;
       _filePath = result.path ?? _filePath;
       _documentDirty = false;

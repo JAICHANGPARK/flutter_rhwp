@@ -20808,6 +20808,54 @@ void main() {
   });
 
   testWidgets(
+    'RhwpNativeEditor enables clipboard ribbon actions for selections',
+    (tester) async {
+      final controller = RhwpEditorController();
+      final session = _FakeRhwpSession(pageCountValue: 1);
+      final document = RhwpDocument.fromSession(session);
+
+      await tester.pumpWidget(
+        _WidgetHarness(
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: RhwpNativeEditor(document: document, controller: controller),
+          ),
+        ),
+      );
+      await _pumpDocumentFrame(tester);
+
+      await tester.tap(find.text('편집'));
+      await tester.pump();
+
+      IconButton toolbarButton(String key) {
+        return tester.widget<IconButton>(find.byKey(ValueKey(key)));
+      }
+
+      expect(toolbarButton('rhwp-editor-cut').onPressed, isNull);
+      expect(toolbarButton('rhwp-editor-copy').onPressed, isNull);
+      expect(toolbarButton('rhwp-editor-paste').onPressed, isNotNull);
+
+      controller.selection = const RhwpSelectionRange(
+        start: RhwpCursorPosition(offset: 1),
+        end: RhwpCursorPosition(offset: 3),
+      );
+      await tester.pump();
+
+      expect(toolbarButton('rhwp-editor-cut').onPressed, isNotNull);
+      expect(toolbarButton('rhwp-editor-copy').onPressed, isNotNull);
+      expect(toolbarButton('rhwp-editor-paste').onPressed, isNotNull);
+
+      controller.clearSelection();
+      await tester.pump();
+
+      expect(toolbarButton('rhwp-editor-cut').onPressed, isNull);
+      expect(toolbarButton('rhwp-editor-copy').onPressed, isNull);
+      expect(toolbarButton('rhwp-editor-paste').onPressed, isNotNull);
+    },
+  );
+
+  testWidgets(
     'RhwpNativeEditor previews body text cut while delete is pending',
     (tester) async {
       final clipboard = _MockClipboard();

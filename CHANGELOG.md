@@ -3,6 +3,8 @@
 * Updated plugin release metadata for the `2026.6.6` release, including
   Flutter, Rust crate, and iOS/macOS podspec metadata.
 * Updated `flutter_rust_bridge` and generated bridge bindings to `2.12.0`.
+* Updated CI Web WASM codegen installation to use
+  `flutter_rust_bridge_codegen` `2.12.0`.
 * Added dirty-state tracking to `RhwpFullEditorController` and
   `RhwpWebEditorController`, including `dirty`, `markClean()`, and listener
   notifications.
@@ -22,6 +24,13 @@
 * Updated the example app to write Save back to the remembered local file path
   when available and to refresh saved source bytes/file names after primary
   HWP/HWPX saves.
+* Added example app controller, initial-document injection, and save-file
+  injection hooks so file lifecycle behavior can be tested without launching a
+  native file dialog.
+* Synchronized example Save As HWP/HWPX completions back into rhwp core file
+  name metadata and covered the flow with an example widget test.
+* Updated Flutter-native editor clipboard ribbon state so Cut and Copy are
+  enabled only when text, table cell, or object selection exists.
 
 ## 2026-06-02 (2026.6.2)
 

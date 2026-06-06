@@ -5,6 +5,7 @@
 - `flutter_rust_bridge` Dart dependency를 `2.12.0`으로 갱신했다.
 - Rust facade crate의 `flutter_rust_bridge` dependency를 `=2.12.0`으로 갱신했다.
 - `flutter_rust_bridge_codegen` 갱신 결과로 생성된 Dart/Rust bridge 파일을 반영했다.
+- CI Web WASM build에서 설치하는 `flutter_rust_bridge_codegen` 버전도 `2.12.0`으로 맞췄다.
 - `THIRD_PARTY_NOTICES.md`의 bridge 버전 표기를 `2.12.0`으로 맞췄다.
 - example lockfile의 local package version을 오늘 릴리스 버전에 맞춰 갱신했다.
 - Rust crate와 iOS/macOS podspec 버전도 `2026.6.6`으로 맞춘다.
@@ -19,6 +20,7 @@
 
 - FRB generated file은 수동 수정 대상이 아니라 codegen 산출물이다.
 - codegen 업데이트는 Dart dependency, Rust dependency, generated Dart 파일, generated Rust 파일, third-party notice가 함께 움직여야 한다.
+- CI에서 설치하는 codegen 버전도 generated file과 같아야 Web WASM bundle build가 재현 가능하다.
 - bridge 버전 변경은 기능 코드가 작아 보여도 분석, 테스트, cargo 검증을 같이 실행해야 한다.
 
 ## 검증
@@ -26,4 +28,5 @@
 ```sh
 flutter analyze
 cd rust && cargo check
+cd example && flutter test test/widget_test.dart
 ```

@@ -13829,6 +13829,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           searchFocusNode: _searchFocusNode,
           replaceController: _replaceController,
           replaceFocusNode: _replaceFocusNode,
+          selection: _controller.selection,
           tableCellSelection: _controller.tableCellSelection,
           objectSelection: _controller.objectSelection,
           pendingCharFormat: _pendingCharFormat,
@@ -16552,6 +16553,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.searchFocusNode,
     required this.replaceController,
     required this.replaceFocusNode,
+    required this.selection,
     required this.tableCellSelection,
     required this.objectSelection,
     required this.pendingCharFormat,
@@ -16712,6 +16714,7 @@ class _EditorToolbar extends StatefulWidget {
   final FocusNode searchFocusNode;
   final TextEditingController replaceController;
   final FocusNode replaceFocusNode;
+  final RhwpSelectionRange selection;
   final RhwpTableCellSelection? tableCellSelection;
   final RhwpObjectSelection? objectSelection;
   final _PendingCharFormat pendingCharFormat;
@@ -17087,6 +17090,10 @@ class _EditorToolbarState extends State<_EditorToolbar> {
   }
 
   List<Widget> _editGroups() {
+    final canCutOrCopy =
+        !widget.selection.isCollapsed ||
+        widget.tableCellSelection != null ||
+        widget.objectSelection != null;
     return [
       _RibbonGroup(
         label: '실행',
@@ -17113,16 +17120,19 @@ class _EditorToolbarState extends State<_EditorToolbar> {
           children: [
             _ToolbarIconButton(
               tooltip: 'Cut',
+              buttonKey: const ValueKey('rhwp-editor-cut'),
               icon: Icons.content_cut,
-              onPressed: widget.busy ? null : widget.onCut,
+              onPressed: widget.busy || !canCutOrCopy ? null : widget.onCut,
             ),
             _ToolbarIconButton(
               tooltip: 'Copy',
+              buttonKey: const ValueKey('rhwp-editor-copy'),
               icon: Icons.copy,
-              onPressed: widget.busy ? null : widget.onCopy,
+              onPressed: widget.busy || !canCutOrCopy ? null : widget.onCopy,
             ),
             _ToolbarIconButton(
               tooltip: 'Paste',
+              buttonKey: const ValueKey('rhwp-editor-paste'),
               icon: Icons.content_paste,
               onPressed: widget.busy ? null : widget.onPaste,
             ),

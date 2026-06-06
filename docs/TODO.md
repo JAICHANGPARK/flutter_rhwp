@@ -23,15 +23,18 @@
 - [x] 버전을 오늘 날짜 기준 `2026.6.6`으로 올린다.
 - [x] Save와 Save As intent를 `RhwpExportedDocument`에 분리하고 native editor 파일 리본에 반영한다.
 - [x] example 앱에서 primary HWP/HWPX 저장 후 source bytes와 표시 파일명을 갱신한다.
+- [x] CI의 `flutter_rust_bridge_codegen` 설치 버전을 `2.12.0`으로 맞춘다.
+- [x] HWP/HWPX Save As 후 rhwp core 내부 file name metadata를 새 저장명으로 동기화한다.
+- [x] Save/Save As 흐름에 대한 example widget test를 추가한다.
+- [x] Flutter-native editor 클립보드 리본에서 선택 상태에 맞춰 Cut/Copy 활성 상태를 표시한다.
 
 ## 다음 우선순위
 
 - [ ] example 앱에 unsaved changes dialog widget test를 추가한다.
-- [ ] HWP/HWPX Save As 후 rhwp core 내부 file name metadata까지 새 저장명으로 동기화할지 결정한다.
-- [ ] Save/Save As 흐름에 대한 example widget test를 추가한다.
 - [ ] upstream full editor dirty bridge를 실제 desktop WebView와 Web Chrome에서 수동 검증한다.
 - [ ] upstream editor에서 공식 dirty/edit event를 제공하면 현재 conservative event bridge를 공식 event 기반으로 교체한다.
 - [ ] 실제 첨부 샘플 문서로 open, edit, save, reopen, PDF export smoke test를 자동화한다.
+- [ ] Save As metadata sync는 기본 로컬 파일 저장 경로에서는 저장 후 재-export로 파일 bytes까지 보정한다. Web 다운로드와 custom saver의 최종 파일명 변경은 플랫폼 API 한계 때문에 추가 설계가 필요하다.
 - [ ] Web `WebAssembly.instantiate()`/cross-origin isolation 실행 조건을 README와 troubleshooting에 정리한다.
 - [ ] Desktop full editor host의 black screen 원인을 플랫폼별로 분리해서 문서화하고 fallback 상태를 표시한다.
 - [ ] `docs/API_SPEC.md`에 upstream Web editor 메뉴 대비 미구현 API를 계속 표시한다.
@@ -40,6 +43,7 @@
 
 - [ ] upstream Web editor 메뉴와 Flutter-native ribbon 항목을 1:1 대조표로 만든다.
 - [ ] 편집, 보기, 입력, 서식, 쪽, 표, 도구 탭별 미구현 명령을 분류한다.
+- [ ] 클립보드 리본의 Paste 활성 상태를 실제 clipboard readable 여부나 내부 rich/object clipboard 상태와 연결할지 결정한다.
 - [ ] 표 편집의 row/column sizing, border/fill, merge/split edge case를 실제 문서로 검증한다.
 - [ ] 개체 편집의 image/shape/textbox/line 선택, 이동, 크기 변경, z-order edge case를 보강한다.
 - [ ] 필드/누름틀, bookmark, footnote, header/footer의 문서 round-trip을 검증한다.
