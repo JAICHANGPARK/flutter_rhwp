@@ -75,6 +75,7 @@ class RhwpWebEditorController extends ChangeNotifier {
     RhwpExportFormat format, {
     String? sourceFileName,
     int? page,
+    RhwpExportIntent intent = RhwpExportIntent.export,
   }) async {
     final bytes = await export(format);
     return RhwpExportedDocument.fromBytes(
@@ -82,6 +83,7 @@ class RhwpWebEditorController extends ChangeNotifier {
       bytes: bytes,
       sourceFileName: sourceFileName,
       page: page,
+      intent: intent,
     );
   }
 

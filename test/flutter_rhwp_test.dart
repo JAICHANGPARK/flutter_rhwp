@@ -3800,16 +3800,19 @@ void main() {
     expect(pdf.bytes, [0x50, 0x44, 0x46]);
     expect(pdf.fileName, 'sample.pdf');
     expect(pdf.mimeType, 'application/pdf');
+    expect(pdf.intent, RhwpExportIntent.export);
 
     final svg = await document.exportDocument(
       RhwpExportFormat.svg,
       sourceFileName: 'picked.hwpx',
       page: 2,
+      intent: RhwpExportIntent.saveAs,
     );
 
     expect(utf8.decode(svg.bytes), '<svg data-page="2"/>');
     expect(svg.fileName, 'picked-page-3.svg');
     expect(svg.mimeType, 'image/svg+xml');
+    expect(svg.intent, RhwpExportIntent.saveAs);
     expect(session.renderedSvgPages, [2]);
   });
 

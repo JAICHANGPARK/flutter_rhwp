@@ -10,6 +10,18 @@ import 'rust/api/rhwp.dart' as rust;
 /// Supported output formats for document export.
 enum RhwpExportFormat { hwp, hwpx, pdf, docx, text, markdown, svg }
 
+/// The user-facing reason an exported artifact was requested.
+enum RhwpExportIntent {
+  /// Save back to the current document destination when the host app has one.
+  save,
+
+  /// Ask the user for a new destination/name for a primary document save.
+  saveAs,
+
+  /// Produce a secondary artifact such as PDF, DOCX, text, Markdown, or SVG.
+  export,
+}
+
 /// Save metadata for [RhwpExportFormat] values.
 extension RhwpExportFormatMetadata on RhwpExportFormat {
   /// The default file extension without a leading dot.
@@ -48,6 +60,7 @@ class RhwpExportedDocument {
     required this.bytes,
     required this.fileName,
     required this.mimeType,
+    this.intent = RhwpExportIntent.export,
   });
 
   /// Creates an export result and derives save metadata from [format].
@@ -60,6 +73,7 @@ class RhwpExportedDocument {
     required Uint8List bytes,
     String? sourceFileName,
     int? page,
+    RhwpExportIntent intent = RhwpExportIntent.export,
   }) {
     return RhwpExportedDocument(
       format: format,
@@ -70,6 +84,7 @@ class RhwpExportedDocument {
         page: page,
       ),
       mimeType: format.mimeType,
+      intent: intent,
     );
   }
 
@@ -84,6 +99,26 @@ class RhwpExportedDocument {
 
   /// The MIME type for [bytes].
   final String mimeType;
+
+  /// The host-app save/export flow that produced this artifact.
+  final RhwpExportIntent intent;
+
+  /// Returns this artifact with selected metadata replaced.
+  RhwpExportedDocument copyWith({
+    RhwpExportFormat? format,
+    Uint8List? bytes,
+    String? fileName,
+    String? mimeType,
+    RhwpExportIntent? intent,
+  }) {
+    return RhwpExportedDocument(
+      format: format ?? this.format,
+      bytes: bytes ?? this.bytes,
+      fileName: fileName ?? this.fileName,
+      mimeType: mimeType ?? this.mimeType,
+      intent: intent ?? this.intent,
+    );
+  }
 
   /// The default save name for [format] and optional source context.
   ///
@@ -4646,6 +4681,7 @@ class RhwpDocument {
     RhwpExportFormat format, {
     int? page,
     String? sourceFileName,
+    RhwpExportIntent intent = RhwpExportIntent.export,
   }) async {
     _ensureOpen();
     final metadata = await this.metadata();
@@ -4655,6 +4691,7 @@ class RhwpDocument {
       bytes: bytes,
       sourceFileName: sourceFileName ?? metadata.fileName,
       page: page,
+      intent: intent,
     );
   }
 

@@ -21,12 +21,14 @@
 - [x] upstream full editor의 edit/dirty 이벤트를 Flutter controller로 브리지한다.
 - [x] `flutter_rust_bridge`/codegen 2.12.0 갱신을 반영한다.
 - [x] 버전을 오늘 날짜 기준 `2026.6.6`으로 올린다.
+- [x] Save와 Save As intent를 `RhwpExportedDocument`에 분리하고 native editor 파일 리본에 반영한다.
+- [x] example 앱에서 primary HWP/HWPX 저장 후 source bytes와 표시 파일명을 갱신한다.
 
 ## 다음 우선순위
 
 - [ ] example 앱에 unsaved changes dialog widget test를 추가한다.
-- [ ] HWP/HWPX 저장 후 source bytes와 file name metadata가 host 앱에서 최신 상태로 유지되는지 검증한다.
-- [ ] Save와 Save As를 구분할지 결정하고 API/예제 흐름을 정리한다.
+- [ ] HWP/HWPX Save As 후 rhwp core 내부 file name metadata까지 새 저장명으로 동기화할지 결정한다.
+- [ ] Save/Save As 흐름에 대한 example widget test를 추가한다.
 - [ ] upstream full editor dirty bridge를 실제 desktop WebView와 Web Chrome에서 수동 검증한다.
 - [ ] upstream editor에서 공식 dirty/edit event를 제공하면 현재 conservative event bridge를 공식 event 기반으로 교체한다.
 - [ ] 실제 첨부 샘플 문서로 open, edit, save, reopen, PDF export smoke test를 자동화한다.

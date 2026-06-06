@@ -15,6 +15,13 @@
   unsaved-change guards and dirty mode-switch handoff.
 * Documented full/Web editor dirty APIs and the conservative nature of the
   upstream editor event bridge.
+* Added `RhwpExportIntent` so host apps can distinguish Save, Save As, and
+  secondary export flows from `RhwpExportedDocument`.
+* Split Flutter-native editor file-ribbon Save from Save As HWP/HWPX and made
+  Ctrl/Cmd+S preserve the current HWP/HWPX document format.
+* Updated the example app to write Save back to the remembered local file path
+  when available and to refresh saved source bytes/file names after primary
+  HWP/HWPX saves.
 
 ## 2026-06-02 (2026.6.2)
 

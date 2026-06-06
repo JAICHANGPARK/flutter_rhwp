@@ -96,16 +96,23 @@ RhwpNativeEditor(
 | 텍스트 추출 | `document.extractText(page: page)` |
 | Markdown 추출 | `document.extractMarkdown(page: page)` |
 
-앱 저장 UI에는 `RhwpExportedDocument`를 우선 사용한다. 이 객체에는 `bytes`, `fileName`, `mimeType`, `format`이 들어 있다.
+앱 저장 UI에는 `RhwpExportedDocument`를 우선 사용한다. 이 객체에는 `bytes`, `fileName`, `mimeType`, `format`, `intent`가 들어 있다.
 
 ```dart
 final exported = await document.exportDocument(
   RhwpExportFormat.hwp,
   sourceFileName: currentFileName,
+  intent: RhwpExportIntent.save,
 );
 await saveBytes(exported.bytes, exported.fileName, exported.mimeType);
 editorController.markClean();
 ```
+
+| Intent | 의미 | host app 처리 |
+| --- | --- | --- |
+| `RhwpExportIntent.save` | 현재 문서의 primary save | 기존 파일 경로가 있으면 그 경로에 저장하고, 없으면 저장 위치를 묻는다. |
+| `RhwpExportIntent.saveAs` | primary document Save As | 항상 새 저장 위치/파일명을 묻는다. |
+| `RhwpExportIntent.export` | PDF/DOCX/Text/Markdown/SVG 같은 보조 산출물 | 저장하더라도 기본적으로 editor dirty 상태를 clean으로 보지 않는다. |
 
 Web/WASM에서 일부 export, 특히 PDF는 플랫폼 제약으로 `RhwpUnsupportedPlatformException`이 발생할 수 있다.
 
@@ -119,8 +126,9 @@ Web/WASM에서 일부 export, 특히 PDF는 플랫폼 제약으로 `RhwpUnsuppor
 | --- | --- |
 | New | `Rhwp.createEmpty(fileName: ...)` |
 | Open | `Rhwp.open(bytes, fileName: ...)` |
-| Save HWP | `document.exportDocument(RhwpExportFormat.hwp)` |
-| Save HWPX | `document.exportDocument(RhwpExportFormat.hwpx)` |
+| Save | `document.exportDocument(currentFormat, intent: RhwpExportIntent.save)` |
+| Save As HWP | `document.exportDocument(RhwpExportFormat.hwp, intent: RhwpExportIntent.saveAs)` |
+| Save As HWPX | `document.exportDocument(RhwpExportFormat.hwpx, intent: RhwpExportIntent.saveAs)` |
 | Export PDF/DOCX/Text/Markdown/SVG | `document.exportDocument(format, page: page)` |
 | Rename | `document.setFileName(name)` |
 | Document info | `document.metadata()` |
@@ -270,7 +278,7 @@ controller.markClean();
 | --- | --- | --- |
 | 수정 상태 표시 | `onDirtyChanged`, `controller.dirty` | upstream editor 내부 입력/클릭/붙여넣기/키 이벤트를 감지해 저장 안 된 변경사항 indicator를 표시한다. |
 | 저장 완료/폐기 처리 | `controller.markClean()` | host app이 HWP/HWPX 저장 또는 변경 폐기를 완료한 뒤 호출한다. |
-| 현재 문서 export | `controller.exportDocument(format, sourceFileName: name)` | full editor 내부 최신 상태를 bytes로 받아 저장하거나 mode switch에 사용한다. |
+| 현재 문서 export | `controller.exportDocument(format, sourceFileName: name, intent: intent)` | full editor 내부 최신 상태를 bytes로 받아 저장하거나 mode switch에 사용한다. |
 
 Full/Web editor dirty bridge는 upstream editor의 공식 edit 이벤트가 아니라 host가 삽입한 conservative 이벤트 감지다. 일반 입력, 붙여넣기, 삭제, Enter/Tab, toolbar-like 클릭은 dirty로 잡지만, upstream 내부에서 programmatic하게만 발생하는 일부 명령은 추가 검증이 필요하다.
 

@@ -2308,7 +2308,10 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
   }
 
-  Future<void> _exportFromEditor(RhwpExportFormat format) async {
+  Future<void> _exportFromEditor(
+    RhwpExportFormat? format, {
+    RhwpExportIntent intent = RhwpExportIntent.export,
+  }) async {
     final onExported = widget.onExported;
     if (_busy || onExported == null) {
       return;
@@ -2320,13 +2323,19 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       _error = null;
     });
     try {
-      final page = format == RhwpExportFormat.svg
+      final resolvedFormat = format ?? await _primarySaveFormat();
+      final page = resolvedFormat == RhwpExportFormat.svg
           ? _controller.currentPage
           : null;
-      final exported = await widget.document.exportDocument(format, page: page);
+      final exported = await widget.document.exportDocument(
+        resolvedFormat,
+        page: page,
+        intent: intent,
+      );
       await onExported(exported);
       if (mounted &&
-          (format == RhwpExportFormat.hwp || format == RhwpExportFormat.hwpx)) {
+          (resolvedFormat == RhwpExportFormat.hwp ||
+              resolvedFormat == RhwpExportFormat.hwpx)) {
         _setDirty(false);
       }
     } catch (error) {
@@ -2344,6 +2353,27 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         _focusEditor();
       }
     }
+  }
+
+  Future<RhwpExportFormat> _primarySaveFormat() async {
+    final metadata = await widget.document.metadata();
+    final fileName = metadata.fileName?.trim().toLowerCase() ?? '';
+    if (fileName.endsWith('.hwpx')) {
+      return RhwpExportFormat.hwpx;
+    }
+    final sourceFormat = metadata.sourceFormat.trim().toLowerCase();
+    if (sourceFormat == 'hwpx' || sourceFormat.contains('hwpx')) {
+      return RhwpExportFormat.hwpx;
+    }
+    return RhwpExportFormat.hwp;
+  }
+
+  Future<void> _saveFromEditor() {
+    return _exportFromEditor(null, intent: RhwpExportIntent.save);
+  }
+
+  Future<void> _saveAsFromEditor(RhwpExportFormat format) {
+    return _exportFromEditor(format, intent: RhwpExportIntent.saveAs);
   }
 
   Future<void> _printFromEditor() async {
@@ -12525,11 +12555,11 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           _requestCloseFromEditor();
           return KeyEventResult.handled;
         case LogicalKeyboardKey.keyS:
-          _exportFromEditor(
-            HardwareKeyboard.instance.isShiftPressed
-                ? RhwpExportFormat.hwpx
-                : RhwpExportFormat.hwp,
-          );
+          if (HardwareKeyboard.instance.isShiftPressed) {
+            _saveAsFromEditor(RhwpExportFormat.hwpx);
+          } else {
+            _saveFromEditor();
+          }
           return KeyEventResult.handled;
         case LogicalKeyboardKey.keyP:
           if (widget.onPrintRequested != null) {
@@ -13825,8 +13855,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onClose: () => _runFocusedEditorAction(_requestCloseFromEditor),
           onDocumentInfo: _showDocumentInfoDialog,
           onRenameFile: _showFileNameDialog,
-          onSaveHwp: () => _exportFromEditor(RhwpExportFormat.hwp),
-          onSaveHwpx: () => _exportFromEditor(RhwpExportFormat.hwpx),
+          onSave: _saveFromEditor,
+          onSaveAsHwp: () => _saveAsFromEditor(RhwpExportFormat.hwp),
+          onSaveAsHwpx: () => _saveAsFromEditor(RhwpExportFormat.hwpx),
           onExportPdf: () => _exportFromEditor(RhwpExportFormat.pdf),
           onExportFormat: _exportFromEditor,
           onPrint: () => _runFocusedEditorAction(_printFromEditor),
@@ -16547,8 +16578,9 @@ class _EditorToolbar extends StatefulWidget {
     required this.onClose,
     required this.onDocumentInfo,
     required this.onRenameFile,
-    required this.onSaveHwp,
-    required this.onSaveHwpx,
+    required this.onSave,
+    required this.onSaveAsHwp,
+    required this.onSaveAsHwpx,
     required this.onExportPdf,
     required this.onExportFormat,
     required this.onPrint,
@@ -16706,8 +16738,9 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onClose;
   final VoidCallback onDocumentInfo;
   final VoidCallback onRenameFile;
-  final VoidCallback onSaveHwp;
-  final VoidCallback onSaveHwpx;
+  final VoidCallback onSave;
+  final VoidCallback onSaveAsHwp;
+  final VoidCallback onSaveAsHwpx;
   final VoidCallback onExportPdf;
   final ValueChanged<RhwpExportFormat> onExportFormat;
   final VoidCallback onPrint;
@@ -17012,20 +17045,28 @@ class _EditorToolbarState extends State<_EditorToolbar> {
                   : widget.onPrint,
             ),
             _ToolbarIconButton(
-              tooltip: 'Save HWP',
-              buttonKey: const ValueKey('rhwp-editor-save-hwp'),
+              tooltip: 'Save',
+              buttonKey: const ValueKey('rhwp-editor-save'),
               icon: Icons.save_outlined,
               onPressed: widget.busy || !widget.canExport
                   ? null
-                  : widget.onSaveHwp,
+                  : widget.onSave,
             ),
             _ToolbarIconButton(
-              tooltip: 'Save HWPX',
+              tooltip: 'Save As HWP',
+              buttonKey: const ValueKey('rhwp-editor-save-hwp'),
+              icon: Icons.save_as_outlined,
+              onPressed: widget.busy || !widget.canExport
+                  ? null
+                  : widget.onSaveAsHwp,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Save As HWPX',
               buttonKey: const ValueKey('rhwp-editor-save-hwpx'),
               icon: Icons.save_as_outlined,
               onPressed: widget.busy || !widget.canExport
                   ? null
-                  : widget.onSaveHwpx,
+                  : widget.onSaveAsHwpx,
             ),
             _ToolbarIconButton(
               tooltip: 'Export PDF',

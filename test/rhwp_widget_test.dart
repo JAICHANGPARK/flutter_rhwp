@@ -2403,19 +2403,29 @@ void main() {
     await tester.tap(find.text('파일'));
     await tester.pump();
 
-    await tester.tap(find.byKey(const ValueKey('rhwp-editor-save-hwp')));
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-save')));
     await _pumpDocumentFrame(tester);
 
     expect(exported.single.fileName, 'sample.hwp');
     expect(exported.single.bytes, [0x48, 0x57, 0x50]);
+    expect(exported.single.intent, RhwpExportIntent.save);
     expect(session.exportHwpCalls, 1);
     expect(session.commands, isEmpty);
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-save-hwp')));
+    await _pumpDocumentFrame(tester);
+
+    expect(exported.last.fileName, 'sample.hwp');
+    expect(exported.last.bytes, [0x48, 0x57, 0x50]);
+    expect(exported.last.intent, RhwpExportIntent.saveAs);
+    expect(session.exportHwpCalls, 2);
 
     await tester.tap(find.byKey(const ValueKey('rhwp-editor-save-hwpx')));
     await _pumpDocumentFrame(tester);
 
     expect(exported.last.fileName, 'sample.hwpx');
     expect(exported.last.bytes, [0x48, 0x57, 0x50, 0x58]);
+    expect(exported.last.intent, RhwpExportIntent.saveAs);
     expect(session.exportHwpxCalls, 1);
 
     await tester.tap(find.byKey(const ValueKey('rhwp-editor-export-pdf')));
@@ -2423,6 +2433,7 @@ void main() {
 
     expect(exported.last.fileName, 'sample.pdf');
     expect(exported.last.bytes, [0x50, 0x44, 0x46]);
+    expect(exported.last.intent, RhwpExportIntent.export);
     expect(session.exportPdfCalls, 1);
 
     Future<void> selectMoreExport(String key) async {
@@ -2436,18 +2447,21 @@ void main() {
 
     expect(exported.last.fileName, 'sample.docx');
     expect(exported.last.bytes, [0x44, 0x4f, 0x43, 0x58]);
+    expect(exported.last.intent, RhwpExportIntent.export);
     expect(session.exportDocxCalls, 1);
 
     await selectMoreExport('rhwp-editor-export-text');
 
     expect(exported.last.fileName, 'sample.txt');
     expect(utf8.decode(exported.last.bytes), 'alpha\nbeta');
+    expect(exported.last.intent, RhwpExportIntent.export);
     expect(session.extractTextCalls, 1);
 
     await selectMoreExport('rhwp-editor-export-markdown');
 
     expect(exported.last.fileName, 'sample.md');
     expect(utf8.decode(exported.last.bytes), '# alpha\n\nbeta');
+    expect(exported.last.intent, RhwpExportIntent.export);
     expect(session.extractMarkdownCalls, 1);
 
     session.renderedPages.clear();
@@ -2455,6 +2469,7 @@ void main() {
 
     expect(exported.last.fileName, 'sample-page-1.svg');
     expect(utf8.decode(exported.last.bytes), _pageSvg);
+    expect(exported.last.intent, RhwpExportIntent.export);
     expect(session.renderedPages, [0]);
 
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
@@ -2463,7 +2478,8 @@ void main() {
     await _pumpDocumentFrame(tester);
 
     expect(exported.last.fileName, 'sample.hwp');
-    expect(session.exportHwpCalls, 2);
+    expect(exported.last.intent, RhwpExportIntent.save);
+    expect(session.exportHwpCalls, 3);
 
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
     await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
@@ -2473,7 +2489,18 @@ void main() {
     await _pumpDocumentFrame(tester);
 
     expect(exported.last.fileName, 'sample.hwpx');
+    expect(exported.last.intent, RhwpExportIntent.saveAs);
     expect(session.exportHwpxCalls, 2);
+
+    session.fileName = 'sample.hwpx';
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyS);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await _pumpDocumentFrame(tester);
+
+    expect(exported.last.fileName, 'sample.hwpx');
+    expect(exported.last.intent, RhwpExportIntent.save);
+    expect(session.exportHwpxCalls, 3);
 
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyP);
@@ -2537,10 +2564,11 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.tap(find.byKey(const ValueKey('rhwp-editor-save-hwp')));
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-save')));
     await _pumpDocumentFrame(tester);
 
     expect(exported.last.fileName, 'sample.hwp');
+    expect(exported.last.intent, RhwpExportIntent.save);
     expect(dirtyStates, [true, false]);
     expect(controller.dirty, isFalse);
     expect(
@@ -2717,10 +2745,11 @@ void main() {
     ]);
 
     session.commands.clear();
-    await tester.tap(find.byKey(const ValueKey('rhwp-editor-save-hwp')));
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-save')));
     await _pumpDocumentFrame(tester);
 
     expect(exported.single.fileName, 'renamed-document.hwp');
+    expect(exported.single.intent, RhwpExportIntent.save);
     expect(session.exportHwpCalls, 1);
   });
 

@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_rhwp/flutter_rhwp.dart';
 import 'package:flutter/services.dart' show rootBundle;
 
+import 'src/local_file_writer.dart';
+
 void main() {
   runApp(const RhwpExampleApp());
 }
@@ -40,10 +42,12 @@ class _WriteExportedDocumentResult {
   const _WriteExportedDocumentResult({
     required this.status,
     required this.completed,
+    this.path,
   });
 
   final String status;
   final bool completed;
+  final String? path;
 }
 
 class RhwpExampleApp extends StatefulWidget {
@@ -72,6 +76,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
   Uint8List? _sourceBytes;
   Object? _error;
   String? _fileName;
+  String? _filePath;
   String? _status;
   _EditorMode _editorMode = _supportsFullEditorHost
       ? _EditorMode.fullEditor
@@ -166,12 +171,21 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
       final file = result.files.single;
       final bytes = await file.xFile.readAsBytes();
       if (_usesFullEditor) {
-        await _replaceWebEditorSource(fileName: file.name, sourceBytes: bytes);
+        await _replaceWebEditorSource(
+          fileName: file.name,
+          sourceBytes: bytes,
+          filePath: file.path,
+        );
         return 'Opened ${file.name} in full editor';
       }
 
       final next = await Rhwp.open(bytes, fileName: file.name);
-      await _replaceDocument(next, fileName: file.name, sourceBytes: bytes);
+      await _replaceDocument(
+        next,
+        fileName: file.name,
+        sourceBytes: bytes,
+        filePath: file.path,
+      );
       return 'Opened ${file.name}';
     });
   }
@@ -187,6 +201,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
         _metadata = null;
         _sourceBytes = null;
         _fileName = null;
+        _filePath = null;
         _documentDirty = false;
         _viewerKey = UniqueKey();
       });
@@ -226,18 +241,20 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
     }
 
     await _run('Export ${kind.extension.toUpperCase()}', () async {
-      final exported = await _exportFor(kind, document: document);
+      final intent = kind.isPrimaryDocument
+          ? RhwpExportIntent.saveAs
+          : RhwpExportIntent.export;
+      final exported = await _exportFor(
+        kind,
+        document: document,
+        intent: intent,
+      );
       final status = await _writeExportedDocument(
         exported,
         dialogLabel: kind.label,
       );
-      if (status.completed &&
-          (kind == _ExportKind.hwp || kind == _ExportKind.hwpx)) {
-        setState(() {
-          _documentDirty = false;
-        });
-        _editorController.markClean();
-        _fullEditorController.markClean();
+      if (status.completed && kind.isPrimaryDocument) {
+        _recordSavedDocument(exported, status);
       }
       return status.status;
     });
@@ -245,7 +262,15 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
 
   Future<void> _saveEditorExport(RhwpExportedDocument exported) async {
     await _run('Save ${exported.fileName}', () async {
-      final result = await _writeExportedDocument(exported);
+      final result = await _writeExportedDocument(
+        exported,
+        currentPath: exported.intent == RhwpExportIntent.save
+            ? _filePath
+            : null,
+      );
+      if (result.completed && exported.format.isPrimaryDocument) {
+        _recordSavedDocument(exported, result);
+      }
       return result.status;
     });
   }
@@ -306,10 +331,23 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
     };
   }
 
+  _ExportKind _currentPrimaryExportKind() {
+    return _currentPrimaryExportKindForName(_fileName);
+  }
+
   Future<bool> _saveCurrentDocumentBeforeFileAction() async {
     try {
-      final exported = await _exportFor(_ExportKind.hwp, document: _document);
-      final result = await _writeExportedDocument(exported, dialogLabel: 'HWP');
+      final saveKind = _currentPrimaryExportKind();
+      final exported = await _exportFor(
+        saveKind,
+        document: _document,
+        intent: RhwpExportIntent.save,
+      );
+      final result = await _writeExportedDocument(
+        exported,
+        dialogLabel: saveKind.label,
+        currentPath: _filePath,
+      );
       if (!mounted) {
         return false;
       }
@@ -317,11 +355,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
       if (!result.completed) {
         return false;
       }
-      setState(() {
-        _documentDirty = false;
-      });
-      _editorController.markClean();
-      _fullEditorController.markClean();
+      _recordSavedDocument(exported, result);
       return true;
     } catch (error) {
       if (!mounted) {
@@ -358,10 +392,24 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
   Future<_WriteExportedDocumentResult> _writeExportedDocument(
     RhwpExportedDocument exported, {
     String? dialogLabel,
+    String? currentPath,
   }) async {
+    final targetPath = currentPath?.trim();
+    if (exported.intent == RhwpExportIntent.save &&
+        supportsLocalFileWrite &&
+        targetPath != null &&
+        targetPath.isNotEmpty) {
+      await writeLocalFile(targetPath, exported.bytes);
+      return _WriteExportedDocumentResult(
+        status: 'Saved $targetPath',
+        completed: true,
+        path: targetPath,
+      );
+    }
+
     final path = await FilePicker.saveFile(
       dialogTitle:
-          'Save ${dialogLabel ?? exported.format.fileExtension.toUpperCase()}',
+          '${exported.intent.dialogTitleVerb} ${dialogLabel ?? exported.format.fileExtension.toUpperCase()}',
       fileName: exported.fileName,
       type: FileType.custom,
       allowedExtensions: [exported.format.fileExtension],
@@ -380,7 +428,11 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
         completed: false,
       );
     }
-    return _WriteExportedDocumentResult(status: 'Saved $path', completed: true);
+    return _WriteExportedDocumentResult(
+      status: 'Saved $path',
+      completed: true,
+      path: path,
+    );
   }
 
   Future<void> _insertDemoText() async {
@@ -410,12 +462,14 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
   Future<RhwpExportedDocument> _exportFor(
     _ExportKind kind, {
     required RhwpDocument? document,
+    RhwpExportIntent intent = RhwpExportIntent.export,
   }) async {
     if (_usesFullEditor) {
       return _fullEditorController.exportDocument(
         kind.format,
         sourceFileName: _fileName,
         page: kind.defaultPage,
+        intent: intent,
       );
     }
     if (document == null) {
@@ -425,6 +479,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
       kind.format,
       sourceFileName: _fileName,
       page: kind.defaultPage,
+      intent: intent,
     );
   }
 
@@ -432,6 +487,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
     RhwpDocument next, {
     required String fileName,
     Uint8List? sourceBytes,
+    String? filePath,
     bool dirty = false,
   }) async {
     final previous = _document;
@@ -441,6 +497,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
       _metadata = metadata;
       _sourceBytes = sourceBytes;
       _fileName = fileName;
+      _filePath = filePath;
       _documentDirty = dirty;
       _viewerKey = UniqueKey();
     });
@@ -452,6 +509,7 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
   Future<void> _replaceWebEditorSource({
     required String fileName,
     Uint8List? sourceBytes,
+    String? filePath,
     bool dirty = false,
   }) async {
     final previous = _document;
@@ -460,12 +518,28 @@ class _RhwpExampleAppState extends State<RhwpExampleApp> {
       _metadata = null;
       _sourceBytes = sourceBytes;
       _fileName = fileName;
+      _filePath = filePath;
       _documentDirty = dirty;
       _viewerKey = UniqueKey();
     });
     _editorController.dirty = dirty;
     _fullEditorController.dirty = dirty;
     await previous?.close();
+  }
+
+  void _recordSavedDocument(
+    RhwpExportedDocument exported,
+    _WriteExportedDocumentResult result,
+  ) {
+    final savedFileName = _fileNameFromPath(result.path) ?? exported.fileName;
+    setState(() {
+      _sourceBytes = exported.bytes;
+      _fileName = savedFileName;
+      _filePath = result.path ?? _filePath;
+      _documentDirty = false;
+    });
+    _editorController.markClean();
+    _fullEditorController.markClean();
   }
 
   Future<Uint8List> _sourceBytesForNativeEditor() async {
@@ -834,6 +908,38 @@ enum _ExportKind {
   final int? defaultPage;
 
   String get extension => format.fileExtension;
+
+  bool get isPrimaryDocument => format.isPrimaryDocument;
 }
 
 enum _EditorMode { nativeEditor, fullEditor }
+
+_ExportKind _currentPrimaryExportKindForName(String? fileName) {
+  final normalized = fileName?.trim().toLowerCase() ?? '';
+  return normalized.endsWith('.hwpx') ? _ExportKind.hwpx : _ExportKind.hwp;
+}
+
+extension on RhwpExportFormat {
+  bool get isPrimaryDocument {
+    return this == RhwpExportFormat.hwp || this == RhwpExportFormat.hwpx;
+  }
+}
+
+extension on RhwpExportIntent {
+  String get dialogTitleVerb {
+    return switch (this) {
+      RhwpExportIntent.save => 'Save',
+      RhwpExportIntent.saveAs => 'Save As',
+      RhwpExportIntent.export => 'Export',
+    };
+  }
+}
+
+String? _fileNameFromPath(String? path) {
+  final trimmed = path?.trim();
+  if (trimmed == null || trimmed.isEmpty) {
+    return null;
+  }
+  final fileName = trimmed.split(RegExp(r'[/\\]')).last.trim();
+  return fileName.isEmpty ? null : fileName;
+}
