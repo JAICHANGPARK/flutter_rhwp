@@ -78,6 +78,8 @@
   markers can be detected and removed while preserving their display text.
 * Kept ClickHere property editing scoped to ClickHere fields when the caret is
   inside a non-ClickHere field such as a hyperlink.
+* Added `RhwpDocument.updateHyperlink(...)` and a Flutter-native edit hyperlink
+  action that updates both the hyperlink URL command and visible display text.
 
 ## 2026-06-02 (2026.6.2)
 

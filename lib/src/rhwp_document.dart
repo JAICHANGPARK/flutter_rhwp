@@ -1355,6 +1355,12 @@ abstract class RhwpCommand {
     required String text,
   }) = RhwpInsertHyperlinkCommand;
 
+  factory RhwpCommand.updateHyperlink({
+    required int fieldId,
+    required String url,
+    required String text,
+  }) = RhwpUpdateHyperlinkCommand;
+
   factory RhwpCommand.insertHiddenComment({
     required int section,
     required int paragraph,
@@ -2658,6 +2664,26 @@ class RhwpInsertHyperlinkCommand extends RhwpCommand {
     'section': section,
     'paragraph': paragraph,
     'offset': offset,
+    'url': url,
+    'text': text,
+  };
+}
+
+class RhwpUpdateHyperlinkCommand extends RhwpCommand {
+  const RhwpUpdateHyperlinkCommand({
+    required this.fieldId,
+    required this.url,
+    required this.text,
+  });
+
+  final int fieldId;
+  final String url;
+  final String text;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'updateHyperlink',
+    'fieldId': fieldId,
     'url': url,
     'text': text,
   };
@@ -5703,6 +5729,16 @@ class RhwpDocument {
         url: url,
         text: text,
       ),
+    );
+  }
+
+  Future<String> updateHyperlink({
+    required int fieldId,
+    required String url,
+    required String text,
+  }) {
+    return apply(
+      RhwpCommand.updateHyperlink(fieldId: fieldId, url: url, text: text),
     );
   }
 

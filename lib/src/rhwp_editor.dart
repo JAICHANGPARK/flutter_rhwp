@@ -580,6 +580,7 @@ enum _EditorContextMenuAction {
   insertEquation,
   bookmark,
   fields,
+  editHyperlink,
   fieldProperties,
   removeField,
   insertRectangle,
@@ -5383,6 +5384,74 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       _controller.cursor = cursor.copyWith(
         offset: cursor.offset + result.text.length,
       );
+    });
+  }
+
+  Future<void> _showEditHyperlinkDialog() async {
+    if (_busy) {
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _visibleBusy = true;
+      _error = null;
+    });
+
+    late final RhwpFieldInfo field;
+    try {
+      final fieldInfo = await _fieldInfoAtCursor();
+      final fieldId = fieldInfo.fieldId;
+      final fieldType = fieldInfo.fieldType?.toLowerCase();
+      if (!fieldInfo.inField || fieldId == null || fieldType != 'hyperlink') {
+        throw StateError('No hyperlink at cursor');
+      }
+      final fields = await widget.document.fields();
+      field = fields.firstWhere(
+        (candidate) =>
+            candidate.fieldId == fieldId &&
+            candidate.fieldType.toLowerCase() == 'hyperlink',
+      );
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _visibleBusy = false;
+          _error = error;
+        });
+      }
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _busy = false;
+      _visibleBusy = false;
+    });
+
+    final result = await showDialog<_HyperlinkDialogResult>(
+      context: context,
+      builder: (context) => _HyperlinkDialog(
+        initialUrl: field.command,
+        initialText: field.value,
+        actionLabel: 'Update',
+      ),
+    );
+    if (result == null ||
+        result.url.trim().isEmpty ||
+        result.text.trim().isEmpty) {
+      return;
+    }
+
+    await _runEdit(() async {
+      final response = await widget.document.updateHyperlink(
+        fieldId: field.fieldId,
+        url: result.url.trim(),
+        text: result.text,
+      );
+      _throwIfCommandRejected(response);
     });
   }
 
@@ -12313,6 +12382,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         await _showBookmarkDialog();
       case _EditorContextMenuAction.fields:
         await _showFieldsDialog();
+      case _EditorContextMenuAction.editHyperlink:
+        await _showEditHyperlinkDialog();
       case _EditorContextMenuAction.fieldProperties:
         await _showFieldPropertiesDialog();
       case _EditorContextMenuAction.removeField:
@@ -12610,6 +12681,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
             enabled: !_busy,
           ),
           _contextMenuItem(
+            action: _EditorContextMenuAction.editHyperlink,
+            icon: Icons.link,
+            label: '하이퍼링크 편집',
+            enabled: !_busy,
+          ),
+          _contextMenuItem(
             action: _EditorContextMenuAction.fieldProperties,
             icon: Icons.edit_note,
             label: '누름틀 속성',
@@ -12897,6 +12974,12 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         action: _EditorContextMenuAction.fields,
         icon: Icons.input,
         label: '필드 목록',
+        enabled: !_busy,
+      ),
+      _contextMenuItem(
+        action: _EditorContextMenuAction.editHyperlink,
+        icon: Icons.link,
+        label: '하이퍼링크 편집',
         enabled: !_busy,
       ),
       _contextMenuItem(
@@ -14745,6 +14828,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onCharacterMap: _showCharacterMapDialog,
           onBookmark: _showBookmarkDialog,
           onFields: _showFieldsDialog,
+          onEditHyperlink: _showEditHyperlinkDialog,
           onInsertPicture: _insertPicture,
           onInsertShape: _insertShape,
           onInsertParagraph: _insertParagraphAfterCursor,
@@ -17489,6 +17573,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onCharacterMap,
     required this.onBookmark,
     required this.onFields,
+    required this.onEditHyperlink,
     required this.onInsertPicture,
     required this.onInsertShape,
     required this.onInsertParagraph,
@@ -17667,6 +17752,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onCharacterMap;
   final VoidCallback onBookmark;
   final VoidCallback onFields;
+  final VoidCallback onEditHyperlink;
   final VoidCallback onInsertPicture;
   final ValueChanged<_EditorShapePreset> onInsertShape;
   final VoidCallback onInsertParagraph;
@@ -19324,6 +19410,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               buttonKey: const ValueKey('rhwp-editor-fields'),
               icon: Icons.input,
               onPressed: widget.busy ? null : widget.onFields,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Edit hyperlink',
+              buttonKey: const ValueKey('rhwp-editor-edit-hyperlink'),
+              icon: Icons.link,
+              onPressed: widget.busy ? null : widget.onEditHyperlink,
             ),
             _ToolbarIconButton(
               tooltip: 'Field properties',
@@ -21530,21 +21622,30 @@ int _equationColorFromHex(String value) {
 }
 
 class _HyperlinkDialog extends StatefulWidget {
-  const _HyperlinkDialog({required this.initialText});
+  const _HyperlinkDialog({
+    required this.initialText,
+    this.initialUrl = 'https://',
+    this.actionLabel = 'Insert',
+  });
 
   final String initialText;
+  final String initialUrl;
+  final String actionLabel;
 
   @override
   State<_HyperlinkDialog> createState() => _HyperlinkDialogState();
 }
 
 class _HyperlinkDialogState extends State<_HyperlinkDialog> {
-  final _urlController = TextEditingController(text: 'https://');
+  late final TextEditingController _urlController;
   late final TextEditingController _textController;
 
   @override
   void initState() {
     super.initState();
+    _urlController = TextEditingController(
+      text: widget.initialUrl.trim().isEmpty ? 'https://' : widget.initialUrl,
+    );
     _textController = TextEditingController(text: widget.initialText);
   }
 
@@ -21597,7 +21698,7 @@ class _HyperlinkDialogState extends State<_HyperlinkDialog> {
         FilledButton(
           key: const ValueKey('rhwp-hyperlink-apply'),
           onPressed: _apply,
-          child: const Text('Insert'),
+          child: Text(widget.actionLabel),
         ),
       ],
     );

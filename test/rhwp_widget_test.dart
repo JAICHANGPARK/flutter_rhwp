@@ -1532,6 +1532,92 @@ void main() {
     ]);
   });
 
+  testWidgets('RhwpNativeEditor tools ribbon edits hyperlink fields', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1)
+      ..fieldInfoJson =
+          '{"inField":true,"fieldId":8,"fieldType":"hyperlink","startCharIdx":2,"endCharIdx":9,"isGuide":false,"guideName":""}'
+      ..fieldsJson =
+          '[{"fieldId":8,"fieldType":"hyperlink","name":"","guide":"","command":"https://old.example","value":"Old link","location":{"sectionIndex":0,"paraIndex":0}}]';
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 1100,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 0, offset: 3);
+    await tester.pump();
+
+    await tester.tap(find.text('도구'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-edit-hyperlink')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-edit-hyperlink')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('하이퍼링크'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('rhwp-hyperlink-url-field')),
+          )
+          .controller
+          ?.text,
+      'https://old.example',
+    );
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('rhwp-hyperlink-text-field')),
+          )
+          .controller
+          ?.text,
+      'Old link',
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-hyperlink-url-field')),
+      'https://new.example',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('rhwp-hyperlink-text-field')),
+      'New link',
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-hyperlink-apply')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+    ]);
+    expect(session.commands.map(jsonDecode).toList(), [
+      {'type': 'getFieldInfoAt', 'section': 0, 'paragraph': 0, 'offset': 3},
+      {'type': 'getFieldList'},
+      {
+        'type': 'updateHyperlink',
+        'fieldId': 8,
+        'url': 'https://new.example',
+        'text': 'New link',
+      },
+    ]);
+  });
+
   testWidgets(
     'RhwpNativeEditor tools ribbon activates and clears field state',
     (tester) async {
@@ -22936,6 +23022,8 @@ class _FakeRhwpSession implements rust.RhwpSession {
       '{"alignment":"justify","lineSpacing":160.0,"lineSpacingType":"Percent","marginLeft":0.0,"marginRight":0.0,"indent":0.0,"spacingBefore":0.0,"spacingAfter":0.0,"paraShapeId":0}';
   String bookmarksJson =
       '[{"name":"intro","sec":0,"para":0,"ctrlIdx":2,"charPos":1}]';
+  String fieldsJson =
+      '[{"fieldId":7,"fieldType":"ClickHere","name":"customer","guide":"고객명","command":"ClickHere customer","value":"Old","location":{"section":0,"paragraph":0}}]';
   String fieldInfoJson =
       '{"inField":true,"fieldId":7,"fieldType":"ClickHere","startCharIdx":1,"endCharIdx":4,"isGuide":false,"guideName":"고객명"}';
   String columnDefJson =
@@ -23017,7 +23105,7 @@ class _FakeRhwpSession implements rust.RhwpSession {
       return '{"ok":true,"page":$page}';
     }
     if (command is Map && command['type'] == 'getFieldList') {
-      return '[{"fieldId":7,"fieldType":"ClickHere","name":"customer","guide":"고객명","command":"ClickHere customer","value":"Old","location":{"section":0,"paragraph":0}}]';
+      return fieldsJson;
     }
     if (command is Map &&
         (command['type'] == 'getFieldInfoAt' ||

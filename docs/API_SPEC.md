@@ -352,6 +352,7 @@ await document.setPageBorderFill(
 | Footnote text | `document.insertTextInFootnote(...)`, `deleteTextInFootnote(...)` |
 | Insert equation | `document.insertEquation(...)` |
 | Insert hyperlink | `document.insertHyperlink(...)` |
+| Edit hyperlink | `document.updateHyperlink(...)` |
 | Insert hidden comment | `document.insertHiddenComment(...)` |
 | Bookmark list/add/delete/rename | `document.bookmarks()`, `addBookmark(...)`, `deleteBookmark(...)`, `renameBookmark(...)` |
 | Field list | `document.fields()` |
@@ -367,8 +368,9 @@ await document.setPageBorderFill(
 뒤 같은 위치에 hyperlink field range를 만든다. `fieldInfoAt(...)`은
 ClickHere뿐 아니라 hyperlink field도 반환한다. `removeFieldAt(...)`은 현재
 caret의 field marker를 제거하고 표시 텍스트는 유지한다. ClickHere 속성 편집은
-`fieldType == clickhere`일 때만 사용한다. HWPX field serialization,
-하이퍼링크/주석 편집, 주석 삭제, 표 셀 내부 삽입은 추가 검증/구현 대상이다.
+`fieldType == clickhere`일 때만 사용한다. `updateHyperlink(...)`는 hyperlink
+field의 URL command와 표시 텍스트를 함께 갱신한다. HWPX field serialization,
+주석 편집/삭제, 표 셀 내부 삽입은 추가 검증/구현 대상이다.
 
 ```dart
 await document.insertHyperlink(
@@ -392,6 +394,12 @@ final fieldInfo = await document.fieldInfoAt(
   offset: controller.cursor.offset,
 );
 if (fieldInfo.inField && fieldInfo.fieldType == 'hyperlink') {
+  await document.updateHyperlink(
+    fieldId: fieldInfo.fieldId!,
+    url: 'https://updated.example',
+    text: 'Updated link',
+  );
+
   await document.removeFieldAt(
     section: controller.cursor.section,
     paragraph: controller.cursor.paragraph,

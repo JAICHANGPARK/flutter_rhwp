@@ -30,6 +30,8 @@ documents.
 - Manage bookmarks from the Flutter-native input ribbon or the Dart API.
 - Insert hyperlinks and hidden comments from the Flutter-native input ribbon or
   the Dart API.
+- Edit hyperlink URLs and display text from the Flutter-native tools ribbon or
+  the Dart API.
 - Manage HWP fields/누름틀 values from the Flutter-native tools ribbon or the
   Dart API.
 - Inspect and remove field markers, including ClickHere and hyperlink fields,
@@ -218,6 +220,12 @@ await document.insertHyperlink(
   offset: 0,
   url: 'https://example.com',
   text: 'Example',
+);
+
+await document.updateHyperlink(
+  fieldId: 1,
+  url: 'https://updated.example',
+  text: 'Updated link',
 );
 
 await document.insertHiddenComment(

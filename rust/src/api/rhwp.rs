@@ -463,6 +463,14 @@ impl RhwpSession {
                     &text,
                 )
                 .map_err(error_to_string),
+            RhwpCommand::UpdateHyperlink {
+                field_id,
+                url,
+                text,
+            } => inner
+                .document
+                .update_hyperlink_native(field_id, &url, &text)
+                .map_err(error_to_string),
             RhwpCommand::InsertHiddenComment {
                 section,
                 paragraph,
@@ -1882,6 +1890,12 @@ enum RhwpCommand {
         section: u32,
         paragraph: u32,
         offset: u32,
+        url: String,
+        text: String,
+    },
+    UpdateHyperlink {
+        #[serde(rename = "fieldId")]
+        field_id: u32,
         url: String,
         text: String,
     },
@@ -3425,7 +3439,9 @@ mod tests {
         let hyperlink: Value = serde_json::from_str(&hyperlink_result)
             .expect("insert hyperlink result should be JSON");
         assert_eq!(hyperlink["ok"], true);
-        assert!(hyperlink["fieldId"].as_u64().is_some());
+        let hyperlink_field_id = hyperlink["fieldId"]
+            .as_u64()
+            .expect("insert hyperlink should return fieldId");
         let fields_result = session
             .apply_command(r#"{"type":"getFieldList"}"#.to_string())
             .expect("get field list command should be accepted");
@@ -3437,6 +3453,30 @@ mod tests {
                 .any(|item| item["fieldType"].as_str() == Some("hyperlink")
                     && item["value"].as_str() == Some("Example"))),
             "inserted hyperlink field should be discoverable"
+        );
+        let update_hyperlink_result = session
+            .apply_command(format!(
+                r#"{{"type":"updateHyperlink","fieldId":{},"url":"https://updated.example","text":"Updated link"}}"#,
+                hyperlink_field_id
+            ))
+            .expect("update hyperlink command should be accepted");
+        let update_hyperlink: Value = serde_json::from_str(&update_hyperlink_result)
+            .expect("update hyperlink result should be JSON");
+        assert_eq!(update_hyperlink["ok"], true);
+        let updated_fields_result = session
+            .apply_command(r#"{"type":"getFieldList"}"#.to_string())
+            .expect("get updated field list command should be accepted");
+        let updated_fields: Value = serde_json::from_str(&updated_fields_result)
+            .expect("updated field list result should be JSON");
+        assert!(
+            updated_fields
+                .as_array()
+                .is_some_and(|items| items
+                    .iter()
+                    .any(|item| item["fieldType"].as_str() == Some("hyperlink")
+                        && item["command"].as_str() == Some("https://updated.example")
+                        && item["value"].as_str() == Some("Updated link"))),
+            "updated hyperlink field should expose new URL and text"
         );
         let hyperlink_info_result = session
             .apply_command(

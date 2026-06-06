@@ -500,6 +500,24 @@ void main() {
     expect(
       jsonDecode(
         jsonEncode(
+          RhwpCommand.updateHyperlink(
+            fieldId: 8,
+            url: 'https://example.com',
+            text: 'Example',
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'updateHyperlink',
+        'fieldId': 8,
+        'url': 'https://example.com',
+        'text': 'Example',
+      },
+    );
+
+    expect(
+      jsonDecode(
+        jsonEncode(
           RhwpCommand.updateClickHereProperties(
             fieldId: 7,
             guide: 'guide',

@@ -267,6 +267,68 @@ impl DocumentCore {
         ))
     }
 
+    /// updateHyperlink: hyperlink field의 URL과 표시 텍스트를 갱신한다.
+    pub fn update_hyperlink_native(
+        &mut self,
+        field_id: u32,
+        url: &str,
+        text: &str,
+    ) -> Result<String, HwpError> {
+        let url = url.trim();
+        if url.is_empty() {
+            return Ok(r#"{"ok":false,"error":"하이퍼링크 주소를 입력하세요."}"#.to_string());
+        }
+
+        let fields = self.collect_all_fields();
+        let fi = fields
+            .iter()
+            .find(|f| f.field.field_id == field_id)
+            .ok_or_else(|| HwpError::InvalidField(format!("필드 ID {} 없음", field_id)))?;
+        if fi.field.field_type != FieldType::Hyperlink {
+            return Ok(r#"{"ok":false,"error":"하이퍼링크 필드가 아닙니다."}"#.to_string());
+        }
+
+        let location = fi.location.clone();
+        let fri = fi.field_range_index;
+        let old_url = fi.field.command.clone();
+        let old_text = fi.value.clone();
+        let new_text = if text.trim().is_empty() {
+            old_text.as_str()
+        } else {
+            text
+        };
+
+        self.set_field_text_at(&location, fri, new_text)?;
+
+        if let Some(sec) = self.document.sections.get_mut(location.section_index) {
+            sec.raw_stream = None;
+        }
+        let para = self.get_para_mut_at_location(&location)?;
+        let control_idx = para
+            .field_ranges
+            .get(fri)
+            .ok_or_else(|| HwpError::InvalidField("field_range 인덱스 초과".into()))?
+            .control_idx;
+        match para.controls.get_mut(control_idx) {
+            Some(Control::Field(field)) if field.field_type == FieldType::Hyperlink => {
+                field.command = url.to_string();
+            }
+            _ => return Err(HwpError::InvalidField("하이퍼링크 컨트롤 없음".into())),
+        }
+
+        self.recompose_section(location.section_index);
+        self.invalidate_page_tree_cache();
+
+        Ok(format!(
+            "{{\"ok\":true,\"fieldId\":{},\"oldUrl\":{},\"newUrl\":{},\"oldText\":{},\"newText\":{}}}",
+            field_id,
+            json_escape(&old_url),
+            json_escape(url),
+            json_escape(&old_text),
+            json_escape(new_text),
+        ))
+    }
+
     /// setFieldValueByName: 필드 이름으로 값 설정
     pub fn set_field_value_by_name(&mut self, name: &str, value: &str) -> Result<String, HwpError> {
         let fields = self.collect_all_fields();
