@@ -40,6 +40,8 @@
   path.
 * Added Flutter-native table cell equal-height and equal-width ribbon actions
   backed by rhwp core `resizeTableCells` deltas.
+* Added Flutter-native table formula preset buttons for selected-cell SUM,
+  AVG, and PRODUCT calculations.
 
 ## 2026-06-02 (2026.6.2)
 

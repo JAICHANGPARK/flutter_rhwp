@@ -5314,6 +5314,102 @@ void main() {
     ]);
   });
 
+  testWidgets('RhwpNativeEditor evaluates table formula presets', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.tableCellSelection = const RhwpTableCellSelection(
+      section: 0,
+      paragraph: 5,
+      controlIndex: 2,
+      startRow: 1,
+      startColumn: 3,
+      endRow: 2,
+      endColumn: 4,
+      activeCellIndex: 7,
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('표'));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-table-formula-sum')),
+    );
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-table-formula-sum')),
+    );
+    await _pumpDocumentFrame(tester);
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-table-formula-average')),
+    );
+    await _pumpDocumentFrame(tester);
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-table-formula-product')),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 3);
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+      'saveSnapshot',
+      'saveSnapshot',
+    ]);
+    expect(session.commands.map(jsonDecode).toList(), [
+      {
+        'type': 'evaluateTableFormula',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'row': 1,
+        'column': 3,
+        'formula': '=SUM(D2:E3)',
+        'writeResult': true,
+      },
+      {
+        'type': 'evaluateTableFormula',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'row': 1,
+        'column': 3,
+        'formula': '=AVG(D2:E3)',
+        'writeResult': true,
+      },
+      {
+        'type': 'evaluateTableFormula',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'row': 1,
+        'column': 3,
+        'formula': '=PRODUCT(D2:E3)',
+        'writeResult': true,
+      },
+    ]);
+  });
+
   testWidgets('RhwpNativeEditor taps table cell to set table edit context', (
     tester,
   ) async {

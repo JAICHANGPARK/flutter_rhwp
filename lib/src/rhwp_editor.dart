@@ -5883,6 +5883,44 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
   }
 
+  Future<void> _evaluateTableFormulaPreset(String functionName) async {
+    final selection = _editableTableCellSelection;
+    if (selection == null) {
+      return;
+    }
+
+    final formula = '=$functionName(${_tableFormulaRange(selection)})';
+    _setTextIfChanged(_tableFormulaController, formula);
+    await _evaluateTableFormula();
+  }
+
+  String _tableFormulaRange(RhwpTableCellSelection selection) {
+    final startCell = _tableCellFormulaRef(
+      row: selection.startRow,
+      column: selection.startColumn,
+    );
+    final endCell = _tableCellFormulaRef(
+      row: selection.endRow,
+      column: selection.endColumn,
+    );
+    return startCell == endCell ? startCell : '$startCell:$endCell';
+  }
+
+  String _tableCellFormulaRef({required int row, required int column}) {
+    return '${_tableFormulaColumnName(column)}${row + 1}';
+  }
+
+  String _tableFormulaColumnName(int zeroBasedColumn) {
+    var value = zeroBasedColumn + 1;
+    final chars = <String>[];
+    while (value > 0) {
+      value -= 1;
+      chars.add(String.fromCharCode('A'.codeUnitAt(0) + value % 26));
+      value ~/= 26;
+    }
+    return chars.reversed.join();
+  }
+
   Future<List<RhwpTableCellResize>> _tableCellResizeUpdatesForSelection(
     RhwpTableCellSelection selection, {
     required int widthDelta,
@@ -14150,6 +14188,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onEqualizeCellHeights: _equalizeSelectedTableCellHeights,
           onEqualizeCellWidths: _equalizeSelectedTableCellWidths,
           onEvaluateTableFormula: _evaluateTableFormula,
+          onEvaluateTableFormulaPreset: _evaluateTableFormulaPreset,
           onCellFillColor: (fillColor) =>
               _applyTableCellStyle(fillColor: fillColor),
           onCellBorder: () => _applyTableCellStyle(
@@ -16877,6 +16916,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onEqualizeCellHeights,
     required this.onEqualizeCellWidths,
     required this.onEvaluateTableFormula,
+    required this.onEvaluateTableFormulaPreset,
     required this.onCellFillColor,
     required this.onCellBorder,
     required this.onClearCellFill,
@@ -17044,6 +17084,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onEqualizeCellHeights;
   final VoidCallback onEqualizeCellWidths;
   final VoidCallback onEvaluateTableFormula;
+  final ValueChanged<String> onEvaluateTableFormulaPreset;
   final ValueChanged<String> onCellFillColor;
   final VoidCallback onCellBorder;
   final VoidCallback onClearCellFill;
@@ -18242,6 +18283,30 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               filled: true,
               onPressed: canEditActiveCell
                   ? widget.onEvaluateTableFormula
+                  : null,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Sum selected cells',
+              buttonKey: const ValueKey('rhwp-editor-table-formula-sum'),
+              icon: Icons.add,
+              onPressed: canEditActiveCell
+                  ? () => widget.onEvaluateTableFormulaPreset('SUM')
+                  : null,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Average selected cells',
+              buttonKey: const ValueKey('rhwp-editor-table-formula-average'),
+              icon: Icons.percent,
+              onPressed: canEditActiveCell
+                  ? () => widget.onEvaluateTableFormulaPreset('AVG')
+                  : null,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Product selected cells',
+              buttonKey: const ValueKey('rhwp-editor-table-formula-product'),
+              icon: Icons.close,
+              onPressed: canEditActiveCell
+                  ? () => widget.onEvaluateTableFormulaPreset('PRODUCT')
                   : null,
             ),
           ],

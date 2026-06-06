@@ -181,6 +181,7 @@ Web/WASM에서 일부 export, 특히 PDF는 플랫폼 제약으로 `RhwpUnsuppor
 | Equalize selected cell width/height | 선택 셀들의 `document.cellProperties(...)`를 읽고 최대 width/height 기준 delta를 `document.resizeTableCells(...)`에 전달 |
 | Cell fill/border/vertical align | `document.applyTableCellStyle(...)` |
 | Formula | `document.evaluateTableFormula(...)` |
+| Formula presets | 선택 범위를 A1 표기법으로 변환해 `=SUM(range)`, `=AVG(range)`, `=PRODUCT(range)`를 `document.evaluateTableFormula(...)`에 전달 |
 | Delete table object | `document.deleteTableControl(...)` |
 | Move table object | `document.moveTableOffset(...)` |
 

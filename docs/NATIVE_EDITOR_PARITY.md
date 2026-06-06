@@ -122,7 +122,7 @@
 | 줄/칸 지우기 | 완료 | row/column deletion |
 | 셀 나누기 / 셀 합치기 | 완료 | split/merge commands |
 | 셀 높이를 같게 / 셀 너비를 같게 | 완료 | selected cell max width/height 기준 `resizeTableCells` |
-| 블록 계산식 / 합계 / 평균 / 곱 | 부분 | formula evaluation field. preset formula commands 필요 |
+| 블록 계산식 / 합계 / 평균 / 곱 | 완료 | formula field, SUM/AVG/PRODUCT selected-cell presets |
 | 1,000 단위 구분 / 자릿점 넣기/빼기 | 미구현 | table number formatting command/UI 필요 |
 
 ## Tools
