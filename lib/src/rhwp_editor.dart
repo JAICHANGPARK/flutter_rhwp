@@ -5906,6 +5906,114 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     ];
   }
 
+  Future<void> _equalizeSelectedTableCellHeights() {
+    return _equalizeSelectedTableCells(equalizeWidth: false);
+  }
+
+  Future<void> _equalizeSelectedTableCellWidths() {
+    return _equalizeSelectedTableCells(equalizeWidth: true);
+  }
+
+  Future<void> _equalizeSelectedTableCells({
+    required bool equalizeWidth,
+  }) async {
+    if (_busy) {
+      return;
+    }
+
+    final selection = _controller.tableCellSelection;
+    if (selection == null) {
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _visibleBusy = true;
+      _error = null;
+    });
+
+    final cells = <({int cellIndex, RhwpCellProperties properties})>[];
+    try {
+      final targets = await _tableCellStyleTargets(selection);
+      final seen = <int>{};
+      for (final target in targets) {
+        final cellIndex = target.cell.modelCellIndex;
+        if (cellIndex == null || !seen.add(cellIndex)) {
+          continue;
+        }
+        final properties = await widget.document.cellProperties(
+          section: selection.section,
+          paragraph: selection.paragraph,
+          controlIndex: selection.controlIndex,
+          cellIndex: cellIndex,
+        );
+        cells.add((cellIndex: cellIndex, properties: properties));
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _visibleBusy = false;
+          _error = error;
+        });
+      }
+      _focusEditor();
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    final dimensions = [
+      for (final cell in cells)
+        if (equalizeWidth
+            ? cell.properties.width != null
+            : cell.properties.height != null)
+          equalizeWidth ? cell.properties.width! : cell.properties.height!,
+    ];
+    final targetSize = dimensions.isEmpty ? null : dimensions.reduce(math.max);
+    final updates = targetSize == null
+        ? const <RhwpTableCellResize>[]
+        : [
+            for (final cell in cells)
+              if (equalizeWidth &&
+                  cell.properties.width != null &&
+                  targetSize - cell.properties.width! != 0)
+                RhwpTableCellResize(
+                  cellIndex: cell.cellIndex,
+                  widthDelta: targetSize - cell.properties.width!,
+                )
+              else if (!equalizeWidth &&
+                  cell.properties.height != null &&
+                  targetSize - cell.properties.height! != 0)
+                RhwpTableCellResize(
+                  cellIndex: cell.cellIndex,
+                  heightDelta: targetSize - cell.properties.height!,
+                ),
+          ];
+
+    setState(() {
+      _busy = false;
+      _visibleBusy = false;
+    });
+
+    if (updates.isEmpty) {
+      _focusEditor();
+      return;
+    }
+
+    await _runEdit(() async {
+      await widget.document.resizeTableCells(
+        section: selection.section,
+        paragraph: selection.paragraph,
+        controlIndex: selection.controlIndex,
+        updates: updates,
+      );
+      _controller.tableCellSelection = selection;
+    });
+  }
+
   Future<void> _applyTableCellStyle({
     String? fillColor,
     bool clearFill = false,
@@ -14039,6 +14147,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onSplitTableCellInto: _splitTableCellInto,
           onTableProperties: _showTablePropertiesDialog,
           onCellProperties: _showCellPropertiesDialog,
+          onEqualizeCellHeights: _equalizeSelectedTableCellHeights,
+          onEqualizeCellWidths: _equalizeSelectedTableCellWidths,
           onEvaluateTableFormula: _evaluateTableFormula,
           onCellFillColor: (fillColor) =>
               _applyTableCellStyle(fillColor: fillColor),
@@ -16764,6 +16874,8 @@ class _EditorToolbar extends StatefulWidget {
     required this.onSplitTableCellInto,
     required this.onTableProperties,
     required this.onCellProperties,
+    required this.onEqualizeCellHeights,
+    required this.onEqualizeCellWidths,
     required this.onEvaluateTableFormula,
     required this.onCellFillColor,
     required this.onCellBorder,
@@ -16929,6 +17041,8 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onSplitTableCellInto;
   final VoidCallback onTableProperties;
   final VoidCallback onCellProperties;
+  final VoidCallback onEqualizeCellHeights;
+  final VoidCallback onEqualizeCellWidths;
   final VoidCallback onEvaluateTableFormula;
   final ValueChanged<String> onCellFillColor;
   final VoidCallback onCellBorder;
@@ -18220,6 +18334,18 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               buttonKey: const ValueKey('rhwp-editor-split-cell-into'),
               icon: Icons.grid_4x4_outlined,
               onPressed: widget.busy ? null : widget.onSplitTableCellInto,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Equalize cell heights',
+              buttonKey: const ValueKey('rhwp-editor-equalize-cell-heights'),
+              icon: Icons.swap_vert,
+              onPressed: canStyleCell ? widget.onEqualizeCellHeights : null,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Equalize cell widths',
+              buttonKey: const ValueKey('rhwp-editor-equalize-cell-widths'),
+              icon: Icons.swap_horiz,
+              onPressed: canStyleCell ? widget.onEqualizeCellWidths : null,
             ),
             _ToolbarIconButton(
               tooltip: 'Table properties',

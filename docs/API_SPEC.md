@@ -178,6 +178,7 @@ Web/WASM에서 일부 export, 특히 PDF는 플랫폼 제약으로 `RhwpUnsuppor
 | Table properties | `document.tableProperties(...)`, `setTableProperties(...)` |
 | Cell properties | `document.cellProperties(...)`, `setCellProperties(...)` |
 | Resize cells | `document.resizeTableCells(...)` |
+| Equalize selected cell width/height | 선택 셀들의 `document.cellProperties(...)`를 읽고 최대 width/height 기준 delta를 `document.resizeTableCells(...)`에 전달 |
 | Cell fill/border/vertical align | `document.applyTableCellStyle(...)` |
 | Formula | `document.evaluateTableFormula(...)` |
 | Delete table object | `document.deleteTableControl(...)` |

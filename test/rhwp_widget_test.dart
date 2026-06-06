@@ -5134,6 +5134,117 @@ void main() {
     },
   );
 
+  testWidgets('RhwpNativeEditor equalizes selected table cell sizes', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    session.pageLayerTreeJson = jsonEncode(_tableCellEditorLayerTreeJson());
+    session.cellPropertiesJsonByCellIndex[7] =
+        '{"width":5000,"height":2800,"paddingLeft":100,"paddingRight":110,"paddingTop":120,"paddingBottom":130,"verticalAlign":1,"textDirection":0,"isHeader":false,"cellProtect":false}';
+    session.cellPropertiesJsonByCellIndex[8] =
+        '{"width":4600,"height":3000,"paddingLeft":100,"paddingRight":110,"paddingTop":120,"paddingBottom":130,"verticalAlign":1,"textDirection":0,"isHeader":false,"cellProtect":false}';
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.tableCellSelection = const RhwpTableCellSelection(
+      section: 0,
+      paragraph: 5,
+      controlIndex: 2,
+      startRow: 1,
+      startColumn: 3,
+      endRow: 2,
+      endColumn: 4,
+      activeCellIndex: 7,
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('표'));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-equalize-cell-widths')),
+    );
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-equalize-cell-widths')),
+    );
+    await _pumpDocumentFrame(tester);
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-equalize-cell-heights')),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 2);
+    expect(session.historyCommands.map((json) => jsonDecode(json)['type']), [
+      'saveSnapshot',
+      'saveSnapshot',
+    ]);
+    expect(session.commands.map(jsonDecode).toList(), [
+      {
+        'type': 'getCellProperties',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'cellIndex': 7,
+      },
+      {
+        'type': 'getCellProperties',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'cellIndex': 8,
+      },
+      {
+        'type': 'resizeTableCells',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'updates': [
+          {'cellIdx': 8, 'widthDelta': 400},
+        ],
+      },
+      {
+        'type': 'getCellProperties',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'cellIndex': 7,
+      },
+      {
+        'type': 'getCellProperties',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'cellIndex': 8,
+      },
+      {
+        'type': 'resizeTableCells',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'updates': [
+          {'cellIdx': 7, 'heightDelta': 200},
+        ],
+      },
+    ]);
+  });
+
   testWidgets('RhwpNativeEditor evaluates table formulas from table ribbon', (
     tester,
   ) async {
@@ -21745,6 +21856,7 @@ class _FakeRhwpSession implements rust.RhwpSession {
       '{"alignment":"justify","lineSpacing":160.0,"lineSpacingType":"Percent","marginLeft":0.0,"marginRight":0.0,"indent":0.0,"spacingBefore":0.0,"spacingAfter":0.0,"paraShapeId":0}';
   String bookmarksJson =
       '[{"name":"intro","sec":0,"para":0,"ctrlIdx":2,"charPos":1}]';
+  final cellPropertiesJsonByCellIndex = <int, String>{};
   String pageLayerTreeJson = jsonEncode(_editorLayerTreeJson());
   final pageLayerTreeJsonByPage = <int, String>{};
   final bodyParagraphLengths = <int, int>{0: 4, 1: 4};
@@ -21923,6 +22035,11 @@ class _FakeRhwpSession implements rust.RhwpSession {
       return '{"cellSpacing":10,"paddingLeft":100,"paddingRight":110,"paddingTop":120,"paddingBottom":130,"pageBreak":1,"repeatHeader":false}';
     }
     if (command is Map && command['type'] == 'getCellProperties') {
+      final cellIndex = command['cellIndex'];
+      if (cellIndex is int &&
+          cellPropertiesJsonByCellIndex.containsKey(cellIndex)) {
+        return cellPropertiesJsonByCellIndex[cellIndex]!;
+      }
       return '{"width":5000,"height":3000,"paddingLeft":100,"paddingRight":110,"paddingTop":120,"paddingBottom":130,"verticalAlign":1,"textDirection":0,"isHeader":false,"cellProtect":false}';
     }
     if (command is Map && command['type'] == 'splitParagraphInTableCell') {

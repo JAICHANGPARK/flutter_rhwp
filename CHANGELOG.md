@@ -38,6 +38,8 @@
 * Added a Flutter-native character map dialog that inserts common symbols,
   arrows, units, numbers, and math characters through the native text command
   path.
+* Added Flutter-native table cell equal-height and equal-width ribbon actions
+  backed by rhwp core `resizeTableCells` deltas.
 
 ## 2026-06-02 (2026.6.2)
 

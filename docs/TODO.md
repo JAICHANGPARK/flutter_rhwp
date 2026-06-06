@@ -31,6 +31,7 @@
 - [x] 편집, 보기, 입력, 서식, 쪽, 표, 도구 탭별 미구현 명령을 분류한다.
 - [x] 모양 복사 기능을 char/para format snapshot 기반으로 구현한다.
 - [x] Flutter-native 입력 리본에 문자표 dialog를 추가한다.
+- [x] Flutter-native 표 리본에 셀 높이/너비 같게 기능을 추가한다.
 
 ## 다음 우선순위
 
@@ -49,7 +50,7 @@
 - [ ] `docs/NATIVE_EDITOR_PARITY.md`의 부분/미구현 항목을 기능 단위 issue로 쪼갠다.
 - [ ] 하이퍼링크, 캡션, 주석 입력 기능을 구현한다.
 - [ ] 표 편집의 row/column sizing, border/fill, merge/split edge case를 실제 문서로 검증한다.
-- [ ] 표 셀 높이/너비 같게, 블록 계산식 preset, 숫자 서식 기능을 구현한다.
+- [ ] 블록 계산식 preset과 표 숫자 서식 기능을 구현한다.
 - [ ] 쪽 테두리/배경, 다단 설정, 구역 설정 기능을 구현한다.
 - [ ] 개체 편집의 image/shape/textbox/line 선택, 이동, 크기 변경, z-order edge case를 보강한다.
 - [ ] 필드/누름틀, bookmark, footnote, header/footer의 문서 round-trip을 검증한다.

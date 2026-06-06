@@ -121,7 +121,7 @@
 | 위/아래 줄 추가, 왼쪽/오른쪽 칸 추가 | 완료 | row/column insertion |
 | 줄/칸 지우기 | 완료 | row/column deletion |
 | 셀 나누기 / 셀 합치기 | 완료 | split/merge commands |
-| 셀 높이를 같게 / 셀 너비를 같게 | 미구현 | equalize row/column size command/UI 필요 |
+| 셀 높이를 같게 / 셀 너비를 같게 | 완료 | selected cell max width/height 기준 `resizeTableCells` |
 | 블록 계산식 / 합계 / 평균 / 곱 | 부분 | formula evaluation field. preset formula commands 필요 |
 | 1,000 단위 구분 / 자릿점 넣기/빼기 | 미구현 | table number formatting command/UI 필요 |
 
@@ -138,6 +138,6 @@
 
 1. Paste 리본 상태를 system clipboard, rich text clipboard, object clipboard와 연결한다.
 2. 하이퍼링크, 캡션, 주석처럼 일반 문서 작성에 자주 쓰이는 Insert 메뉴를 추가한다.
-3. 표 equalize size와 number formatting을 table backlog로 분리해 구현한다.
+3. 표 number formatting을 table backlog로 분리해 구현한다.
 4. 쪽 테두리/배경, 다단 설정, 구역 설정을 page backlog로 분리해 구현한다.
 5. 문서 이력 관리는 upstream API 확인 후 별도 milestone으로 둔다.
