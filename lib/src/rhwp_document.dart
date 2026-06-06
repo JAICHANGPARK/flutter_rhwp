@@ -1256,6 +1256,34 @@ abstract class RhwpCommand {
     required String text,
   }) = RhwpInsertHiddenCommentInTableCellCommand;
 
+  factory RhwpCommand.deleteHiddenCommentAtInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int offset,
+  }) = RhwpDeleteHiddenCommentAtInTableCellCommand;
+
+  factory RhwpCommand.hiddenCommentAtInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int offset,
+  }) = RhwpHiddenCommentAtInTableCellCommand;
+
+  factory RhwpCommand.updateHiddenCommentAtInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int offset,
+    required String text,
+  }) = RhwpUpdateHiddenCommentAtInTableCellCommand;
+
   factory RhwpCommand.deleteTextInTableCell({
     required int section,
     required int paragraph,
@@ -2304,6 +2332,96 @@ class RhwpInsertHiddenCommentInTableCellCommand extends RhwpCommand {
   @override
   Map<String, Object?> toJson() => {
     'type': 'insertHiddenCommentInTableCell',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'cellIndex': cellIndex,
+    'cellParagraph': cellParagraph,
+    'offset': offset,
+    'text': text,
+  };
+}
+
+class RhwpDeleteHiddenCommentAtInTableCellCommand extends RhwpCommand {
+  const RhwpDeleteHiddenCommentAtInTableCellCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+    required this.cellParagraph,
+    required this.offset,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+  final int cellParagraph;
+  final int offset;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'deleteHiddenCommentAtInTableCell',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'cellIndex': cellIndex,
+    'cellParagraph': cellParagraph,
+    'offset': offset,
+  };
+}
+
+class RhwpHiddenCommentAtInTableCellCommand extends RhwpCommand {
+  const RhwpHiddenCommentAtInTableCellCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+    required this.cellParagraph,
+    required this.offset,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+  final int cellParagraph;
+  final int offset;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'hiddenCommentAtInTableCell',
+    'section': section,
+    'paragraph': paragraph,
+    'controlIndex': controlIndex,
+    'cellIndex': cellIndex,
+    'cellParagraph': cellParagraph,
+    'offset': offset,
+  };
+}
+
+class RhwpUpdateHiddenCommentAtInTableCellCommand extends RhwpCommand {
+  const RhwpUpdateHiddenCommentAtInTableCellCommand({
+    required this.section,
+    required this.paragraph,
+    required this.controlIndex,
+    required this.cellIndex,
+    required this.cellParagraph,
+    required this.offset,
+    required this.text,
+  });
+
+  final int section;
+  final int paragraph;
+  final int controlIndex;
+  final int cellIndex;
+  final int cellParagraph;
+  final int offset;
+  final String text;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'updateHiddenCommentAtInTableCell',
     'section': section,
     'paragraph': paragraph,
     'controlIndex': controlIndex,
@@ -5626,6 +5744,69 @@ class RhwpDocument {
   }) {
     return apply(
       RhwpCommand.insertHiddenCommentInTableCell(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        cellIndex: cellIndex,
+        cellParagraph: cellParagraph,
+        offset: offset,
+        text: text,
+      ),
+    );
+  }
+
+  Future<String> deleteHiddenCommentAtInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int offset,
+  }) {
+    return apply(
+      RhwpCommand.deleteHiddenCommentAtInTableCell(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        cellIndex: cellIndex,
+        cellParagraph: cellParagraph,
+        offset: offset,
+      ),
+    );
+  }
+
+  Future<RhwpHiddenCommentHit> hiddenCommentAtInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int offset,
+  }) async {
+    final result = await apply(
+      RhwpCommand.hiddenCommentAtInTableCell(
+        section: section,
+        paragraph: paragraph,
+        controlIndex: controlIndex,
+        cellIndex: cellIndex,
+        cellParagraph: cellParagraph,
+        offset: offset,
+      ),
+    );
+    return RhwpHiddenCommentHit.fromJsonString(result);
+  }
+
+  Future<String> updateHiddenCommentAtInTableCell({
+    required int section,
+    required int paragraph,
+    required int controlIndex,
+    required int cellIndex,
+    required int cellParagraph,
+    required int offset,
+    required String text,
+  }) {
+    return apply(
+      RhwpCommand.updateHiddenCommentAtInTableCell(
         section: section,
         paragraph: paragraph,
         controlIndex: controlIndex,

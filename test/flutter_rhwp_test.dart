@@ -827,6 +827,77 @@ void main() {
     expect(
       jsonDecode(
         jsonEncode(
+          RhwpCommand.hiddenCommentAtInTableCell(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            cellIndex: 3,
+            cellParagraph: 0,
+            offset: 4,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'hiddenCommentAtInTableCell',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'cellIndex': 3,
+        'cellParagraph': 0,
+        'offset': 4,
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.updateHiddenCommentAtInTableCell(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            cellIndex: 3,
+            cellParagraph: 0,
+            offset: 4,
+            text: '수정',
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'updateHiddenCommentAtInTableCell',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'cellIndex': 3,
+        'cellParagraph': 0,
+        'offset': 4,
+        'text': '수정',
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
+          RhwpCommand.deleteHiddenCommentAtInTableCell(
+            section: 0,
+            paragraph: 1,
+            controlIndex: 2,
+            cellIndex: 3,
+            cellParagraph: 0,
+            offset: 4,
+          ).toJson(),
+        ),
+      ),
+      {
+        'type': 'deleteHiddenCommentAtInTableCell',
+        'section': 0,
+        'paragraph': 1,
+        'controlIndex': 2,
+        'cellIndex': 3,
+        'cellParagraph': 0,
+        'offset': 4,
+      },
+    );
+    expect(
+      jsonDecode(
+        jsonEncode(
           RhwpCommand.deleteTextInTableCell(
             section: 0,
             paragraph: 1,
@@ -3014,6 +3085,65 @@ void main() {
       'cellParagraph': 0,
       'offset': 2,
       'text': '검토',
+    });
+
+    await document.hiddenCommentAtInTableCell(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      cellIndex: 2,
+      cellParagraph: 0,
+      offset: 2,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'hiddenCommentAtInTableCell',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'cellIndex': 2,
+      'cellParagraph': 0,
+      'offset': 2,
+    });
+
+    await document.updateHiddenCommentAtInTableCell(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      cellIndex: 2,
+      cellParagraph: 0,
+      offset: 2,
+      text: '수정',
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'updateHiddenCommentAtInTableCell',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'cellIndex': 2,
+      'cellParagraph': 0,
+      'offset': 2,
+      'text': '수정',
+    });
+
+    await document.deleteHiddenCommentAtInTableCell(
+      section: 0,
+      paragraph: 1,
+      controlIndex: 0,
+      cellIndex: 2,
+      cellParagraph: 0,
+      offset: 2,
+    );
+
+    expect(jsonDecode(session.lastCommandJson!), {
+      'type': 'deleteHiddenCommentAtInTableCell',
+      'section': 0,
+      'paragraph': 1,
+      'controlIndex': 0,
+      'cellIndex': 2,
+      'cellParagraph': 0,
+      'offset': 2,
     });
 
     await document.deleteTextInTableCell(

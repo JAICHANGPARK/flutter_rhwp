@@ -247,6 +247,62 @@ impl RhwpSession {
                     &text,
                 )
                 .map_err(error_to_string),
+            RhwpCommand::DeleteHiddenCommentAtInTableCell {
+                section,
+                paragraph,
+                control_index,
+                cell_index,
+                cell_paragraph,
+                offset,
+            } => inner
+                .document
+                .delete_hidden_comment_at_in_cell_native(
+                    section as usize,
+                    paragraph as usize,
+                    control_index as usize,
+                    cell_index as usize,
+                    cell_paragraph as usize,
+                    offset as usize,
+                )
+                .map_err(error_to_string),
+            RhwpCommand::HiddenCommentAtInTableCell {
+                section,
+                paragraph,
+                control_index,
+                cell_index,
+                cell_paragraph,
+                offset,
+            } => inner
+                .document
+                .hidden_comment_at_in_cell_native(
+                    section as usize,
+                    paragraph as usize,
+                    control_index as usize,
+                    cell_index as usize,
+                    cell_paragraph as usize,
+                    offset as usize,
+                )
+                .map_err(error_to_string),
+            RhwpCommand::UpdateHiddenCommentAtInTableCell {
+                section,
+                paragraph,
+                control_index,
+                cell_index,
+                cell_paragraph,
+                offset,
+                text,
+            } => inner
+                .document
+                .update_hidden_comment_at_in_cell_native(
+                    section as usize,
+                    paragraph as usize,
+                    control_index as usize,
+                    cell_index as usize,
+                    cell_paragraph as usize,
+                    offset as usize,
+                    &text,
+                )
+                .map_err(error_to_string),
             RhwpCommand::DeleteTextInTableCell {
                 section,
                 paragraph,
@@ -1834,6 +1890,40 @@ enum RhwpCommand {
         text: String,
     },
     InsertHiddenCommentInTableCell {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "cellIndex")]
+        cell_index: u32,
+        #[serde(rename = "cellParagraph")]
+        cell_paragraph: u32,
+        offset: u32,
+        text: String,
+    },
+    DeleteHiddenCommentAtInTableCell {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "cellIndex")]
+        cell_index: u32,
+        #[serde(rename = "cellParagraph")]
+        cell_paragraph: u32,
+        offset: u32,
+    },
+    HiddenCommentAtInTableCell {
+        section: u32,
+        paragraph: u32,
+        #[serde(rename = "controlIndex")]
+        control_index: u32,
+        #[serde(rename = "cellIndex")]
+        cell_index: u32,
+        #[serde(rename = "cellParagraph")]
+        cell_paragraph: u32,
+        offset: u32,
+    },
+    UpdateHiddenCommentAtInTableCell {
         section: u32,
         paragraph: u32,
         #[serde(rename = "controlIndex")]
@@ -3975,6 +4065,42 @@ mod tests {
         let table_cell_comment: Value = serde_json::from_str(&table_cell_comment)
             .expect("insert hidden comment in table cell result should be JSON");
         assert_eq!(table_cell_comment["ok"], true);
+        let table_cell_comment_hit = session
+            .apply_command(
+                format!(
+                    r#"{{"type":"hiddenCommentAtInTableCell","section":0,"paragraph":{},"controlIndex":0,"cellIndex":2,"cellParagraph":0,"offset":4}}"#,
+                    table_paragraph
+                ),
+            )
+            .expect("hidden comment hit in table cell command should be accepted");
+        let table_cell_comment_hit: Value = serde_json::from_str(&table_cell_comment_hit)
+            .expect("hidden comment hit in table cell result should be JSON");
+        assert_eq!(table_cell_comment_hit["hit"], true);
+        assert_eq!(table_cell_comment_hit["text"], "셀 검토");
+        let table_cell_comment_update = session
+            .apply_command(
+                format!(
+                    r#"{{"type":"updateHiddenCommentAtInTableCell","section":0,"paragraph":{},"controlIndex":0,"cellIndex":2,"cellParagraph":0,"offset":4,"text":"셀 수정"}}"#,
+                    table_paragraph
+                ),
+            )
+            .expect("update hidden comment in table cell command should be accepted");
+        let table_cell_comment_update: Value = serde_json::from_str(&table_cell_comment_update)
+            .expect("update hidden comment in table cell result should be JSON");
+        assert_eq!(table_cell_comment_update["ok"], true);
+        assert_eq!(table_cell_comment_update["newText"], "셀 수정");
+        let table_cell_comment_delete = session
+            .apply_command(
+                format!(
+                    r#"{{"type":"deleteHiddenCommentAtInTableCell","section":0,"paragraph":{},"controlIndex":0,"cellIndex":2,"cellParagraph":0,"offset":4}}"#,
+                    table_paragraph
+                ),
+            )
+            .expect("delete hidden comment in table cell command should be accepted");
+        let table_cell_comment_delete: Value = serde_json::from_str(&table_cell_comment_delete)
+            .expect("delete hidden comment in table cell result should be JSON");
+        assert_eq!(table_cell_comment_delete["ok"], true);
+        assert_eq!(table_cell_comment_delete["text"], "셀 수정");
         session
             .apply_command(
                 format!(

@@ -93,6 +93,14 @@
   selection.
 * Covered table-cell hyperlink/comment insertion with Dart command serialization,
   document helper, widget, and Rust facade tests.
+* Added `RhwpDocument.hiddenCommentAtInTableCell(...)`,
+  `updateHiddenCommentAtInTableCell(...)`, and
+  `deleteHiddenCommentAtInTableCell(...)` for hidden-comment lifecycle
+  operations inside active table-cell text.
+* Enabled Flutter-native hidden-comment edit/delete actions for active
+  table-cell text carets and kept them disabled for table block selection.
+* Covered table-cell hidden-comment lookup/edit/delete with Dart command
+  serialization, document helper, widget, and Rust facade tests.
 
 ## 2026-06-02 (2026.6.2)
 

@@ -359,7 +359,9 @@ await document.setPageBorderFill(
 | Insert hidden comment | `document.insertHiddenComment(...)` |
 | Insert table-cell hidden comment | `document.insertHiddenCommentInTableCell(...)` |
 | Read/edit hidden comment | `document.hiddenCommentAt(...)`, `updateHiddenCommentAt(...)` |
+| Read/edit table-cell hidden comment | `document.hiddenCommentAtInTableCell(...)`, `updateHiddenCommentAtInTableCell(...)` |
 | Delete hidden comment | `document.deleteHiddenCommentAt(...)` |
+| Delete table-cell hidden comment | `document.deleteHiddenCommentAtInTableCell(...)` |
 | Bookmark list/add/delete/rename | `document.bookmarks()`, `addBookmark(...)`, `deleteBookmark(...)`, `renameBookmark(...)` |
 | Field list | `document.fields()` |
 | Get/set field value | `document.fieldValue(...)`, `setFieldValue(...)`, `fieldValueByName(...)`, `setFieldValueByName(...)` |
@@ -377,8 +379,9 @@ hyperlink field range를 만든다. `fieldInfoAt(...)`은 ClickHere뿐 아니라
 hyperlink field도 반환한다. `removeFieldAt(...)`은 현재 caret의 field marker를
 제거하고 표시 텍스트는 유지한다. ClickHere 속성 편집은
 `fieldType == clickhere`일 때만 사용한다. `updateHyperlink(...)`는 hyperlink
-field의 URL command와 표시 텍스트를 함께 갱신한다. HWPX field serialization과
-표 셀 내부 하이퍼링크/숨은 주석 round-trip 검증은 추가 검증 대상이다.
+field의 URL command와 표시 텍스트를 함께 갱신한다. 숨은 주석은 표 셀 텍스트
+caret에서도 조회, 편집, 삭제할 수 있다. HWPX field serialization과 표 셀 내부
+하이퍼링크/숨은 주석 저장 round-trip 검증은 추가 검증 대상이다.
 
 ```dart
 await document.insertHyperlink(
@@ -417,6 +420,35 @@ if (cell != null && cell.isTextEditing && cell.activeCellIndex != null) {
     cellParagraph: cell.activeCellParagraph,
     offset: cell.activeOffset,
     text: '셀 검토 의견',
+  );
+
+  final cellComment = await document.hiddenCommentAtInTableCell(
+    section: cell.section,
+    paragraph: cell.paragraph,
+    controlIndex: cell.controlIndex,
+    cellIndex: cell.activeCellIndex!,
+    cellParagraph: cell.activeCellParagraph,
+    offset: cell.activeOffset,
+  );
+  if (cellComment.hit) {
+    await document.updateHiddenCommentAtInTableCell(
+      section: cell.section,
+      paragraph: cell.paragraph,
+      controlIndex: cell.controlIndex,
+      cellIndex: cell.activeCellIndex!,
+      cellParagraph: cell.activeCellParagraph,
+      offset: cell.activeOffset,
+      text: '셀 수정 의견',
+    );
+  }
+
+  await document.deleteHiddenCommentAtInTableCell(
+    section: cell.section,
+    paragraph: cell.paragraph,
+    controlIndex: cell.controlIndex,
+    cellIndex: cell.activeCellIndex!,
+    cellParagraph: cell.activeCellParagraph,
+    offset: cell.activeOffset,
   );
 }
 

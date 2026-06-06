@@ -30,9 +30,8 @@ documents.
 - Manage bookmarks from the Flutter-native input ribbon or the Dart API.
 - Insert hyperlinks and hidden comments in body text or active table-cell text
   from the Flutter-native input ribbon or the Dart API.
-- Delete hidden comments from the Flutter-native input ribbon or the Dart API.
-- Read and edit hidden comment text from the Flutter-native input ribbon or
-  the Dart API.
+- Read, edit, and delete hidden comments in body text or active table-cell text
+  from the Flutter-native input ribbon or the Dart API.
 - Edit hyperlink URLs and display text from the Flutter-native tools ribbon or
   the Dart API.
 - Manage HWP fields/누름틀 values from the Flutter-native tools ribbon or the
@@ -257,6 +256,35 @@ await document.insertHiddenCommentInTableCell(
   cellParagraph: 0,
   offset: 0,
   text: '셀 검토 의견',
+);
+
+final cellComment = await document.hiddenCommentAtInTableCell(
+  section: 0,
+  paragraph: 0,
+  controlIndex: 0,
+  cellIndex: 1,
+  cellParagraph: 0,
+  offset: 0,
+);
+if (cellComment.hit) {
+  await document.updateHiddenCommentAtInTableCell(
+    section: 0,
+    paragraph: 0,
+    controlIndex: 0,
+    cellIndex: 1,
+    cellParagraph: 0,
+    offset: 0,
+    text: '셀 수정 의견',
+  );
+}
+
+await document.deleteHiddenCommentAtInTableCell(
+  section: 0,
+  paragraph: 0,
+  controlIndex: 0,
+  cellIndex: 1,
+  cellParagraph: 0,
+  offset: 0,
 );
 
 final comment = await document.hiddenCommentAt(

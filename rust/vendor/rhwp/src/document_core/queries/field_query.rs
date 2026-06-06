@@ -235,6 +235,188 @@ impl DocumentCore {
         ))
     }
 
+    /// 표 셀 내부 문단의 커서 위치에서 숨은 주석 컨트롤을 삭제한다.
+    pub fn delete_hidden_comment_at_in_cell_native(
+        &mut self,
+        section_idx: usize,
+        parent_para_idx: usize,
+        control_idx: usize,
+        cell_idx: usize,
+        cell_para_idx: usize,
+        char_offset: usize,
+    ) -> Result<String, HwpError> {
+        let (comment_control_idx, comment_offset, deleted_text) = {
+            let paragraph = self.get_cell_paragraph_mut(
+                section_idx,
+                parent_para_idx,
+                control_idx,
+                cell_idx,
+                cell_para_idx,
+            )?;
+            let (comment_control_idx, comment_offset) =
+                find_hidden_comment_at(paragraph, char_offset).ok_or_else(|| {
+                    HwpError::RenderError("커서 위치에 숨은 주석 없음".into())
+                })?;
+            let deleted_text = match paragraph.controls.get(comment_control_idx) {
+                Some(Control::HiddenComment(comment)) => hidden_comment_text(comment),
+                _ => String::new(),
+            };
+
+            paragraph.controls.remove(comment_control_idx);
+            if comment_control_idx < paragraph.ctrl_data_records.len() {
+                paragraph.ctrl_data_records.remove(comment_control_idx);
+            }
+            for range in &mut paragraph.field_ranges {
+                if range.control_idx > comment_control_idx {
+                    range.control_idx -= 1;
+                }
+            }
+            subtract_control_gap(paragraph, comment_offset);
+            rebuild_char_offsets(paragraph);
+
+            if !paragraph
+                .controls
+                .iter()
+                .any(|control| matches!(control, Control::HiddenComment(_)))
+            {
+                paragraph.control_mask &= !(1u32 << 0x000F);
+            }
+
+            (comment_control_idx, comment_offset, deleted_text)
+        };
+
+        self.document.sections[section_idx].raw_stream = None;
+        self.mark_cell_control_dirty(section_idx, parent_para_idx, control_idx);
+        self.reflow_cell_paragraph(
+            section_idx,
+            parent_para_idx,
+            control_idx,
+            cell_idx,
+            cell_para_idx,
+        );
+        self.mark_section_dirty(section_idx);
+        self.paginate_if_needed();
+        self.invalidate_page_tree_cache();
+
+        Ok(format!(
+            r#"{{"ok":true,"sectionIndex":{},"paragraphIndex":{},"controlIndex":{},"cellIndex":{},"cellParagraph":{},"charOffset":{},"text":{}}}"#,
+            section_idx,
+            parent_para_idx,
+            comment_control_idx,
+            cell_idx,
+            cell_para_idx,
+            comment_offset,
+            json_escape(&deleted_text),
+        ))
+    }
+
+    /// 표 셀 내부 문단의 커서 위치에서 숨은 주석 내용을 조회한다.
+    pub fn hidden_comment_at_in_cell_native(
+        &self,
+        section_idx: usize,
+        parent_para_idx: usize,
+        control_idx: usize,
+        cell_idx: usize,
+        cell_para_idx: usize,
+        char_offset: usize,
+    ) -> Result<String, HwpError> {
+        let paragraph = self
+            .get_cell_paragraph_ref(
+                section_idx,
+                parent_para_idx,
+                control_idx,
+                cell_idx,
+                cell_para_idx,
+            )
+            .ok_or_else(|| HwpError::RenderError("표 셀 문단 범위 초과".into()))?;
+
+        let Some((comment_control_idx, comment_offset)) =
+            find_hidden_comment_at(paragraph, char_offset)
+        else {
+            return Ok(r#"{"hit":false}"#.to_string());
+        };
+        let text = match paragraph.controls.get(comment_control_idx) {
+            Some(Control::HiddenComment(comment)) => hidden_comment_text(comment),
+            _ => String::new(),
+        };
+
+        Ok(format!(
+            r#"{{"hit":true,"sectionIndex":{},"paragraphIndex":{},"controlIndex":{},"cellIndex":{},"cellParagraph":{},"charOffset":{},"text":{}}}"#,
+            section_idx,
+            parent_para_idx,
+            comment_control_idx,
+            cell_idx,
+            cell_para_idx,
+            comment_offset,
+            json_escape(&text),
+        ))
+    }
+
+    /// 표 셀 내부 문단의 커서 위치에서 숨은 주석 내용을 교체한다.
+    pub fn update_hidden_comment_at_in_cell_native(
+        &mut self,
+        section_idx: usize,
+        parent_para_idx: usize,
+        control_idx: usize,
+        cell_idx: usize,
+        cell_para_idx: usize,
+        char_offset: usize,
+        text: &str,
+    ) -> Result<String, HwpError> {
+        if text.trim().is_empty() {
+            return Ok(r#"{"ok":false,"error":"주석 내용을 입력하세요."}"#.to_string());
+        }
+
+        let (comment_control_idx, comment_offset, old_text) = {
+            let paragraph = self.get_cell_paragraph_mut(
+                section_idx,
+                parent_para_idx,
+                control_idx,
+                cell_idx,
+                cell_para_idx,
+            )?;
+            let (comment_control_idx, comment_offset) =
+                find_hidden_comment_at(paragraph, char_offset).ok_or_else(|| {
+                    HwpError::RenderError("커서 위치에 숨은 주석 없음".into())
+                })?;
+            let old_text = match paragraph.controls.get(comment_control_idx) {
+                Some(Control::HiddenComment(comment)) => hidden_comment_text(comment),
+                _ => String::new(),
+            };
+            match paragraph.controls.get_mut(comment_control_idx) {
+                Some(Control::HiddenComment(comment)) => set_hidden_comment_text(comment, text),
+                _ => return Err(HwpError::RenderError("숨은 주석 컨트롤 없음".into())),
+            }
+
+            (comment_control_idx, comment_offset, old_text)
+        };
+
+        self.document.sections[section_idx].raw_stream = None;
+        self.mark_cell_control_dirty(section_idx, parent_para_idx, control_idx);
+        self.reflow_cell_paragraph(
+            section_idx,
+            parent_para_idx,
+            control_idx,
+            cell_idx,
+            cell_para_idx,
+        );
+        self.mark_section_dirty(section_idx);
+        self.paginate_if_needed();
+        self.invalidate_page_tree_cache();
+
+        Ok(format!(
+            r#"{{"ok":true,"sectionIndex":{},"paragraphIndex":{},"controlIndex":{},"cellIndex":{},"cellParagraph":{},"charOffset":{},"oldText":{},"newText":{}}}"#,
+            section_idx,
+            parent_para_idx,
+            comment_control_idx,
+            cell_idx,
+            cell_para_idx,
+            comment_offset,
+            json_escape(&old_text),
+            json_escape(text),
+        ))
+    }
+
     /// 커서 위치의 숨은 주석 컨트롤을 삭제한다.
     pub fn delete_hidden_comment_at_native(
         &mut self,

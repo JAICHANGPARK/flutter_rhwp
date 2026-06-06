@@ -5551,7 +5551,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   }
 
   Future<void> _showEditHiddenCommentDialog() async {
-    if (_busy || _controller.tableCellSelection != null) {
+    if (_busy) {
       return;
     }
 
@@ -5561,14 +5561,30 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       _error = null;
     });
 
-    final cursor = _readCursor();
+    final currentTableSelection = _editableTableCellSelection;
+    final tableSelection = currentTableSelection?.isTextEditing == true
+        ? currentTableSelection!.copyWith(
+            activeOffset: _parseNonNegative(_offsetController.text),
+            isTextEditing: true,
+          )
+        : null;
+    final cursor = tableSelection == null ? _readCursor() : null;
     late final RhwpHiddenCommentHit hit;
     try {
-      hit = await widget.document.hiddenCommentAt(
-        section: cursor.section,
-        paragraph: cursor.paragraph,
-        offset: cursor.offset,
-      );
+      hit = tableSelection == null
+          ? await widget.document.hiddenCommentAt(
+              section: cursor!.section,
+              paragraph: cursor.paragraph,
+              offset: cursor.offset,
+            )
+          : await widget.document.hiddenCommentAtInTableCell(
+              section: tableSelection.section,
+              paragraph: tableSelection.paragraph,
+              controlIndex: tableSelection.controlIndex,
+              cellIndex: tableSelection.activeCellIndex!,
+              cellParagraph: tableSelection.activeCellParagraph,
+              offset: tableSelection.activeOffset,
+            );
       if (!hit.hit) {
         throw StateError('No hidden comment at cursor');
       }
@@ -5603,31 +5619,67 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     }
 
     await _runEdit(() async {
-      final response = await widget.document.updateHiddenCommentAt(
-        section: cursor.section,
-        paragraph: cursor.paragraph,
-        offset: cursor.offset,
-        text: result.text,
-      );
+      final response = tableSelection == null
+          ? await widget.document.updateHiddenCommentAt(
+              section: cursor!.section,
+              paragraph: cursor.paragraph,
+              offset: cursor.offset,
+              text: result.text,
+            )
+          : await widget.document.updateHiddenCommentAtInTableCell(
+              section: tableSelection.section,
+              paragraph: tableSelection.paragraph,
+              controlIndex: tableSelection.controlIndex,
+              cellIndex: tableSelection.activeCellIndex!,
+              cellParagraph: tableSelection.activeCellParagraph,
+              offset: tableSelection.activeOffset,
+              text: result.text,
+            );
       _throwIfCommandRejected(response);
-      _controller.cursor = cursor;
+      if (tableSelection == null) {
+        _controller.cursor = cursor!;
+      } else {
+        _syncTableSelectionFields(tableSelection);
+        _controller.tableCellSelection = tableSelection;
+      }
     });
   }
 
   Future<void> _deleteHiddenCommentAtCursor() async {
-    if (_busy || _controller.tableCellSelection != null) {
+    if (_busy) {
       return;
     }
 
-    final cursor = _readCursor();
+    final currentTableSelection = _editableTableCellSelection;
+    final tableSelection = currentTableSelection?.isTextEditing == true
+        ? currentTableSelection!.copyWith(
+            activeOffset: _parseNonNegative(_offsetController.text),
+            isTextEditing: true,
+          )
+        : null;
+    final cursor = tableSelection == null ? _readCursor() : null;
     await _runEdit(() async {
-      final response = await widget.document.deleteHiddenCommentAt(
-        section: cursor.section,
-        paragraph: cursor.paragraph,
-        offset: cursor.offset,
-      );
+      final response = tableSelection == null
+          ? await widget.document.deleteHiddenCommentAt(
+              section: cursor!.section,
+              paragraph: cursor.paragraph,
+              offset: cursor.offset,
+            )
+          : await widget.document.deleteHiddenCommentAtInTableCell(
+              section: tableSelection.section,
+              paragraph: tableSelection.paragraph,
+              controlIndex: tableSelection.controlIndex,
+              cellIndex: tableSelection.activeCellIndex!,
+              cellParagraph: tableSelection.activeCellParagraph,
+              offset: tableSelection.activeOffset,
+            );
       _throwIfCommandRejected(response);
-      _controller.cursor = cursor;
+      if (tableSelection == null) {
+        _controller.cursor = cursor!;
+      } else {
+        _syncTableSelectionFields(tableSelection);
+        _controller.tableCellSelection = tableSelection;
+      }
     });
   }
 
@@ -13134,13 +13186,21 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         action: _EditorContextMenuAction.deleteHiddenComment,
         icon: Icons.comments_disabled_outlined,
         label: '주석 삭제',
-        enabled: !_busy && _controller.tableCellSelection == null,
+        enabled:
+            !_busy &&
+            (_controller.tableCellSelection == null ||
+                (_controller.tableCellSelection?.isTextEditing == true &&
+                    _controller.tableCellSelection?.activeCellIndex != null)),
       ),
       _contextMenuItem(
         action: _EditorContextMenuAction.editHiddenComment,
         icon: Icons.mode_comment_outlined,
         label: '주석 편집',
-        enabled: !_busy && _controller.tableCellSelection == null,
+        enabled:
+            !_busy &&
+            (_controller.tableCellSelection == null ||
+                (_controller.tableCellSelection?.isTextEditing == true &&
+                    _controller.tableCellSelection?.activeCellIndex != null)),
       ),
       _contextMenuItem(
         action: _EditorContextMenuAction.editHyperlink,
@@ -18569,6 +18629,7 @@ class _EditorToolbarState extends State<_EditorToolbar> {
         tableSelection == null ||
         (tableSelection.isTextEditing &&
             tableSelection.activeCellIndex != null);
+    final canUseCommentAtCursor = canInsertReference;
     return [
       _RibbonGroup(
         label: '위치',
@@ -18640,7 +18701,7 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               tooltip: 'Edit comment',
               buttonKey: const ValueKey('rhwp-editor-edit-hidden-comment'),
               icon: Icons.mode_comment_outlined,
-              onPressed: widget.busy || widget.tableCellSelection != null
+              onPressed: widget.busy || !canUseCommentAtCursor
                   ? null
                   : widget.onEditHiddenComment,
             ),
@@ -18648,7 +18709,7 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               tooltip: 'Delete comment',
               buttonKey: const ValueKey('rhwp-editor-delete-hidden-comment'),
               icon: Icons.comments_disabled_outlined,
-              onPressed: widget.busy || widget.tableCellSelection != null
+              onPressed: widget.busy || !canUseCommentAtCursor
                   ? null
                   : widget.onDeleteHiddenComment,
             ),

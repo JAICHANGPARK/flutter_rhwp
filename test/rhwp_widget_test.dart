@@ -993,6 +993,67 @@ void main() {
         'offset': 10,
         'text': '셀 검토',
       });
+
+      await tester.tap(
+        find.byKey(const ValueKey('rhwp-editor-edit-hidden-comment')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<TextField>(
+              find.byKey(const ValueKey('rhwp-hidden-comment-text-field')),
+            )
+            .controller
+            ?.text,
+        '셀 검토',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('rhwp-hidden-comment-text-field')),
+        '셀 수정',
+      );
+      await tester.tap(find.byKey(const ValueKey('rhwp-hidden-comment-apply')));
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 3);
+      expect(controller.tableCellSelection?.activeOffset, 10);
+      expect(session.commands.map(jsonDecode).toList().sublist(2), [
+        {
+          'type': 'hiddenCommentAtInTableCell',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 0,
+          'offset': 10,
+        },
+        {
+          'type': 'updateHiddenCommentAtInTableCell',
+          'section': 0,
+          'paragraph': 5,
+          'controlIndex': 2,
+          'cellIndex': 7,
+          'cellParagraph': 0,
+          'offset': 10,
+          'text': '셀 수정',
+        },
+      ]);
+
+      await tester.tap(
+        find.byKey(const ValueKey('rhwp-editor-delete-hidden-comment')),
+      );
+      await _pumpDocumentFrame(tester);
+
+      expect(changedCalls, 4);
+      expect(controller.tableCellSelection?.activeOffset, 10);
+      expect(jsonDecode(session.commands.last), {
+        'type': 'deleteHiddenCommentAtInTableCell',
+        'section': 0,
+        'paragraph': 5,
+        'controlIndex': 2,
+        'cellIndex': 7,
+        'cellParagraph': 0,
+        'offset': 10,
+      });
     },
   );
 
@@ -23316,12 +23377,16 @@ class _FakeRhwpSession implements rust.RhwpSession {
       footnoteText = command['text']?.toString() ?? '';
       return '{"ok":true,"charOffset":0}';
     }
-    if (command is Map && command['type'] == 'insertHiddenComment') {
+    if (command is Map &&
+        (command['type'] == 'insertHiddenComment' ||
+            command['type'] == 'insertHiddenCommentInTableCell')) {
       hiddenCommentExists = true;
       hiddenCommentText = command['text']?.toString() ?? '';
       return '{"ok":true,"paraIdx":0,"controlIdx":2,"offset":${command['offset'] ?? 0}}';
     }
-    if (command is Map && command['type'] == 'hiddenCommentAt') {
+    if (command is Map &&
+        (command['type'] == 'hiddenCommentAt' ||
+            command['type'] == 'hiddenCommentAtInTableCell')) {
       if (!hiddenCommentExists) {
         return '{"hit":false}';
       }
@@ -23334,7 +23399,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
         'text': hiddenCommentText,
       });
     }
-    if (command is Map && command['type'] == 'updateHiddenCommentAt') {
+    if (command is Map &&
+        (command['type'] == 'updateHiddenCommentAt' ||
+            command['type'] == 'updateHiddenCommentAtInTableCell')) {
       hiddenCommentExists = true;
       hiddenCommentText = command['text']?.toString() ?? '';
       return jsonEncode({
@@ -23347,7 +23414,9 @@ class _FakeRhwpSession implements rust.RhwpSession {
         'newText': hiddenCommentText,
       });
     }
-    if (command is Map && command['type'] == 'deleteHiddenCommentAt') {
+    if (command is Map &&
+        (command['type'] == 'deleteHiddenCommentAt' ||
+            command['type'] == 'deleteHiddenCommentAtInTableCell')) {
       hiddenCommentExists = false;
       final deletedText = hiddenCommentText;
       hiddenCommentText = '';
