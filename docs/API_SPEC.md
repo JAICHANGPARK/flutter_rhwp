@@ -364,8 +364,11 @@ await document.setPageBorderFill(
 하이퍼링크와 숨은 주석은 현재 본문 caret/selection 기준으로 삽입한다. 기본
 `RhwpNativeEditor` 리본은 표 셀 편집 중에는 이 두 버튼을 비활성화한다.
 하이퍼링크의 표시 텍스트가 선택 영역에 삽입될 때는 기존 선택 텍스트를 삭제한
-뒤 같은 위치에 hyperlink field range를 만든다. HWPX field serialization,
-하이퍼링크/주석 편집, 삭제, 표 셀 내부 삽입은 추가 검증/구현 대상이다.
+뒤 같은 위치에 hyperlink field range를 만든다. `fieldInfoAt(...)`은
+ClickHere뿐 아니라 hyperlink field도 반환한다. `removeFieldAt(...)`은 현재
+caret의 field marker를 제거하고 표시 텍스트는 유지한다. ClickHere 속성 편집은
+`fieldType == clickhere`일 때만 사용한다. HWPX field serialization,
+하이퍼링크/주석 편집, 주석 삭제, 표 셀 내부 삽입은 추가 검증/구현 대상이다.
 
 ```dart
 await document.insertHyperlink(
@@ -382,6 +385,19 @@ await document.insertHiddenComment(
   offset: controller.cursor.offset,
   text: '검토 의견',
 );
+
+final fieldInfo = await document.fieldInfoAt(
+  section: controller.cursor.section,
+  paragraph: controller.cursor.paragraph,
+  offset: controller.cursor.offset,
+);
+if (fieldInfo.inField && fieldInfo.fieldType == 'hyperlink') {
+  await document.removeFieldAt(
+    section: controller.cursor.section,
+    paragraph: controller.cursor.paragraph,
+    offset: controller.cursor.offset,
+  );
+}
 ```
 
 ### Navigation and rendering

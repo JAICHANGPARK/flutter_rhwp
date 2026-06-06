@@ -74,6 +74,10 @@
   control command path.
 * Covered hyperlink/comment insertion with a native editor widget test and an
   Rust facade command smoke test.
+* Extended cursor field inspection and `removeFieldAt(...)` so hyperlink field
+  markers can be detected and removed while preserving their display text.
+* Kept ClickHere property editing scoped to ClickHere fields when the caret is
+  inside a non-ClickHere field such as a hyperlink.
 
 ## 2026-06-02 (2026.6.2)
 

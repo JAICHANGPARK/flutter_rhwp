@@ -1485,6 +1485,53 @@ void main() {
     ]);
   });
 
+  testWidgets('RhwpNativeEditor field properties ignore non-clickhere fields', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1)
+      ..fieldInfoJson =
+          '{"inField":true,"fieldId":8,"fieldType":"hyperlink","startCharIdx":2,"endCharIdx":9,"isGuide":false,"guideName":""}';
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 1100,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.cursor = const RhwpCursorPosition(paragraph: 0, offset: 3);
+    await tester.pump();
+
+    await tester.tap(find.text('도구'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-field-properties')),
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-field-properties')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('누름틀 속성'), findsNothing);
+    expect(changedCalls, 0);
+    expect(session.historyCommands, isEmpty);
+    expect(session.commands.map(jsonDecode).toList(), [
+      {'type': 'getFieldInfoAt', 'section': 0, 'paragraph': 0, 'offset': 3},
+    ]);
+  });
+
   testWidgets(
     'RhwpNativeEditor tools ribbon activates and clears field state',
     (tester) async {
@@ -22889,6 +22936,8 @@ class _FakeRhwpSession implements rust.RhwpSession {
       '{"alignment":"justify","lineSpacing":160.0,"lineSpacingType":"Percent","marginLeft":0.0,"marginRight":0.0,"indent":0.0,"spacingBefore":0.0,"spacingAfter":0.0,"paraShapeId":0}';
   String bookmarksJson =
       '[{"name":"intro","sec":0,"para":0,"ctrlIdx":2,"charPos":1}]';
+  String fieldInfoJson =
+      '{"inField":true,"fieldId":7,"fieldType":"ClickHere","startCharIdx":1,"endCharIdx":4,"isGuide":false,"guideName":"고객명"}';
   String columnDefJson =
       '{"columnCount":1,"columnType":0,"sameWidth":true,"spacing":283}';
   String sectionDefJson =
@@ -22973,7 +23022,7 @@ class _FakeRhwpSession implements rust.RhwpSession {
     if (command is Map &&
         (command['type'] == 'getFieldInfoAt' ||
             command['type'] == 'getFieldInfoAtInTableCell')) {
-      return '{"inField":true,"fieldId":7,"fieldType":"ClickHere","startCharIdx":1,"endCharIdx":4,"isGuide":false,"guideName":"고객명"}';
+      return fieldInfoJson;
     }
     if (command is Map && command['type'] == 'getClickHereProperties') {
       return '{"ok":true,"guide":"고객명","memo":"기존 메모","name":"customer","editable":true}';

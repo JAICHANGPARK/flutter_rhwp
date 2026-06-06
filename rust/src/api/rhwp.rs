@@ -3438,6 +3438,34 @@ mod tests {
                     && item["value"].as_str() == Some("Example"))),
             "inserted hyperlink field should be discoverable"
         );
+        let hyperlink_info_result = session
+            .apply_command(
+                r#"{"type":"getFieldInfoAt","section":0,"paragraph":0,"offset":6}"#.to_string(),
+            )
+            .expect("get hyperlink field info command should be accepted");
+        let hyperlink_info: Value = serde_json::from_str(&hyperlink_info_result)
+            .expect("hyperlink field info result should be JSON");
+        assert_eq!(hyperlink_info["inField"], true);
+        assert_eq!(hyperlink_info["fieldType"], "hyperlink");
+        let remove_hyperlink_result = session
+            .apply_command(
+                r#"{"type":"removeFieldAt","section":0,"paragraph":0,"offset":6}"#.to_string(),
+            )
+            .expect("remove hyperlink field command should be accepted");
+        let remove_hyperlink: Value = serde_json::from_str(&remove_hyperlink_result)
+            .expect("remove hyperlink field result should be JSON");
+        assert_eq!(remove_hyperlink["ok"], true);
+        let fields_after_remove = session
+            .apply_command(r#"{"type":"getFieldList"}"#.to_string())
+            .expect("get field list after remove should be accepted");
+        let fields_after_remove: Value = serde_json::from_str(&fields_after_remove)
+            .expect("field list after remove should be JSON");
+        assert!(
+            fields_after_remove.as_array().is_some_and(|items| !items
+                .iter()
+                .any(|item| item["fieldType"].as_str() == Some("hyperlink"))),
+            "removed hyperlink field marker should no longer be discoverable"
+        );
         let hidden_comment_result = session
             .apply_command(
                 r#"{"type":"insertHiddenComment","section":0,"paragraph":0,"offset":5,"text":"검토 의견"}"#

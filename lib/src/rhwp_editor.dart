@@ -5657,7 +5657,8 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     try {
       fieldInfo = await _fieldInfoAtCursor();
       final fieldId = fieldInfo.fieldId;
-      if (!fieldInfo.inField || fieldId == null) {
+      final fieldType = fieldInfo.fieldType?.toLowerCase();
+      if (!fieldInfo.inField || fieldId == null || fieldType != 'clickhere') {
         throw StateError('No field at cursor');
       }
       properties = await widget.document.clickHereProperties(fieldId);

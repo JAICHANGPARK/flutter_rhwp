@@ -742,13 +742,11 @@ fn next_field_id_from_paragraphs(paragraphs: &[Paragraph], max_id: &mut u32) {
 fn field_info_at_in_para(para: &Paragraph, char_offset: usize) -> String {
     for fr in &para.field_ranges {
         if let Some(Control::Field(field)) = para.controls.get(fr.control_idx) {
-            if field.field_type != FieldType::ClickHere {
-                continue;
-            }
             // 커서가 필드 범위 내에 있는지 확인 (start 이상, end 이하)
             // end가 exclusive이므로 커서가 end 위치에 있으면 필드 "끝"에 있는 것
             if char_offset >= fr.start_char_idx && char_offset <= fr.end_char_idx {
-                let is_guide = fr.start_char_idx == fr.end_char_idx;
+                let is_guide =
+                    field.field_type == FieldType::ClickHere && fr.start_char_idx == fr.end_char_idx;
                 let guide = field.guide_text().unwrap_or("");
                 return format!(
                     "{{\"inField\":true,\"fieldId\":{},\"fieldType\":\"{}\",\"startCharIdx\":{},\"endCharIdx\":{},\"isGuide\":{},\"guideName\":{}}}",
@@ -928,13 +926,10 @@ fn find_field_ctrl_idx_in_para(para: &Paragraph, char_offset: usize) -> Option<u
     None
 }
 
-/// 문단 내 커서 위치의 누름틀 필드를 제거한다 (FieldRange만 삭제, 텍스트 유지).
+/// 문단 내 커서 위치의 필드 마커를 제거한다 (표시 텍스트 유지).
 fn remove_field_in_para(para: &mut Paragraph, char_offset: usize) -> Result<(), HwpError> {
     let idx = para.field_ranges.iter().position(|fr| {
-        if let Some(Control::Field(field)) = para.controls.get(fr.control_idx) {
-            if field.field_type != FieldType::ClickHere {
-                return false;
-            }
+        if matches!(para.controls.get(fr.control_idx), Some(Control::Field(_))) {
             char_offset >= fr.start_char_idx && char_offset <= fr.end_char_idx
         } else {
             false
@@ -942,10 +937,45 @@ fn remove_field_in_para(para: &mut Paragraph, char_offset: usize) -> Result<(), 
     });
     match idx {
         Some(i) => {
-            para.field_ranges.remove(i);
+            let removed_range = para.field_ranges.remove(i);
+            if removed_range.start_char_idx <= para.text.chars().count() {
+                subtract_control_gap(para, removed_range.start_char_idx);
+            }
+            if removed_range.end_char_idx <= para.text.chars().count() {
+                subtract_control_gap(para, removed_range.end_char_idx);
+            }
+
+            if removed_range.control_idx < para.controls.len() {
+                para.controls.remove(removed_range.control_idx);
+            }
+            if removed_range.control_idx < para.ctrl_data_records.len() {
+                para.ctrl_data_records.remove(removed_range.control_idx);
+            }
+            for range in &mut para.field_ranges {
+                if range.control_idx > removed_range.control_idx {
+                    range.control_idx -= 1;
+                }
+            }
+            rebuild_char_offsets(para);
             Ok(())
         }
-        None => Err(HwpError::InvalidField("커서 위치에 누름틀 필드 없음".into())),
+        None => Err(HwpError::InvalidField("커서 위치에 필드 없음".into())),
+    }
+}
+
+fn subtract_control_gap(para: &mut Paragraph, char_offset: usize) {
+    if para.char_offsets.is_empty() {
+        return;
+    }
+    let text_len = para.text.chars().count();
+    if char_offset == 0 {
+        for offset in &mut para.char_offsets {
+            *offset = offset.saturating_sub(8);
+        }
+    } else if char_offset < text_len {
+        for offset in para.char_offsets.iter_mut().skip(char_offset) {
+            *offset = offset.saturating_sub(8);
+        }
     }
 }
 

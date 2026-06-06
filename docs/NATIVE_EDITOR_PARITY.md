@@ -74,7 +74,7 @@
 | 각주 | 완료 | insert/read/edit/delete footnote text |
 | 미주 / 각주·미주 모양 | 미구현 | endnote APIs/UI 필요 |
 | 문자표 | 완료 | common symbol character map dialog |
-| 하이퍼링크 | 부분 | 하이퍼링크 삽입 dialog/API. 편집/삭제, 표 셀 내부 삽입, HWPX field serialization round-trip 검증 필요 |
+| 하이퍼링크 | 부분 | 하이퍼링크 삽입 dialog/API와 field marker 삭제. 편집, 표 셀 내부 삽입, HWPX field serialization round-trip 검증 필요 |
 | 책갈피 | 완료 | list/add/delete/rename/navigation |
 | 회전/대칭 | 부분 | object properties dialog/API에서 shape/picture rotation/flip 지원. 전용 ribbon preset/shortcut 검증 필요 |
 | 개체 속성 | 부분 | object size/offset dialog, rotation/flip, picture caption settings |
@@ -136,6 +136,6 @@
 
 ## 다음 구현 우선순위
 
-1. 하이퍼링크와 주석의 편집/삭제/round-trip 검증, 비그림 개체 캡션처럼 일반 문서 작성에 자주 쓰이는 Insert 메뉴를 보강한다.
+1. 하이퍼링크 편집, 주석 삭제, round-trip 검증, 비그림 개체 캡션처럼 일반 문서 작성에 자주 쓰이는 Insert 메뉴를 보강한다.
 2. 쪽 테두리/배경 상세 옵션, 다단 개별 너비/구분선, 구역 상세 옵션을 page backlog로 분리해 구현한다.
 3. 문서 이력 관리는 upstream API 확인 후 별도 milestone으로 둔다.

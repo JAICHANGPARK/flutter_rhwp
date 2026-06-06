@@ -32,6 +32,8 @@ documents.
   the Dart API.
 - Manage HWP fields/누름틀 values from the Flutter-native tools ribbon or the
   Dart API.
+- Inspect and remove field markers, including ClickHere and hyperlink fields,
+  while preserving their visible text.
 - Inspect, edit ClickHere field properties, and remove field markers at the
   Flutter-native caret through the tools ribbon or Dart API.
 - Convert distribution/read-only documents to editable mode when
