@@ -8,6 +8,8 @@
 
 이 문서는 앱 개발자가 `flutter_rhwp`를 붙일 때 어떤 기능에 어떤 API를 호출해야 하는지 정리한다. `RhwpNativeEditor` 안의 기본 리본은 대부분 내부에서 처리하지만, 파일 선택, 저장, 프린트, 이미지 선택처럼 플랫폼 UX가 필요한 기능은 host app 콜백으로 연결해야 한다. 앱이 자체 툴바를 만들 때는 아래 `RhwpDocument` 명령 API를 직접 호출한다.
 
+Upstream Web editor 메뉴 대비 Flutter-native 구현 상태는 `docs/NATIVE_EDITOR_PARITY.md`에서 별도로 추적한다.
+
 ## 에디터 종류
 
 | Surface | 용도 | 핵심 API |
@@ -139,6 +141,7 @@ Web/WASM에서 일부 export, 특히 PDF는 플랫폼 제약으로 `RhwpUnsuppor
 | 툴바 기능 | 호출 API |
 | --- | --- |
 | Insert text | `document.insertText(section, paragraph, offset, text)` |
+| Insert symbol from character map | `RhwpNativeEditor` 기본 리본의 `Character map`, 내부적으로 `document.insertText(...)` |
 | Delete text | `document.deleteText(section, paragraph, offset, count)` |
 | Delete range | `document.deleteRange(section, startParagraph, startOffset, endParagraph, endOffset)` |
 | Insert paragraph | `document.insertParagraph(section, paragraph)` |
@@ -204,6 +207,7 @@ Web/WASM에서 일부 export, 특히 PDF는 플랫폼 제약으로 `RhwpUnsuppor
 | Paste clipboard text/object | `RhwpNativeEditor` 기본 리본 또는 `document.insertText(...)`, `pasteHtml(...)`, `pasteObjectControl(...)` |
 | Insert picture | `document.insertPicture(...)` |
 | Insert shape | `document.insertShape(...)` |
+| Copy/apply character and paragraph shape | `RhwpNativeEditor` 기본 리본의 `Copy format` / `Apply copied format` |
 | Delete object | `document.deleteObjectControl(...)` |
 | Copy/paste object | `document.copyObjectControl(...)`, `pasteObjectControl(...)` |
 | Object clipboard check | `document.clipboardHasObjectControl()` |
@@ -215,6 +219,8 @@ Web/WASM에서 일부 export, 특히 PDF는 플랫폼 제약으로 `RhwpUnsuppor
 | Move line endpoint | `document.moveLineEndpoint(...)` |
 
 `RhwpNativeEditor` 기본 리본은 body selection, table-cell selection, object selection이 있을 때만 Cut/Copy를 활성화한다. Paste는 현재 시스템 clipboard와 내부 rich/object clipboard 상태를 읽어 실행한다.
+
+`Copy format`은 현재 cursor 또는 table-cell editing 위치의 character/paragraph properties를 snapshot으로 저장한다. `Apply copied format`은 저장된 character shape와 paragraph shape를 현재 body selection 또는 table-cell selection에 적용한다.
 
 ### Page, header, footer
 

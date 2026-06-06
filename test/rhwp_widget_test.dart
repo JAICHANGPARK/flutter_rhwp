@@ -993,6 +993,58 @@ void main() {
     });
   });
 
+  testWidgets('RhwpNativeEditor inserts a character from character map', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1000, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1);
+    final document = RhwpDocument.fromSession(session);
+    var changedCalls = 0;
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 1000,
+          height: 420,
+          child: RhwpNativeEditor(
+            document: document,
+            controller: controller,
+            onChanged: (_) => changedCalls += 1,
+          ),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    controller.cursor = const RhwpCursorPosition(offset: 2);
+    await tester.pump();
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('rhwp-editor-character-map')),
+    );
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-character-map')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('문자표'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('rhwp-character-map-※')));
+    await _pumpDocumentFrame(tester);
+
+    expect(changedCalls, 1);
+    expect(controller.cursor, const RhwpCursorPosition(offset: 3));
+    expect(jsonDecode(session.commands.single), {
+      'type': 'insertText',
+      'section': 0,
+      'paragraph': 0,
+      'offset': 2,
+      'text': '※',
+    });
+  });
+
   testWidgets('RhwpNativeEditor edit ribbon deletes the current paragraph', (
     tester,
   ) async {
@@ -20854,6 +20906,98 @@ void main() {
       expect(toolbarButton('rhwp-editor-paste').onPressed, isNotNull);
     },
   );
+
+  testWidgets('RhwpNativeEditor copies and applies character paragraph format', (
+    tester,
+  ) async {
+    final controller = RhwpEditorController();
+    final session = _FakeRhwpSession(pageCountValue: 1)
+      ..charPropertiesJson =
+          '{"fontFamily":"맑은 고딕","fontSize":1450,"bold":true,"italic":false,"underline":true,"strikethrough":false,"superscript":false,"subscript":false,"emboss":false,"engrave":true,"textColor":"#2563eb","shadeColor":"#fef08a"}'
+      ..paraPropertiesJson =
+          '{"alignment":"center","lineSpacing":180.0,"lineSpacingType":"Percent","marginLeft":120.0,"marginRight":80.0,"indent":40.0,"spacingBefore":12.0,"spacingAfter":18.0,"paraShapeId":2}';
+    final document = RhwpDocument.fromSession(session);
+
+    await tester.pumpWidget(
+      _WidgetHarness(
+        child: SizedBox(
+          width: 720,
+          height: 420,
+          child: RhwpNativeEditor(document: document, controller: controller),
+        ),
+      ),
+    );
+    await _pumpDocumentFrame(tester);
+
+    await tester.tap(find.text('편집'));
+    await tester.pump();
+
+    IconButton toolbarButton(String key) {
+      return tester.widget<IconButton>(find.byKey(ValueKey(key)));
+    }
+
+    expect(toolbarButton('rhwp-editor-apply-copied-format').onPressed, isNull);
+
+    await tester.tap(find.byKey(const ValueKey('rhwp-editor-copy-format')));
+    await tester.pump();
+
+    expect(
+      toolbarButton('rhwp-editor-apply-copied-format').onPressed,
+      isNotNull,
+    );
+
+    controller.selection = const RhwpSelectionRange(
+      start: RhwpCursorPosition(offset: 1),
+      end: RhwpCursorPosition(offset: 3),
+    );
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey('rhwp-editor-apply-copied-format')),
+    );
+    await _pumpDocumentFrame(tester);
+
+    expect(session.commands.map(jsonDecode), [
+      {
+        'type': 'applyCharFormatRange',
+        'section': 0,
+        'startParagraph': 0,
+        'startOffset': 1,
+        'endParagraph': 0,
+        'endOffset': 3,
+        'properties': {
+          'bold': true,
+          'italic': false,
+          'underline': true,
+          'strikethrough': false,
+          'superscript': false,
+          'subscript': false,
+          'emboss': false,
+          'engrave': true,
+          'fontFamily': '맑은 고딕',
+          'fontSize': 1450,
+          'textColor': '#2563eb',
+          'shadeColor': '#fef08a',
+        },
+      },
+      {
+        'type': 'applyParaFormatRange',
+        'section': 0,
+        'startParagraph': 0,
+        'endParagraph': 0,
+        'properties': {
+          'alignment': 'center',
+          'lineSpacing': 180,
+          'lineSpacingType': 'Percent',
+          'indent': 40,
+          'marginLeft': 120,
+          'marginRight': 80,
+          'spacingBefore': 12,
+          'spacingAfter': 18,
+        },
+      },
+    ]);
+  });
 
   testWidgets(
     'RhwpNativeEditor previews body text cut while delete is pending',

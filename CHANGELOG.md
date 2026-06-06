@@ -31,6 +31,13 @@
   name metadata and covered the flow with an example widget test.
 * Updated Flutter-native editor clipboard ribbon state so Cut and Copy are
   enabled only when text, table cell, or object selection exists.
+* Added a Flutter-native editor parity matrix against the upstream Web editor
+  menu and classified implemented, partial, and missing command areas.
+* Added Flutter-native format-copy controls that copy the current character and
+  paragraph shape and apply them to the active body or table-cell selection.
+* Added a Flutter-native character map dialog that inserts common symbols,
+  arrows, units, numbers, and math characters through the native text command
+  path.
 
 ## 2026-06-02 (2026.6.2)
 

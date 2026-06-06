@@ -929,6 +929,16 @@ class _CurrentParaFormat {
   bool isAlignment(String value) => alignment == value;
 }
 
+class _CopiedEditorFormat {
+  const _CopiedEditorFormat({
+    required this.charFormat,
+    required this.paraFormat,
+  });
+
+  final _PendingCharFormat charFormat;
+  final _CurrentParaFormat paraFormat;
+}
+
 class _ParaShapeDialogResult {
   const _ParaShapeDialogResult({
     required this.alignment,
@@ -1805,6 +1815,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
   _PendingCharFormat _pendingCharFormat = const _PendingCharFormat();
   _PendingCharFormat _currentCharFormat = const _PendingCharFormat();
   _CurrentParaFormat _currentParaFormat = const _CurrentParaFormat();
+  _CopiedEditorFormat? _copiedFormat;
   _EditorClipboardDomain? _clipboardDomain;
   String? _clipboardHtml;
   String? _clipboardHtmlText;
@@ -1872,6 +1883,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       _pageCountValue = null;
       _currentCharFormat = const _PendingCharFormat();
       _currentParaFormat = const _CurrentParaFormat();
+      _copiedFormat = null;
       _charFormatQueryRevision += 1;
       _paraFormatQueryRevision += 1;
       _editableConvertedDocument = null;
@@ -2281,8 +2293,22 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       return;
     }
 
+    await _insertTextValue(text, clearTextController: true);
+  }
+
+  Future<void> _insertTextValue(
+    String text, {
+    bool clearTextController = false,
+  }) async {
+    if (text.isEmpty) {
+      return;
+    }
+
     if (_editableTableCellSelection != null) {
-      await _insertTextInSelectedTableCell(text, clearTextController: true);
+      await _insertTextInSelectedTableCell(
+        text,
+        clearTextController: clearTextController,
+      );
       return;
     }
 
@@ -2304,7 +2330,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
       );
       await _applyPendingCharFormatToInsertedText(cursor: cursor, text: text);
       _controller.cursor = cursor.copyWith(offset: cursor.offset + text.length);
-      _textController.clear();
+      if (clearTextController) {
+        _textController.clear();
+      }
     });
   }
 
@@ -4965,6 +4993,26 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
     });
   }
 
+  Future<void> _showCharacterMapDialog() async {
+    if (_busy) {
+      return;
+    }
+
+    final character = await showDialog<String>(
+      context: context,
+      builder: (context) => const _CharacterMapDialog(),
+    );
+    if (!mounted || character == null || character.isEmpty) {
+      _focusEditor();
+      return;
+    }
+
+    await _insertTextValue(character);
+    if (mounted) {
+      _focusEditor();
+    }
+  }
+
   Future<void> _showBookmarkDialog() async {
     if (_busy || _controller.tableCellSelection != null) {
       return;
@@ -6639,6 +6687,103 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
         shadeColor: shadeColor,
       );
     });
+  }
+
+  Future<void> _copyCurrentFormat() async {
+    if (_busy) {
+      return;
+    }
+
+    try {
+      final tableSelection = _controller.tableCellSelection;
+      final RhwpCharProperties charProperties;
+      final RhwpParaProperties paraProperties;
+      final activeCellIndex = tableSelection?.activeCellIndex;
+      if (tableSelection != null && activeCellIndex != null) {
+        charProperties = await widget.document.cellCharPropertiesAt(
+          section: tableSelection.section,
+          paragraph: tableSelection.paragraph,
+          controlIndex: tableSelection.controlIndex,
+          cellIndex: activeCellIndex,
+          cellParagraph: tableSelection.activeCellParagraph,
+          offset: tableSelection.activeOffset,
+        );
+        paraProperties = await widget.document.cellParaPropertiesAt(
+          section: tableSelection.section,
+          paragraph: tableSelection.paragraph,
+          controlIndex: tableSelection.controlIndex,
+          cellIndex: activeCellIndex,
+          cellParagraph: tableSelection.activeCellParagraph,
+        );
+      } else {
+        final selection = _controller.selection;
+        final cursor = selection.isCollapsed
+            ? _controller.cursor
+            : selection.normalizedStart;
+        charProperties = await widget.document.charPropertiesAt(
+          section: cursor.section,
+          paragraph: cursor.paragraph,
+          offset: cursor.offset,
+        );
+        paraProperties = await widget.document.paraPropertiesAt(
+          section: cursor.section,
+          paragraph: cursor.paragraph,
+        );
+      }
+
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _copiedFormat = _CopiedEditorFormat(
+          charFormat: _PendingCharFormat.fromCharProperties(charProperties),
+          paraFormat: _CurrentParaFormat.fromParaProperties(paraProperties),
+        );
+      });
+      _focusEditor();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      }
+    }
+  }
+
+  Future<void> _applyCopiedFormat() async {
+    final copiedFormat = _copiedFormat;
+    if (_busy || copiedFormat == null) {
+      return;
+    }
+
+    final charFormat = copiedFormat.charFormat;
+    await _applyCharFormat(
+      bold: charFormat.bold,
+      italic: charFormat.italic,
+      underline: charFormat.underline,
+      strikethrough: charFormat.strikethrough,
+      superscript: charFormat.superscript,
+      subscript: charFormat.subscript,
+      emboss: charFormat.emboss,
+      engrave: charFormat.engrave,
+      fontFamily: charFormat.fontFamily,
+      fontSize: charFormat.fontSize,
+      textColor: charFormat.textColor,
+      shadeColor: charFormat.shadeColor,
+    );
+
+    final paraFormat = copiedFormat.paraFormat;
+    await _applyParagraphFormat(
+      alignment: paraFormat.alignment,
+      lineSpacing: paraFormat.lineSpacing,
+      lineSpacingType: paraFormat.lineSpacingType,
+      indent: paraFormat.indent,
+      marginLeft: paraFormat.marginLeft,
+      marginRight: paraFormat.marginRight,
+      spacingBefore: paraFormat.spacingBefore,
+      spacingAfter: paraFormat.spacingAfter,
+    );
+    _focusEditor();
   }
 
   Future<void> _showCharShapeDialog() async {
@@ -13848,6 +13993,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           canPrint: widget.onPrintRequested != null,
           canInsertPicture: widget.onImageRequested != null,
           canExport: widget.onExported != null,
+          hasCopiedFormat: _copiedFormat != null,
           searchMatchCount: _searchMatches.length,
           activeSearchMatch: _activeSearchMatch,
           onInsert: _insertText,
@@ -13874,6 +14020,7 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onEditFootnote: _showFootnoteTextDialog,
           onDeleteFootnote: _deleteFootnoteAtCursor,
           onInsertEquation: _showInsertEquationDialog,
+          onCharacterMap: _showCharacterMapDialog,
           onBookmark: _showBookmarkDialog,
           onFields: _showFieldsDialog,
           onInsertPicture: _insertPicture,
@@ -13919,6 +14066,9 @@ class _RhwpEditorState extends State<RhwpEditor> with TextInputClient {
           onCut: _cutSelection,
           onCopy: _copySelection,
           onPaste: _pasteClipboard,
+          onCopyFormat: () => _runFocusedEditorAction(_copyCurrentFormat),
+          onApplyCopiedFormat: () =>
+              _runFocusedEditorAction(_applyCopiedFormat),
           onSelectAll: _selectAllText,
           canUndo: _undoSnapshots.isNotEmpty,
           canRedo: _redoSnapshots.isNotEmpty,
@@ -16572,6 +16722,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.canPrint,
     required this.canInsertPicture,
     required this.canExport,
+    required this.hasCopiedFormat,
     required this.searchMatchCount,
     required this.activeSearchMatch,
     required this.onInsert,
@@ -16594,6 +16745,7 @@ class _EditorToolbar extends StatefulWidget {
     required this.onEditFootnote,
     required this.onDeleteFootnote,
     required this.onInsertEquation,
+    required this.onCharacterMap,
     required this.onBookmark,
     required this.onFields,
     required this.onInsertPicture,
@@ -16628,6 +16780,8 @@ class _EditorToolbar extends StatefulWidget {
     required this.onCut,
     required this.onCopy,
     required this.onPaste,
+    required this.onCopyFormat,
+    required this.onApplyCopiedFormat,
     required this.onSelectAll,
     required this.canUndo,
     required this.canRedo,
@@ -16733,6 +16887,7 @@ class _EditorToolbar extends StatefulWidget {
   final bool canPrint;
   final bool canInsertPicture;
   final bool canExport;
+  final bool hasCopiedFormat;
   final int searchMatchCount;
   final int activeSearchMatch;
   final VoidCallback onInsert;
@@ -16755,6 +16910,7 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onEditFootnote;
   final VoidCallback onDeleteFootnote;
   final VoidCallback onInsertEquation;
+  final VoidCallback onCharacterMap;
   final VoidCallback onBookmark;
   final VoidCallback onFields;
   final VoidCallback onInsertPicture;
@@ -16789,6 +16945,8 @@ class _EditorToolbar extends StatefulWidget {
   final VoidCallback onCut;
   final VoidCallback onCopy;
   final VoidCallback onPaste;
+  final VoidCallback onCopyFormat;
+  final VoidCallback onApplyCopiedFormat;
   final VoidCallback onSelectAll;
   final bool canUndo;
   final bool canRedo;
@@ -17136,6 +17294,20 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               icon: Icons.content_paste,
               onPressed: widget.busy ? null : widget.onPaste,
             ),
+            _ToolbarIconButton(
+              tooltip: 'Copy format',
+              buttonKey: const ValueKey('rhwp-editor-copy-format'),
+              icon: Icons.format_paint,
+              onPressed: widget.busy ? null : widget.onCopyFormat,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Apply copied format',
+              buttonKey: const ValueKey('rhwp-editor-apply-copied-format'),
+              icon: Icons.brush_outlined,
+              onPressed: widget.busy || !widget.hasCopiedFormat
+                  ? null
+                  : widget.onApplyCopiedFormat,
+            ),
           ],
         ),
       ),
@@ -17418,6 +17590,12 @@ class _EditorToolbarState extends State<_EditorToolbar> {
               buttonKey: const ValueKey('rhwp-editor-insert-equation'),
               icon: Icons.functions,
               onPressed: widget.busy ? null : widget.onInsertEquation,
+            ),
+            _ToolbarIconButton(
+              tooltip: 'Character map',
+              buttonKey: const ValueKey('rhwp-editor-character-map'),
+              icon: Icons.text_format,
+              onPressed: widget.busy ? null : widget.onCharacterMap,
             ),
             _ToolbarIconButton(
               tooltip: 'Bookmark',
@@ -19790,6 +19968,71 @@ class _CharColorPickerDialog extends StatelessWidget {
       onSelected: (_) => Navigator.of(
         context,
       ).pop(_CharColorPickerResult(target: target, value: swatch.value)),
+    );
+  }
+}
+
+class _CharacterMapDialog extends StatelessWidget {
+  const _CharacterMapDialog();
+
+  static const _groups = <({String label, List<String> characters})>[
+    (
+      label: '기호',
+      characters: ['※', '★', '☆', '○', '●', '◎', '◇', '◆', '□', '■'],
+    ),
+    (label: '화살표', characters: ['←', '↑', '→', '↓', '↔', '↕', '⇒', '⇔']),
+    (label: '단위', characters: ['℃', '㎜', '㎝', '㎡', '㎏', '㏄', 'ℓ', '％']),
+    (
+      label: '번호',
+      characters: ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩'],
+    ),
+    (
+      label: '수식',
+      characters: ['±', '×', '÷', '≠', '≤', '≥', '∞', '∑', '√', '∴'],
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('문자표'),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final group in _groups) ...[
+                Text(
+                  group.label,
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final character in group.characters)
+                      ActionChip(
+                        key: ValueKey('rhwp-character-map-$character'),
+                        label: Text(character),
+                        onPressed: () => Navigator.of(context).pop(character),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
     );
   }
 }
